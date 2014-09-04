@@ -1,7 +1,21 @@
 #include "radio_control.h"
-#include "radio_sm.h"
 #include "trickle_common.h"
 #include "nrf.h"
+
+/** 
+* Internal enum denoting radio state. More states will be added 
+* later.
+*/
+typedef enum 
+{
+    RADIO_STATE_RX,
+    RADIO_STATE_TX
+} radio_state_t;
+
+/**
+* Global radio state
+*/
+radio_state_t global_state = RADIO_STATE_RX;
 
 /* flag that is set every time the radio is disabled in the midst of an operation */
 uint8_t radio_aborted = 0;
