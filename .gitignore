@@ -1,0 +1,7 @@
+arm/*
+
+#don't ignore project files:
+!arm/*.uvproj
+!arm/*.s
+!arm/*.map
+!arm/*.uvopt
