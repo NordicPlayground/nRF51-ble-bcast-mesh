@@ -1,7 +1,7 @@
 #include "radio_control.h"
 #include "trickle.h"
 #include "trickle_common.h"
-#include "radio_sm.h"
+
 
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
@@ -47,6 +47,12 @@ uint8_t tx_data[] =
     'T', 'r', 'i', 'c', 'k', 'l', 'e' /* DEVICE NAME */
 };
     
+
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+{
+    SET_PIN(PIN_ABORTED);
+    while (true);
+}
 
 
    
