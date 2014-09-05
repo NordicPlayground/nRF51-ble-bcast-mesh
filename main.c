@@ -122,12 +122,14 @@ void eval_msg(uint8_t* data)
         TICK_PIN(PIN_ABORTED);
         return;
     }
+    
     uint8_t adv_type = data[0];
     if (adv_type != 2)
     {
         TICK_PIN(PIN_ABORTED);
         return;
     }
+    
     uint8_t msg_type = data[MESSAGE_TYPE_OFFSET];
     if (msg_type != MESSAGE_TYPE_TRICKLE_LED_CONFIG)
     {
@@ -150,7 +152,6 @@ void eval_msg(uint8_t* data)
             tx_data[TRICKLE_ID_OFFSET] = trickle_id;
             tx_data[LED_CONFIG_OFFSET] = led_configuration;
             led_config(tx_data[LED_CONFIG_OFFSET]);
-            
         }
         
         trickle_rx_inconsistent(&trickle);
@@ -197,12 +198,14 @@ int main(void)
     NRF_CLOCK->TASKS_LFCLKSTART = 1;
     NRF_CLOCK->TASKS_HFCLKSTART = 1;
     radio_init();
-	//SCB->SCR |= SCB_SCR_SEVONPEND_Msk;  /* Enable Event on pending interrupt */
+    trickle_setup();
+    
     trickle.i_max = 2000; /* max 200 seconds (100ms * 20) */
     trickle.i_min = 100; /* min 100ms */
     trickle.i = 400;
     trickle.k = 3;
     trickle.tx_cb = &trickle_tx;
+    trickle.id = 0;
     
     nrf_gpio_cfg_output(LED_0);
     nrf_gpio_cfg_output(LED_1);  
