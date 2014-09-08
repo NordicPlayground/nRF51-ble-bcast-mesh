@@ -172,21 +172,20 @@ static void gpiote_init(void)
 }
 #endif
 
+#ifdef BOARD_PCA10003 
 void GPIOTE_IRQHandler(void)
 {
-#ifdef BOARD_PCA10003 
-    
     if (NRF_GPIOTE->EVENTS_IN[0]) /* button 0 */
     {
-        NRF_GPIOTE->EVENTS_IN[0] = 0;
         ++tx_data[TRICKLE_ID_OFFSET];
         ++tx_data[LED_CONFIG_OFFSET];
         led_config(tx_data[LED_CONFIG_OFFSET]);
         trickle_timer_reset(&trickle);
         TICK_PIN(PIN_BUTTON);
     }
-#endif    
+    NRF_GPIOTE->EVENTS_IN[0] = 0; 
 }
+#endif   
 
 
 
@@ -200,7 +199,7 @@ int main(void)
     radio_init();
     trickle_setup();
     
-    trickle.i_max = 2000; /* max 200 seconds (100ms * 20) */
+    trickle.i_max = 2000; /* max 200 seconds (100ms * 2000) */
     trickle.i_min = 100; /* min 100ms */
     trickle.i = 400;
     trickle.k = 3;

@@ -16,39 +16,6 @@ uint8_t rng_vals[64];
 uint8_t rng_index;
 
 
-
-
-#if 0
-void RTC0_IRQHandler(void)
-{
-    SET_PIN(PIN_CPU_IN_USE);
-    
-    /* t is triggered */
-    if (NRF_RTC0->EVENTS_COMPARE[0])
-    {
-        NRF_RTC0->EVENTS_COMPARE[0] = 0;
-        if (local_trickle->c < local_trickle->k)
-        {
-            local_trickle->tx_cb();
-        }
-    }
-    if (NRF_RTC0->EVENTS_COMPARE[1]) /* i is triggered */
-    {
-        NRF_RTC0->EVENTS_COMPARE[1] = 0;
-        local_trickle->i = (local_trickle->i * 2 < local_trickle->i_max * local_trickle->i_min)?
-                                local_trickle->i * 2 : 
-                                local_trickle->i_max * local_trickle->i_min;
-        trickle_interval_begin(local_trickle);
-        TICK_PIN(PIN_NEW_INTERVAL);
-    }     
-    CLEAR_PIN(PIN_CPU_IN_USE);   
-}
-#endif
-
-
-
-
-
 static void trickle_timeout_handler(void * trickle_ptr)
 {
     trickle_t* trickle = (trickle_t*) trickle_ptr;
@@ -64,21 +31,25 @@ static void trickle_timeout_handler(void * trickle_ptr)
                         trickle->i_max * trickle->i_min;
         
         trickle_interval_begin(trickle);
-        
     }
     else /* t (tx timer) */
     {
         trickle->trickle_flags |= (1 << TRICKLE_FLAGS_T_DONE_Pos);
         
-        if (trickle->i - trickle->t > 5)
-            app_timer_start(trickle->timer_id, APP_TIMER_TICKS((trickle->i - trickle->t), APP_TIMER_PRESCALER), trickle);
-        else
-            app_timer_start(trickle->timer_id, APP_TIMER_TICKS(5, APP_TIMER_PRESCALER), trickle); /* min tick count is 5 */
-        
         if (trickle->c < trickle->k)
         {
             trickle->tx_cb();
         }
+        
+        if (APP_TIMER_TICKS((trickle->i - trickle->t), APP_TIMER_PRESCALER) > 5 && trickle->i > trickle->t)
+        {
+            APP_ERROR_CHECK(app_timer_start(trickle->timer_id, APP_TIMER_TICKS((trickle->i - trickle->t), APP_TIMER_PRESCALER), trickle));
+        }
+        else
+        {
+            APP_ERROR_CHECK(app_timer_start(trickle->timer_id, APP_TIMER_TICKS(5, APP_TIMER_PRESCALER), trickle)); /* min tick count is 5 */
+        }
+           
     }
     CLEAR_PIN(PIN_CPU_IN_USE);
 }
@@ -88,8 +59,8 @@ void trickle_setup(void)
 {
     APP_TIMER_INIT(APP_TIMER_PRESCALER, MAX_TRICKLE_INSTANCES, MAX_TRICKLE_INSTANCES, false);   
     
-    /* bump priority of app_timer interrupt SWI0, as it is required to operate when GPIOTE interrupt does */
-    NVIC_SetPriority(SWI0_IRQn, 4);
+    /* bump priority of app_timer interrupt SWI0, as it is required to operate in the middle of a GPIOTE interrupt */
+    //NVIC_SetPriority(SWI0_IRQn, 4);
     
     /* Fill rng pool */
     for (uint8_t i = 0; i < 64; ++i)
@@ -123,8 +94,9 @@ void trickle_interval_begin(trickle_t* trickle)
     trickle->t = i_half + (rand_number % i_half);
     
     trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
+
+    APP_ERROR_CHECK(app_timer_start(trickle->timer_id, APP_TIMER_TICKS(trickle->t, APP_TIMER_PRESCALER), trickle));
     
- 	app_timer_start(trickle->timer_id, APP_TIMER_TICKS(trickle->t, APP_TIMER_PRESCALER), trickle);
     
     TICK_PIN(PIN_NEW_INTERVAL);
 }
@@ -139,7 +111,7 @@ void trickle_rx_inconsistent(trickle_t* trickle)
     if (trickle->i > trickle->i_min)
     {
         trickle_timer_reset(trickle);
-    }       
+    }
 }
 
 void trickle_timer_reset(trickle_t* trickle)
