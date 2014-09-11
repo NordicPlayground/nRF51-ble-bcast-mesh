@@ -237,8 +237,7 @@ void GPIOTE_IRQHandler(void)
             trickle_timer_reset(&trickle[i]);
             TICK_PIN(PIN_BUTTON);
         }
-    }
- 
+    } 
 }
 #endif   
 

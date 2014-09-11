@@ -1,5 +1,6 @@
 #include "radio_control.h"
 #include "trickle_common.h"
+#include "trickle.h"
 #include "nrf.h"
 
 /** 
@@ -177,6 +178,9 @@ void RADIO_IRQHandler(void)
             {
                 NRF_RADIO->EVENTS_END = 0;
                 eval_msg(rx_data);   
+                
+                /* synchronize trickle */
+                trickle_sync();
                 /* reenable rx */
                 NRF_RADIO->SHORTS = 0;
                 NRF_RADIO->TASKS_START = 1;

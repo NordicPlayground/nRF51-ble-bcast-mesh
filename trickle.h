@@ -29,6 +29,7 @@ void trickle_interval_begin(trickle_t* trickle);
 void trickle_rx_consistent(trickle_t* trickle);
 void trickle_rx_inconsistent(trickle_t* trickle);
 void trickle_timer_reset(trickle_t* trickle);
+void trickle_sync(void);
 
 
 

@@ -14,6 +14,8 @@
     #define PIN_TRICKLE_TX      (0)
     
     #define TICK_PIN(x) NRF_GPIO->OUTSET = (1 << (x)); \
+                                                    __nop();\
+                                                    __nop();\
 													NRF_GPIO->OUTCLR = (1 << (x))
      
     #define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
@@ -32,6 +34,7 @@
 #define PIN_INT1            (26)
 #define PIN_TX0             (27)
 #define PIN_TX1             (28)
+#define PIN_SYNC_TIME       (29)
 
 
 /* RX/TX buffer */
