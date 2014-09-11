@@ -24,7 +24,6 @@ static void trickle_timeout_handler(void * trickle_ptr)
     /* check which timer we just triggered */
     if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* interval timer */
     {
-        
         /* double value of i */
         trickle->i = (trickle->i * 2 < trickle->i_max * trickle->i_min)?
                         trickle->i * 2 : 
@@ -49,7 +48,6 @@ static void trickle_timeout_handler(void * trickle_ptr)
         {
             APP_ERROR_CHECK(app_timer_start(trickle->timer_id, APP_TIMER_TICKS(5, APP_TIMER_PRESCALER), trickle)); /* min tick count is 5 */
         }
-           
     }
     CLEAR_PIN(PIN_CPU_IN_USE);
 }
@@ -58,9 +56,6 @@ static void trickle_timeout_handler(void * trickle_ptr)
 void trickle_setup(void)
 {
     APP_TIMER_INIT(APP_TIMER_PRESCALER, MAX_TRICKLE_INSTANCES, MAX_TRICKLE_INSTANCES, false);   
-    
-    /* bump priority of app_timer interrupt SWI0, as it is required to operate in the middle of a GPIOTE interrupt */
-    //NVIC_SetPriority(SWI0_IRQn, 4);
     
     /* Fill rng pool */
     for (uint8_t i = 0; i < 64; ++i)
@@ -96,7 +91,6 @@ void trickle_interval_begin(trickle_t* trickle)
     trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
 
     APP_ERROR_CHECK(app_timer_start(trickle->timer_id, APP_TIMER_TICKS(trickle->t, APP_TIMER_PRESCALER), trickle));
-    
     
     TICK_PIN(PIN_NEW_INTERVAL);
     TICK_PIN((PIN_INT0 + trickle->id));
