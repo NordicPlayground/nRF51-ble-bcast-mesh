@@ -6,7 +6,7 @@
 
 typedef void (*trickle_tx_cb)(void);
 
-typedef struct
+typedef struct _trickle
 {
     uint32_t        i;      /* Current interval length */
     uint32_t        i_min;  /* Minimum interval in ms */

@@ -99,6 +99,7 @@ void trickle_interval_begin(trickle_t* trickle)
     
     
     TICK_PIN(PIN_NEW_INTERVAL);
+    TICK_PIN((PIN_INT0 + trickle->id));
 }
 
 void trickle_rx_consistent(trickle_t* trickle)

@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #define MESSAGE_TYPE_TRICKLE_LED_CONFIG 0x72
-#define MESSAGE_TYPE_TRICKLE_RESET 0x73
+
 
 #ifdef BOARD_PCA10000
     #define PIN_TRICKLE_TX      LED_RGB_GREEN
@@ -27,6 +27,12 @@
 #define PIN_RX              (5)
 #define PIN_BUTTON          (6)
 #define PIN_ABORTED         (7)
+
+#define PIN_INT0            (25)
+#define PIN_INT1            (26)
+#define PIN_TX0             (27)
+#define PIN_TX1             (28)
+
 
 /* RX/TX buffer */
 extern uint8_t rx_data[256];

@@ -435,6 +435,11 @@
               <FileType>1</FileType>
               <FilePath>..\trickle.c</FilePath>
             </File>
+            <File>
+              <FileName>rebroadcast.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\rebroadcast.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -887,6 +892,11 @@
               <FileName>trickle.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\trickle.c</FilePath>
+            </File>
+            <File>
+              <FileName>rebroadcast.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\rebroadcast.c</FilePath>
             </File>
           </Files>
         </Group>
