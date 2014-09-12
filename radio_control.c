@@ -180,7 +180,7 @@ void RADIO_IRQHandler(void)
                 eval_msg(rx_data);   
                 
                 /* synchronize trickle */
-                trickle_sync();
+                trickle_sync(rx_data[2]);
                 /* reenable rx */
                 NRF_RADIO->SHORTS = 0;
                 NRF_RADIO->TASKS_START = 1;

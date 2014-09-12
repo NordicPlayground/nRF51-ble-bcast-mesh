@@ -1,2 +1,3 @@
 *.uvproj binary
 *.uvopt binary
+*.map -crlf

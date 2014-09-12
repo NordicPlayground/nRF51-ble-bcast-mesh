@@ -29,7 +29,7 @@
 
 
 static uint8_t address[6];
-static trickle_t trickle[2];
+static trickle_init_t trickle[2];
 static uint8_t payload[2];
 static uint8_t version[2];
 static uint8_t led_data;
@@ -179,7 +179,7 @@ void eval_msg(uint8_t* data)
     
     if (curr_version == version[trickle_id])
     {
-        trickle_rx_consistent(&trickle[trickle_id]);
+        trickle_rx_consistent(trickle[trickle_id].id);
         TICK_PIN(PIN_CONSISTENT);
     }
     else if (msg_type == MESSAGE_TYPE_TRICKLE_LED_CONFIG)
@@ -196,7 +196,7 @@ void eval_msg(uint8_t* data)
             led_config();
         }
         
-        trickle_rx_inconsistent(&trickle[trickle_id]);
+        trickle_rx_inconsistent(trickle[trickle_id].id);
         TICK_PIN(PIN_INCONSISTENT);
     }
 }
@@ -234,7 +234,7 @@ void GPIOTE_IRQHandler(void)
             led_data &= ~(1 << i);
             led_data |= ((payload[i] & 0x01) << i);
             led_config();
-            trickle_timer_reset(&trickle[i]);
+            trickle_timer_reset(trickle[i].id);
             TICK_PIN(PIN_BUTTON);
         }
     } 
@@ -248,28 +248,38 @@ int main(void)
     SET_PIN(PIN_CPU_IN_USE);
     make_address();
     //simple_uart_config(RTS_PIN_NUMBER, TX_PIN_NUMBER, CTS_PIN_NUMBER, RX_PIN_NUMBER, true);
-    NRF_CLOCK->TASKS_LFCLKSTART = 1;
+    
+    /* clock start and calibration: */
     NRF_CLOCK->TASKS_HFCLKSTART = 1;
+    while (!NRF_CLOCK->EVENTS_HFCLKSTARTED)
+    NRF_CLOCK->TASKS_LFCLKSTART = 1;
+    while (!NRF_CLOCK->EVENTS_LFCLKSTARTED);
+#if 0
+    NRF_CLOCK->CTIV = 16;
+    NRF_CLOCK->TASKS_CAL = 1;
+    NRF_CLOCK->TASKS_CTSTART = 1;
+    while (!NRF_CLOCK->EVENTS_DONE || !NRF_CLOCK->EVENTS_CTTO);
+#endif
     radio_init();
     trickle_setup();
     
     /* setup the two trickle objects */
     
     /* button 0 */
+    trickle[1].id = 0;
     trickle[0].i_max = 2000; /* max 200 seconds (100ms * 2000) */
     trickle[0].i_min = 100; /* min 100ms */
     trickle[0].i = 400;
     trickle[0].k = 3;
     trickle[0].tx_cb = &trickle_tx0;
-    trickle[0].id = 0;
     
     /* button 1 */
+    trickle[1].id = 1;
     trickle[1].i_max = 2000; /* max 200 seconds (100ms * 2000) */
     trickle[1].i_min = 100; /* min 100ms */
     trickle[1].i = 400;
     trickle[1].k = 3;
     trickle[1].tx_cb = &trickle_tx1;
-    trickle[1].id = 1;
     
     nrf_gpio_cfg_output(LED_0);
     nrf_gpio_cfg_output(LED_1);  
