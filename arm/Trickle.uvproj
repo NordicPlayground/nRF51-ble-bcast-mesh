@@ -455,11 +455,6 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
             </File>
-            <File>
-              <FileName>app_timer.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\SDK\app_timer.c</FilePath>
-            </File>
           </Files>
         </Group>
       </Groups>
@@ -912,11 +907,6 @@
               <FileName>simple_uart.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
-            </File>
-            <File>
-              <FileName>app_timer.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\SDK\app_timer.c</FilePath>
             </File>
           </Files>
         </Group>
