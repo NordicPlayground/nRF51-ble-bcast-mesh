@@ -2,6 +2,7 @@
 #include "trickle_common.h"
 #include "trickle.h"
 #include "nrf.h"
+#include "nrf_sdm.h"
 
 /** 
 * Internal enum denoting radio state. More states will be added 
@@ -10,19 +11,39 @@
 typedef enum 
 {
     RADIO_STATE_RX,
-    RADIO_STATE_TX
+    RADIO_STATE_TX,
+    RADIO_STATE_DISABLED
 } radio_state_t;
 
 /**
 * Global radio state
 */
-radio_state_t global_state = RADIO_STATE_RX;
+static radio_state_t global_state = RADIO_STATE_RX;
+
+/**
+* RX buffer
+*/
+static uint8_t rx_data[256];
+
+/**
+* local tx_data pointer
+*/
+static uint8_t* tx_data;
+
+/**
+* RX counter. 
+*/
+static uint8_t g_consecutive_receives;
 
 /* flag that is set every time the radio is disabled in the midst of an operation */
 uint8_t radio_aborted = 0;
 
-void radio_init(void)
+radio_rx_cb g_radio_rx_cb;
+
+
+void radio_init(radio_rx_cb radio_rx_callback)
 {
+    g_radio_rx_cb = radio_rx_callback;
 	/* Reset all states in the radio peripheral */
 	NRF_RADIO->POWER = 1;
 	NRF_RADIO->EVENTS_DISABLED = 0; 
@@ -63,99 +84,100 @@ void radio_init(void)
     NRF_RADIO->CRCINIT = 0x555555;    // Initial value of CRC
     NRF_RADIO->CRCPOLY = 0x00065B;    // CRC polynomial function
 
-
+#if !USING_SOFTDEVICE
     NVIC_EnableIRQ(RADIO_IRQn);
-    //NVIC_SetPriority(RADIO_IRQn, 3);
+#endif    
+    NVIC_EnableIRQ(RADIO_IRQn);
     /* Lock interframe spacing, so that the radio won't send too soon / start RX too early */
     //NRF_RADIO->TIFS = 145;
+    
+    g_radio_rx_cb = radio_rx_callback;
 }
 
 
-/**
-* Trickle has issued a TX command, this function directs the radio from its default RX
-* state to TX and back.
-*/
 void radio_tx(uint8_t* data)
-{    
-    global_state = RADIO_STATE_TX;
-    NRF_RADIO->SHORTS = RADIO_SHORTS_DISABLED_TXEN_Msk | 
-                        RADIO_SHORTS_READY_START_Msk | 
-                        RADIO_SHORTS_END_DISABLE_Msk;
+{   
+    tx_data = data;
     
-    /* wake up at disable state to change packet pointer and shorts */
-    NRF_RADIO->INTENSET = RADIO_INTENSET_DISABLED_Msk;
-    
-    /* ready to start state change */
-    NRF_RADIO->TASKS_DISABLE = 1;
+    switch (global_state)
+    {
+        case RADIO_STATE_RX:
+            global_state = RADIO_STATE_TX; /* set state to TX, in order to catch the radio as it passes through disabled */
+            NRF_RADIO->SHORTS = RADIO_SHORTS_DISABLED_TXEN_Msk | 
+                                RADIO_SHORTS_READY_START_Msk | 
+                                RADIO_SHORTS_END_DISABLE_Msk;
+            
+            /* wake up at disable state to change packet pointer and shorts */
+            NRF_RADIO->INTENSET = RADIO_INTENSET_DISABLED_Msk;
+            
+            /* ready to start state change */
+            NRF_RADIO->TASKS_DISABLE = 1; 
 
-    
-#if 0    
-    
-    
-    if (NRF_RADIO->STATE == RADIO_STATE_STATE_Disabled) 
-    {
-        NRF_RADIO->SHORTS = (RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_END_DISABLE_Msk);
-        NRF_RADIO->PACKETPTR = (uint32_t) &data[0];
-        NRF_RADIO->EVENTS_DISABLED = 0;
-        NRF_RADIO->INTENSET = RADIO_INTENSET_DISABLED_Msk;
-        NRF_RADIO->TASKS_TXEN = 1;
+            break;
         
-        while (NRF_RADIO->EVENTS_DISABLED == 0 && NRF_RADIO->STATE != RADIO_STATE_STATE_Disabled);
-           // __WFE();
+        case RADIO_STATE_DISABLED:
+            if (NRF_RADIO->STATE == RADIO_STATE_STATE_Disabled || NRF_RADIO->STATE == RADIO_STATE_STATE_TxDisable)
+            {                    
+                NRF_RADIO->EVENTS_DISABLED = 0;
+                NRF_RADIO->TASKS_TXEN = 1;
+                NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_END_DISABLE_Msk;
+                NRF_RADIO->PACKETPTR = (uint32_t) &tx_data[0];
+                NRF_RADIO->INTENCLR = RADIO_INTENCLR_END_Msk;
+            }
+            else /* In the middle of a TX */
+            {
+                APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE); /* treat as error, should not happen.. */
+            }
+            break;
         
-        //NRF_RADIO->EVENTS_DISABLED = 0;
-        //NRF_RADIO->INTENCLR = RADIO_INTENCLR_DISABLED_Msk;
-        NVIC_ClearPendingIRQ(RADIO_IRQn);
+        case RADIO_STATE_TX:
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE); /* treat as error, should not happen.. */
+            break;
     }
-    else /* send the radio to a disabled state */
-    {
-        radio_aborted = 1;
-        NRF_RADIO->SHORTS = 0;
-        NRF_RADIO->EVENTS_DISABLED = 0;
-        NRF_RADIO->TASKS_DISABLE = 1;
-        NRF_RADIO->INTENSET = RADIO_INTENSET_DISABLED_Msk;
-        while (NRF_RADIO->EVENTS_DISABLED == 0 && NRF_RADIO->STATE != RADIO_STATE_STATE_Disabled);
-            //__WFE();
-        //NRF_RADIO->EVENTS_DISABLED = 0;
-        NVIC_ClearPendingIRQ(RADIO_IRQn);
-        //NRF_RADIO->INTENCLR = RADIO_INTENCLR_DISABLED_Msk;
-        
-        radio_tx(data); /* do the "disabled" behavior */
-    }
-#endif  
+    
+    global_state = RADIO_STATE_TX;
 }
                 
                 
             
-void radio_rx(uint8_t* data)
+void radio_rx(uint8_t consecutive_receives)
 {
+    g_consecutive_receives = consecutive_receives;
     global_state = RADIO_STATE_RX;
-#if 1
+
     if (NRF_RADIO->STATE == RADIO_STATE_STATE_Disabled)
     {
         NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk;
-        NRF_RADIO->PACKETPTR = (uint32_t) data;
+        NRF_RADIO->PACKETPTR = (uint32_t) rx_data;
         NRF_RADIO->TASKS_RXEN = 1;
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
         NRF_RADIO->EVENTS_END = 0;
         NRF_RADIO->EVENTS_READY = 0;
     }
-    else /* send the radio to a disabled state */
+    else /* send the radio to a disabled state. May abort TX operation */
     {
         radio_aborted = 1;
         NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_DISABLED_RXEN_Msk;
         
         NRF_RADIO->TASKS_DISABLE = 1;
-        NRF_RADIO->PACKETPTR = (uint32_t) data;
+        NRF_RADIO->PACKETPTR = (uint32_t) rx_data;
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
     }    
-#endif    
+   
+}
+
+void radio_disable(void)
+{
+    NRF_RADIO->SHORTS = 0;
+    NRF_RADIO->INTENCLR = 0xFFFFFFFF;
+    NRF_RADIO->TASKS_DISABLE = 1;
+    global_state = RADIO_STATE_DISABLED;
 }
         
 /**
 * IRQ handler for radio. Sends the radio around the state machine, ensuring secure radio state changes
 */
-void RADIO_IRQHandler(void)
+void radio_event_handler(void)
 {
     SET_PIN(PIN_CPU_IN_USE);
     
@@ -177,13 +199,26 @@ void RADIO_IRQHandler(void)
             if (NRF_RADIO->EVENTS_END)
             {
                 NRF_RADIO->EVENTS_END = 0;
-                eval_msg(rx_data);   
                 
-                /* synchronize trickle */
-                trickle_sync(rx_data[2]);
-                /* reenable rx */
-                NRF_RADIO->SHORTS = 0;
-                NRF_RADIO->TASKS_START = 1;
+                /* propagate receive to RX callback function */
+                radio_rx_cb(rx_data);   
+                
+                /* check if the radio is scheduled to receive any more messages, 0 denotes "receive indefinetly" */
+                if (g_consecutive_receives == 1)
+                {
+                    /* this was the last in a series of receives. Disable the radio */
+                    NRF_RADIO->SHORTS = 0;
+                    NRF_RADIO->INTENCLR = RADIO_INTENCLR_END_Msk;
+                    NRF_RADIO->TASKS_DISABLE = 1;
+                    global_state = RADIO_STATE_DISABLED;
+                }
+                else if (g_consecutive_receives > 1)
+                {
+                    /* reenable rx */
+                    NRF_RADIO->SHORTS = 0;
+                    NRF_RADIO->TASKS_START = 1;
+                    --g_consecutive_receives;
+                }
             }
             
             break;
@@ -201,6 +236,9 @@ void RADIO_IRQHandler(void)
             }
             
             break;
+        case RADIO_STATE_DISABLED:
+            /* Doesn't have any related interrupts, treat as error. */
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
           
     CLEAR_PIN(PIN_CPU_IN_USE);

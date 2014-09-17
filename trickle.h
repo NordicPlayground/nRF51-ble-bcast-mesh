@@ -19,7 +19,11 @@ typedef struct
     trickle_tx_cb   tx_cb;          /* Callback function to be called when trickle wants to broadcast */    
 } trickle_init_t;
 
+
+
 void trickle_setup(void);
+
+trickle_tx_cb trickle_step(void);
 
 uint32_t trickle_init(trickle_init_t* trickle);
 

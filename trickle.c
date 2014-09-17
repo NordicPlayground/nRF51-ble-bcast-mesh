@@ -25,7 +25,6 @@ typedef struct
 
 #define RX_PROPAGATION_TIME         (377)
 
-#define SYNC_TIMER_INTERVAL_MS      (10)
 
 #define TRICKLE_FLAGS_T_DONE_Pos    (0)
 #define TRICKLE_FLAGS_DISCARDED_Pos (1)
@@ -42,11 +41,124 @@ uint8_t is_synced;
 trickle_t* next_trickle;
 
 
+/*****************************************************************************
+* Static Functions
+*****************************************************************************/
 
 static uint32_t interval_begin(trickle_t* trickle);
 
+#if !USE_SOFTDEVICE
+void TIMER0_IRQHandler(void)
+{
+    
+    if (NRF_TIMER0->EVENTS_COMPARE[0])
+    {
+        NRF_TIMER0->EVENTS_COMPARE[0] = 0;
+        NRF_TIMER0->CC[0] = TRICKLE_INTERVAL_US;
+        TICK_PIN(PIN_SYNC_TIME);
+        
+        trickle_step();
+    }
+}
+#endif
+    
+static trickle_t* get_trickle(trickle_id id)
+{
+    for (uint32_t i = 0; i < MAX_TRICKLE_INSTANCES; ++i)
+    {
+        if (trickle_instances[i].id == id)
+        {
+            return &trickle_instances[i];
+        }
+    }
+    return NULL;
+}
 
-static void trickle_step(void)
+static void sync_timer(void)
+{
+    
+}
+
+
+/************************************************************************************
+* Static pointer version of public functions
+************************************************************************************/
+
+static uint32_t interval_begin(trickle_t* trickle)
+{
+    /* if the system hasn't synced up with anyone else, just start own sync up */
+    static uint8_t intervals = 0;
+    if (is_synced == 0 && trickle->c == 0 && intervals > 2)
+    {
+        NRF_TIMER0->TASKS_START = 1;
+        NRF_TIMER0->TASKS_CLEAR = 1;
+    }
+    ++intervals;
+    trickle->c = 0;
+    
+    uint32_t rand_number =  ((uint32_t) rng_vals[(rng_index++) & 0x3F])       |
+                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 8  |
+                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 16 |
+                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 24;
+    
+    uint32_t i_half = trickle->i_relative / 2;
+    trickle->t = g_trickle_time * TRICKLE_INTERVAL_US / 1000 + i_half + (rand_number % i_half);
+    trickle->i = g_trickle_time * TRICKLE_INTERVAL_US / 1000 + trickle->i_relative;
+    
+    trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
+    
+    //TICK_PIN(PIN_NEW_INTERVAL);
+    //TICK_PIN((PIN_INT0 + trickle->id));
+    
+    return NRF_SUCCESS;
+}
+
+static uint32_t timer_reset(trickle_t* trickle)
+{
+    trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
+    trickle->i_relative = trickle->i_min; 
+        
+    return interval_begin(trickle);
+}
+
+
+
+
+/*****************************************************************************
+* Interface Functions
+*****************************************************************************/
+
+
+void trickle_setup(void)
+{
+    /* setup timers */
+    NRF_TIMER0->POWER = 1;
+    NRF_TIMER0->PRESCALER = 4; // 1MHz, period = 1us
+    NRF_TIMER0->INTENSET = TIMER_INTENSET_COMPARE0_Msk;
+    NRF_TIMER0->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Msk;
+    NRF_TIMER0->CC[0] = TRICKLE_INTERVAL_US; // 10ms
+    NRF_TIMER0->TASKS_CLEAR = 1;
+    //NVIC_EnableIRQ(TIMER0_IRQn);
+    
+    for (uint8_t i = 0; i < MAX_TRICKLE_INSTANCES; ++i)
+    {
+        trickle_instances[i].trickle_flags |= (1 << TRICKLE_FLAGS_DISCARDED_Pos);
+    }
+    
+    is_synced = 0;
+    /* Fill rng pool */
+    for (uint8_t i = 0; i < 64; ++i)
+    {
+        NRF_RNG->EVENTS_VALRDY = 0;
+        NRF_RNG->TASKS_START = 1;
+        while (!NRF_RNG->EVENTS_VALRDY);
+        rng_vals[i] = NRF_RNG->VALUE;
+    }
+    rng_index = 0;
+}
+
+
+trickle_tx_cb trickle_step(void)
 {
     /* step global time */
     ++g_trickle_time;
@@ -63,7 +175,7 @@ static void trickle_step(void)
         /* check whether the instance is able to broadcast */
         if (trickle_instances[i].trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
         {
-            if (trickle_instances[i].i / SYNC_TIMER_INTERVAL_MS <= g_trickle_time)
+            if (1000 * trickle_instances[i].i / TRICKLE_INTERVAL_US <= g_trickle_time)
             {
                 /* double value of i */
                 trickle_instances[i].i_relative = (trickle_instances[i].i_relative * 2 < trickle_instances[i].i_max * trickle_instances[i].i_min)?
@@ -75,7 +187,7 @@ static void trickle_step(void)
         }
         else /* t is next timeout for this instance */
         {
-            if (trickle_instances[i].t / SYNC_TIMER_INTERVAL_MS <= g_trickle_time)
+            if (1000 * trickle_instances[i].t / TRICKLE_INTERVAL_US <= g_trickle_time)
             {
                 if (trickle_instances[i].c < trickle_instances[i].k)
                 {
@@ -102,107 +214,15 @@ static void trickle_step(void)
         }
     }    
     
-    /* do the send */
     if (trickle != NULL)
     {
-        trickle->tx_cb();
+        return trickle->tx_cb;
     }
-}
-
-void TIMER0_IRQHandler(void)
-{
-    
-    if (NRF_TIMER0->EVENTS_COMPARE[0])
-    {
-        NRF_TIMER0->EVENTS_COMPARE[0] = 0;
-        NRF_TIMER0->CC[0] = 1000 * SYNC_TIMER_INTERVAL_MS;
-        TICK_PIN(PIN_SYNC_TIME);
-        
-        trickle_step();
-    }
-}
-    
-static trickle_t* get_trickle(trickle_id id)
-{
-    for (uint32_t i = 0; i < MAX_TRICKLE_INSTANCES; ++i)
-    {
-        if (trickle_instances[i].id == id)
-        {
-            return &trickle_instances[i];
-        }
-    }
-    return NULL;
+    else 
+        return NULL;
 }
 
 
-/************************************************************************************
-* Static pointer version of public functions
-************************************************************************************/
-
-static uint32_t interval_begin(trickle_t* trickle)
-{
-    /* if the system hasn't synced up with anyone else, just start own sync up */
-    static uint8_t intervals = 0;
-    if (is_synced == 0 && trickle->c == 0 && intervals > 2)
-    {
-        NRF_TIMER0->TASKS_START = 1;
-        NRF_TIMER0->TASKS_CLEAR = 1;
-    }
-    ++intervals;
-    trickle->c = 0;
-    
-    uint32_t rand_number =  ((uint32_t) rng_vals[(rng_index++) & 0x3F])       |
-                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 8  |
-                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 16 |
-                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 24;
-    
-    uint32_t i_half = trickle->i_relative / 2;
-    trickle->t = g_trickle_time * SYNC_TIMER_INTERVAL_MS + i_half + (rand_number % i_half);
-    trickle->i = g_trickle_time * SYNC_TIMER_INTERVAL_MS + trickle->i_relative;
-    
-    trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
-    
-    TICK_PIN(PIN_NEW_INTERVAL);
-    TICK_PIN((PIN_INT0 + trickle->id));
-    
-    return NRF_SUCCESS;
-}
-
-static uint32_t timer_reset(trickle_t* trickle)
-{
-    trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
-    trickle->i_relative = trickle->i_min; 
-        
-    return interval_begin(trickle);
-}
-
-void trickle_setup(void)
-{
-    /* setup timers */
-    NRF_TIMER0->POWER = 1;
-    NRF_TIMER0->PRESCALER = 4; // 1MHz, period = 1us
-    NRF_TIMER0->INTENSET = TIMER_INTENSET_COMPARE0_Msk;
-    NRF_TIMER0->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Msk;
-    NRF_TIMER0->CC[0] = 1000 * SYNC_TIMER_INTERVAL_MS; // 10ms
-    NRF_TIMER0->TASKS_CLEAR = 1;
-    NVIC_EnableIRQ(TIMER0_IRQn);
-    
-    for (uint8_t i = 0; i < MAX_TRICKLE_INSTANCES; ++i)
-    {
-        trickle_instances[i].trickle_flags |= (1 << TRICKLE_FLAGS_DISCARDED_Pos);
-    }
-    
-    is_synced = 0;
-    /* Fill rng pool */
-    for (uint8_t i = 0; i < 64; ++i)
-    {
-        NRF_RNG->EVENTS_VALRDY = 0;
-        NRF_RNG->TASKS_START = 1;
-        while (!NRF_RNG->EVENTS_VALRDY);
-        rng_vals[i] = NRF_RNG->VALUE;
-    }
-    rng_index = 0;
-}
 
 uint32_t trickle_init(trickle_init_t* trickle)
 {
@@ -238,6 +258,8 @@ uint32_t trickle_init(trickle_init_t* trickle)
     
     return interval_begin(trickle_instance);
 }
+
+
 
 uint32_t trickle_discard(trickle_id id)
 {
@@ -300,7 +322,7 @@ uint32_t trickle_timer_reset(trickle_id id)
 
 void trickle_sync(uint16_t msg_len)
 {
-    NRF_TIMER0->CC[0] = 1000 * SYNC_TIMER_INTERVAL_MS - RX_PROPAGATION_TIME - (8 * msg_len + 80);
+    NRF_TIMER0->CC[0] = TRICKLE_INTERVAL_US - RX_PROPAGATION_TIME - (8 * msg_len + 80);
     NRF_TIMER0->TASKS_START = 1;
     NRF_TIMER0->TASKS_CLEAR = 1;
     is_synced = 1;
