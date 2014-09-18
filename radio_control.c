@@ -23,7 +23,7 @@ static radio_state_t global_state = RADIO_STATE_RX;
 /**
 * RX buffer
 */
-static uint8_t rx_data[256];
+static uint8_t rx_data_buf[256];
 
 /**
 * local tx_data pointer
@@ -38,12 +38,12 @@ static uint8_t g_consecutive_receives;
 /* flag that is set every time the radio is disabled in the midst of an operation */
 uint8_t radio_aborted = 0;
 
-radio_rx_cb g_radio_rx_cb;
+static radio_rx_cb g_radio_rx_cb;
+static radio_tx_cb g_radio_tx_cb;
 
 
-void radio_init(radio_rx_cb radio_rx_callback)
+void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback)
 {
-    g_radio_rx_cb = radio_rx_callback;
 	/* Reset all states in the radio peripheral */
 	NRF_RADIO->POWER = 1;
 	NRF_RADIO->EVENTS_DISABLED = 0; 
@@ -57,7 +57,7 @@ void radio_init(radio_rx_cb radio_rx_callback)
 
 
     /* Configure Access Address to be the BLE standard */
-    NRF_RADIO->PREFIX0	    = 0x85;//0x8e;
+    NRF_RADIO->PREFIX0	    = 0x8e;//0x85;//0x8e;
     NRF_RADIO->BASE0 		= 0x89bed600; 
     NRF_RADIO->TXADDRESS    = 0x00;			    // Use logical address 0 (prefix0 + base0) = 0x8E89BED6 when transmitting
     NRF_RADIO->RXADDRESSES  = 0x01;				// Enable reception on logical address 0 (PREFIX0 + BASE0)
@@ -92,6 +92,7 @@ void radio_init(radio_rx_cb radio_rx_callback)
     //NRF_RADIO->TIFS = 145;
     
     g_radio_rx_cb = radio_rx_callback;
+    g_radio_tx_cb = radio_tx_callback;
 }
 
 
@@ -112,6 +113,8 @@ void radio_tx(uint8_t* data)
             
             /* ready to start state change */
             NRF_RADIO->TASKS_DISABLE = 1; 
+        
+            NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
 
             break;
         
@@ -122,7 +125,8 @@ void radio_tx(uint8_t* data)
                 NRF_RADIO->TASKS_TXEN = 1;
                 NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_END_DISABLE_Msk;
                 NRF_RADIO->PACKETPTR = (uint32_t) &tx_data[0];
-                NRF_RADIO->INTENCLR = RADIO_INTENCLR_END_Msk;
+                NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
+                
             }
             else /* In the middle of a TX */
             {
@@ -148,7 +152,7 @@ void radio_rx(uint8_t consecutive_receives)
     if (NRF_RADIO->STATE == RADIO_STATE_STATE_Disabled)
     {
         NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk;
-        NRF_RADIO->PACKETPTR = (uint32_t) rx_data;
+        NRF_RADIO->PACKETPTR = (uint32_t) rx_data_buf;
         NRF_RADIO->TASKS_RXEN = 1;
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
         NRF_RADIO->EVENTS_END = 0;
@@ -160,7 +164,7 @@ void radio_rx(uint8_t consecutive_receives)
         NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_DISABLED_RXEN_Msk;
         
         NRF_RADIO->TASKS_DISABLE = 1;
-        NRF_RADIO->PACKETPTR = (uint32_t) rx_data;
+        NRF_RADIO->PACKETPTR = (uint32_t) rx_data_buf;
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
     }    
    
@@ -189,7 +193,7 @@ void radio_event_handler(void)
             {
                 NRF_RADIO->EVENTS_DISABLED = 0;
                 NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk;
-                NRF_RADIO->PACKETPTR = (uint32_t) &rx_data[0];
+                NRF_RADIO->PACKETPTR = (uint32_t) &rx_data_buf[0];
                 NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
                 NRF_RADIO->INTENCLR = RADIO_INTENCLR_DISABLED_Msk;
                 NRF_RADIO->EVENTS_END = 0;
@@ -198,10 +202,11 @@ void radio_event_handler(void)
             /* analyze incoming msg */
             if (NRF_RADIO->EVENTS_END)
             {
+                TICK_PIN(PIN_RX);
                 NRF_RADIO->EVENTS_END = 0;
                 
                 /* propagate receive to RX callback function */
-                radio_rx_cb(rx_data);   
+                (*g_radio_rx_cb)(rx_data_buf);   
                 
                 /* check if the radio is scheduled to receive any more messages, 0 denotes "receive indefinetly" */
                 if (g_consecutive_receives == 1)
@@ -212,12 +217,16 @@ void radio_event_handler(void)
                     NRF_RADIO->TASKS_DISABLE = 1;
                     global_state = RADIO_STATE_DISABLED;
                 }
-                else if (g_consecutive_receives > 1)
+                else 
                 {
                     /* reenable rx */
                     NRF_RADIO->SHORTS = 0;
                     NRF_RADIO->TASKS_START = 1;
-                    --g_consecutive_receives;
+                    
+                    if (g_consecutive_receives > 1)
+                    {
+                        --g_consecutive_receives;
+                    }
                 }
             }
             
@@ -228,11 +237,20 @@ void radio_event_handler(void)
             if (NRF_RADIO->EVENTS_DISABLED)
             {
                 NRF_RADIO->EVENTS_DISABLED = 0;
-                NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_END_DISABLE_Msk | RADIO_SHORTS_DISABLED_RXEN_Msk;
+                NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_END_DISABLE_Msk;
                 NRF_RADIO->PACKETPTR = (uint32_t) &tx_data[0];
                 NRF_RADIO->INTENSET = RADIO_INTENSET_DISABLED_Msk; /* wake when done sending to change the packet pointer back */
                 NRF_RADIO->INTENCLR = RADIO_INTENCLR_END_Msk;
                 global_state = RADIO_STATE_RX;
+            }
+            else if (NRF_RADIO->EVENTS_END)
+            {
+                NRF_RADIO->EVENTS_END = 0;
+                
+                /* send ended, notify user. */
+                global_state = RADIO_STATE_DISABLED;
+                NRF_RADIO->SHORTS = 0; 
+                (*g_radio_tx_cb)();
             }
             
             break;

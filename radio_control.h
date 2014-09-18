@@ -3,7 +3,8 @@
 #include <stdint.h>
 
 
-typedef void (*radio_rx_cb)(uint8_t* rx_data);
+typedef void (*radio_rx_cb)(uint8_t*);
+typedef void (*radio_tx_cb)(void);
 
 
 extern uint8_t radio_aborted;
@@ -11,9 +12,10 @@ extern uint8_t radio_aborted;
 /**
 * Starts the radio init procedure
 * @param radio_rx_callback sets the function that is called each time the radio recevies a new message
+* @param radio_tx_callback is called after a successful TX is completed, and the radio is back in a disabled state.
 * Must be called at the beginning of each timeslot
 */
-void radio_init(radio_rx_cb radio_rx_callback);
+void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback);
 
 
 /**
