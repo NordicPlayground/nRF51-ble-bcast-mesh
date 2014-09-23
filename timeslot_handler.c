@@ -95,12 +95,14 @@ static bool end_timeslot = false;
 static uint8_t tx_data_local[] = 
 {
     0x02, /* ADV_NONCONN_IND */
-    0x15, /* LENGTH */
+    0x17, /* LENGTH */
     0x00, /* PADDING */
     0x00, 0xCE, 0xAB, 0x48, 0xDE, 0xAC, /* ADDRESS */
     
-    0x04, /* ADV_DATA LENGTH */
+    0x07, /* ADV_DATA LENGTH */
     0xFF, /* MANUFACTURER SPECIFIC */
+    0x59, /* Manufacturer id */
+    0x00, /* Manufacturer id */
     0x72, /* MESSAGE TYPE */
     0x00, /* TRICKLE_ID */
     0x00,  /* TRICKLE_VERSION */
@@ -227,6 +229,7 @@ void SD_EVT_IRQHandler(void)
     
     while (sd_evt_get(&evt) == NRF_SUCCESS)
     {
+        PIN_OUT(evt, 32);
         switch (evt)
         {
             case NRF_EVT_RADIO_SESSION_IDLE:
@@ -240,7 +243,8 @@ void SD_EVT_IRQHandler(void)
                 break;
             
             case NRF_EVT_RADIO_BLOCKED:
-                APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
+                radio_request_normal.params.normal.distance_us += TRICKLE_INTERVAL_US; /* skip a period */
+                sd_radio_request(&radio_request_normal);
                 
                 break;
             
@@ -280,7 +284,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
             end_timeslot = false;
             /* timeslot start, init radio module */
-            radio_init(&radio_rx_callback, &radio_tx_callback);
+            radio_init(radio_rx_callback, radio_tx_callback);
             search_mode_timeslot_started();
             SET_PIN(PIN_SEARCHING);
             /* send radio into continuous rx mode */
@@ -293,14 +297,13 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
             /* send to radio control module */
-            TICK_PIN(PIN_RADIO_SIGNAL);
+            //TICK_PIN(PIN_RADIO_SIGNAL);
             radio_event_handler();
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_TIMER0:
             /* give up timer, start periodic */
             TICK_PIN(PIN_CONSISTENT);
-            CLEAR_PIN(PIN_SEARCHING);
         
             if (NRF_TIMER0->EVENTS_COMPARE[0])
             {
@@ -310,6 +313,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching
                 ret_param = &radio_signal_cb_ret_param_request;
                 NRF_TIMER0->TASKS_STOP = 1;
                 g_trickle_radio_mode = TRICKLE_RADIO_MODE_PERIODIC;
+                CLEAR_PIN(PIN_SEARCHING);
             }
             break;
             
@@ -326,12 +330,12 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching
             APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
     
-    /* end the timeslot right away, and order the next timeslot in the periodic fashion */
+    /* end the timeslot right away, and order the next timeslot in a periodic fashion */
     if (end_timeslot)
     {
         radio_request_normal.params.normal.distance_us = 
                     TRICKLE_INTERVAL_US - TRICKLE_RX_PROPAGATION_US 
-                    - NRF_TIMER0->CC[1] - 40 - TRICKLE_SAFETY_MARGIN_US; /* 40 = address bits */
+                    + NRF_TIMER0->CC[1] - 40 - TRICKLE_SAFETY_MARGIN_US; /* 40 = address bits RX time */
         radio_request_normal.params.normal.length_us = TRICKLE_TIMESLOT_LENGTH_US;
         radio_request_normal.params.normal.hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT;
         radio_request_normal.params.normal.priority = NRF_RADIO_PRIORITY_NORMAL;
@@ -341,6 +345,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching
         ret_param = &radio_signal_cb_ret_param_request;
         
         g_trickle_radio_mode = TRICKLE_RADIO_MODE_PERIODIC;
+        CLEAR_PIN(PIN_SEARCHING);
     }
     
     return ret_param;
@@ -362,7 +367,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(
         {
             end_timeslot = false;
             /* timeslot start, init radio module */
-            radio_init(&radio_rx_callback, &radio_tx_callback);
+            radio_init(radio_rx_callback, radio_tx_callback);
         
             TICK_PIN(PIN_SYNC_TIME);
 
@@ -384,15 +389,17 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(
             }
             else
             {
-                radio_tx(tx_data_local);
                 //tx_func();
+                radio_tx(tx_data_local);
             }
         }
             break;
+        
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
             /* send to radio control module */
             radio_event_handler();
             break;
+        
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_TIMER0:
             /* The only timer in periodic mode is to stop RX. */
             if (NRF_TIMER0->EVENTS_COMPARE[0])
@@ -403,6 +410,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(
                 end_timeslot = true;
             }
             break;
+            
         default:
             APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
@@ -411,7 +419,9 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(
     if (end_timeslot)
     {
         radio_request_normal.params.normal.distance_us = TRICKLE_INTERVAL_US;
+        radio_request_normal.request_type = NRF_RADIO_REQ_TYPE_NORMAL;
         radio_signal_cb_ret_param_request.params.request.p_next = &radio_request_normal;
+        
         ret_param = &radio_signal_cb_ret_param_request;    
     }
     
@@ -436,6 +446,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         case TRICKLE_RADIO_MODE_SEARCHING:
             ret_param = radio_signal_callback_searching(sig);
             break;
+        
         case TRICKLE_RADIO_MODE_PERIODIC:
             ret_param = radio_signal_callback_periodic(sig);
             break;

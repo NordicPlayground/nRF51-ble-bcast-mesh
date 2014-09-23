@@ -46,7 +46,8 @@ void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback)
 {
 	/* Reset all states in the radio peripheral */
 	NRF_RADIO->POWER = 1;
-	NRF_RADIO->EVENTS_DISABLED = 0; 
+	//NRF_RADIO->EVENTS_DISABLED = 0; 
+    NVIC_EnableIRQ(RADIO_IRQn);
     
     /* Set radio configuration parameters */
     NRF_RADIO->TXPOWER      = (RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos);
@@ -57,7 +58,7 @@ void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback)
 
 
     /* Configure Access Address to be the BLE standard */
-    NRF_RADIO->PREFIX0	    = 0x8e;//0x85;//0x8e;
+    NRF_RADIO->PREFIX0	    = 0x8e;//0x8e;
     NRF_RADIO->BASE0 		= 0x89bed600; 
     NRF_RADIO->TXADDRESS    = 0x00;			    // Use logical address 0 (prefix0 + base0) = 0x8E89BED6 when transmitting
     NRF_RADIO->RXADDRESSES  = 0x01;				// Enable reception on logical address 0 (PREFIX0 + BASE0)
@@ -83,13 +84,9 @@ void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback)
                             (RADIO_CRCCNF_SKIPADDR_Skip << RADIO_CRCCNF_SKIPADDR_Pos); // Skip Address when computing crc     
     NRF_RADIO->CRCINIT = 0x555555;    // Initial value of CRC
     NRF_RADIO->CRCPOLY = 0x00065B;    // CRC polynomial function
-
-#if !USING_SOFTDEVICE
-    NVIC_EnableIRQ(RADIO_IRQn);
-#endif    
-    NVIC_EnableIRQ(RADIO_IRQn);
+ 
     /* Lock interframe spacing, so that the radio won't send too soon / start RX too early */
-    //NRF_RADIO->TIFS = 145;
+    NRF_RADIO->TIFS = 145;
     
     g_radio_rx_cb = radio_rx_callback;
     g_radio_tx_cb = radio_tx_callback;
@@ -149,14 +146,14 @@ void radio_rx(uint8_t consecutive_receives)
     g_consecutive_receives = consecutive_receives;
     global_state = RADIO_STATE_RX;
 
-    if (NRF_RADIO->STATE == RADIO_STATE_STATE_Disabled)
+    if (true || NRF_RADIO->STATE == RADIO_STATE_STATE_Disabled)
     {
         NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk;
         NRF_RADIO->PACKETPTR = (uint32_t) rx_data_buf;
+        NRF_RADIO->EVENTS_READY = 0;
         NRF_RADIO->TASKS_RXEN = 1;
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
         NRF_RADIO->EVENTS_END = 0;
-        NRF_RADIO->EVENTS_READY = 0;
     }
     else /* send the radio to a disabled state. May abort TX operation */
     {
@@ -168,6 +165,7 @@ void radio_rx(uint8_t consecutive_receives)
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
     }    
    
+    TICK_PIN(4);
 }
 
 void radio_disable(void)
@@ -183,8 +181,6 @@ void radio_disable(void)
 */
 void radio_event_handler(void)
 {
-    SET_PIN(PIN_CPU_IN_USE);
-    
     switch (global_state)
     {
         case RADIO_STATE_RX:
@@ -196,7 +192,6 @@ void radio_event_handler(void)
                 NRF_RADIO->PACKETPTR = (uint32_t) &rx_data_buf[0];
                 NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
                 NRF_RADIO->INTENCLR = RADIO_INTENCLR_DISABLED_Msk;
-                NRF_RADIO->EVENTS_END = 0;
                 NRF_RADIO->EVENTS_READY = 0;
             }
             /* analyze incoming msg */
@@ -208,14 +203,10 @@ void radio_event_handler(void)
                 /* propagate receive to RX callback function */
                 (*g_radio_rx_cb)(rx_data_buf);   
                 
-                /* check if the radio is scheduled to receive any more messages, 0 denotes "receive indefinetly" */
+                /* check if the radio is scheduled to receive any more messages, 0 denotes "receive indefinitely" */
                 if (g_consecutive_receives == 1)
                 {
-                    /* this was the last in a series of receives. Disable the radio */
-                    NRF_RADIO->SHORTS = 0;
-                    NRF_RADIO->INTENCLR = RADIO_INTENCLR_END_Msk;
-                    NRF_RADIO->TASKS_DISABLE = 1;
-                    global_state = RADIO_STATE_DISABLED;
+                    radio_disable();
                 }
                 else 
                 {
@@ -243,7 +234,7 @@ void radio_event_handler(void)
                 NRF_RADIO->INTENCLR = RADIO_INTENCLR_END_Msk;
                 global_state = RADIO_STATE_RX;
             }
-            else if (NRF_RADIO->EVENTS_END)
+            if (NRF_RADIO->EVENTS_END)
             {
                 NRF_RADIO->EVENTS_END = 0;
                 
@@ -258,8 +249,6 @@ void radio_event_handler(void)
             /* Doesn't have any related interrupts, treat as error. */
             APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
-          
-    CLEAR_PIN(PIN_CPU_IN_USE);
 }
         
 

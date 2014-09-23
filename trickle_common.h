@@ -7,8 +7,8 @@
 
 #define TRICKLE_INTERVAL_US                 (10000)     /* 10ms */
 #define TRICKLE_TIMESLOT_LENGTH_US          (1000)      /* 1ms */
-#define TRICKLE_SEARCHING_TIMEOUT_US        (1000000)   /* 1 second */
-#define TRICKLE_SAFETY_MARGIN_US            (200)
+#define TRICKLE_SEARCHING_TIMEOUT_US        (10000000)   /* 10 seconds */
+#define TRICKLE_SAFETY_MARGIN_US            (124)
 #define TRICKLE_RX_PROPAGATION_US           (30)
 
 #define TRICKLE_SEARCHING_TIMEOUT_PPI_CH    (8)         /* Softdevice hogs first 8 */
@@ -50,7 +50,7 @@
 #define PIN_BIT_H           (25)
 #define PIN_BIT_L           (28)
 
-    
-#define PIN_OUT(val,bitcount)      for (uint8_t i = 0; i < (bitcount); ++i){ if (((val) >> ((bitcount) - 1) - i) & 0x01) { TICK_PIN(PIN_BIT_H); } else { TICK_PIN(PIN_BIT_L); } }
+#define PIN_OUT(val,bitcount)   
+//#define PIN_OUT(val,bitcount)      for (uint8_t i = 0; i < (bitcount); ++i){ if (((val) >> ((bitcount) - 1 - i)) & 0x01) { TICK_PIN(PIN_BIT_H); } else { TICK_PIN(PIN_BIT_L); } }
 
 #endif /* _TRICKLE_COMMON_H__ */
