@@ -3,7 +3,7 @@
 #include "radio_control.h"
 #include "trickle.h"
 #include "trickle_common.h"
-
+#include "drip_control.h"
 
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -18,6 +18,17 @@
 #include <string.h>
 #include <stdio.h>
 
+
+#define PACKET_ADV_ADDR_INDEX       (2)
+#define PACKET_LENGTH_INDEX         (1)
+#define PACKET_TYPE_INDEX           (0)
+#define PACKET_ADV_DATA_INDEX       (8)
+#define PACKET_MAN_DATA_INDEX       (12)
+
+#define PACKET_TYPE                 (0x02)
+
+#define PACKET_ADV_DATA_MAN_TYPE    (0xFF)
+#define PACKET_ADV_DATA_MAN_COMPANY (0x0059) /* Nordic Semiconductor identifier */
 
 /*****************************************************************************
 * Local type definitions
@@ -92,26 +103,7 @@ static trickle_radio_mode_t g_trickle_radio_mode;
 */                
 static bool end_timeslot = false;                
                 
-static uint8_t tx_data_local[] = 
-{
-    0x02, /* ADV_NONCONN_IND */
-    0x17, /* LENGTH */
-    0x00, /* PADDING */
-    0x00, 0xCE, 0xAB, 0x48, 0xDE, 0xAC, /* ADDRESS */
-    
-    0x07, /* ADV_DATA LENGTH */
-    0xFF, /* MANUFACTURER SPECIFIC */
-    0x59, /* Manufacturer id */
-    0x00, /* Manufacturer id */
-    0x72, /* MESSAGE TYPE */
-    0x00, /* TRICKLE_ID */
-    0x00,  /* TRICKLE_VERSION */
-    0x00,  /* LED CONFIG (PAYLOAD) */
-    
-    0x08, /* LENGTH */
-    0x09, /* DEVICE NAME */
-    'T', 'r', 'i', 'c', 'k', 'l', 'e' /* DEVICE NAME */
-};
+static uint8_t tx_buffer[40];
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
@@ -155,6 +147,24 @@ static void search_mode_timeslot_started(void)
     NRF_PPI->CH[TRICKLE_SEARCHING_TIMEOUT_PPI_CH].EEP   = (uint32_t) &(NRF_RADIO->EVENTS_ADDRESS);
 	NRF_PPI->CH[TRICKLE_SEARCHING_TIMEOUT_PPI_CH].TEP   = (uint32_t) &(NRF_TIMER0->TASKS_CAPTURE[1]);
 	NRF_PPI->CHENSET 			                        |= (1 << TRICKLE_SEARCHING_TIMEOUT_PPI_CH);
+}
+
+static void tx_buffer_init()
+{
+    memset(tx_buffer, 0, 40);
+    tx_buffer[PACKET_TYPE_INDEX] = PACKET_TYPE;
+    
+    uint64_t addr = (((uint64_t) NRF_FICR->DEVICEADDR[0] << 32) | NRF_FICR->DEVICEADDR[1]);
+    uint8_t address[6];
+    for (uint8_t i = 0; i < 6; ++i)
+    {
+        address[i] = (addr >> i * 8) & 0xFF;
+    }
+    memcpy(&tx_buffer[PACKET_ADV_ADDR_INDEX], address, 6);
+    
+    tx_buffer[PACKET_ADV_DATA_INDEX + 1] = PACKET_ADV_DATA_MAN_TYPE;
+    tx_buffer[PACKET_ADV_DATA_INDEX + 2] = (PACKET_ADV_DATA_MAN_COMPANY >> 8);
+    tx_buffer[PACKET_ADV_DATA_INDEX + 3] = (PACKET_ADV_DATA_MAN_COMPANY & 0xFF);
 }
 
 /*****************************************************************************
@@ -371,9 +381,20 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(
         
             TICK_PIN(PIN_SYNC_TIME);
 
-            trickle_tx_cb tx_func = trickle_step();
+            bool anything_to_send = false;
+            packet_t packet;
+            packet.data = &tx_buffer[PACKET_MAN_DATA_INDEX];
+            drip_packet_assemble(&packet, DROPLET_MAX_PACKET_LENGTH, &anything_to_send);
             
-            if (tx_func == NULL)
+            
+            
+            if (anything_to_send)
+            {
+                tx_buffer[PACKET_LENGTH_INDEX] = 10 + packet.length;
+                tx_buffer[PACKET_ADV_DATA_INDEX] = 4 + packet.length;
+                radio_tx(tx_buffer);
+            }
+            else
             {
                 /* No tx this step, go into rx mode */
                 radio_rx(1);
@@ -386,11 +407,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(
                 NRF_TIMER0->INTENSET = TIMER_INTENSET_COMPARE0_Msk;
                 NRF_TIMER0->TASKS_START = 1;
                 NVIC_EnableIRQ(TIMER0_IRQn);
-            }
-            else
-            {
-                //tx_func();
-                radio_tx(tx_data_local);
             }
         }
             break;
@@ -479,8 +495,9 @@ void timeslot_handler_init(void)
     
     sd_radio_session_open(&radio_signal_callback);
     
-    enter_search_mode();
+    tx_buffer_init();
     
+    enter_search_mode();
 }
 
 void timeslot_handler_start_periodic(uint32_t time_period_us)
