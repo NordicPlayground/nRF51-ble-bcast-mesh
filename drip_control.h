@@ -1,6 +1,7 @@
 #ifndef _DRIP_CONTROL_H__
 #define _DRIP_CONTROL_H__
 #include "timeslot_handler.h"
+#include "trickle.h"
 #include <stdint.h>
 
 #define DRIP_FLAG_VOLATILE          (4)

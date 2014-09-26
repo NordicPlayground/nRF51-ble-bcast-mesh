@@ -1,6 +1,7 @@
 #include "drip_control.h"
 #include <stdbool.h>
 #include <string.h>
+#include "nrf_error.h"
 
 /* TODO: change to global version */
 #define DRIP_COUNT (8)
@@ -36,8 +37,13 @@ static void drip_update_droplet(drip_t* drip, droplet_t* droplet)
         drip->droplet.length = droplet->length;
         drip->droplet.version = droplet->version;
         drip->droplet.source = droplet->source;
-        drip->droplet.last_sender = droplet.last_sender;
+        drip->droplet.last_sender = droplet->last_sender;
         memcpy(&(drip->droplet.data[0]), &(droplet->data[0]), droplet->length);
+        trickle_rx_inconsistent(&drip->trickle);
+    }
+    else
+    {
+        trickle_rx_consistent(&drip->trickle);
     }
 }
 
@@ -80,7 +86,7 @@ static uint8_t drip_get_length(drip_t* drip)
 static void drip_place_in_buffer(drip_t* drip, uint8_t* buffer)
 {
     uint8_t i = 0;
-    buffer[i++] = (drip->droplet.length & DROPLET_PACKET_LENGTH_MASK) | 
+    buffer[i++] = (drip->droplet.length & DROPLET_FLAG_LENGTH_MASK) | 
                     (drip->flags & DROPLET_FLAG_LENGTH_MASK);
     buffer[i++] = drip->droplet.version;
     
@@ -115,6 +121,7 @@ static void drip_place_in_buffer(drip_t* drip, uint8_t* buffer)
 
 void drip_init(void)
 {
+    trickle_setup(100, 20, 3);
     for (uint16_t i = 0; i < DRIP_COUNT; ++i)
     {
         g_drip_pool[i].flags = 0;
@@ -135,7 +142,6 @@ void drip_packet_dissect(packet_t* packet)
         
         droplet_t droplet;
         drip_t* drip = NULL;
-        uint8_t droplet_start_index = index;
         uint16_t id = 0;
         uint16_t target = 0;
         
@@ -195,7 +201,7 @@ void drip_packet_dissect(packet_t* packet)
             }
         }
         
-        drip_update_droplet(drip, droplet);
+        drip_update_droplet(drip, &droplet);
     }
     
         
@@ -207,9 +213,9 @@ drip_t* drip_get(uint16_t id, uint16_t target)
 {
     for (uint16_t i = 0; i < DRIP_COUNT; ++i)
     {
-        drip_t* drip = g_drip_pool[i];
+        drip_t* drip = &g_drip_pool[i];
         
-        if (drip->flags & (1 << DRIP_FLAG_ACTIVE_POS) == 0)
+        if ((drip->flags & (1 << DRIP_FLAG_ACTIVE_POS)) == 0)
             continue;
         
         if (drip->flags & (1 << DRIP_FLAG_IS_BROADCAST_POS))
@@ -238,7 +244,8 @@ drip_t* drip_allocate_new(void)
         /* early escape if a non-allocated object is found */
         if ((g_drip_pool[i].flags & DRIP_FLAG_ACTIVE_POS) == 0)
         {
-            return &g_drip_pool[i];
+            oldest = &g_drip_pool[i];
+            break;
         }
         
         if (g_drip_pool[i].flags & DRIP_FLAG_VOLATILE)
@@ -256,10 +263,13 @@ drip_t* drip_allocate_new(void)
     {
         /* No non-volatile objects in pool, this violates usage 
         patterns, and should not happen. */
-        NRF_ERROR_CHECK(NRF_ERROR_NO_MEM); 
+        APP_ERROR_CHECK(NRF_ERROR_NO_MEM); 
     }
     
     /*TODO: Send message to user space notifying of object erase */
+    
+    
+    trickle_init(&oldest->trickle);
     
     /* no unallocated drip objects, kill the oldest and use its slot */
     return oldest;
@@ -281,7 +291,7 @@ void drip_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_
             continue;
         }
         bool do_tx;
-        trickle_step(g_drip_pool[i].trickle, &do_tx);
+        trickle_step(&g_drip_pool[i].trickle, &do_tx);
         
         if (do_tx)
         {
@@ -297,7 +307,8 @@ void drip_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_
             }
         }
     }
-        
+     
+    packet->length = packet_index;
 }
 
 
