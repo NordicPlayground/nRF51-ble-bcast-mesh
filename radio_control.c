@@ -165,7 +165,7 @@ void radio_rx(uint8_t consecutive_receives)
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
     }    
    
-    TICK_PIN(4);
+    DEBUG_PIN_TH(4);
 }
 
 void radio_disable(void)
@@ -197,7 +197,7 @@ void radio_event_handler(void)
             /* analyze incoming msg */
             if (NRF_RADIO->EVENTS_END)
             {
-                TICK_PIN(PIN_RX);
+                DEBUG_PIN_TH(PIN_RX);
                 NRF_RADIO->EVENTS_END = 0;
                 
                 /* propagate receive to RX callback function */

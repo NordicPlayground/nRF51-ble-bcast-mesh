@@ -178,7 +178,7 @@ static void tx_buffer_init()
 */
 void radio_rx_callback(uint8_t* rx_data)
 {
-    TICK_PIN(PIN_RX);
+    DEBUG_PIN_TH(PIN_RX);
     
     end_timeslot = true;
     
@@ -194,7 +194,7 @@ void radio_rx_callback(uint8_t* rx_data)
 */
 void radio_tx_callback(void)
 {
-    TICK_PIN(PIN_TRICKLE_TX);
+    DEBUG_PIN_DRIP(PIN_TRICKLE_TX);
     
     end_timeslot = true;
 }
@@ -266,7 +266,7 @@ void SD_EVT_IRQHandler(void)
                 if (g_trickle_radio_mode == TRICKLE_RADIO_MODE_SEARCHING)
                 {
                     /* timeslot ran out for search mode, enter periodic. */
-                    TICK_PIN(PIN_CONSISTENT);
+                    DEBUG_PIN_TH(PIN_CONSISTENT);
                     CLEAR_PIN(PIN_SEARCHING);
                     
                     sd_radio_request(&radio_request_earliest);
@@ -307,13 +307,13 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
             /* send to radio control module */
-            //TICK_PIN(PIN_RADIO_SIGNAL);
+            //DEBUG_PIN_TH(PIN_RADIO_SIGNAL);
             radio_event_handler();
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_TIMER0:
             /* give up timer, start periodic */
-            TICK_PIN(PIN_CONSISTENT);
+            DEBUG_PIN_TH(PIN_CONSISTENT);
         
             if (NRF_TIMER0->EVENTS_COMPARE[0])
             {
@@ -333,7 +333,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:
-            TICK_PIN(PIN_ABORTED);
+            DEBUG_PIN_TH(PIN_ABORTED);
             break;
         
         default:
@@ -375,11 +375,12 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
         {
+            trickle_time_increment();
             end_timeslot = false;
             /* timeslot start, init radio module */
             radio_init(radio_rx_callback, radio_tx_callback);
         
-            TICK_PIN(PIN_SYNC_TIME);
+            DEBUG_PIN_TH(PIN_SYNC_TIME);
 
             bool anything_to_send = false;
             packet_t packet;
@@ -450,9 +451,9 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(
 */
 static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t sig)
 {
-    SET_PIN(PIN_CPU_IN_USE);
+    //SET_PIN(PIN_CPU_IN_USE);
     nrf_radio_signal_callback_return_param_t* ret_param = (nrf_radio_signal_callback_return_param_t*) &radio_signal_cb_ret_param_none;
-    TICK_PIN(PIN_RADIO_SIGNAL);
+    DEBUG_PIN_TH(PIN_RADIO_SIGNAL);
     
     if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START)
         SET_PIN(PIN_IN_TIMESLOT);
@@ -475,7 +476,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     
     PIN_OUT(sig, 8);
     
-    CLEAR_PIN(PIN_CPU_IN_USE);
+    //CLEAR_PIN(PIN_CPU_IN_USE);
     return ret_param;
 }
 

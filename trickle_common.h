@@ -53,4 +53,34 @@
 #define PIN_OUT(val,bitcount)   
 //#define PIN_OUT(val,bitcount)      for (uint8_t i = 0; i < (bitcount); ++i){ if (((val) >> ((bitcount) - 1 - i)) & 0x01) { TICK_PIN(PIN_BIT_H); } else { TICK_PIN(PIN_BIT_L); } }
 
+
+#define DEBUG_DRIP_CONTROL          (1)
+#define DEBUG_TIMESLOT              (1)
+#define DEBUG_TIMESLOT_HANDLER      (0)
+
+#if DEBUG_DRIP_CONTROL
+#define DEBUG_PIN_DRIP(x)   TICK_PIN(x)
+#else
+#define DEBUG_PIN_DRIP(x)
+#endif
+
+#if DEBUG_TIMESLOT
+#define DEBUG_PIN_TIMESLOT(x)   TICK_PIN(x)
+#else
+#define DEBUG_PIN_TIMESLOT(x)
+#endif
+
+#if DEBUG_TIMESLOT_HANDLER
+#define DEBUG_PIN_TH(x)   TICK_PIN(x)
+#else
+#define DEBUG_PIN_TH(x)
+#endif
+
+
+
+
+
+
+
+
 #endif /* _TRICKLE_COMMON_H__ */
