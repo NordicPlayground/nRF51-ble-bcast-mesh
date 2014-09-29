@@ -31,9 +31,6 @@
 
 
 
-static uint8_t address[6];
-static uint8_t payload[2];
-static uint8_t version[2];
 static uint8_t led_data;
 
     
@@ -148,6 +145,9 @@ int main(void)
 {
     drip_init();
     drip_t* drip = drip_allocate_new();
+    drip->droplet.data[0] = 0x55;
+    drip->droplet.data[1] = 0xAA;
+    drip->droplet.length = 2;
     
     test_app_init();
     timeslot_handler_init();
