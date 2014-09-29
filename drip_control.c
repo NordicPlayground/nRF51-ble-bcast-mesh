@@ -1,4 +1,5 @@
 #include "drip_control.h"
+#include "trickle_common.h"
 #include <stdbool.h>
 #include <string.h>
 #include "nrf_error.h"
@@ -121,7 +122,7 @@ static void drip_place_in_buffer(drip_t* drip, uint8_t* buffer)
 
 void drip_init(void)
 {
-    trickle_setup(100, 20, 3);
+    trickle_setup(100, 200, 3);
     for (uint16_t i = 0; i < DRIP_COUNT; ++i)
     {
         g_drip_pool[i].flags = 0;
@@ -271,7 +272,7 @@ drip_t* drip_allocate_new(void)
     
     trickle_init(&oldest->trickle);
     
-    /* no unallocated drip objects, kill the oldest and use its slot */
+    oldest->flags |= (1 << DRIP_FLAG_ACTIVE_POS);
     return oldest;
 }
 
@@ -283,6 +284,7 @@ void drip_delete(drip_t* drip)
 void drip_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_to_send)
 {
     uint8_t packet_index = 0;
+    *has_anything_to_send = false;
     
     for (uint16_t i = 0; i < DRIP_COUNT; ++i)
     {
@@ -304,30 +306,12 @@ void drip_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_
                 drip_place_in_buffer(&g_drip_pool[i], &packet->data[packet_index]);
                 packet_index += drip_len;
                 *has_anything_to_send = true;
+                trickle_register_tx(&g_drip_pool[i].trickle);
+                
+                DEBUG_PIN_DRIP(3);
             }
         }
     }
      
     packet->length = packet_index;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

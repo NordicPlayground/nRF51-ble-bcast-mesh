@@ -14,6 +14,10 @@
 #define DROPLET_MAX_PACKET_LENGTH   (DROPLET_MAX_LENGTH + 4)
 
 
+
+
+
+
 typedef struct
 {
     uint8_t length;

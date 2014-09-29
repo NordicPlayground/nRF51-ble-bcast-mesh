@@ -50,6 +50,7 @@ void TIMER0_IRQHandler(void)
 
 static void trickle_interval_begin(trickle_t* trickle)
 {
+    DEBUG_PIN_DRIP(4);
     trickle->c = 0;
     
     uint32_t rand_number =  ((uint32_t) rng_vals[(rng_index++) & 0x3F])       |
@@ -97,20 +98,13 @@ void trickle_time_increment(void)
 
 
 
-uint32_t trickle_init(trickle_t* trickle)
+void trickle_init(trickle_t* trickle)
 {
-    
-    if (trickle->i < g_i_min || 
-        trickle->i > g_i_min * g_i_max)
-    {
-        return NRF_ERROR_INVALID_PARAM;
-    }
+    trickle->i_relative = 2 * g_i_min;
     
     trickle->trickle_flags = 0;
     
     trickle_interval_begin(trickle);
-    
-    return NRF_SUCCESS;
 }
 
 void trickle_rx_consistent(trickle_t* trickle)
@@ -136,11 +130,12 @@ void trickle_timer_reset(trickle_t* trickle)
 
 void trickle_register_tx(trickle_t* trickle)
 {
-    trickle->trickle_flags |= TRICKLE_FLAGS_T_DONE_Pos;
+    trickle->trickle_flags |= (1 << TRICKLE_FLAGS_T_DONE_Pos);
 }
 
 void trickle_step(trickle_t* trickle, bool* out_do_tx)
 {
+    *out_do_tx = false;
     if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
     {
         if (1000 * trickle->i / TRICKLE_INTERVAL_US <= g_trickle_time)
@@ -169,3 +164,5 @@ void trickle_step(trickle_t* trickle, bool* out_do_tx)
         }
     }
 }
+
+

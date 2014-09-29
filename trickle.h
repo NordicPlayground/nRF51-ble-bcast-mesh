@@ -18,7 +18,7 @@ void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k);
 
 void trickle_time_increment(void);
 
-uint32_t trickle_init(trickle_t* trickle);
+void trickle_init(trickle_t* trickle);
 
 void trickle_rx_consistent(trickle_t* id);
 
