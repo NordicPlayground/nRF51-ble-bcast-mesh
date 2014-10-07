@@ -1,20 +1,26 @@
 #ifndef _DRIP_CONTROL_H__
 #define _DRIP_CONTROL_H__
-#include "timeslot_handler.h"
+
 #include "trickle.h"
 #include <stdint.h>
 
-#define DRIP_FLAG_VOLATILE          (4)
+#define DRIP_FLAG_SYSTEM_POS        (3)
+#define DRIP_FLAG_VOLATILE_POS      (4)
 #define DRIP_FLAG_ACTIVE_POS        (5)
 #define DRIP_FLAG_HAS_SOURCE_POS    (6)
 #define DRIP_FLAG_IS_BROADCAST_POS  (7)
-#define DRIP_FLAG_VOLATILE          (4)
 
 #define DROPLET_MAX_LENGTH          (24)
 #define DROPLET_MAX_PACKET_LENGTH   (DROPLET_MAX_LENGTH + 4)
 
 
 
+typedef struct
+{
+    uint16_t sender;
+    uint8_t length;
+    uint8_t* data;
+} packet_t;
 
 
 

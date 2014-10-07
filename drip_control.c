@@ -1,4 +1,5 @@
 #include "drip_control.h"
+#include "timeslot_handler.h"
 #include "trickle_common.h"
 #include <stdbool.h>
 #include <string.h>
@@ -32,19 +33,39 @@ static droplet_t* droplet_get_newest(droplet_t* droplet1, droplet_t* droplet2)
 
 static void drip_update_droplet(drip_t* drip, droplet_t* droplet)
 {
-    if (droplet_get_newest(&(drip->droplet), droplet) == droplet || 
-        (drip->flags & (1 << DRIP_FLAG_ACTIVE_POS)) == 0)
+    bool is_newer = (drip->droplet.version < droplet->version);
+    
+    TICK_PIN(PIN_ABORTED);
+    if (drip->droplet.version == droplet->version)
+    {
+        trickle_rx_consistent(&drip->trickle);
+    }
+    else
+    {
+        trickle_rx_inconsistent(&drip->trickle);
+    } 
+
+    /* send system drips to lower layer */
+    if (drip->flags & (1 << DRIP_FLAG_SYSTEM_POS))
+    {
+        TICK_PIN(PIN_ABORTED);
+        sync_drip_rx(droplet);
+    }    
+    
+    /* update drip construct */
+    if (is_newer || (drip->flags & (1 << DRIP_FLAG_ACTIVE_POS)) == 0)
     {
         drip->droplet.length = droplet->length;
         drip->droplet.version = droplet->version;
         drip->droplet.source = droplet->source;
         drip->droplet.last_sender = droplet->last_sender;
         memcpy(&(drip->droplet.data[0]), &(droplet->data[0]), droplet->length);
-        trickle_rx_inconsistent(&drip->trickle);
     }
-    else
+    
+    
+    if (!(drip->flags & (1 << DRIP_FLAG_SYSTEM_POS)))
     {
-        trickle_rx_consistent(&drip->trickle);
+        /*TODO: send message to user space */
     }
 }
 
@@ -156,7 +177,8 @@ void drip_packet_dissect(packet_t* packet)
         {
             /* assume broken packet, abort. */
             /* This should never, ever happen */
-            break;
+            
+            //APP_ERROR_CHECK(NRF_ERROR_INVALID_LENGTH);
         }
         
         /* identifier bytes are structured differently if the droplet has 
@@ -180,14 +202,17 @@ void drip_packet_dissect(packet_t* packet)
                 (packet->data[index++]);
         }
         
+        
         memcpy(&droplet.data[0], &packet->data[index], droplet.length);
         
         index += droplet.length;
         
         drip = drip_get(id, target);
-           
+        TICK_PIN(PIN_ABORTED);
+        PIN_OUT(id, 16);   
         if (drip == NULL)
         {
+            TICK_PIN(PIN_ABORTED);
             drip = drip_allocate_new();
             drip->flags = (flags & DROPLET_PACKET_FLAG_MASK);
             if (flags & DRIP_FLAG_IS_BROADCAST_POS)
@@ -204,9 +229,6 @@ void drip_packet_dissect(packet_t* packet)
         
         drip_update_droplet(drip, &droplet);
     }
-    
-        
-    
 }
 
 
@@ -249,7 +271,7 @@ drip_t* drip_allocate_new(void)
             break;
         }
         
-        if (g_drip_pool[i].flags & DRIP_FLAG_VOLATILE)
+        if (g_drip_pool[i].flags & (1 << DRIP_FLAG_VOLATILE_POS))
             continue;
         
         
@@ -303,6 +325,11 @@ void drip_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_
             * should be considered. Also, objects are not properly prioritized. */
             if (drip_len + packet_index < max_len)
             {
+                if (g_drip_pool[i].flags & (1 << DRIP_FLAG_SYSTEM_POS))
+                {
+                    g_drip_pool[i].droplet.data[0] = g_drip_pool[i].trickle.t - trickle_timestamp_get();
+                }
+                
                 drip_place_in_buffer(&g_drip_pool[i], &packet->data[packet_index]);
                 packet_index += drip_len;
                 *has_anything_to_send = true;
@@ -313,5 +340,5 @@ void drip_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_
         }
     }
      
-    packet->length = packet_index;
+    packet->length = packet_index - 1;
 }
