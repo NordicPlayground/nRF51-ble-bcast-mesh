@@ -50,7 +50,7 @@ void TIMER0_IRQHandler(void)
 
 static void trickle_interval_begin(trickle_t* trickle)
 {
-    DEBUG_PIN_DRIP(4);
+    //DEBUG_PIN_DRIP(4);
     trickle->c = 0;
     
     uint32_t rand_number =  ((uint32_t) rng_vals[(rng_index++) & 0x3F])       |
@@ -124,6 +124,7 @@ void trickle_timer_reset(trickle_t* trickle)
 {    
     trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
     trickle->i_relative = g_i_min; 
+    
         
     trickle_interval_begin(trickle);
 }
@@ -165,4 +166,8 @@ void trickle_step(trickle_t* trickle, bool* out_do_tx)
     }
 }
 
+uint32_t trickle_timestamp_get(void)
+{
+    return g_trickle_time;
+}
 

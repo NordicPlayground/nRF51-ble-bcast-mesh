@@ -7,8 +7,8 @@
 typedef struct
 {
     uint32_t        t;              /* Absolute value of t. Equals g_trickle_time (at set time) + t_relative */
-    uint32_t        i;              /* Absolute value of i. Equals g_trickle_time (at set time) + i_relative */
-    uint32_t        i_relative;     /* Relative value of i. Represents the actual i value in RFC6206 */
+    uint32_t        volatile i;              /* Absolute value of i. Equals g_trickle_time (at set time) + i_relative */
+    uint32_t        volatile i_relative;     /* Relative value of i. Represents the actual i value in RFC6206 */
     uint8_t         c;              /* Consistent messages counter */
     uint8_t         trickle_flags;  /* Bitfield for various flags used for housekeeping */
 } trickle_t;
@@ -29,5 +29,7 @@ void trickle_timer_reset(trickle_t* trickle);
 void trickle_register_tx(trickle_t* trickle);
 
 void trickle_step(trickle_t* trickle, bool* out_do_tx);
+
+uint32_t trickle_timestamp_get(void);
 
 #endif /* _TRICKLE_H__ */
