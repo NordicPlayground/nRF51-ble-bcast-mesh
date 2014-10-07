@@ -30,17 +30,18 @@ Section Cross References
     timeslot_handler.o(.text) refers to rt_memclr.o(.text) for __aeabi_memclr
     timeslot_handler.o(.text) refers to llushr.o(.text) for __aeabi_llsr
     timeslot_handler.o(.text) refers to rt_memcpy.o(.text) for __aeabi_memcpy
+    timeslot_handler.o(.text) refers to aeabi_sdiv.o(.text) for __aeabi_uidivmod
+    timeslot_handler.o(.text) refers to trickle.o(.text) for trickle_timer_reset
+    timeslot_handler.o(.text) refers to drip_control.o(.text) for drip_packet_dissect
     timeslot_handler.o(.text) refers to nrf_delay.o(.text) for nrf_delay_ms
     timeslot_handler.o(.text) refers to timeslot_handler.o(i.__ARM_common_switch8) for __ARM_common_switch8
-    timeslot_handler.o(.text) refers to radio_control.o(.text) for radio_init
-    timeslot_handler.o(.text) refers to trickle.o(.text) for trickle_time_increment
-    timeslot_handler.o(.text) refers to drip_control.o(.text) for drip_packet_assemble
     timeslot_handler.o(.text) refers to timeslot_handler.o(.data) for radio_request_earliest
     timeslot_handler.o(.text) refers to timeslot_handler.o(.bss) for tx_buffer
+    timeslot_handler.o(.text) refers to radio_control.o(.text) for radio_init
     timeslot_handler.o(.text) refers to timeslot_handler.o(.constdata) for radio_signal_cb_ret_param_none
+    drip_control.o(.text) refers to trickle.o(.text) for trickle_rx_consistent
+    drip_control.o(.text) refers to timeslot_handler.o(.text) for sync_drip_rx
     drip_control.o(.text) refers to rt_memcpy.o(.text) for __aeabi_memcpy
-    drip_control.o(.text) refers to trickle.o(.text) for trickle_rx_inconsistent
-    drip_control.o(.text) refers to timeslot_handler.o(.text) for app_error_handler
     drip_control.o(.text) refers to drip_control.o(.bss) for g_drip_pool
     nrf_delay.o(.text) refers to nrf_delay.o(.emb_text) for __asm___11_nrf_delay_c_532987f3__nrf_delay_us
     simple_uart.o(.text) refers to simple_uart.o(.emb_text) for __asm___13_simple_uart_c_5dda6715__nrf_delay_us
@@ -187,62 +188,62 @@ Image Symbol Table
 
     Symbol Name                              Value     Ov Type        Size  Object(Section)
 
-    ../clib/angel/boardlib.s                 0x00000000   Number         0  boardinit1.o ABSOLUTE
-    ../clib/angel/boardlib.s                 0x00000000   Number         0  boardshut.o ABSOLUTE
     ../clib/angel/boardlib.s                 0x00000000   Number         0  boardinit2.o ABSOLUTE
+    ../clib/angel/boardlib.s                 0x00000000   Number         0  boardinit1.o ABSOLUTE
     ../clib/angel/boardlib.s                 0x00000000   Number         0  boardinit3.o ABSOLUTE
-    ../clib/angel/handlers.s                 0x00000000   Number         0  __scatter_zi.o ABSOLUTE
+    ../clib/angel/boardlib.s                 0x00000000   Number         0  boardshut.o ABSOLUTE
     ../clib/angel/handlers.s                 0x00000000   Number         0  __scatter_copy.o ABSOLUTE
-    ../clib/angel/kernel.s                   0x00000000   Number         0  rtentry.o ABSOLUTE
-    ../clib/angel/kernel.s                   0x00000000   Number         0  rtentry2.o ABSOLUTE
+    ../clib/angel/handlers.s                 0x00000000   Number         0  __scatter_zi.o ABSOLUTE
     ../clib/angel/kernel.s                   0x00000000   Number         0  rtexit.o ABSOLUTE
-    ../clib/angel/kernel.s                   0x00000000   Number         0  rtexit2.o ABSOLUTE
     ../clib/angel/kernel.s                   0x00000000   Number         0  rtentry4.o ABSOLUTE
-    ../clib/angel/rt.s                       0x00000000   Number         0  aeabi_idiv0.o ABSOLUTE
-    ../clib/angel/rt.s                       0x00000000   Number         0  aeabi_idiv0_sigfpe.o ABSOLUTE
+    ../clib/angel/kernel.s                   0x00000000   Number         0  rtentry2.o ABSOLUTE
+    ../clib/angel/kernel.s                   0x00000000   Number         0  rtentry.o ABSOLUTE
+    ../clib/angel/kernel.s                   0x00000000   Number         0  rtexit2.o ABSOLUTE
     ../clib/angel/rt.s                       0x00000000   Number         0  rt_div0.o ABSOLUTE
+    ../clib/angel/rt.s                       0x00000000   Number         0  aeabi_idiv0_sigfpe.o ABSOLUTE
+    ../clib/angel/rt.s                       0x00000000   Number         0  aeabi_idiv0.o ABSOLUTE
     ../clib/angel/rt.s                       0x00000000   Number         0  rt_raise.o ABSOLUTE
     ../clib/angel/scatterp.s                 0x00000000   Number         0  __scatter.o ABSOLUTE
     ../clib/angel/startup.s                  0x00000000   Number         0  __main.o ABSOLUTE
     ../clib/angel/sys.s                      0x00000000   Number         0  sys_stackheap_outer.o ABSOLUTE
-    ../clib/angel/sys.s                      0x00000000   Number         0  libspace.o ABSOLUTE
-    ../clib/angel/sys.s                      0x00000000   Number         0  tempstk.o ABSOLUTE
-    ../clib/angel/sys.s                      0x00000000   Number         0  indicate_semi.o ABSOLUTE
     ../clib/angel/sys.s                      0x00000000   Number         0  use_no_semi.o ABSOLUTE
-    ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_exit.o ABSOLUTE
-    ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_command.o ABSOLUTE
+    ../clib/angel/sys.s                      0x00000000   Number         0  indicate_semi.o ABSOLUTE
+    ../clib/angel/sys.s                      0x00000000   Number         0  tempstk.o ABSOLUTE
+    ../clib/angel/sys.s                      0x00000000   Number         0  libspace.o ABSOLUTE
     ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_wrch.o ABSOLUTE
-    ../clib/armsys.c                         0x00000000   Number         0  argv_veneer.o ABSOLUTE
+    ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_command.o ABSOLUTE
+    ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_exit.o ABSOLUTE
     ../clib/armsys.c                         0x00000000   Number         0  no_argv.o ABSOLUTE
+    ../clib/armsys.c                         0x00000000   Number         0  argv_veneer.o ABSOLUTE
     ../clib/armsys.c                         0x00000000   Number         0  _get_argv_nomalloc.o ABSOLUTE
-    ../clib/division.s                       0x00000000   Number         0  aeabi_sdiv.o ABSOLUTE
     ../clib/division.s                       0x00000000   Number         0  aeabi_sdiv_div0.o ABSOLUTE
+    ../clib/division.s                       0x00000000   Number         0  aeabi_sdiv.o ABSOLUTE
     ../clib/heapalloc.c                      0x00000000   Number         0  hrguard.o ABSOLUTE
     ../clib/heapaux.c                        0x00000000   Number         0  heapauxi.o ABSOLUTE
     ../clib/libinit.s                        0x00000000   Number         0  libshutdown2.o ABSOLUTE
     ../clib/libinit.s                        0x00000000   Number         0  libshutdown.o ABSOLUTE
-    ../clib/libinit.s                        0x00000000   Number         0  libinit.o ABSOLUTE
     ../clib/libinit.s                        0x00000000   Number         0  libinit2.o ABSOLUTE
+    ../clib/libinit.s                        0x00000000   Number         0  libinit.o ABSOLUTE
     ../clib/longlong.c                       0x00000000   Number         0  llushr.o ABSOLUTE
     ../clib/memcpset.c                       0x00000000   Number         0  rt_memcpy.o ABSOLUTE
     ../clib/memcpset.c                       0x00000000   Number         0  rt_memclr.o ABSOLUTE
     ../clib/memcpset.c                       0x00000000   Number         0  rt_memcpy.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_cppl_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_pvfn_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_stak_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_formal.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_outer.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_general.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_rtred_inner.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_abrt_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_general.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  __raise.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_other.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_outer.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_formal.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_inner.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_exit.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_formal.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_outer.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_pvfn_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  __raise.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_other.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_segv_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_cppl_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_formal.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_stak_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_outer.o ABSOLUTE
     ../clib/signal.s                         0x00000000   Number         0  defsig.o ABSOLUTE
     ../clib/stdlib.c                         0x00000000   Number         0  exit.o ABSOLUTE
     ../fplib/cfplib/fpinit.c                 0x00000000   Number         0  fpinit.o ABSOLUTE
@@ -317,44 +318,45 @@ Image Symbol Table
     is_disabled_in_debug_needed              0x00016211   Thumb Code    52  system_nrf51.o(.text)
     is_manual_peripheral_setup_needed        0x00016245   Thumb Code   104  system_nrf51.o(.text)
     .text                                    0x000162f0   Section        0  radio_control.o(.text)
-    .text                                    0x0001658c   Section        0  trickle.o(.text)
-    trickle_interval_begin                   0x0001658d   Thumb Code   184  trickle.o(.text)
-    .text                                    0x000167a4   Section        0  test_application.o(.text)
-    led_config                               0x000167a5   Thumb Code    56  test_application.o(.text)
-    gpiote_init                              0x000167dd   Thumb Code    26  test_application.o(.text)
-    nrf_gpio_cfg_output                      0x00016873   Thumb Code    18  test_application.o(.text)
-    nrf_gpio_cfg_input                       0x00016885   Thumb Code    20  test_application.o(.text)
-    nrf_gpio_pin_set                         0x00016899   Thumb Code    10  test_application.o(.text)
-    nrf_gpio_pin_clear                       0x000168a3   Thumb Code    10  test_application.o(.text)
-    .text                                    0x000168c8   Section        0  timeslot_handler.o(.text)
-    enter_search_mode                        0x000168c9   Thumb Code    16  timeslot_handler.o(.text)
-    search_mode_timeslot_started             0x000168d9   Thumb Code   102  timeslot_handler.o(.text)
-    tx_buffer_init                           0x0001693f   Thumb Code    94  timeslot_handler.o(.text)
-    radio_signal_callback_searching          0x00016abd   Thumb Code   210  timeslot_handler.o(.text)
-    radio_signal_callback_periodic           0x00016b8f   Thumb Code   228  timeslot_handler.o(.text)
-    radio_signal_callback                    0x00016c73   Thumb Code   190  timeslot_handler.o(.text)
-    NVIC_EnableIRQ                           0x00016dc7   Thumb Code    14  timeslot_handler.o(.text)
-    .text                                    0x00016df4   Section        0  drip_control.o(.text)
-    droplet_get_newest                       0x00016df5   Thumb Code    18  drip_control.o(.text)
-    drip_update_droplet                      0x00016e07   Thumb Code    76  drip_control.o(.text)
-    drip_get_length                          0x00016e53   Thumb Code    46  drip_control.o(.text)
-    drip_place_in_buffer                     0x00016e81   Thumb Code   154  drip_control.o(.text)
-    .text                                    0x00017228   Section        0  nrf_delay.o(.text)
-    .text                                    0x00017244   Section        0  llushr.o(.text)
-    .text                                    0x00017266   Section        0  rt_memcpy.o(.text)
-    .text                                    0x000172e8   Section        0  rt_memclr.o(.text)
-    .text                                    0x00017328   Section      346  aeabi_sdiv.o(.text)
-    .text                                    0x00017482   Section        0  heapauxi.o(.text)
-    .text                                    0x00017488   Section       62  sys_stackheap_outer.o(.text)
-    .text                                    0x000174c6   Section        0  exit.o(.text)
-    .text                                    0x000174d4   Section        8  libspace.o(.text)
-    .text                                    0x000174dc   Section        0  sys_exit.o(.text)
-    .text                                    0x000174e8   Section        2  use_no_semi.o(.text)
-    .text                                    0x000174ea   Section        0  indicate_semi.o(.text)
-    i.__ARM_common_switch8                   0x000174ea   Section        0  timeslot_handler.o(i.__ARM_common_switch8)
-    .constdata                               0x00017508   Section       16  timeslot_handler.o(.constdata)
-    radio_signal_cb_ret_param_none           0x00017508   Data           8  timeslot_handler.o(.constdata)
-    radio_signal_cb_ret_param_extend         0x00017510   Data           8  timeslot_handler.o(.constdata)
+    .text                                    0x000165b8   Section        0  trickle.o(.text)
+    trickle_interval_begin                   0x000165b9   Thumb Code   168  trickle.o(.text)
+    .text                                    0x000167c0   Section        0  test_application.o(.text)
+    led_config                               0x000167c1   Thumb Code    56  test_application.o(.text)
+    gpiote_init                              0x000167f9   Thumb Code    26  test_application.o(.text)
+    nrf_gpio_cfg_output                      0x0001687d   Thumb Code    18  test_application.o(.text)
+    nrf_gpio_cfg_input                       0x0001688f   Thumb Code    20  test_application.o(.text)
+    nrf_gpio_pin_set                         0x000168a3   Thumb Code    10  test_application.o(.text)
+    nrf_gpio_pin_clear                       0x000168ad   Thumb Code    10  test_application.o(.text)
+    .text                                    0x000168d4   Section        0  timeslot_handler.o(.text)
+    enter_search_mode                        0x000168d5   Thumb Code    16  timeslot_handler.o(.text)
+    search_mode_timeslot_started             0x000168e5   Thumb Code    74  timeslot_handler.o(.text)
+    tx_buffer_init                           0x0001692f   Thumb Code    94  timeslot_handler.o(.text)
+    radio_signal_callback_searching          0x00016d7b   Thumb Code   246  timeslot_handler.o(.text)
+    radio_signal_callback_calibrating        0x00016e71   Thumb Code   322  timeslot_handler.o(.text)
+    radio_signal_callback_periodic           0x00016fb3   Thumb Code   462  timeslot_handler.o(.text)
+    radio_signal_callback                    0x00017181   Thumb Code   152  timeslot_handler.o(.text)
+    NVIC_EnableIRQ                           0x000172d7   Thumb Code    14  timeslot_handler.o(.text)
+    .text                                    0x00017318   Section        0  drip_control.o(.text)
+    droplet_get_newest                       0x00017319   Thumb Code    18  drip_control.o(.text)
+    drip_update_droplet                      0x0001732b   Thumb Code   140  drip_control.o(.text)
+    drip_get_length                          0x000173b7   Thumb Code    46  drip_control.o(.text)
+    drip_place_in_buffer                     0x000173e5   Thumb Code   154  drip_control.o(.text)
+    .text                                    0x00017808   Section        0  nrf_delay.o(.text)
+    .text                                    0x00017824   Section        0  llushr.o(.text)
+    .text                                    0x00017846   Section        0  rt_memcpy.o(.text)
+    .text                                    0x000178c8   Section        0  rt_memclr.o(.text)
+    .text                                    0x00017908   Section      346  aeabi_sdiv.o(.text)
+    .text                                    0x00017a62   Section        0  heapauxi.o(.text)
+    .text                                    0x00017a68   Section       62  sys_stackheap_outer.o(.text)
+    .text                                    0x00017aa6   Section        0  exit.o(.text)
+    .text                                    0x00017ab4   Section        8  libspace.o(.text)
+    .text                                    0x00017abc   Section        0  sys_exit.o(.text)
+    .text                                    0x00017ac8   Section        2  use_no_semi.o(.text)
+    .text                                    0x00017aca   Section        0  indicate_semi.o(.text)
+    i.__ARM_common_switch8                   0x00017aca   Section        0  timeslot_handler.o(i.__ARM_common_switch8)
+    .constdata                               0x00017ae8   Section       16  timeslot_handler.o(.constdata)
+    radio_signal_cb_ret_param_none           0x00017ae8   Data           8  timeslot_handler.o(.constdata)
+    radio_signal_cb_ret_param_extend         0x00017af0   Data           8  timeslot_handler.o(.constdata)
     .data                                    0x20002000   Section        4  system_nrf51.o(.data)
     __tagsym$$used                           0x20002000   Number         0  system_nrf51.o(.data)
     .data                                    0x20002004   Section       20  radio_control.o(.data)
@@ -371,26 +373,32 @@ Image Symbol Table
     g_k                                      0x20002028   Data           1  trickle.o(.data)
     .data                                    0x20002029   Section        1  test_application.o(.data)
     led_data                                 0x20002029   Data           1  test_application.o(.data)
-    .data                                    0x2000202c   Section       42  timeslot_handler.o(.data)
+    .data                                    0x2000202c   Section       61  timeslot_handler.o(.data)
     radio_request_normal                     0x2000202c   Data          16  timeslot_handler.o(.data)
     radio_request_earliest                   0x2000203c   Data          16  timeslot_handler.o(.data)
     radio_signal_cb_ret_param_request        0x2000204c   Data           8  timeslot_handler.o(.data)
     g_trickle_radio_mode                     0x20002054   Data           1  timeslot_handler.o(.data)
     end_timeslot                             0x20002055   Data           1  timeslot_handler.o(.data)
-    .bss                                     0x20002058   Section      256  radio_control.o(.bss)
-    rx_data_buf                              0x20002058   Data         256  radio_control.o(.bss)
-    .bss                                     0x20002158   Section       64  trickle.o(.bss)
-    rng_vals                                 0x20002158   Data          64  trickle.o(.bss)
-    .bss                                     0x20002198   Section       40  timeslot_handler.o(.bss)
-    tx_buffer                                0x20002198   Data          40  timeslot_handler.o(.bss)
-    .bss                                     0x200021c0   Section      416  drip_control.o(.bss)
-    g_drip_pool                              0x200021c0   Data         416  drip_control.o(.bss)
-    .bss                                     0x20002360   Section       96  libspace.o(.bss)
-    HEAP                                     0x200023c0   Section     2048  arm_startup_nrf51.o(HEAP)
-    Heap_Mem                                 0x200023c0   Data        2048  arm_startup_nrf51.o(HEAP)
-    STACK                                    0x20002bc0   Section     2048  arm_startup_nrf51.o(STACK)
-    Stack_Mem                                0x20002bc0   Data        2048  arm_startup_nrf51.o(STACK)
-    __initial_sp                             0x200033c0   Data           0  arm_startup_nrf51.o(STACK)
+    extend_timeslot                          0x20002056   Data           1  timeslot_handler.o(.data)
+    interval_counter                         0x20002058   Data           4  timeslot_handler.o(.data)
+    clock_drift                              0x2000205c   Data           4  timeslot_handler.o(.data)
+    parent                                   0x20002060   Data           2  timeslot_handler.o(.data)
+    sync_drip                                0x20002064   Data           4  timeslot_handler.o(.data)
+    calibration_request_sent                 0x20002068   Data           1  timeslot_handler.o(.data)
+    .bss                                     0x2000206c   Section      256  radio_control.o(.bss)
+    rx_data_buf                              0x2000206c   Data         256  radio_control.o(.bss)
+    .bss                                     0x2000216c   Section       64  trickle.o(.bss)
+    rng_vals                                 0x2000216c   Data          64  trickle.o(.bss)
+    .bss                                     0x200021ac   Section       40  timeslot_handler.o(.bss)
+    tx_buffer                                0x200021ac   Data          40  timeslot_handler.o(.bss)
+    .bss                                     0x200021d4   Section      416  drip_control.o(.bss)
+    g_drip_pool                              0x200021d4   Data         416  drip_control.o(.bss)
+    .bss                                     0x20002374   Section       96  libspace.o(.bss)
+    HEAP                                     0x200023d8   Section     2048  arm_startup_nrf51.o(HEAP)
+    Heap_Mem                                 0x200023d8   Data        2048  arm_startup_nrf51.o(HEAP)
+    STACK                                    0x20002bd8   Section     2048  arm_startup_nrf51.o(STACK)
+    Stack_Mem                                0x20002bd8   Data        2048  arm_startup_nrf51.o(STACK)
+    __initial_sp                             0x200033d8   Data           0  arm_startup_nrf51.o(STACK)
 
     Global Symbols
 
@@ -510,69 +518,71 @@ Image Symbol Table
     __user_initial_stackheap                 0x000161e1   Thumb Code     0  arm_startup_nrf51.o(.text)
     SystemCoreClockUpdate                    0x00016209   Thumb Code     8  system_nrf51.o(.text)
     SystemInit                               0x000162ad   Thumb Code    38  system_nrf51.o(.text)
-    radio_init                               0x000162f1   Thumb Code   102  radio_control.o(.text)
-    radio_tx                                 0x00016357   Thumb Code   166  radio_control.o(.text)
-    radio_rx                                 0x000163fd   Thumb Code    50  radio_control.o(.text)
-    radio_disable                            0x0001642f   Thumb Code    26  radio_control.o(.text)
-    radio_event_handler                      0x00016449   Thumb Code   232  radio_control.o(.text)
-    trickle_setup                            0x00016645   Thumb Code    66  trickle.o(.text)
-    trickle_time_increment                   0x00016687   Thumb Code    12  trickle.o(.text)
-    trickle_init                             0x00016693   Thumb Code    24  trickle.o(.text)
-    trickle_rx_consistent                    0x000166ab   Thumb Code     8  trickle.o(.text)
-    trickle_timer_reset                      0x000166b3   Thumb Code    26  trickle.o(.text)
-    trickle_rx_inconsistent                  0x000166cd   Thumb Code    22  trickle.o(.text)
-    trickle_register_tx                      0x000166e3   Thumb Code    10  trickle.o(.text)
-    trickle_step                             0x000166ed   Thumb Code   138  trickle.o(.text)
-    test_app_init                            0x000167f7   Thumb Code    88  test_application.o(.text)
-    main                                     0x0001684f   Thumb Code    36  test_application.o(.text)
-    radio_rx_callback                        0x0001699d   Thumb Code    22  timeslot_handler.o(.text)
-    radio_tx_callback                        0x000169b3   Thumb Code    22  timeslot_handler.o(.text)
-    sd_assert_handler                        0x000169c9   Thumb Code    50  timeslot_handler.o(.text)
-    app_error_handler                        0x000169fb   Thumb Code    50  timeslot_handler.o(.text)
-    SWI2_IRQHandler                          0x00016a2d   Thumb Code   144  timeslot_handler.o(.text)
-    timeslot_handler_init                    0x00016d31   Thumb Code    78  timeslot_handler.o(.text)
-    timeslot_handler_start_periodic          0x00016d7f   Thumb Code    72  timeslot_handler.o(.text)
-    drip_init                                0x00016f1b   Thumb Code    70  drip_control.o(.text)
-    drip_allocate_new                        0x00016f61   Thumb Code   144  drip_control.o(.text)
-    drip_get                                 0x00016ff1   Thumb Code    78  drip_control.o(.text)
-    drip_packet_dissect                      0x0001703f   Thumb Code   290  drip_control.o(.text)
-    drip_delete                              0x00017161   Thumb Code     6  drip_control.o(.text)
-    drip_packet_assemble                     0x00017167   Thumb Code   164  drip_control.o(.text)
-    nrf_delay_ms                             0x00017229   Thumb Code    24  nrf_delay.o(.text)
-    __aeabi_llsr                             0x00017245   Thumb Code    34  llushr.o(.text)
-    _ll_ushift_r                             0x00017245   Thumb Code     0  llushr.o(.text)
-    __aeabi_memcpy                           0x00017267   Thumb Code   130  rt_memcpy.o(.text)
-    __rt_memcpy                              0x00017267   Thumb Code     0  rt_memcpy.o(.text)
-    _memset_w                                0x000172e9   Thumb Code    26  rt_memclr.o(.text)
-    _memset                                  0x00017303   Thumb Code    30  rt_memclr.o(.text)
-    __aeabi_memclr                           0x00017321   Thumb Code     4  rt_memclr.o(.text)
-    __rt_memclr                              0x00017321   Thumb Code     0  rt_memclr.o(.text)
-    __aeabi_memclr4                          0x00017325   Thumb Code     0  rt_memclr.o(.text)
-    __aeabi_memclr8                          0x00017325   Thumb Code     0  rt_memclr.o(.text)
-    __rt_memclr_w                            0x00017325   Thumb Code     4  rt_memclr.o(.text)
-    __aeabi_uidiv                            0x00017329   Thumb Code     0  aeabi_sdiv.o(.text)
-    __aeabi_uidivmod                         0x00017329   Thumb Code    20  aeabi_sdiv.o(.text)
-    __aeabi_idiv                             0x0001733d   Thumb Code     0  aeabi_sdiv.o(.text)
-    __aeabi_idivmod                          0x0001733d   Thumb Code   326  aeabi_sdiv.o(.text)
-    __use_two_region_memory                  0x00017483   Thumb Code     2  heapauxi.o(.text)
-    __rt_heap_escrow$2region                 0x00017485   Thumb Code     2  heapauxi.o(.text)
-    __rt_heap_expand$2region                 0x00017487   Thumb Code     2  heapauxi.o(.text)
-    __user_setup_stackheap                   0x00017489   Thumb Code    62  sys_stackheap_outer.o(.text)
-    exit                                     0x000174c7   Thumb Code    12  exit.o(.text)
-    __user_libspace                          0x000174d5   Thumb Code     8  libspace.o(.text)
-    __user_perproc_libspace                  0x000174d5   Thumb Code     0  libspace.o(.text)
-    __user_perthread_libspace                0x000174d5   Thumb Code     0  libspace.o(.text)
-    _sys_exit                                0x000174dd   Thumb Code     8  sys_exit.o(.text)
-    __I$use$semihosting                      0x000174e9   Thumb Code     0  use_no_semi.o(.text)
-    __use_no_semihosting_swi                 0x000174e9   Thumb Code     2  use_no_semi.o(.text)
-    __ARM_common_switch8                     0x000174eb   Thumb Code    28  timeslot_handler.o(i.__ARM_common_switch8)
-    __semihosting_library_function           0x000174eb   Thumb Code     0  indicate_semi.o(.text)
-    Region$$Table$$Base                      0x00017518   Number         0  anon$$obj.o(Region$$Table)
-    Region$$Table$$Limit                     0x00017538   Number         0  anon$$obj.o(Region$$Table)
+    radio_init                               0x000162f1   Thumb Code   108  radio_control.o(.text)
+    radio_tx                                 0x0001635d   Thumb Code   166  radio_control.o(.text)
+    radio_rx                                 0x00016403   Thumb Code    68  radio_control.o(.text)
+    radio_disable                            0x00016447   Thumb Code    26  radio_control.o(.text)
+    radio_event_handler                      0x00016461   Thumb Code   248  radio_control.o(.text)
+    trickle_setup                            0x00016661   Thumb Code    66  trickle.o(.text)
+    trickle_time_increment                   0x000166a3   Thumb Code    12  trickle.o(.text)
+    trickle_init                             0x000166af   Thumb Code    24  trickle.o(.text)
+    trickle_rx_consistent                    0x000166c7   Thumb Code     8  trickle.o(.text)
+    trickle_timer_reset                      0x000166cf   Thumb Code    26  trickle.o(.text)
+    trickle_rx_inconsistent                  0x000166e9   Thumb Code    22  trickle.o(.text)
+    trickle_register_tx                      0x000166ff   Thumb Code    10  trickle.o(.text)
+    trickle_step                             0x00016709   Thumb Code   138  trickle.o(.text)
+    trickle_timestamp_get                    0x00016793   Thumb Code     6  trickle.o(.text)
+    test_app_init                            0x00016813   Thumb Code    88  test_application.o(.text)
+    main                                     0x0001686b   Thumb Code    18  test_application.o(.text)
+    sync_drip_rx                             0x0001698d   Thumb Code   276  timeslot_handler.o(.text)
+    radio_rx_callback                        0x00016aa1   Thumb Code   194  timeslot_handler.o(.text)
+    radio_tx_callback                        0x00016b63   Thumb Code    22  timeslot_handler.o(.text)
+    sd_assert_handler                        0x00016b79   Thumb Code    50  timeslot_handler.o(.text)
+    app_error_handler                        0x00016bab   Thumb Code   122  timeslot_handler.o(.text)
+    SWI2_IRQHandler                          0x00016c25   Thumb Code   342  timeslot_handler.o(.text)
+    timeslot_handler_init                    0x00017219   Thumb Code   116  timeslot_handler.o(.text)
+    timeslot_handler_start_periodic          0x0001728d   Thumb Code    74  timeslot_handler.o(.text)
+    drip_init                                0x0001747f   Thumb Code    70  drip_control.o(.text)
+    drip_allocate_new                        0x000174c5   Thumb Code   144  drip_control.o(.text)
+    drip_get                                 0x00017555   Thumb Code    78  drip_control.o(.text)
+    drip_packet_dissect                      0x000175a3   Thumb Code   410  drip_control.o(.text)
+    drip_delete                              0x0001773d   Thumb Code     6  drip_control.o(.text)
+    drip_packet_assemble                     0x00017743   Thumb Code   194  drip_control.o(.text)
+    nrf_delay_ms                             0x00017809   Thumb Code    24  nrf_delay.o(.text)
+    __aeabi_llsr                             0x00017825   Thumb Code    34  llushr.o(.text)
+    _ll_ushift_r                             0x00017825   Thumb Code     0  llushr.o(.text)
+    __aeabi_memcpy                           0x00017847   Thumb Code   130  rt_memcpy.o(.text)
+    __rt_memcpy                              0x00017847   Thumb Code     0  rt_memcpy.o(.text)
+    _memset_w                                0x000178c9   Thumb Code    26  rt_memclr.o(.text)
+    _memset                                  0x000178e3   Thumb Code    30  rt_memclr.o(.text)
+    __aeabi_memclr                           0x00017901   Thumb Code     4  rt_memclr.o(.text)
+    __rt_memclr                              0x00017901   Thumb Code     0  rt_memclr.o(.text)
+    __aeabi_memclr4                          0x00017905   Thumb Code     0  rt_memclr.o(.text)
+    __aeabi_memclr8                          0x00017905   Thumb Code     0  rt_memclr.o(.text)
+    __rt_memclr_w                            0x00017905   Thumb Code     4  rt_memclr.o(.text)
+    __aeabi_uidiv                            0x00017909   Thumb Code     0  aeabi_sdiv.o(.text)
+    __aeabi_uidivmod                         0x00017909   Thumb Code    20  aeabi_sdiv.o(.text)
+    __aeabi_idiv                             0x0001791d   Thumb Code     0  aeabi_sdiv.o(.text)
+    __aeabi_idivmod                          0x0001791d   Thumb Code   326  aeabi_sdiv.o(.text)
+    __use_two_region_memory                  0x00017a63   Thumb Code     2  heapauxi.o(.text)
+    __rt_heap_escrow$2region                 0x00017a65   Thumb Code     2  heapauxi.o(.text)
+    __rt_heap_expand$2region                 0x00017a67   Thumb Code     2  heapauxi.o(.text)
+    __user_setup_stackheap                   0x00017a69   Thumb Code    62  sys_stackheap_outer.o(.text)
+    exit                                     0x00017aa7   Thumb Code    12  exit.o(.text)
+    __user_libspace                          0x00017ab5   Thumb Code     8  libspace.o(.text)
+    __user_perproc_libspace                  0x00017ab5   Thumb Code     0  libspace.o(.text)
+    __user_perthread_libspace                0x00017ab5   Thumb Code     0  libspace.o(.text)
+    _sys_exit                                0x00017abd   Thumb Code     8  sys_exit.o(.text)
+    __I$use$semihosting                      0x00017ac9   Thumb Code     0  use_no_semi.o(.text)
+    __use_no_semihosting_swi                 0x00017ac9   Thumb Code     2  use_no_semi.o(.text)
+    __ARM_common_switch8                     0x00017acb   Thumb Code    28  timeslot_handler.o(i.__ARM_common_switch8)
+    __semihosting_library_function           0x00017acb   Thumb Code     0  indicate_semi.o(.text)
+    Region$$Table$$Base                      0x00017af8   Number         0  anon$$obj.o(Region$$Table)
+    Region$$Table$$Limit                     0x00017b18   Number         0  anon$$obj.o(Region$$Table)
     SystemCoreClock                          0x20002000   Data           4  system_nrf51.o(.data)
     radio_aborted                            0x2000200d   Data           1  radio_control.o(.data)
-    __libspace_start                         0x20002360   Data          96  libspace.o(.bss)
-    __temporary_stack_top$libspace           0x200023c0   Data           0  libspace.o(.bss)
+    __libspace_start                         0x20002374   Data          96  libspace.o(.bss)
+    __temporary_stack_top$libspace           0x200023d4   Data           0  libspace.o(.bss)
 
 
 
@@ -582,9 +592,9 @@ Memory Map of the image
 
   Image Entry point : 0x000160c1
 
-  Load Region LR_IROM1 (Base: 0x00016000, Size: 0x00001590, Max: 0x00029000, ABSOLUTE)
+  Load Region LR_IROM1 (Base: 0x00016000, Size: 0x00001b84, Max: 0x00029000, ABSOLUTE)
 
-    Execution Region ER_IROM1 (Base: 0x00016000, Size: 0x00001538, Max: 0x00029000, ABSOLUTE)
+    Execution Region ER_IROM1 (Base: 0x00016000, Size: 0x00001b18, Max: 0x00029000, ABSOLUTE)
 
     Base Addr    Size         Type   Attr      Idx    E Section Name        Object
 
@@ -639,31 +649,31 @@ Memory Map of the image
     0x00016188   0x00000038   Code   RO          352    .emb_text           c_p.l(rt_memcpy.o)
     0x000161c0   0x00000048   Code   RO            4    .text               arm_startup_nrf51.o
     0x00016208   0x000000e8   Code   RO           12    .text               system_nrf51.o
-    0x000162f0   0x0000029c   Code   RO           69    .text               radio_control.o
-    0x0001658c   0x00000218   Code   RO          143    .text               trickle.o
-    0x000167a4   0x00000124   Code   RO          193    .text               test_application.o
-    0x000168c8   0x0000052c   Code   RO          242    .text               timeslot_handler.o
-    0x00016df4   0x00000434   Code   RO          274    .text               drip_control.o
-    0x00017228   0x0000001c   Code   RO          297    .text               nrf_delay.o
-    0x00017244   0x00000022   Code   RO          350    .text               c_p.l(llushr.o)
-    0x00017266   0x00000082   Code   RO          353    .text               c_p.l(rt_memcpy.o)
-    0x000172e8   0x00000040   Code   RO          356    .text               c_p.l(rt_memclr.o)
-    0x00017328   0x0000015a   Code   RO          358    .text               c_p.l(aeabi_sdiv.o)
-    0x00017482   0x00000006   Code   RO          362    .text               c_p.l(heapauxi.o)
-    0x00017488   0x0000003e   Code   RO          388    .text               c_p.l(sys_stackheap_outer.o)
-    0x000174c6   0x0000000c   Code   RO          391    .text               c_p.l(exit.o)
-    0x000174d2   0x00000002   PAD
-    0x000174d4   0x00000008   Code   RO          403    .text               c_p.l(libspace.o)
-    0x000174dc   0x0000000c   Code   RO          458    .text               c_p.l(sys_exit.o)
-    0x000174e8   0x00000002   Code   RO          477    .text               c_p.l(use_no_semi.o)
-    0x000174ea   0x00000000   Code   RO          479    .text               c_p.l(indicate_semi.o)
-    0x000174ea   0x0000001c   Code   RO          264    i.__ARM_common_switch8  timeslot_handler.o
-    0x00017506   0x00000002   PAD
-    0x00017508   0x00000010   Data   RO          244    .constdata          timeslot_handler.o
-    0x00017518   0x00000020   Data   RO          528    Region$$Table       anon$$obj.o
+    0x000162f0   0x000002c8   Code   RO           69    .text               radio_control.o
+    0x000165b8   0x00000208   Code   RO          143    .text               trickle.o
+    0x000167c0   0x00000114   Code   RO          193    .text               test_application.o
+    0x000168d4   0x00000a44   Code   RO          242    .text               timeslot_handler.o
+    0x00017318   0x000004f0   Code   RO          274    .text               drip_control.o
+    0x00017808   0x0000001c   Code   RO          297    .text               nrf_delay.o
+    0x00017824   0x00000022   Code   RO          350    .text               c_p.l(llushr.o)
+    0x00017846   0x00000082   Code   RO          353    .text               c_p.l(rt_memcpy.o)
+    0x000178c8   0x00000040   Code   RO          356    .text               c_p.l(rt_memclr.o)
+    0x00017908   0x0000015a   Code   RO          358    .text               c_p.l(aeabi_sdiv.o)
+    0x00017a62   0x00000006   Code   RO          362    .text               c_p.l(heapauxi.o)
+    0x00017a68   0x0000003e   Code   RO          388    .text               c_p.l(sys_stackheap_outer.o)
+    0x00017aa6   0x0000000c   Code   RO          391    .text               c_p.l(exit.o)
+    0x00017ab2   0x00000002   PAD
+    0x00017ab4   0x00000008   Code   RO          403    .text               c_p.l(libspace.o)
+    0x00017abc   0x0000000c   Code   RO          458    .text               c_p.l(sys_exit.o)
+    0x00017ac8   0x00000002   Code   RO          477    .text               c_p.l(use_no_semi.o)
+    0x00017aca   0x00000000   Code   RO          479    .text               c_p.l(indicate_semi.o)
+    0x00017aca   0x0000001c   Code   RO          264    i.__ARM_common_switch8  timeslot_handler.o
+    0x00017ae6   0x00000002   PAD
+    0x00017ae8   0x00000010   Data   RO          244    .constdata          timeslot_handler.o
+    0x00017af8   0x00000020   Data   RO          528    Region$$Table       anon$$obj.o
 
 
-    Execution Region RW_IRAM1 (Base: 0x20002000, Size: 0x000013c0, Max: 0x00002000, ABSOLUTE)
+    Execution Region RW_IRAM1 (Base: 0x20002000, Size: 0x000013d8, Max: 0x00002000, ABSOLUTE)
 
     Base Addr    Size         Type   Attr      Idx    E Section Name        Object
 
@@ -672,15 +682,16 @@ Memory Map of the image
     0x20002018   0x00000011   Data   RW          145    .data               trickle.o
     0x20002029   0x00000001   Data   RW          194    .data               test_application.o
     0x2000202a   0x00000002   PAD
-    0x2000202c   0x0000002a   Data   RW          245    .data               timeslot_handler.o
-    0x20002056   0x00000002   PAD
-    0x20002058   0x00000100   Zero   RW           70    .bss                radio_control.o
-    0x20002158   0x00000040   Zero   RW          144    .bss                trickle.o
-    0x20002198   0x00000028   Zero   RW          243    .bss                timeslot_handler.o
-    0x200021c0   0x000001a0   Zero   RW          275    .bss                drip_control.o
-    0x20002360   0x00000060   Zero   RW          404    .bss                c_p.l(libspace.o)
-    0x200023c0   0x00000800   Zero   RW            2    HEAP                arm_startup_nrf51.o
-    0x20002bc0   0x00000800   Zero   RW            1    STACK               arm_startup_nrf51.o
+    0x2000202c   0x0000003d   Data   RW          245    .data               timeslot_handler.o
+    0x20002069   0x00000003   PAD
+    0x2000206c   0x00000100   Zero   RW           70    .bss                radio_control.o
+    0x2000216c   0x00000040   Zero   RW          144    .bss                trickle.o
+    0x200021ac   0x00000028   Zero   RW          243    .bss                timeslot_handler.o
+    0x200021d4   0x000001a0   Zero   RW          275    .bss                drip_control.o
+    0x20002374   0x00000060   Zero   RW          404    .bss                c_p.l(libspace.o)
+    0x200023d4   0x00000004   PAD
+    0x200023d8   0x00000800   Zero   RW            2    HEAP                arm_startup_nrf51.o
+    0x20002bd8   0x00000800   Zero   RW            1    STACK               arm_startup_nrf51.o
 
 
 ==============================================================================
@@ -691,18 +702,18 @@ Image component sizes
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   Object Name
 
         72         32        192          0       4096        624   arm_startup_nrf51.o
-      1076         30          0          0        416       4056   drip_control.o
+      1264         32          0          0        416       4272   drip_control.o
         58          4          0          0          0       1359   nrf_delay.o
-       668         92          0         20        256      14473   radio_control.o
+       712         96          0         20        256      14501   radio_control.o
        232         30          0          4          0      21373   system_nrf51.o
-       292         28          0          1          0       5561   test_application.o
-      1352        170         16         42         40       5436   timeslot_handler.o
-       536         46          0         17         64       2935   trickle.o
+       276         30          0          1          0       4429   test_application.o
+      2656        288         16         61         40       7305   timeslot_handler.o
+       520         40          0         17         64       3109   trickle.o
 
     ----------------------------------------------------------------------
-      4290        432        240         88       4872      55817   Object Totals
+      5794        552        240        108       4872      56972   Object Totals
          0          0         32          0          0          0   (incl. Generated)
-         4          0          0          4          0          0   (incl. Padding)
+         4          0          0          5          0          0   (incl. Padding)
 
     ----------------------------------------------------------------------
 
@@ -734,8 +745,8 @@ Image component sizes
          2          0          0          0          0         68   use_no_semi.o
 
     ----------------------------------------------------------------------
-       902         16          0          0         96        956   Library Totals
-         6          0          0          0          0          0   (incl. Padding)
+       902         16          0          0        100        956   Library Totals
+         6          0          0          0          4          0   (incl. Padding)
 
     ----------------------------------------------------------------------
 
@@ -744,7 +755,7 @@ Image component sizes
        896         16          0          0         96        956   c_p.l
 
     ----------------------------------------------------------------------
-       902         16          0          0         96        956   Library Totals
+       902         16          0          0        100        956   Library Totals
 
     ----------------------------------------------------------------------
 
@@ -753,15 +764,15 @@ Image component sizes
 
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   
 
-      5192        448        240         88       4968      55777   Grand Totals
-      5192        448        240         88       4968      55777   ELF Image Totals
-      5192        448        240         88          0          0   ROM Totals
+      6696        568        240        108       4972      56976   Grand Totals
+      6696        568        240        108       4972      56976   ELF Image Totals
+      6696        568        240        108          0          0   ROM Totals
 
 ==============================================================================
 
-    Total RO  Size (Code + RO Data)                 5432 (   5.30kB)
-    Total RW  Size (RW Data + ZI Data)              5056 (   4.94kB)
-    Total ROM Size (Code + RO Data + RW Data)       5520 (   5.39kB)
+    Total RO  Size (Code + RO Data)                 6936 (   6.77kB)
+    Total RW  Size (RW Data + ZI Data)              5080 (   4.96kB)
+    Total ROM Size (Code + RO Data + RW Data)       7044 (   6.88kB)
 
 ==============================================================================
 
