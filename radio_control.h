@@ -2,12 +2,27 @@
 #define _RADIO_CONTROL_H__
 #include <stdint.h>
 
+#define RADIO_RX_SAFETY_MARGIN_US   4
 
 typedef void (*radio_rx_cb)(uint8_t*);
 typedef void (*radio_tx_cb)(void);
 
+typedef enum
+{
+    RADIO_EVENT_TYPE_TX,
+    RADIO_EVENT_TYPE_RX
+} radio_event_type_t;
 
-extern uint8_t radio_aborted;
+
+typedef struct
+{
+    radio_event_type_t event_type;  /* RX/TX */
+    uint32_t start_time;            /* time to start the event. 0 indicates as soon as possible */
+    //uint32_t interrupts;            /* Interrupt field, use positions from RADIO_INTENSET/RADIO_INTENCLR */
+    uint8_t* packet_ptr;            /* packet pointer to use. TX ONLY */
+    uint8_t access_address;         /* If TX: access address index to send on. If RX: AA enabled bitfield */
+    uint8_t channel;                /* Channel to execute event on */
+} radio_event_t;
 
 /**
 * Starts the radio init procedure
@@ -17,6 +32,10 @@ extern uint8_t radio_aborted;
 */
 void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback);
 
+
+void radio_order(radio_event_t* radio_event);
+
+#if 0
 
 /**
 * Send the given data packet via radio. Will abort any ongoing RX procedure, regardless of 
@@ -29,6 +48,8 @@ void radio_tx(uint8_t* data);
 * radio goes back to disabled state
 */
 void radio_rx(uint8_t consecutive_receives);
+
+#endif
 
 /**
 * Disable the radio. Overrides any ongoing rx or tx procedures
