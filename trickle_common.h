@@ -51,6 +51,7 @@
 #define PIN_SYNC_TIME       (29)
 
 #define PIN_RADIO_SIGNAL    (3)
+#define PIN_TIMER_SIGNAL    (4)
 #define PIN_IN_TIMESLOT     (6)
 
 #define PIN_BIT_H           (25)
