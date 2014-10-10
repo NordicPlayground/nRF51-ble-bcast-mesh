@@ -8,14 +8,10 @@
 
 void timeslot_handler_init(void);
 
-void sync_drip_rx(droplet_t* latest_droplet);
+void timeslot_order_earliest(uint32_t length_us);
 
+void timeslot_order_normal(uint32_t length_us, uint32_t distance_us);
 
-/**
-* Start ordering timeslots in a periodic fashion. @param time_period_us indicates the time from 
-* the beginning of the previous timeslot until the time when the first periodic timeslot should 
-* start (in µs). A time_period of 0 orders a timeslot "as soon as possible".
-*/
-void timeslot_handler_start_periodic(uint32_t time_period_us);
+void timeslot_extend(uint32_t extra_time_us);
 
 #endif /* _TIMESLOT_HANDLER_H__ */

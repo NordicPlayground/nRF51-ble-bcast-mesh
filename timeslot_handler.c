@@ -4,6 +4,7 @@
 #include "trickle.h"
 #include "trickle_common.h"
 #include "drip_control.h"
+#include "timer_control.h"
 
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -38,12 +39,6 @@
 * Local type definitions
 *****************************************************************************/
 
-typedef enum
-{
-    TRICKLE_RADIO_MODE_SEARCHING,
-    TRICKLE_RADIO_MODE_CALIBRATING,
-    TRICKLE_RADIO_MODE_PERIODIC
-} trickle_radio_mode_t;
 
 
 /*****************************************************************************
@@ -53,6 +48,8 @@ typedef enum
 /**
 * Timeslot request structures
 */
+
+
 static nrf_radio_request_t radio_request_normal = 
                 {
                     .request_type = NRF_RADIO_REQ_TYPE_NORMAL,
@@ -77,7 +74,7 @@ static nrf_radio_request_t radio_request_earliest =
                     }
                 };
                         
-                
+#if 0                
 /**
 * Timeslot callback return parameters
 */
@@ -97,129 +94,23 @@ static const nrf_radio_signal_callback_return_param_t radio_signal_cb_ret_param_
                     .callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND,
                     .params.extend.length_us = 900000 /* 0.9 seconds */
                 };
+#endif
+                
+                
+                  
+static nrf_radio_signal_callback_return_param_t g_ret_param;
 
-                
-          
-static trickle_radio_mode_t g_trickle_radio_mode;
+static bool g_is_in_callback = true;
                 
                 
-/**
-* Flag to end the timeslot as soon as possible
-*/                
-static bool end_timeslot = false;  
-static bool extend_timeslot = false;          
-static uint32_t interval_counter;              
-static int32_t clock_drift;                
-
-static uint16_t parent;
-                
-static drip_t* sync_drip;                
-                
-static uint8_t tx_buffer[40];
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
 
-/**
-* Causes the unit to enter scan mode, where it will try to sync up with an 
-* existing network
-*
-* Puts the radio in RX mode and stays there, either until a packet is received
-* or until the search timeout is triggered. Enables a PPI from address match to 
-* timer capture, in order to capture the RX time as precisely as possible.
-* When the radio receives a valid packet, it enters periodic mode, which is the 
-* main operation mode. This is done by ordering a timeslot at 10ms (minus setup and
-* propagation time) from the beginning of the packet reception. 
-*/
-static void enter_search_mode(void)
-{
-    radio_request_earliest.params.earliest.length_us = 100000; /* 100ms */
-    sd_radio_request((nrf_radio_request_t*) &radio_request_earliest);
-    g_trickle_radio_mode = TRICKLE_RADIO_MODE_SEARCHING;
-}
-
-/**
-* Called when the searching timeslot has been granted. Sets up radio, timer and PPI
-*/
-static void search_mode_timeslot_started(void)
-{
-    /* Setup timeout timer */
-    NRF_TIMER0->CC[0] = 90000;
-    NRF_TIMER0->CC[1] = 0;
-    NRF_TIMER0->EVENTS_COMPARE[0] = 0;
-    NRF_TIMER0->INTENSET = TIMER_INTENSET_COMPARE0_Msk;
-    NVIC_EnableIRQ(TIMER0_IRQn);
-    
-    /* Setup PPI */
-    NRF_PPI->CH[TRICKLE_SEARCHING_TIMEOUT_PPI_CH].EEP   = (uint32_t) &(NRF_RADIO->EVENTS_ADDRESS);
-	NRF_PPI->CH[TRICKLE_SEARCHING_TIMEOUT_PPI_CH].TEP   = (uint32_t) &(NRF_TIMER0->TASKS_CAPTURE[1]);
-	NRF_PPI->CHENSET 			                        |= (1 << TRICKLE_SEARCHING_TIMEOUT_PPI_CH);
-}
-
-static void tx_buffer_init()
-{
-    memset(tx_buffer, 0, 40);
-    tx_buffer[PACKET_TYPE_INDEX] = PACKET_TYPE;
-    
-    uint64_t addr = (((uint64_t) NRF_FICR->DEVICEADDR[0] << 32) | NRF_FICR->DEVICEADDR[1]);
-    uint8_t address[6];
-    for (uint8_t i = 0; i < 6; ++i)
-    {
-        address[i] = (addr >> i * 8) & 0xFF;
-    }
-    memcpy(&tx_buffer[PACKET_ADV_ADDR_INDEX], address, 6);
-    
-    tx_buffer[PACKET_ADV_DATA_INDEX + 1] = PACKET_ADV_DATA_MAN_TYPE;
-    tx_buffer[PACKET_ADV_DATA_INDEX + 2] = (PACKET_ADV_DATA_MAN_COMPANY & 0xFF);
-    tx_buffer[PACKET_ADV_DATA_INDEX + 3] = (PACKET_ADV_DATA_MAN_COMPANY >> 8);
-}
 
 /*****************************************************************************
 * System callback functions
 *****************************************************************************/
-
-/**
-* Callback telling us that the designated "sync" drip has been updated 
-*/
-void sync_drip_rx(droplet_t* latest_droplet)
-{
-    TICK_PIN(PIN_RX);
-    switch (g_trickle_radio_mode)
-    {
-        case TRICKLE_RADIO_MODE_CALIBRATING:
-        
-            if (true || latest_droplet->last_sender == parent)
-            {
-                uint32_t timestamp = NRF_TIMER0->CC[1];
-                uint32_t step_count = latest_droplet->data[0];
-                clock_drift = (PACKET_PROPAGATION_TIME_US - timestamp - step_count) / step_count;          
-                //PIN_OUT(step_count, 32);
-            }
-            
-            end_timeslot = true;
-            
-            
-            
-            break;
-        case TRICKLE_RADIO_MODE_PERIODIC:
-            if (latest_droplet->version <= sync_drip->droplet.version)
-            {
-                trickle_timer_reset(&(sync_drip->trickle));
-                sync_drip->droplet.length = 1;
-                //sync_drip->trickle.t = trickle_timestamp_get();
-                ++sync_drip->droplet.version;
-                PIN_OUT((sync_drip->trickle.t), 32);
-                
-                uint32_t ts = trickle_timestamp_get();
-                PIN_OUT((ts), 32);
-                //PIN_OUT(0xAC, 8);
-            }
-            break;
-        case TRICKLE_RADIO_MODE_SEARCHING:
-            break;
-    }
-}
-
 
 
 /**
@@ -229,8 +120,6 @@ void sync_drip_rx(droplet_t* latest_droplet)
 */
 void radio_rx_callback(uint8_t* rx_data)
 {    
-    if (g_trickle_radio_mode != TRICKLE_RADIO_MODE_CALIBRATING)
-        end_timeslot = true;
     
     /* packet verification */
     uint32_t faulty_packet = 0;
@@ -246,18 +135,6 @@ void radio_rx_callback(uint8_t* rx_data)
     }
     
      
-    /* Synchronization stuff */
-    uint32_t timestamp = NRF_TIMER0->CC[1];       
-    
-    if (rx_data[PACKET_ADV_ADDR_INDEX + 5] < tx_buffer[PACKET_ADV_ADDR_INDEX + 5] || true)
-    {
-        clock_drift = 0;
-        radio_request_normal.params.normal.distance_us = 
-            TRICKLE_INTERVAL_US - (PACKET_PROPAGATION_TIME_US - timestamp) - clock_drift;
-        
-        //PIN_OUT((PACKET_PROPAGATION_TIME_US - timestamp), 32);
-    }
-    
     /* send to above layer */
     packet_t packet;
     packet.data = &rx_data[PACKET_MAN_DATA_INDEX];
@@ -266,17 +143,6 @@ void radio_rx_callback(uint8_t* rx_data)
                     (rx_data[PACKET_ADV_ADDR_INDEX + 5] & 0xFF);
     
     drip_packet_dissect(&packet);
-    
-    
-    if (g_trickle_radio_mode == TRICKLE_RADIO_MODE_SEARCHING)
-    {
-        memcpy(&tx_buffer[PACKET_ADV_ADDR_INDEX], &rx_data[PACKET_ADV_ADDR_INDEX], 4);
-        parent = packet.sender;
-        
-        /* one receive means that we are ready to enter calibration mode */
-        g_trickle_radio_mode = TRICKLE_RADIO_MODE_CALIBRATING;
-        //g_trickle_radio_mode = TRICKLE_RADIO_MODE_PERIODIC;
-    }
 }
 
 /**
@@ -285,8 +151,6 @@ void radio_rx_callback(uint8_t* rx_data)
 void radio_tx_callback(void)
 {
     TICK_PIN(PIN_TRICKLE_TX);
-    
-    end_timeslot = true;
 }
 
 
@@ -345,6 +209,7 @@ void SD_EVT_IRQHandler(void)
                 break;
             
             case NRF_EVT_RADIO_BLOCKED:
+                /*TODO*/
                 radio_request_normal.params.normal.distance_us += TRICKLE_INTERVAL_US; /* skip a period */
                 sd_radio_request(&radio_request_normal);
                 
@@ -355,16 +220,7 @@ void SD_EVT_IRQHandler(void)
                 break;
             
             case NRF_EVT_RADIO_CANCELED:
-                if (g_trickle_radio_mode == TRICKLE_RADIO_MODE_SEARCHING)
-                {
-                    /* timeslot ran out for search mode, enter periodic. */
-                    DEBUG_PIN_TH(PIN_CONSISTENT);
-                    CLEAR_PIN(PIN_SEARCHING);
-                    
-                    sd_radio_request(&radio_request_earliest);
-                    g_trickle_radio_mode = TRICKLE_RADIO_MODE_PERIODIC;
-                }
-                //APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
+                APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
                 break;
             default:
                 APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
@@ -376,52 +232,30 @@ void SD_EVT_IRQHandler(void)
 /**
 * Radio signal callback handler taking care of all signals in searching mode
 */
-static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching(uint8_t sig)
+static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t sig)
 {
-    /* If the trickle step is not finished, the default action is to continue the timeslot */
-    nrf_radio_signal_callback_return_param_t* ret_param = (nrf_radio_signal_callback_return_param_t*) &radio_signal_cb_ret_param_none;
+    g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
+    g_is_in_callback = true;
     
     switch (sig)
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
-            end_timeslot = false;
-            /* timeslot start, init radio module */
-            radio_init(radio_rx_callback, radio_tx_callback);
-            search_mode_timeslot_started();
-            SET_PIN(PIN_SEARCHING);
-            /* send radio into continuous rx mode */
-            radio_rx(0);
-        
-            /* ask to extend the timeslot immediately, as we will need more than the given 100ms */
-            ret_param = (nrf_radio_signal_callback_return_param_t*) &radio_signal_cb_ret_param_extend;
-        
+
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
             /* send to radio control module */
-            //DEBUG_PIN_TH(PIN_RADIO_SIGNAL);
+            DEBUG_PIN_TH(PIN_RADIO_SIGNAL);
             radio_event_handler();
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_TIMER0:
-            /* give up timer, start periodic */
-            DEBUG_PIN_TH(PIN_CONSISTENT);
-        
-            if (NRF_TIMER0->EVENTS_COMPARE[0])
-            {
-                radio_disable();
-                radio_signal_cb_ret_param_request.params.request.p_next = 
-                    (nrf_radio_request_t*) &radio_request_earliest;
-                ret_param = &radio_signal_cb_ret_param_request;
-                NRF_TIMER0->TASKS_STOP = 1;
-                g_trickle_radio_mode = TRICKLE_RADIO_MODE_PERIODIC;
-                CLEAR_PIN(PIN_SEARCHING);
-            }
+            /* send to timer control module */
+            DEBUG_PIN_TH(PIN_TIMER_SIGNAL);
+            timer_event_handler();
             break;
             
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_SUCCEEDED:
-            /* Extend the abort timer to the new timeslot length, which is 1 second */
-            NRF_TIMER0->CC[0] = 999000; /* 999ms, leaving 1 ms for clean up */
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:
@@ -432,267 +266,11 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback_searching
             APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
     
-    /* end the timeslot right away, and order the next timeslot in a periodic fashion */
-    if (end_timeslot)
-    {
-        radio_request_normal.params.normal.distance_us = 
-                    TRICKLE_INTERVAL_US - TRICKLE_RX_PROPAGATION_US 
-                    + NRF_TIMER0->CC[1] - 40 - TRICKLE_SAFETY_MARGIN_US; /* 40 = address bits RX time */
-        radio_request_normal.params.normal.length_us = TRICKLE_TIMESLOT_LENGTH_US;
-        radio_request_normal.params.normal.hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT;
-        radio_request_normal.params.normal.priority = NRF_RADIO_PRIORITY_NORMAL;
-        radio_request_normal.request_type = NRF_RADIO_REQ_TYPE_NORMAL;
-        
-        radio_signal_cb_ret_param_request.params.request.p_next = &radio_request_normal;
-        ret_param = &radio_signal_cb_ret_param_request;
-        
-        if (g_trickle_radio_mode == TRICKLE_RADIO_MODE_SEARCHING)
-            g_trickle_radio_mode = TRICKLE_RADIO_MODE_PERIODIC;
-        
-        CLEAR_PIN(PIN_SEARCHING);
-    }
     
-    return ret_param;
+    g_is_in_callback = false;
+    return &g_ret_param;
 }
 
-/**
-* Radio signal callback handler taking care of all signals in periodic mode
-*/
-static nrf_radio_signal_callback_return_param_t* radio_signal_callback_calibrating(uint8_t sig)
-{
-    SET_PIN(2);
-    static bool calibration_request_sent = false;
-    nrf_radio_signal_callback_return_param_t* ret_param = 
-        (nrf_radio_signal_callback_return_param_t*) &radio_signal_cb_ret_param_none;
-    switch (sig)
-    {
-        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
-            radio_init(radio_rx_callback, radio_tx_callback);
-            end_timeslot = false;
-            if (calibration_request_sent)
-            {
-                radio_rx(0);
-            }
-            else
-            {
-                DEBUG_PIN_TH(PIN_SYNC_TIME);
-                trickle_time_increment();
-                trickle_timer_reset(&sync_drip->trickle);
-                sync_drip->trickle.t = 0;
-                
-                bool anything_to_send = false;
-                packet_t packet;
-                packet.data = &tx_buffer[PACKET_MAN_DATA_INDEX];
-                drip_packet_assemble(&packet, DROPLET_MAX_PACKET_LENGTH, &anything_to_send);
-                
-                if (!anything_to_send)
-                {
-                    APP_ERROR_CHECK(NRF_ERROR_INTERNAL);
-                }
-                
-                tx_buffer[PACKET_LENGTH_INDEX] = 11 + packet.length;
-                tx_buffer[PACKET_ADV_DATA_INDEX] = 4 + packet.length;
-                radio_tx(tx_buffer);
-                
-                NRF_TIMER0->CC[1] = PACKET_PRECOMP_TIME_US + PACKET_SAFETY_MARGIN_US + PACKET_RAMP_UP_TIME_US;
-                NRF_TIMER0->EVENTS_COMPARE[0] = 0;
-                
-                
-                /* Set up a PPI for packet timing. Used to sync with other devices */
-                NRF_PPI->CH[TRICKLE_SYNC_PPI_CH].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[1]);
-                NRF_PPI->CH[TRICKLE_SYNC_PPI_CH].TEP   = (uint32_t) &(NRF_RADIO->TASKS_START);
-                NRF_PPI->CHENSET 			                        |= (1 << TRICKLE_SYNC_PPI_CH);
-                
-            }
-            
-            break;
-        
-        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
-            /* send to radio control module */
-            radio_event_handler();
-            break;
-        
-        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_TIMER0:
-            break;
-            
-        default:
-            APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
-    }
-        
-    /* a flag to end the timeslot has been set, end and order next. */
-    if (end_timeslot)
-    {
-        if (!calibration_request_sent)
-        {
-            radio_request_normal.params.normal.distance_us = TRICKLE_INTERVAL_US * 4;
-            radio_request_normal.params.normal.length_us = TRICKLE_INTERVAL_US * 6;
-            calibration_request_sent = true;
-        }
-        else 
-        {
-            radio_request_normal.params.normal.distance_us = TRICKLE_INTERVAL_US;
-            radio_request_normal.params.normal.length_us = TRICKLE_TIMESLOT_LENGTH_US;
-            CLEAR_PIN(2);
-        }
-        radio_request_normal.request_type = NRF_RADIO_REQ_TYPE_NORMAL;
-        radio_signal_cb_ret_param_request.params.request.p_next = &radio_request_normal;
-        
-        ret_param = &radio_signal_cb_ret_param_request;    
-    }
-    
-    return ret_param;
-    
-}
-
-/**
-* Radio signal callback handler taking care of all signals in periodic mode
-*/
-static nrf_radio_signal_callback_return_param_t* radio_signal_callback_periodic(uint8_t sig)
-{
-    /* If the trickle step is not finished, the default action is to continue the timeslot */
-    nrf_radio_signal_callback_return_param_t* ret_param = 
-        (nrf_radio_signal_callback_return_param_t*) &radio_signal_cb_ret_param_none;
-    
-    switch (sig)
-    {
-        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
-        {
-            ++interval_counter;
-            /* reset interval timer */
-            radio_request_normal.params.normal.distance_us = TRICKLE_INTERVAL_US - clock_drift;
-    
-            trickle_time_increment();
-            end_timeslot = false;
-            /* timeslot start, init radio module */
-            radio_init(radio_rx_callback, radio_tx_callback);
-        
-            DEBUG_PIN_TH(PIN_SYNC_TIME);
-
-            bool anything_to_send = false;
-            packet_t packet;
-            packet.data = &tx_buffer[PACKET_MAN_DATA_INDEX];
-            drip_packet_assemble(&packet, DROPLET_MAX_PACKET_LENGTH, &anything_to_send);
-            
-            
-            
-            if (anything_to_send)
-            {
-                tx_buffer[PACKET_LENGTH_INDEX] = 11 + packet.length;
-                tx_buffer[PACKET_ADV_DATA_INDEX] = 4 + packet.length;
-                radio_tx(tx_buffer);
-                
-                NRF_TIMER0->CC[1] = PACKET_PRECOMP_TIME_US + PACKET_SAFETY_MARGIN_US + PACKET_RAMP_UP_TIME_US;
-                NRF_TIMER0->EVENTS_COMPARE[0] = 0;
-                
-                
-                /* Set up a PPI for packet timing. Used to sync with other devices */
-                NRF_PPI->CH[TRICKLE_SYNC_PPI_CH].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[1]);
-                NRF_PPI->CH[TRICKLE_SYNC_PPI_CH].TEP   = (uint32_t) &(NRF_RADIO->TASKS_START);
-                NRF_PPI->CHENSET 			                        |= (1 << TRICKLE_SYNC_PPI_CH);
-                
-            }
-            else
-            {
-                /* No tx this step, go into rx mode */
-                radio_rx(1);
-                
-                /* prepare a timeout in order to abort the rx when it doesn't receive anything */
-                
-                NRF_TIMER0->CC[0] = 900; /* 0.9ms, the timeslot is 1ms, need some time to clean up */
-                NRF_TIMER0->CC[1] = 0;
-                NRF_TIMER0->EVENTS_COMPARE[0] = 0;
-                NRF_TIMER0->INTENSET = TIMER_INTENSET_COMPARE0_Msk;
-                NVIC_EnableIRQ(TIMER0_IRQn);
-                
-                
-                /* Set up a PPI for packet timing. Used to sync with other devices */
-                NRF_PPI->CH[TRICKLE_SYNC_PPI_CH].EEP   = (uint32_t) &(NRF_RADIO->EVENTS_ADDRESS);
-                NRF_PPI->CH[TRICKLE_SYNC_PPI_CH].TEP   = (uint32_t) &(NRF_TIMER0->TASKS_CAPTURE[1]);
-                NRF_PPI->CHENSET 			                        |= (1 << TRICKLE_SYNC_PPI_CH);
-                
-                
-            }
-        }
-            break;
-        
-        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
-            /* send to radio control module */
-            radio_event_handler();
-            break;
-        
-        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_TIMER0:
-            /* The only timer in periodic mode is to stop RX. */
-            if (NRF_TIMER0->EVENTS_COMPARE[0])
-            {
-                NRF_TIMER0->EVENTS_COMPARE[0];
-                radio_disable();
-                
-                end_timeslot = true;
-            }
-            break;
-            
-        default:
-            APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
-    }
-        
-    /* a flag to end the timeslot has been set, end and order next. */
-    if (end_timeslot)
-    {
-        //radio_request_normal.params.normal.distance_us = TRICKLE_INTERVAL_US;
-        radio_request_normal.request_type = NRF_RADIO_REQ_TYPE_NORMAL;
-        radio_signal_cb_ret_param_request.params.request.p_next = &radio_request_normal;
-        
-        ret_param = &radio_signal_cb_ret_param_request;    
-    }
-    
-    if (extend_timeslot)
-    {
-        
-    }
-    
-    return ret_param;
-}
-
-
-/**
-* Callback function for radio signals in time slot. Delegates signal based on state
-*/
-static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t sig)
-{
-    //SET_PIN(PIN_CPU_IN_USE);
-    nrf_radio_signal_callback_return_param_t* ret_param = (nrf_radio_signal_callback_return_param_t*) &radio_signal_cb_ret_param_none;
-    //DEBUG_PIN_TH(PIN_RADIO_SIGNAL);
-    
-    if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START)
-    {
-        SET_PIN(PIN_IN_TIMESLOT);
-    }
-    
-    switch (g_trickle_radio_mode)
-    {
-        case TRICKLE_RADIO_MODE_SEARCHING:
-            ret_param = radio_signal_callback_searching(sig);
-            break;
-        
-        case TRICKLE_RADIO_MODE_PERIODIC:
-            ret_param = radio_signal_callback_periodic(sig);
-            break;
-        
-        case TRICKLE_RADIO_MODE_CALIBRATING:
-            ret_param = radio_signal_callback_calibrating(sig);
-            break;
-    }
-    if (ret_param->callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END)
-    {
-        CLEAR_PIN(PIN_IN_TIMESLOT);
-    }
-        
-    
-    PIN_OUT(sig, 8);
-    
-    //CLEAR_PIN(PIN_CPU_IN_USE);
-    return ret_param;
-}
 
 /*****************************************************************************
 * Interface Functions
@@ -709,40 +287,42 @@ void timeslot_handler_init(void)
     APP_ERROR_CHECK(error);
     
     sd_radio_session_open(&radio_signal_callback);
-    
-    tx_buffer_init();
-    
-    interval_counter = 0;
-    clock_drift = 0;
-    
-    /* allocate one drip that will be used for various network sync */
-    sync_drip = drip_allocate_new();
-    sync_drip->identifier.broadcast.id = 0;
-    sync_drip->flags |= (1 << DRIP_FLAG_IS_BROADCAST_POS) |
-                        (1 << DRIP_FLAG_VOLATILE_POS) |
-                        (1 << DRIP_FLAG_SYSTEM_POS) |
-                        (1 << DRIP_FLAG_ACTIVE_POS);
-    //sync_drip->droplet.length = 1;
-    //sync_drip->droplet.data[0] = 0xFF;
-    //sync_drip->droplet.version = 0;
-    
-    
-    
-    enter_search_mode();
 }
 
-void timeslot_handler_start_periodic(uint32_t time_period_us)
+
+
+void timeslot_order_earliest(uint32_t length_us)
 {
-    if (time_period_us == 0)
-    {
-        APP_ERROR_CHECK(sd_radio_request((nrf_radio_request_t*) &radio_request_earliest));
-    }
-    else
-    {
-        radio_request_normal.params.normal.distance_us = time_period_us;
-        APP_ERROR_CHECK(sd_radio_request(&radio_request_normal));
-    }
+    radio_request_earliest.params.earliest.length_us = length_us;
+    g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END;
+    g_ret_param.params.request.p_next = &radio_request_earliest;
     
-    g_trickle_radio_mode = TRICKLE_RADIO_MODE_PERIODIC;
+    if (!g_is_in_callback)
+    {
+        sd_radio_request(&radio_request_earliest);
+    }
+}
+
+
+void timeslot_order_normal(uint32_t length_us, uint32_t distance_us)
+{
+    radio_request_normal.params.normal.length_us = length_us;
+    radio_request_normal.params.normal.distance_us = distance_us;
+    g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END;
+    g_ret_param.params.request.p_next = &radio_request_normal;
+    
+    if (!g_is_in_callback)
+    {
+        sd_radio_request(&radio_request_normal);
+    }
+}
+
+void timeslot_extend(uint32_t extra_time_us)
+{
+    if (g_is_in_callback)
+    {
+        g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND;
+        g_ret_param.params.extend.length_us = extra_time_us;
+    }
 }
 
