@@ -46,15 +46,6 @@ static uint8_t rx_data_buf[512];
 static uint8_t* rx_data[2] = {&rx_data_buf[0], &rx_data_buf[256]};
 static uint8_t current_rx_buf = 0;
 
-/**
-* local tx_data pointer
-*/
-//static uint8_t* tx_data;
-
-static radio_rx_cb g_radio_rx_cb;
-static radio_tx_cb g_radio_tx_cb;
-
-
 static radio_event_t radio_fifo_queue[RADIO_FIFO_QUEUE_SIZE];
 
 static uint8_t radio_fifo_head;
@@ -288,18 +279,23 @@ static void radio_transition_end(bool successful_transmission)
         }
     }
     
-    if (successful_transmission)
+    /* send to super space */
+    if (prev_evt.event_type == RADIO_EVENT_TYPE_RX)
     {
-        /* send to super space */
-        if (prev_evt.event_type == RADIO_EVENT_TYPE_RX)
+        if (successful_transmission)
         {
-            (*g_radio_rx_cb)(rx_data[!current_rx_buf]);
+            (*prev_evt.callback.rx)(rx_data[!current_rx_buf]);
         }
         else
         {
-            (*g_radio_tx_cb)();
+            (*prev_evt.callback.rx)(NULL);
         }
     }
+    else
+    {
+        (*prev_evt.callback.tx)();
+    }
+    
 }
 
 static void rx_abort_cb(void)
@@ -315,7 +311,7 @@ static void rx_abort_cb(void)
 * Interface functions
 *****************************************************************************/
 
-void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback)
+void radio_init(void)
 {
 	/* Reset all states in the radio peripheral */
 	NRF_RADIO->POWER = 1;
@@ -361,8 +357,6 @@ void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback)
     /* Lock interframe spacing, so that the radio won't send too soon / start RX too early */
     NRF_RADIO->TIFS = 148;
     
-    g_radio_rx_cb = radio_rx_callback;
-    g_radio_tx_cb = radio_tx_callback;
     radio_state = RADIO_STATE_DISABLED;
 }
 

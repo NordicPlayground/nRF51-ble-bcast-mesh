@@ -18,19 +18,21 @@ typedef struct
 {
     radio_event_type_t event_type;  /* RX/TX */
     uint32_t start_time;            /* time to start the event. 0 indicates as soon as possible */
-    //uint32_t interrupts;            /* Interrupt field, use positions from RADIO_INTENSET/RADIO_INTENCLR */
     uint8_t* packet_ptr;            /* packet pointer to use. TX ONLY */
     uint8_t access_address;         /* If TX: access address index to send on. If RX: AA enabled bitfield */
     uint8_t channel;                /* Channel to execute event on */
+    union 
+    {
+        radio_rx_cb rx;
+        radio_tx_cb tx;
+    } callback;
 } radio_event_t;
 
 /**
 * Starts the radio init procedure
-* @param radio_rx_callback sets the function that is called each time the radio recevies a new message
-* @param radio_tx_callback is called after a successful TX is completed, and the radio is back in a disabled state.
 * Must be called at the beginning of each timeslot
 */
-void radio_init(radio_rx_cb radio_rx_callback, radio_tx_cb radio_tx_callback);
+void radio_init(void);
 
 
 void radio_order(radio_event_t* radio_event);
