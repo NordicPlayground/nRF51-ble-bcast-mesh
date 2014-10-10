@@ -70,6 +70,7 @@ static void search_start(void)
 {
     g_conn_state = CONN_STATE_SEARCH;
     
+    
     radio_event_t radio_search;
     radio_search.access_address = 1;
     radio_search.channel = 37;
@@ -78,6 +79,8 @@ static void search_start(void)
     radio_search.callback.rx = search_result;
     
     radio_order(&radio_search);
+    
+    
 }
 
 /*****************************************************************************
