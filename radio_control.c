@@ -125,6 +125,11 @@ static uint32_t radio_fifo_peek(radio_event_t* evt)
     return radio_fifo_peek_at(evt, 0);
 }
 
+static void radio_fifo_flush(void)
+{
+    radio_fifo_tail = radio_fifo_head;
+}
+
 
 
 
@@ -284,16 +289,19 @@ static void radio_transition_end(bool successful_transmission)
     {
         if (successful_transmission)
         {
-            (*prev_evt.callback.rx)(rx_data[!current_rx_buf]);
+            if (prev_evt.callback.rx != NULL)
+                (*prev_evt.callback.rx)(rx_data[!current_rx_buf]);
         }
         else
         {
-            (*prev_evt.callback.rx)(NULL);
+            if (prev_evt.callback.rx != NULL)
+                (*prev_evt.callback.rx)(NULL);
         }
     }
     else
     {
-        (*prev_evt.callback.tx)();
+        if (prev_evt.callback.tx != NULL)
+            (*prev_evt.callback.tx)();
     }
     
 }
@@ -458,6 +466,7 @@ void radio_order(radio_event_t* radio_event)
 
 void radio_disable(void)
 {
+    radio_fifo_flush();
     NRF_RADIO->SHORTS = 0;
     NRF_RADIO->INTENCLR = 0xFFFFFFFF;
     NRF_RADIO->TASKS_DISABLE = 1;
