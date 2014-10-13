@@ -192,5 +192,8 @@ uint32_t timer_get_reference_point(void)
     return reference_point;
 }
 
-
+void timer_reference_point_set(uint32_t ref_point)
+{
+    reference_point = ref_point;
+}
 

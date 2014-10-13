@@ -22,5 +22,7 @@ void timer_reference_point_trigger(uint32_t* trigger_event, int32_t time_offset)
 
 uint32_t timer_get_reference_point(void);
 
+void timer_reference_point_set(uint32_t ref_point);
+
 
 #endif /* _TIMER_CONTROL_H__ */
