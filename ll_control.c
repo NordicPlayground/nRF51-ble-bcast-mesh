@@ -22,6 +22,8 @@ typedef enum
 } conn_state_t;
 
 
+typedef void(*action_complete_cb)(void);
+
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
@@ -120,8 +122,9 @@ static void conn_evt_master_rx_cb(uint8_t* data)
 
 
 /********* SEPARATE ACTIONS IN LL STATEMACHINE **********/
+/* Events that are repeated through several states */
 
-static void ll_action_conn_evt_relay(void)
+static void ll_action_conn_evt_relay(action_complete_cb end_cb)
 {
     /* rx anchor */
     timer_reference_point_trigger((uint32_t*) &(NRF_RADIO->EVENTS_ADDRESS), -ADDRESS_PROPAGATION_US);
@@ -152,7 +155,7 @@ static void ll_action_conn_evt_relay(void)
     /* TODO: DATA SLOTS HERE */
 }
 
-static void ll_action_conn_evt_master(void)
+static void ll_action_conn_evt_master(action_complete_cb end_cb)
 {
     /* tx anchor */
     
@@ -177,7 +180,7 @@ static void ll_action_conn_evt_master(void)
     /* TODO: DATA SLOTS HERE */
 }
 
-static void ll_action_conn_evt_slave(void)
+static void ll_action_conn_evt_slave(action_complete_cb end_cb)
 {
     static uint8_t adv_period_counter = 0;
     /* rx anchor */
@@ -247,24 +250,10 @@ static void master_search_start(void)
     
     radio_disable();
     
-    radio_event_t radio_master_anchor;
-    radio_master_anchor.access_address = 0;
-    radio_master_anchor.channel = 37;
-    radio_master_anchor.event_type = RADIO_EVENT_TYPE_TX;
-    radio_master_anchor.start_time = 0;
-    radio_master_anchor.packet_ptr = master_anchor;
-    radio_master_anchor.callback.tx = NULL;
+    ll_action_conn_evt_master();
     
-    radio_order(&radio_master_anchor);
+    /* TODO: ADD SEARCH */
     
-    radio_event_t radio_search;
-    radio_search.access_address = 1;
-    radio_search.channel = 37;
-    radio_search.event_type = RADIO_EVENT_TYPE_RX;
-    radio_search.start_time = 0;
-    radio_search.callback.rx = master_rx;
-    
-    radio_order(&radio_search);    
 }
 
 static void sync_rx(uint8_t* data)
