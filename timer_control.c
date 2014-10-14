@@ -69,10 +69,10 @@ void timer_event_handler(void)
     {
         if ((active_callbacks & (1 << i)) && NRF_TIMER0->EVENTS_COMPARE[i])
         {
-            (*callbacks[i])();
+            timer_callback cb = callbacks[i];
             active_callbacks &= ~(1 << i);
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
-            
+            (*cb)();
         }
     }
             
@@ -93,7 +93,6 @@ uint8_t timer_order_cb(uint32_t time, timer_callback callback)
     callbacks[timer] = callback;
     active_callbacks |= (1 << timer);
     
-    NVIC_EnableIRQ(TIMER0_IRQn);
     
     return timer;
 }
@@ -119,7 +118,6 @@ uint8_t timer_order_cb_ppi(uint32_t time, timer_callback callback, uint32_t* tas
 	NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) task;
 	NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
     
-    NVIC_EnableIRQ(TIMER0_IRQn);
     
     return timer;
 }
@@ -147,9 +145,13 @@ uint8_t timer_order_ppi(uint32_t time, uint32_t* task)
 
 void timer_abort(uint8_t timer_index)
 {
-    NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer_index));
-    active_callbacks &= ~(1 << timer_index);   
-    NRF_PPI->CHENCLR = (1 << (TIMER_PPI_CH_START + timer_index));
+    if (timer_index < 4)
+    {
+        NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer_index));
+        active_callbacks &= ~(1 << timer_index);   
+        NRF_PPI->CHENCLR = (1 << (TIMER_PPI_CH_START + timer_index));
+        never_used_bitmap |= (1 << timer_index);
+    }
 }
 
 uint32_t timer_get_timestamp(void)
@@ -164,7 +166,11 @@ uint32_t timer_get_timestamp(void)
     NRF_TIMER0->TASKS_CAPTURE[timer] = 1;
     
     
-    return NRF_TIMER0->CC[timer];
+    uint32_t stamp = NRF_TIMER0->CC[timer];
+    
+    never_used_bitmap |= (1 << timer);
+    
+    return stamp;
 }    
 
 void timer_reference_point_trigger(uint32_t* trigger_event, int32_t time_offset)
@@ -197,3 +203,15 @@ void timer_reference_point_set(uint32_t ref_point)
     reference_point = ref_point;
 }
 
+void timer_init(void)
+{
+    timer_reference_point_set(0);
+    never_used_bitmap = 0xFF;
+    NRF_TIMER0->EVENTS_COMPARE[0] = 0;
+    NRF_TIMER0->EVENTS_COMPARE[1] = 0;
+    NRF_TIMER0->EVENTS_COMPARE[2] = 0;
+    NRF_TIMER0->EVENTS_COMPARE[3] = 0;
+    NVIC_EnableIRQ(TIMER0_IRQn);
+    
+    active_callbacks = 0;
+}

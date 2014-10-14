@@ -24,5 +24,6 @@ uint32_t timer_get_reference_point(void);
 
 void timer_reference_point_set(uint32_t ref_point);
 
+void timer_init(void);
 
 #endif /* _TIMER_CONTROL_H__ */
