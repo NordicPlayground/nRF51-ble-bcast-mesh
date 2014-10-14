@@ -59,8 +59,8 @@ static void trickle_interval_begin(trickle_t* trickle)
                             ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 24;
     
     uint32_t i_half = trickle->i_relative / 2;
-    trickle->t = g_trickle_time * TRICKLE_INTERVAL_US / 1000 + i_half + (rand_number % i_half);
-    trickle->i = g_trickle_time * TRICKLE_INTERVAL_US / 1000 + trickle->i_relative;
+    trickle->t = g_trickle_time + i_half + (rand_number % i_half);
+    trickle->i = g_trickle_time + trickle->i_relative;
     
     trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
 }
@@ -93,9 +93,12 @@ void trickle_time_increment(void)
 {
     /* step global time */
     ++g_trickle_time;
-    return;
 }
 
+void trickle_time_update(uint32_t time)
+{
+    g_trickle_time = time;
+}
 
 
 void trickle_init(trickle_t* trickle)
@@ -139,7 +142,7 @@ void trickle_step(trickle_t* trickle, bool* out_do_tx)
     *out_do_tx = false;
     if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
     {
-        if (1000 * trickle->i / TRICKLE_INTERVAL_US <= g_trickle_time)
+        if (trickle->i <= g_trickle_time)
         {
             /* double value of i */
             trickle->i_relative = (trickle->i_relative * 2 < g_i_max * g_i_min)?
@@ -151,7 +154,7 @@ void trickle_step(trickle_t* trickle, bool* out_do_tx)
     }
     else /* t is next timeout for this instance */
     {
-        if (1000 * trickle->t / TRICKLE_INTERVAL_US <= g_trickle_time)
+        if (trickle->t <= g_trickle_time)
         {
             if (trickle->c < g_k)
             {
@@ -171,3 +174,14 @@ uint32_t trickle_timestamp_get(void)
     return g_trickle_time;
 }
 
+uint32_t trickle_next_processing_get(trickle_t* trickle)
+{
+    if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
+    {
+        return trickle->i;
+    }
+    else /* t is next timeout for this instance */
+    {
+        return trickle->t;
+    }
+}

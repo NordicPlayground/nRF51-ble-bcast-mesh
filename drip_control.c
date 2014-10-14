@@ -49,7 +49,7 @@ static void drip_update_droplet(drip_t* drip, droplet_t* droplet)
     if (drip->flags & (1 << DRIP_FLAG_SYSTEM_POS))
     {
         TICK_PIN(PIN_ABORTED);
-        sync_drip_rx(droplet);
+        //sync_drip_rx(droplet);
     }    
     
     /* update drip construct */
@@ -143,7 +143,7 @@ static void drip_place_in_buffer(drip_t* drip, uint8_t* buffer)
 
 void drip_init(void)
 {
-    trickle_setup(100, 200, 3);
+    trickle_setup(100, 20, 3);
     for (uint16_t i = 0; i < DRIP_COUNT; ++i)
     {
         g_drip_pool[i].flags = 0;
@@ -342,3 +342,22 @@ void drip_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_
      
     packet->length = packet_index - 1;
 }
+
+uint32_t drip_get_next_processing_time(void)
+{
+    uint32_t next_time = UINT32_MAX;
+    for (uint8_t i = 0; i < DRIP_COUNT; ++i)
+    {
+        if ((g_drip_pool[i].flags & (1 << DRIP_FLAG_ACTIVE_POS)) == 0)
+        {
+            continue;
+        }
+        uint32_t this_timeout = trickle_next_processing_get(&g_drip_pool[i].trickle);
+        
+        if (this_timeout < next_time)
+            next_time = this_timeout;
+    }
+    
+    return next_time;
+}
+

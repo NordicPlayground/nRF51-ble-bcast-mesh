@@ -10,8 +10,8 @@
 #define DRIP_FLAG_HAS_SOURCE_POS    (6)
 #define DRIP_FLAG_IS_BROADCAST_POS  (7)
 
-#define DROPLET_MAX_LENGTH          (24)
-#define DROPLET_MAX_PACKET_LENGTH   (DROPLET_MAX_LENGTH + 4)
+#define DROPLET_MAX_LENGTH          (27)
+#define DROPLET_MAX_PACKET_LENGTH   (DROPLET_MAX_LENGTH)
 
 
 
@@ -67,5 +67,6 @@ void drip_droplet_c(uint8_t* raw_data, uint8_t length);
 
 void drip_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_to_send);
 
+uint32_t drip_get_next_processing_time(void);
 
 #endif /* _DRIP_CONTROL_H__ */
