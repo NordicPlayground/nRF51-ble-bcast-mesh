@@ -310,10 +310,8 @@ static void radio_transition_end(bool successful_transmission)
 
 static void rx_abort_cb(void)
 {
-    DEBUG_PIN_TH(PIN_RADIO_SIGNAL);
-    DEBUG_PIN_TH(PIN_RADIO_SIGNAL);
     radio_state = RADIO_STATE_DISABLED;
-    
+    rx_abort_timer_index = 0xFF;
     radio_transition_end(false);
 }
 
@@ -337,7 +335,7 @@ void radio_init(void)
 
 
     /* Configure Access Address to be the BLE standard */
-    NRF_RADIO->PREFIX0	    = 0x8e;//0x8e;
+    NRF_RADIO->PREFIX0	    = 0x80;//0x8e;
     NRF_RADIO->BASE0 		= 0x89bed600; 
     NRF_RADIO->TXADDRESS    = 0x00;			    // Use logical address 0 (prefix0 + base0) = 0x8E89BED6 when transmitting
     NRF_RADIO->RXADDRESSES  = 0x01;				// Enable reception on logical address 0 (PREFIX0 + BASE0)
@@ -441,7 +439,7 @@ void radio_order(radio_event_t* radio_event)
             {
                 /* get current event */
                 radio_event_t ev;
-                radio_fifo_peek_at(&ev, 1);
+                radio_fifo_peek(&ev);
                 
                 /* setup shorts */
                 if (ev.event_type == radio_event->event_type)
@@ -471,6 +469,8 @@ void radio_disable(void)
     NRF_RADIO->INTENCLR = 0xFFFFFFFF;
     NRF_RADIO->TASKS_DISABLE = 1;
     radio_state = RADIO_STATE_DISABLED;
+    if (rx_abort_timer_index != 0xFF)
+        timer_abort(rx_abort_timer_index);
 }
         
 /**
@@ -481,9 +481,8 @@ void radio_event_handler(void)
     switch (radio_state)
     {
         case RADIO_STATE_RX:
-            if (RADIO_EVENT(EVENTS_ADDRESS))
+            if (RADIO_EVENT(EVENTS_ADDRESS) && rx_abort_timer_index != 0xFF)
             {
-                DEBUG_PIN_TH(1);
                 timer_abort(rx_abort_timer_index);
             }
             
