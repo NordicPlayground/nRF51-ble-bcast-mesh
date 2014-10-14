@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define RADIO_FIFO_QUEUE_SIZE 4 /* must be power of two */
+#define RADIO_FIFO_QUEUE_SIZE 8 /* must be power of two */
 #define RADIO_FIFO_QUEUE_MASK (RADIO_FIFO_QUEUE_SIZE - 1)
 
 #define RADIO_RX_TIMEOUT                (15080)
@@ -180,7 +180,6 @@ static void radio_transition_end(bool successful_transmission)
     if (radio_fifo_empty())
     {
         radio_state = RADIO_STATE_DISABLED;
-        SET_PIN(PIN_SEARCHING);
     }
     else
     {
@@ -427,13 +426,7 @@ void radio_order(radio_event_t* radio_event)
         //NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
         /* queue the event */
         
-        if (radio_will_go_to_disabled_state())
-        {
-            /* too late to schedule, wake up upon END, and take the event then. */
-            DEBUG_PIN_TH(1);
-            DEBUG_PIN_TH(1);
-        }
-        else
+        if (!radio_will_go_to_disabled_state())
         {
             uint8_t queue_length = radio_fifo_get_length();
             
