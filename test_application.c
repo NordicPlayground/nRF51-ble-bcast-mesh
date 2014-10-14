@@ -4,7 +4,7 @@
 #include "trickle_common.h"
 #include "timeslot_handler.h"
 #include "drip_control.h"
-
+#include "nrf_adv_conn.h"
 #include "nrf_sdm.h"
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
@@ -28,7 +28,17 @@
     #define LED_1 LED_RGB_BLUE
 #endif
 
-
+void SD_IRQHandler(void)
+{
+    broadcast_event_handler();
+    
+    ble_evt_t ble_evt;
+    uint16_t len = sizeof(ble_evt);
+    while (sd_ble_evt_get((uint8_t*) &ble_evt, &len))
+    {
+        nrf_adv_conn_evt_handler(&ble_evt);
+    }
+}
 
 
 static uint8_t led_data;
@@ -107,14 +117,6 @@ void test_app_init(void)
     SET_PIN(PIN_CPU_IN_USE);
     //simple_uart_config(RTS_PIN_NUMBER, TX_PIN_NUMBER, CTS_PIN_NUMBER, RX_PIN_NUMBER, true);
     
-    /* clock start: */
-#if 0
-    NRF_CLOCK->TASKS_HFCLKSTART = 1;
-    while (!NRF_CLOCK->EVENTS_HFCLKSTARTED)
-    NRF_CLOCK->TASKS_LFCLKSTART = 1;
-    while (!NRF_CLOCK->EVENTS_LFCLKSTARTED);
-#endif
-    
     
     nrf_gpio_cfg_output(LED_0);
     nrf_gpio_cfg_output(LED_1);  
@@ -144,14 +146,15 @@ void test_app_init(void)
 int main(void)
 {
     drip_init();
-    /*
+    
     drip_t* drip = drip_allocate_new();
     drip->droplet.data[0] = 0x55;
     drip->droplet.data[1] = 0xAA;
     drip->droplet.length = 2;
-    */
+    
     test_app_init();
     timeslot_handler_init();
+    nrf_adv_conn_init();
     /* sleep */
     while (true)
     {

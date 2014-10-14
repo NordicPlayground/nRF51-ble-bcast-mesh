@@ -366,7 +366,7 @@
               <MiscControls></MiscControls>
               <Define>BOARD_PCA10003 NRF51</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\Trickle;..\..\..\SDK\nrf51822\Include;..\..\..\SDK\nrf51822\Include\app_common;..\..\..\SDK\nrf51822\Include\s110;..\..\..\SDK\nrf51822\Include\sd_common</IncludePath>
+              <IncludePath>..\..\Trickle;..\..\..\SDK\nrf51822\Include;..\..\..\SDK\nrf51822\Include\app_common;..\..\..\SDK\nrf51822\Include\s110;..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\SDK\nrf51822\Include\ble;..\..\..\SDK\nrf51822\Include\ble\ble_services</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -460,9 +460,14 @@
               <FilePath>..\timer_control.c</FilePath>
             </File>
             <File>
-              <FileName>conn_evt.c</FileName>
+              <FileName>ll_control.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\conn_evt.c</FilePath>
+              <FilePath>..\ll_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_adv_conn.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\nrf_adv_conn.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -478,6 +483,11 @@
               <FileName>simple_uart.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble_advdata.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -937,9 +947,14 @@
               <FilePath>..\timer_control.c</FilePath>
             </File>
             <File>
-              <FileName>conn_evt.c</FileName>
+              <FileName>ll_control.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\conn_evt.c</FilePath>
+              <FilePath>..\ll_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_adv_conn.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\nrf_adv_conn.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -955,6 +970,11 @@
               <FileName>simple_uart.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble_advdata.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
             </File>
           </Files>
         </Group>
