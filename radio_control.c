@@ -190,11 +190,14 @@ static void radio_transition_end(bool successful_transmission)
         radio_event_t evt;
         radio_fifo_peek(&evt);
         
-        uint32_t curr_time = timer_get_timestamp();
-        
-        if (evt.start_time < curr_time)
+        if (evt.start_time > 0)
         {
-            evt.start_time = 0;
+            uint32_t curr_time = timer_get_timestamp();
+            
+            if (evt.start_time < curr_time)
+            {
+                evt.start_time = 0;
+            }
         }
         
         if (evt.start_time == 0)
@@ -364,24 +367,28 @@ void radio_init(void)
     /* Lock interframe spacing, so that the radio won't send too soon / start RX too early */
     NRF_RADIO->TIFS = 148;
     
+    rx_abort_timer_index = 0xFF;
     radio_state = RADIO_STATE_DISABLED;
+    radio_fifo_flush();
 }
 
 void radio_order(radio_event_t* radio_event)
 {
     radio_fifo_put(radio_event);
     
-    CLEAR_PIN(PIN_SEARCHING);
-    
     if (radio_state == RADIO_STATE_DISABLED)
     {
         /* order radio right away */
         
-        uint32_t curr_time = timer_get_timestamp();
         
-        if (radio_event->start_time < curr_time)
+        if (radio_event->start_time > 0)
         {
-            radio_event->start_time = 0;
+            uint32_t curr_time = timer_get_timestamp();
+            
+            if (radio_event->start_time < curr_time)
+            {
+                radio_event->start_time = 0;
+            }
         }
         
         if (radio_event->event_type == RADIO_EVENT_TYPE_RX)
