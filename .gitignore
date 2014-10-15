@@ -1,7 +1,19 @@
-arm/*
-
-#don't ignore project files:
-!arm/*.uvproj
-!arm/*.s
-!arm/*.map
-!arm/*.uvopt
+*.axf
+*.htm
+*.Inp
+*.map
+*.tra
+*.dep
+*.__i
+*.crf
+*.d
+*.o
+*.lst
+*.lnp
+*.bak
+*.hex
+*.ini
+*.iex
+*.trondesn
+*.tmp
+arm/JLinkLog.txt
