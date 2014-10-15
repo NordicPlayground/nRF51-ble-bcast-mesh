@@ -5,6 +5,7 @@
 #include "trickle_common.h"
 #include "drip_control.h"
 #include "timer_control.h"
+#include "ll_control.h"
 
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -18,6 +19,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+
+#define USE_SWI_FOR_PROCESSING      (0)
+
 
 #define PACKET_ADV_ADDR_INDEX       (3)
 #define PACKET_LENGTH_INDEX         (1)
@@ -35,7 +39,7 @@
 #define PACKET_SAFETY_MARGIN_US     (80)
 #define PACKET_RAMP_UP_TIME_US      (140)
 
-#define TIMESLOT_END_SAFETY_MARGIN_US  (20)
+#define TIMESLOT_END_SAFETY_MARGIN_US  (150)
 
 /*****************************************************************************
 * Local type definitions
@@ -106,8 +110,9 @@ static nrf_radio_signal_callback_return_param_t g_final_ret_param;
 static bool g_is_in_callback = true;
                 
 static uint32_t g_timeslot_length;      
-static uint32_t g_next_timeslot_length;               
-static uint8_t g_end_timer;                
+static uint32_t g_timeslot_end_timer;      
+static uint32_t g_next_timeslot_length;    
+static uint32_t g_total_time = 0;                
                 
 /*****************************************************************************
 * Static Functions
@@ -163,6 +168,21 @@ void radio_tx_callback(void)
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
     SET_PIN(PIN_ABORTED);
+    uint8_t* name_ptr = (uint8_t*) p_file_name;
+    while (*name_ptr != '\0')
+    {
+        PIN_OUT(name_ptr[0], 8);
+        
+        ++name_ptr;
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+    }
     while (true)
     {
         nrf_delay_ms(500);
@@ -195,10 +215,10 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 * Called whenever the softdevice tries to change the original course of actions 
 * related to the timeslots
 */
-void SD_EVT_IRQHandler(void)
+void broadcast_event_handler(void)
 {
     uint32_t evt;
-    
+    SET_PIN(6);
     while (sd_evt_get(&evt) == NRF_SUCCESS)
     {
         PIN_OUT(evt, 32);
@@ -206,7 +226,7 @@ void SD_EVT_IRQHandler(void)
         {
             case NRF_EVT_RADIO_SESSION_IDLE:
                 
-                APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
+                timeslot_order_earliest(20000, true);
                 break;
             
             case NRF_EVT_RADIO_SESSION_CLOSED:
@@ -216,9 +236,7 @@ void SD_EVT_IRQHandler(void)
             
             case NRF_EVT_RADIO_BLOCKED:
                 /*TODO*/
-                radio_request_normal.params.normal.distance_us += TRICKLE_INTERVAL_US; /* skip a period */
-                sd_radio_request(&radio_request_normal);
-                
+                timeslot_order_earliest(20000, true);
                 break;
             
             case NRF_EVT_RADIO_SIGNAL_CALLBACK_INVALID_RETURN:
@@ -232,15 +250,20 @@ void SD_EVT_IRQHandler(void)
                 APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
         }
     }
+    CLEAR_PIN(6);
 }
 
-static void timeslot_end_cb(void)
+static void end_timer_handler(void)
 {
-    g_ret_param.callback_action = g_final_ret_param.callback_action;
-    g_ret_param.params.request.p_next = g_final_ret_param.params.request.p_next;
+    timeslot_order_earliest(22000, true);
 }
-
-
+    
+#if USE_SWI_FOR_PROCESSING
+void SWI0_IRQHandler(void)
+{
+    ll_control_timeslot_begin(g_total_time);
+}
+#endif
 /**
 * Radio signal callback handler taking care of all signals in searching mode
 */
@@ -249,18 +272,29 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
     g_is_in_callback = true;
     static uint32_t requested_extend_time = 0;
-    
+    SET_PIN(PIN_SYNC_TIME);
     
     switch (sig)
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
-            g_final_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_END;
+            /* default end action is extend */
+            timer_init();
+            SET_PIN(2);
+            g_final_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND;
+            g_final_ret_param.params.extend.length_us = 250000; /* 100ms */
             g_timeslot_length = g_next_timeslot_length;
-            timer_reference_point_set(0);
         
-            g_end_timer = timer_order_cb(
-                g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
-                timeslot_end_cb);
+            g_timeslot_end_timer = 
+                timer_order_cb(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
+                    end_timer_handler);
+            
+#if USE_SWI_FOR_PROCESSING
+        
+            NVIC_EnableIRQ(SWI0_IRQn);
+            NVIC_SetPendingIRQ(SWI0_IRQn);
+#else
+            ll_control_timeslot_begin(g_total_time);
+#endif
         
             break;
         
@@ -279,9 +313,31 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_SUCCEEDED:
             g_timeslot_length += requested_extend_time;
             requested_extend_time = 0;
+            g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
+        
+            timer_abort(g_timeslot_end_timer);
+        
+            g_timeslot_end_timer = 
+                timer_order_cb(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
+                    end_timer_handler);
+        
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:
+            
+            /* try to extend by only half */
+            if (g_ret_param.params.extend.length_us > 500)
+            {
+                g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND;
+                g_ret_param.params.extend.length_us >>= 1;
+                requested_extend_time = g_ret_param.params.extend.length_us;
+            }
+            else
+            {
+                g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
+                //g_ret_param.params.request.p_next = &radio_request_earliest;
+            }
+            
             DEBUG_PIN_TH(PIN_ABORTED);
             break;
         
@@ -295,10 +351,17 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     {
         requested_extend_time = g_ret_param.params.extend.length_us;
     }
+    else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END)
+    {
+        CLEAR_PIN(2);
+        g_total_time += timer_get_timestamp();
+    }
     else
     {
         requested_extend_time = 0;
     }
+    
+    CLEAR_PIN(PIN_SYNC_TIME);
     return &g_ret_param;
 }
 
@@ -311,6 +374,8 @@ void timeslot_handler_init(void)
 {
     uint32_t error;
     
+    g_is_in_callback = false;
+    
     error = sd_softdevice_enable((uint32_t)NRF_CLOCK_LFCLKSRC_XTAL_250_PPM, sd_assert_handler);
     APP_ERROR_CHECK(error); 
     
@@ -318,6 +383,9 @@ void timeslot_handler_init(void)
     APP_ERROR_CHECK(error);
     
     sd_radio_session_open(&radio_signal_callback);
+    g_total_time = 0;
+    
+    timeslot_order_earliest(10000, true);
 }
 
 
