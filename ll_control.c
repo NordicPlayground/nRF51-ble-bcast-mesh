@@ -30,7 +30,6 @@ static void trickle_step_callback(void);
 
 static void order_search(void)
 {
-    TICK_PIN(1);
     radio_event_t search_event;
     search_event.access_address = 1;
     search_event.callback.rx = search_callback;
@@ -72,7 +71,7 @@ static inline bool packet_is_data_packet(uint8_t* data)
 
 static void search_callback(uint8_t* data)
 {
-    TICK_PIN(3);
+    TICK_PIN(PIN_RX);
     order_search();
     
     if (!packet_is_data_packet(data))
@@ -82,6 +81,7 @@ static void search_callback(uint8_t* data)
     packet_create_from_data(data, &packet);
     drip_packet_dissect(&packet);
     
+    TICK_PIN(PIN_RX);
     
     uint32_t new_processing_timeout = 1000 * drip_get_next_processing_time();
     if (new_processing_timeout < timeout_time)
