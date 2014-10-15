@@ -148,6 +148,7 @@ int main(void)
     drip_init();
     
     drip_t* drip = drip_allocate_new();
+    drip->identifier.broadcast.id = 0x235F;
     drip->droplet.data[0] = 0x55;
     drip->droplet.data[1] = 0xAA;
     drip->droplet.length = 2;
