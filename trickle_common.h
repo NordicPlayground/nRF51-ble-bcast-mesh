@@ -6,7 +6,7 @@
 #define USE_SOFTDEVICE          (1)
 
 #define TRICKLE_INTERVAL_US                 (10000)     /* 10ms */
-#define TRICKLE_TIMESLOT_LENGTH_US          (2000)      /* 1ms */
+#define TRICKLE_TIMESLOT_LENGTH_US          (500000)      /* 1ms */
 #define TRICKLE_SEARCHING_TIMEOUT_US        (10000000)   /* 10 seconds */
 #define TRICKLE_SAFETY_MARGIN_US            (94)
 #define TRICKLE_RX_PROPAGATION_US           (350)
