@@ -460,9 +460,9 @@
               <FilePath>..\timer_control.c</FilePath>
             </File>
             <File>
-              <FileName>conn_evt.c</FileName>
+              <FileName>ll_control.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\conn_evt.c</FilePath>
+              <FilePath>..\ll_control.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -937,9 +937,9 @@
               <FilePath>..\timer_control.c</FilePath>
             </File>
             <File>
-              <FileName>conn_evt.c</FileName>
+              <FileName>ll_control.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\conn_evt.c</FilePath>
+              <FilePath>..\ll_control.c</FilePath>
             </File>
           </Files>
         </Group>
