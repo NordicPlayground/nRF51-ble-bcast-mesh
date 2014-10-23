@@ -141,7 +141,6 @@ void radio_rx_callback(uint8_t* rx_data)
     
     if (faulty_packet)
     {
-        TICK_PIN(PIN_ABORTED);
         return;
     }
     
@@ -167,6 +166,7 @@ void radio_tx_callback(void)
 
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
+    
     SET_PIN(PIN_ABORTED);
     uint8_t* name_ptr = (uint8_t*) p_file_name;
     while (*name_ptr != '\0')
@@ -185,6 +185,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
     }
     while (true)
     {
+        PIN_OUT(line_num, 16);
         nrf_delay_ms(500);
         SET_PIN(LED_0);
         CLEAR_PIN(LED_1);
@@ -255,7 +256,8 @@ void broadcast_event_handler(void)
 
 static void end_timer_handler(void)
 {
-    timeslot_order_earliest(22000, true);
+    timeslot_order_earliest(25000, true);
+    //timeslot_extend(10000);
 }
     
 #if USE_SWI_FOR_PROCESSING
@@ -280,8 +282,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             /* default end action is extend */
             timer_init();
             SET_PIN(2);
-            g_final_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND;
-            g_final_ret_param.params.extend.length_us = 250000; /* 100ms */
             g_timeslot_length = g_next_timeslot_length;
         
             g_timeslot_end_timer = 
@@ -289,7 +289,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
                     end_timer_handler);
             
 #if USE_SWI_FOR_PROCESSING
-        
             NVIC_EnableIRQ(SWI0_IRQn);
             NVIC_SetPendingIRQ(SWI0_IRQn);
 #else
@@ -311,6 +310,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             break;
             
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_SUCCEEDED:
+            TICK_PIN(1);
             g_timeslot_length += requested_extend_time;
             requested_extend_time = 0;
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
@@ -324,21 +324,8 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:
-            
-            /* try to extend by only half */
-            if (g_ret_param.params.extend.length_us > 500)
-            {
-                g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND;
-                g_ret_param.params.extend.length_us >>= 1;
-                requested_extend_time = g_ret_param.params.extend.length_us;
-            }
-            else
-            {
-                g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
-                //g_ret_param.params.request.p_next = &radio_request_earliest;
-            }
-            
-            DEBUG_PIN_TH(PIN_ABORTED);
+            /* trust timeout timer to take care of the timeslot before it runs out */
+            g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;           
             break;
         
         default:
