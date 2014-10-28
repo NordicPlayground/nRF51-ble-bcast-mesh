@@ -3,7 +3,7 @@
 #include "radio_control.h"
 #include "trickle.h"
 #include "trickle_common.h"
-#include "drip_control.h"
+#include "rbc_database.h"
 #include "timer_control.h"
 #include "ll_control.h"
 
@@ -152,7 +152,7 @@ void radio_rx_callback(uint8_t* rx_data)
     packet.sender = (rx_data[PACKET_ADV_ADDR_INDEX + 4] << 8) |
                     (rx_data[PACKET_ADV_ADDR_INDEX + 5] & 0xFF);
     
-    drip_packet_dissect(&packet);
+    db_packet_dissect(&packet);
 }
 
 /**

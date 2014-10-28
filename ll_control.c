@@ -1,8 +1,8 @@
 #include "ll_control.h"
 #include "radio_control.h"
 #include "timer_control.h"
+#include "rbc_database.h"
 #include "timeslot_handler.h"
-#include "drip_control.h"
 #include "trickle_common.h"
 #include <string.h>
 
@@ -45,7 +45,7 @@ static void setup_next_step_callback(void)
     uint32_t current_time = timer_get_timestamp();
     uint32_t end_of_timeslot = timeslot_get_remaining_time() + current_time;
     
-    timeout_time = 1000 * drip_get_next_processing_time();
+    timeout_time = 1000 * db_get_next_processing_time();
     
     if (timeout_time - global_time + 1500 > end_of_timeslot)
     {
@@ -79,11 +79,11 @@ static void search_callback(uint8_t* data)
     
     packet_t packet;
     packet_create_from_data(data, &packet);
-    drip_packet_dissect(&packet);
+    db_packet_dissect(&packet);
     
     TICK_PIN(PIN_RX);
     
-    uint32_t new_processing_timeout = 1000 * drip_get_next_processing_time();
+    uint32_t new_processing_timeout = 1000 * db_get_next_processing_time();
     if (new_processing_timeout < timeout_time)
     {
         timeout_time = new_processing_timeout;
@@ -103,7 +103,7 @@ static void trickle_step_callback(void)
     packet.data = temp_data;
     bool has_anything_to_send = false;
     
-    drip_packet_assemble(&packet, PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN, &has_anything_to_send);
+    db_packet_assemble(&packet, PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN, &has_anything_to_send);
     
     if (has_anything_to_send)
     {

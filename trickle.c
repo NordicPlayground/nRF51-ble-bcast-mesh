@@ -50,7 +50,6 @@ void TIMER0_IRQHandler(void)
 
 static void trickle_interval_begin(trickle_t* trickle)
 {
-    //DEBUG_PIN_DRIP(4);
     trickle->c = 0;
     
     uint32_t rand_number =  ((uint32_t) rng_vals[(rng_index++) & 0x3F])       |

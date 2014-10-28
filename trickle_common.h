@@ -61,14 +61,14 @@
 #define PIN_OUT(val,bitcount)      for (uint8_t i = 0; i < (bitcount); ++i){ if (((val) >> ((bitcount) - 1 - i) & 0x01)) { TICK_PIN(PIN_BIT_H); } else { TICK_PIN(PIN_BIT_L); } }
 
 
-#define DEBUG_DRIP_CONTROL          (0)
+#define DEBUG_DB                    (0)
 #define DEBUG_TIMESLOT              (1)
 #define DEBUG_TIMESLOT_HANDLER      (1)
 
-#if DEBUG_DRIP_CONTROL
-#define DEBUG_PIN_DRIP(x)   TICK_PIN(x)
+#if DEBUG_DB
+#define DEBUG_PIN_DB(x)   TICK_PIN(x)
 #else
-#define DEBUG_PIN_DRIP(x)
+#define DEBUG_PIN_DB(x)
 #endif
 
 #if DEBUG_TIMESLOT
