@@ -450,11 +450,6 @@
               <FilePath>..\timeslot_handler.c</FilePath>
             </File>
             <File>
-              <FileName>drip_control.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\drip_control.c</FilePath>
-            </File>
-            <File>
               <FileName>timer_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\timer_control.c</FilePath>
@@ -468,6 +463,11 @@
               <FileName>ll_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\ll_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>rbc_database.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\rbc_database.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -937,11 +937,6 @@
               <FilePath>..\timeslot_handler.c</FilePath>
             </File>
             <File>
-              <FileName>drip_control.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\drip_control.c</FilePath>
-            </File>
-            <File>
               <FileName>timer_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\timer_control.c</FilePath>
@@ -955,6 +950,11 @@
               <FileName>ll_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\ll_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>rbc_database.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\rbc_database.c</FilePath>
             </File>
           </Files>
         </Group>
