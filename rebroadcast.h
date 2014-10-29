@@ -46,25 +46,16 @@ typedef struct
 } rbc_event_t;
 
 
-/** 
-* @brief Function type for application space framework event handler. 
-*   Passed to framework upon initialization.
-*/
-typedef void(*rbc_event_callback)(rbc_event_t* evt);
-
-
 
 /**
 * @brief Initialize Rebroadcast module, must be called before any other 
 *   rebroadcast function. 
 * 
-* @param[in] event_callback_function Function pointer to user space event 
-*   handler function. 
 * 
 * @return NRF_SUCCESS the initialization is successful 
 * @return NRF_ERROR_INVALID_STATE the framework has already been initialized.
 */
-uint32_t rbc_init(const rbc_event_callback event_callback_function);
+uint32_t rbc_init(void);
 
 
 /**
@@ -157,6 +148,18 @@ uint32_t rbc_value_delete(const rbc_value_handle_t value_handle);
 *   softdevice for new sd_evt.
 */
 void rbc_sd_irq_handler(void);
+
+
+/**
+* @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 
+*   SPACE.
+*
+* @note Does not have an implementation within the framework, but acts as a 
+*   feedback channel for the framework to notify the application of any 
+*   changes in values.
+*/
+void rbc_event_handler(rbc_event_t* evt);
+
 
 
 #endif /* _REBROADCAST_H__ */

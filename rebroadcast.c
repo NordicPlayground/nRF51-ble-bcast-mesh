@@ -11,7 +11,6 @@
 * Static globals
 *****************************************************************************/
 
-static rbc_event_callback g_event_callback;
 
 static bool g_is_initialized = false;
 
@@ -29,7 +28,7 @@ static void rbc_distribute_value_changed(
 * Interface Functions
 *****************************************************************************/
 
-uint32_t rbc_init(const rbc_event_callback event_callback_function)
+uint32_t rbc_init(void)
 {
     if (g_is_initialized)
     {
@@ -40,7 +39,6 @@ uint32_t rbc_init(const rbc_event_callback event_callback_function)
         g_is_initialized = true;
     }
     
-    g_event_callback = event_callback_function;
     
     db_init();
     
