@@ -153,3 +153,8 @@ uint32_t rbc_value_delete(const rbc_value_handle_t value_handle)
 }
 
 
+void rbc_sd_irq_handler(void)
+{
+    /* call lower layer event handler */
+    broadcast_event_handler();
+}

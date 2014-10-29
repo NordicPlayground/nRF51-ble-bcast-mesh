@@ -149,7 +149,14 @@ uint32_t rbc_value_data_get(const rbc_value_handle_t value_handle,
 */
 uint32_t rbc_value_delete(const rbc_value_handle_t value_handle);
 
-
+/**
+* @brief Softdevice interrupt handler, checking if there are any 
+*   incomming events related to the framework. 
+*
+* @note Should be called from the SD_IRQHandler function. Will poll the 
+*   softdevice for new sd_evt.
+*/
+void rbc_sd_irq_handler(void);
 
 
 #endif /* _REBROADCAST_H__ */
