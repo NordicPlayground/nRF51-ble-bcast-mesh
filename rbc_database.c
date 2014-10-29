@@ -1,11 +1,12 @@
 #include "rbc_database.h"
+#include "rebroadcast.h"
 #include "timeslot_handler.h"
 #include "trickle_common.h"
 #include <stdbool.h>
 #include <string.h>
 #include "nrf_error.h"
 
-/* TODO: change to global version */
+/**@TODO: change to global version */
 #define VALUE_COUNT (8)
 
 #define VARIATION_FLAG_LENGTH_MASK    (0x1F)
@@ -141,14 +142,13 @@ void db_packet_dissect(packet_t* packet)
             /* assume broken packet, abort. */
             /* This should never, ever happen */
             
-            //APP_ERROR_CHECK(NRF_ERROR_INVALID_LENGTH);
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_LENGTH);
         }
         
         /* identifier bytes are structured differently if the variation has 
         * its source embedded in the header, and if it is unicast */
         if (flags & DB_VALUE_FLAG_IS_BROADCAST_POS)
         {
-            
             id = (packet->data[index++] << 8) | 
                 (packet->data[index++]);
         }
@@ -171,9 +171,11 @@ void db_packet_dissect(packet_t* packet)
         index += variation.length;
         
         value = db_value_get(id, target);
+        
         TICK_PIN(PIN_ABORTED);
-        PIN_OUT(id, 16);   
-        if (value == NULL)
+        PIN_OUT(id, 16);
+        
+        if (value == NULL) /* value not in DB. */
         {
             TICK_PIN(PIN_ABORTED);
             value = db_value_alloc();
@@ -188,6 +190,25 @@ void db_packet_dissect(packet_t* packet)
                     (packet->data[index++] << 8) | 
                     (packet->data[index++]);
             }
+            
+            /* Notify user of new value */
+            rbc_event_t new_val_event;
+            
+            uint8_t evt_data[DB_VARIATION_MAX_LENGTH];
+            memcpy(evt_data, variation.data, variation.length);
+            
+            new_val_event.event_type = RBC_EVENT_TYPE_NEW_VAL;
+            new_val_event.value_handle = id;
+            new_val_event.data = evt_data;
+            new_val_event.data_len = variation.length;
+            
+            /**@TODO: Move this to another, safer context?*/
+            rbc_event_handler(&new_val_event);
+            
+        }
+        else
+        {
+            /**@TODO */
         }
         
         db_value_update_variation(value, &variation);
@@ -228,7 +249,7 @@ db_value_t* db_value_alloc(void)
     for (uint16_t i = 0; i < VALUE_COUNT; ++i)
     {
         /* early escape if a non-allocated object is found */
-        if ((g_value_pool[i].flags & DB_VALUE_FLAG_ACTIVE_POS) == 0)
+        if ((g_value_pool[i].flags & (1 << DB_VALUE_FLAG_ACTIVE_POS)) == 0)
         {
             oldest = &g_value_pool[i];
             break;
@@ -251,7 +272,21 @@ db_value_t* db_value_alloc(void)
         return NULL;
     }
     
-    /** @TODO: Send message to user space notifying of object erase */
+    /* Send message to user space notifying of any object erase */
+    if ((oldest->flags & (1 << DB_VALUE_FLAG_ACTIVE_POS)) != 0)
+    {
+        rbc_event_t delete_event;
+        uint8_t data[DB_VARIATION_MAX_LENGTH];
+        memcpy(data, oldest->variation.data, oldest->variation.length);
+        
+        delete_event.event_type = RBC_EVENT_TYPE_DELETE_VAL;
+        delete_event.value_handle = oldest->identifier.broadcast.id;
+        delete_event.data = data;
+        delete_event.data_len = oldest->variation.length;
+        
+        /**@TODO: Might want to handle this in a different context. */
+        rbc_event_handler(&delete_event);
+    }
     
     
     trickle_init(&oldest->trickle);
