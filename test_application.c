@@ -1,10 +1,9 @@
 #include "test_application.h"
-#include "radio_control.h"
-#include "trickle.h"
-#include "trickle_common.h"
-#include "timeslot_handler.h"
-#include "rbc_database.h"
+
+#include "rebroadcast.h"
 #include "nrf_adv_conn.h"
+
+#include "nrf_soc.h"
 #include "nrf_sdm.h"
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
@@ -28,9 +27,13 @@
     #define LED_1 LED_RGB_BLUE
 #endif
 
+
+static uint8_t led_data;
+
+
 void SD_IRQHandler(void)
 {
-    broadcast_event_handler();
+    rbc_sd_irq_handler();
     
     ble_evt_t ble_evt;
     uint16_t len = sizeof(ble_evt);
@@ -40,10 +43,28 @@ void SD_IRQHandler(void)
     }
 }
 
+static void app_mesh_event_handler(rbc_event_t* evt)
+{
+    switch (evt->event_type)
+    {
+        case RBC_EVENT_TYPE_NEW_VAL:
+            break;
+        
+        case RBC_EVENT_TYPE_UPDATE_VAL:
+            break;
+        
+        case RBC_EVENT_TYPE_DELETE_VAL:
+            break;
+        
+        case RBC_EVENT_TYPE_CONFLICTING_VAL:
+            break;
+        
+        case RBC_EVENT_TYPE_DISCARDED_VAL:
+            break;
+    }
+}
 
-static uint8_t led_data;
 
-    
 static void led_config(void)
 {
     if ((led_data & 0x01) > 0)
@@ -63,15 +84,9 @@ static void led_config(void)
     {
         nrf_gpio_pin_clear(LED_1);
     }
-    
-    //char buf[256];
-    
-    //sprintf(&buf[0], "LED CHANGED: 0x%X\n", led_data & 0x03);
-    
-    //simple_uart_putstring((uint8_t*) buf);
 } 
 
-#ifdef BOARD_PCA10003
+#if BOARD_PCA10003
 /* configure button interrupt for evkits */
 static void gpiote_init(void)
 {
@@ -88,7 +103,7 @@ static void gpiote_init(void)
 }
 #endif
 
-#ifdef BOARD_PCA10004
+#if BOARD_PCA10003
 void GPIOTE_IRQHandler(void)
 {
     for (uint8_t i = 0; i < 2; ++i)
@@ -96,16 +111,7 @@ void GPIOTE_IRQHandler(void)
         if (NRF_GPIOTE->EVENTS_IN[i])
         {
             NRF_GPIOTE->EVENTS_IN[i] = 0; 
-            ++payload[i];
-            ++version[i];
-            if (version[i] == 0)
-                ++version[i];
             
-            led_data &= ~(1 << i);
-            led_data |= ((payload[i] & 0x01) << i);
-            led_config();
-            trickle_timer_reset(trickle[i].id);
-            TICK_PIN(PIN_BUTTON);
         }
     } 
 }
@@ -113,11 +119,7 @@ void GPIOTE_IRQHandler(void)
 
 
 void test_app_init(void)
-{
-    SET_PIN(PIN_CPU_IN_USE);
-    //simple_uart_config(RTS_PIN_NUMBER, TX_PIN_NUMBER, CTS_PIN_NUMBER, RX_PIN_NUMBER, true);
-    
-    
+{   
     nrf_gpio_cfg_output(LED_0);
     nrf_gpio_cfg_output(LED_1);  
     
@@ -136,25 +138,24 @@ void test_app_init(void)
 
     led_data = 0;
     led_config();
-
-    //radio_rx(0);
-    
-    CLEAR_PIN(PIN_CPU_IN_USE);
 }
 
 
 int main(void)
 {
     test_app_init();
-    timeslot_handler_init();
-    nrf_adv_conn_init();
+    rbc_init(app_mesh_event_handler);
+    
+    /* dummy connectable advertiser softdevice application: */
+    //nrf_adv_conn_init();
+    
     /* sleep */
     while (true)
     {
 #if USE_SOFTDEVICE        
         sd_app_evt_wait();
 #else
-        _WFE();
+        //_WFE();
 #endif        
     }
     
