@@ -21,7 +21,7 @@ static bool g_is_initialized = false;
 * Static Functions
 *****************************************************************************/
 
-
+static void rbc_distribute_value_changed(
 
 
 
@@ -64,11 +64,11 @@ uint32_t rbc_value_alloc(const rbc_value_handle_t value_handle, const bool is_vo
     
     val->identifier.broadcast.id = value_handle;
     
-    val->flags |= DB_VALUE_FLAG_IS_BROADCAST_POS;
+    val->flags |= (1 << DB_VALUE_FLAG_IS_BROADCAST_POS);
     
     if (is_volatile)
     {
-        val->flags |= DB_VALUE_FLAG_VOLATILE_POS;
+        val->flags |= (1 << DB_VALUE_FLAG_VOLATILE_POS);
     }
     
     return NRF_SUCCESS;
@@ -118,7 +118,17 @@ uint32_t rbc_value_data_get(const rbc_value_handle_t value_handle,
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    /*TODO*/
+    
+    db_value_t* val = db_value_get(value_handle, 0);
+    
+    if (val == NULL)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
+    
+    memcpy(data, val->variation.data, val->variation.length);
+    *len = val->variation.length;
+    
     return NRF_SUCCESS;
 }
 
@@ -129,17 +139,17 @@ uint32_t rbc_value_delete(const rbc_value_handle_t value_handle)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    /*TODO*/
-    return NRF_SUCCESS;
-}
-
-
-uint32_t rbc_available_slots(uint16_t* available)
-{
-    if (!g_is_initialized)
+    
+    db_value_t* val = db_value_get(value_handle, 0);
+    
+    if (val == NULL)
     {
-        return NRF_ERROR_INVALID_STATE;
+        return NRF_ERROR_INVALID_ADDR;
     }
-    /*TODO*/
+    
+    val->flags &= ~(1 << DB_VALUE_FLAG_ACTIVE_POS);
+    
     return NRF_SUCCESS;
 }
+
+

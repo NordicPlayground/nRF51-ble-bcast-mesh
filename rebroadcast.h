@@ -4,9 +4,16 @@
 #include <stdbool.h>
 #include "nrf51.h"
 
+/**
+* @brief Compile time constant determining database size. 
+*
+* @note Should be set in "Preprocessor symbols" in Keil or with 
+*   -D RBC_MAX_VALUE_COUNT=(X) in gcc
+*/
 #ifndef RBC_MAX_VALUE_COUNT
     #define RBC_MAX_VALUE_COUNT (8)
 #endif
+
 
 /** 
 * @brief Rebroadcast value handle type 
@@ -141,17 +148,6 @@ uint32_t rbc_value_data_get(const rbc_value_handle_t value_handle,
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
 uint32_t rbc_value_delete(const rbc_value_handle_t value_handle);
-
-
-/**
-* @brief Get the number of non-allocated slots left in the database.
-* 
-* @param[out] available Returns the amount of non-allocated slots
-* 
-* @return NRF_SUCCESS the available variable has been properly set
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-*/
-uint32_t rbc_available_slots(uint16_t* available);
 
 
 
