@@ -43,7 +43,7 @@ void SD_IRQHandler(void)
     }
 }
 
-static void app_mesh_event_handler(rbc_event_t* evt)
+void rbc_event_handler(rbc_event_t* evt)
 {
     switch (evt->event_type)
     {
@@ -144,7 +144,7 @@ void test_app_init(void)
 int main(void)
 {
     test_app_init();
-    rbc_init(app_mesh_event_handler);
+    rbc_init();
     
     /* dummy connectable advertiser softdevice application: */
     //nrf_adv_conn_init();
