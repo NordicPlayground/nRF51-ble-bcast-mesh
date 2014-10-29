@@ -6,6 +6,12 @@
 #include "trickle_common.h"
 #include <string.h>
 
+/**@file
+* 
+* @brief Controller for radio_control, timer_control and timeslot_handler.
+*   Acts as an abstraction of the lower link layer to higher layer modules
+*/
+
 #define PACKET_DATA_POS         (3)
 #define PACKET_LENGTH_POS       (2)
 #define PACKET_TYPE_POS         (0)
@@ -14,7 +20,8 @@
 #define PACKET_TYPE_LL_CONTROL  (0x03)
 
 #define PACKET_DATA_MAX_LEN     (27)
-#define PACKET_MAX_CHAIN_LEN    (4)
+#define PACKET_MAX_CHAIN_LEN    (1) /**@TODO: May be increased to 8 when RX 
+                                        callback packet chain handling is implemented.*/
 
 #define TRICKLE_TIME_PERIOD     (20000) /* 20ms */
 #define TRICKLE_TIME_OFFSET     (2000) /* 2ms */
@@ -80,6 +87,8 @@ static void search_callback(uint8_t* data)
     packet_t packet;
     packet_create_from_data(data, &packet);
     db_packet_dissect(&packet);
+    
+    /** @TODO: add packet chain handling */
     
     TICK_PIN(PIN_RX);
     
