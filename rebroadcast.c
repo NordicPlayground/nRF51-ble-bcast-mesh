@@ -20,7 +20,7 @@ static bool g_is_initialized = false;
 * Static Functions
 *****************************************************************************/
 
-static void rbc_distribute_value_changed(
+
 
 
 
