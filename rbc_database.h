@@ -2,6 +2,7 @@
 #define _RBC_DATABASE_H__
 
 #include "trickle.h"
+#include "ble_gap.h"
 #include <stdint.h>
 
 #define DB_VALUE_FLAG_SYSTEM_POS        (3)
@@ -10,14 +11,14 @@
 #define DB_VALUE_FLAG_HAS_SOURCE_POS    (6)
 #define DB_VALUE_FLAG_IS_BROADCAST_POS  (7)
 
-#define DB_VARIATION_MAX_LENGTH          (27)
+#define DB_VARIATION_MAX_LENGTH         (27)
 #define DB_MAX_PACKET_LENGTH            DB_VARIATION_MAX_LENGTH
 
 
 
 typedef struct
 {
-    uint16_t sender;
+    ble_gap_addr_t sender;
     uint8_t length;
     uint8_t* data;
 } packet_t;
@@ -30,7 +31,7 @@ typedef struct
     uint8_t version;
     uint8_t data[DB_VARIATION_MAX_LENGTH];
     uint16_t source;
-    uint16_t last_sender; /* last node to send new info */
+    uint8_t last_sender[6]; /* last node to send new info */
 } variation_t;
 
 
