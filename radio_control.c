@@ -319,7 +319,7 @@ static void rx_abort_cb(void)
 * Interface functions
 *****************************************************************************/
 
-void radio_init(void)
+void radio_init(uint32_t access_address)
 {
 	/* Reset all states in the radio peripheral */
 	NRF_RADIO->POWER = 1;
@@ -334,9 +334,10 @@ void radio_init(void)
     NRF_RADIO->DATAWHITEIV      = 37;					// NOTE: This value needs to correspond to the frequency being used
 
 
-    /* Configure Access Address to be the BLE standard */
-    NRF_RADIO->PREFIX0	    = 0x80;//0x8e;
-    NRF_RADIO->BASE0 		= 0x89bed600; 
+    /* Configure Access Address  */
+    //0x8E89BED6
+    NRF_RADIO->PREFIX0	    = ((access_address >> 24) & 0x000000FF);
+    NRF_RADIO->BASE0 		= (access_address & 0x00FFFFFF); 
     NRF_RADIO->TXADDRESS    = 0x00;			    // Use logical address 0 (prefix0 + base0) = 0x8E89BED6 when transmitting
     NRF_RADIO->RXADDRESSES  = 0x01;				// Enable reception on logical address 0 (PREFIX0 + BASE0)
 

@@ -32,26 +32,12 @@ typedef struct
 * Starts the radio init procedure
 * Must be called at the beginning of each timeslot
 */
-void radio_init(void);
+void radio_init(uint32_t access_address);
 
-
+/**
+* Schedule a radio event (tx/rx)
+*/
 void radio_order(radio_event_t* radio_event);
-
-#if 0
-
-/**
-* Send the given data packet via radio. Will abort any ongoing RX procedure, regardless of 
-* how many packets have been received
-*/
-void radio_tx(uint8_t* data);
-
-/**
-* Set radio in RX mode. @param consectutive_receives indicates the number of packets to receive before the 
-* radio goes back to disabled state
-*/
-void radio_rx(uint8_t consecutive_receives);
-
-#endif
 
 /**
 * Disable the radio. Overrides any ongoing rx or tx procedures
