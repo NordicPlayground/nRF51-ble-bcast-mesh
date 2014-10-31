@@ -162,4 +162,23 @@ void rbc_event_handler(rbc_event_t* evt);
 
 
 
+/*****************************************************************************
+    Actual API
+    
+    rbc_init(uint32_t access_addr, uint8_t channel, uint8_t handle_range, uint8_t adv_int_ms)
+    rbc_value_set(uint8_t handle, uint8_t* data, uint8_t len)
+    rbc_value_get(uint8_t handle, uint8_t* data, uint8_t* len)
+    rbc_event_handler(rbc_event_t* evt)
+    rbc_sd_irq_handler(void)
+    rbc_access_addr_get(uint32_t* access_addr)
+    rbc_channel_get(uint32_t* ch)
+    rbc_handle_max_get(uint8_t* max_handle)
+    rbc_adv_int_get(uint32_t adv_int_ms)
+    rbc_adv_int_set(uint32_t adv_int_ms)
+    
+*****************************************************************************/
+    
+
+
+
 #endif /* _REBROADCAST_H__ */
