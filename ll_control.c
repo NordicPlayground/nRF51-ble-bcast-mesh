@@ -62,7 +62,9 @@ static void setup_next_step_callback(void)
     uint32_t current_time = timer_get_timestamp();
     uint32_t end_of_timeslot = timeslot_get_remaining_time() + current_time;
     
-    timeout_time = 1000 * db_get_next_processing_time();
+    /**@TODO: Don't wake the processor just to process a trickle period change */
+    mesh_srv_get_next_processing_time(&timeout_time);
+    timeout_time *= 1000;
     
     if (timeout_time - global_time + 1500 > end_of_timeslot)
     {
