@@ -1,400 +1,419 @@
 #include "rbc_database.h"
 #include "rebroadcast.h"
 #include "timeslot_handler.h"
-#include "trickle_common.h"
+#include "trickle.h"
+
+#include "nrf_error.h"
+#include "ble.h"
+
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include "nrf_error.h"
 
-/**@TODO: change to global version */
-#define VALUE_COUNT (8)
+
 
 #define VARIATION_FLAG_LENGTH_MASK    (0x1F)
 #define VARIATION_PACKET_FLAG_MASK    (0xC0)
+
+/*****************************************************************************
+* Local Type Definitions
+*****************************************************************************/
+
+typedef struct
+{
+    uint8_t value_count;
+    mesh_char_metadata_t* char_metadata;
+    uint16_t service_handle;
+    ble_gatts_char_handles_t ble_md_char_handles;
+} mesh_srv_t;
+
 
 
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
+static mesh_srv_t g_mesh_service = {0, NULL, 0};
 
-static db_value_t g_value_pool[VALUE_COUNT];
+static const ble_uuid128_t mesh_base_uuid = {0x1E, 0xCD, 0x00, 0x00, 
+                                            0x8C, 0xB9, 0xA8, 0x8B,
+                                            0x82, 0xD8, 0x51, 0xFD,
+                                            0xA1, 0x77, 0x1E, 0x2A};
+static uint8_t mesh_base_uuid_type;
 
+static bool is_initialized = false;
 
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
 
-static variation_t* variation_get_newest(variation_t* variation1, variation_t* variation2)
-{
-    if (variation1->version > variation2->version)
-        return variation1;
-    else
-        return variation2;
-}
-
-
-/**
-* Returns the length of a serialized version of the value
-*/
-static uint8_t value_get_length(db_value_t* value)
-{
-    /* length and version fields */
-    uint8_t tot_len = 2;
-    
-    /* data */
-    tot_len += value->variation.length;
-    
-    if (value->flags & (1 << DB_VALUE_FLAG_IS_BROADCAST_POS))
+static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
+{    
+    /**@TODO: put ranges in public #defines */
+    if (metadata->mesh_channel > 39 || 
+        metadata->mesh_adv_int_ms < 5 || 
+        metadata->mesh_adv_int_ms > 60000)
     {
-        /* id */
-        tot_len += 2;
-    }
-    else
-    {
-        /* target and id */
-        tot_len += 3;
+        return NRF_ERROR_INVALID_PARAM;
     }
     
-    if (value->flags & (1 << DB_VALUE_FLAG_HAS_SOURCE_POS))
-    {
-        /* source address */
-        tot_len += 2;
-    }
+    /* cccd for metadata char */
+    ble_gatts_attr_md_t cccd_md;
     
-    return tot_len;
-}   
-
-
-/**
-* Serialize value into buffer. Does not check for buffer overflow, 
-* must be done by callee
-*/
-static void value_place_in_buffer(db_value_t* value, uint8_t* buffer)
-{
-    uint8_t i = 0;
-    buffer[i++] = (value->variation.length & VARIATION_FLAG_LENGTH_MASK) | 
-                    (value->flags & VARIATION_FLAG_LENGTH_MASK);
-    buffer[i++] = value->variation.version;
+    memset(&cccd_md, 0, sizeof(cccd_md));
     
-    if (value->flags & (1 << DB_VALUE_FLAG_IS_BROADCAST_POS))
-    {
-        buffer[i++] = (value->identifier.broadcast.id >> 8);
-        buffer[i++] = (value->identifier.broadcast.id & 0xFF);
-    }
-    else
-    {
-        buffer[i++] = (value->identifier.unicast.target >> 8);
-        buffer[i++] = (value->identifier.unicast.target & 0xFF);
-        buffer[i++] = value->identifier.unicast.id;
-    }
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&cccd_md.read_perm);
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&cccd_md.write_perm);
+    cccd_md.vloc = BLE_GATTS_VLOC_STACK;
     
-    if (value->flags & (1 << DB_VALUE_FLAG_HAS_SOURCE_POS))
-    {
-        buffer[i++] = (value->variation.source >> 8);
-        buffer[i++] = (value->variation.source & 0xFF);
-    }
-    
-    memcpy( &buffer[i], 
-            value->variation.data, 
-            value->variation.length & VARIATION_FLAG_LENGTH_MASK);
-}
-    
+    /* metadata char */
+    ble_gatts_char_md_t ble_char_md;
         
+    memset(&ble_char_md, 0, sizeof(ble_char_md));
+    
+    ble_char_md.char_props.read = 1;
+    ble_char_md.char_props.notify = 1;
+    
+    ble_char_md.p_char_pf = NULL;
+    ble_char_md.p_cccd_md = &cccd_md;
+    ble_char_md.p_char_user_desc = NULL;
+    ble_char_md.p_user_desc_md = NULL;
+    
+    /* ATT metadata */
+    ble_gatts_attr_md_t ble_attr_md;
+    
+    memset(&ble_attr_md, 0, sizeof(ble_attr_md));
+    
+    ble_attr_md.read_perm.lv = 1;
+    ble_attr_md.read_perm.sm = 1;
+    ble_attr_md.write_perm.lv = 1;
+    ble_attr_md.write_perm.sm = 1;
+    
+    ble_attr_md.rd_auth = 0;
+    ble_attr_md.wr_auth = 0;
+    ble_attr_md.vlen = 0;
+    ble_attr_md.vloc = BLE_GATTS_VLOC_STACK;
+    
+    /* ble characteristic UUID */
+    ble_uuid_t ble_uuid;
+    
+    ble_uuid.type = mesh_base_uuid_type;
+    ble_uuid.uuid = MESH_MD_CHAR_UUID;
+    
+    /* metadata contents */
+    uint8_t value_array[9];
+    
+    memcpy(&value_array[MESH_MD_CHAR_AA_OFFSET], 
+        &metadata->mesh_access_addr, 
+        sizeof(metadata->mesh_access_addr));
+    
+    memcpy(&value_array[MESH_MD_CHAR_ADV_INT_OFFSET], 
+        &metadata->mesh_adv_int_ms, 
+        sizeof(metadata->mesh_adv_int_ms));
+        
+    memcpy(&value_array[MESH_MD_CHAR_COUNT_OFFSET], 
+        &metadata->mesh_value_count, 
+        sizeof(metadata->mesh_value_count));
+    
+    memcpy(&value_array[MESH_MD_CHAR_CH_OFFSET], 
+        &metadata->mesh_channel, 
+        sizeof(metadata->mesh_channel));
+    
+    
+    /* ble attribute */
+    ble_gatts_attr_t ble_attr;
+    
+    memset(&ble_attr, 0, sizeof(ble_attr));
+    
+    ble_attr.init_len = 9;
+    ble_attr.init_offs = 0;
+    ble_attr.max_len = 9;
+    ble_attr.p_uuid = &ble_uuid;
+    ble_attr.p_value = value_array;
+    ble_attr.p_attr_md = &ble_attr_md;
+    
+    /* add characteristic */    
+    uint32_t error_code = sd_ble_gatts_characteristic_add(
+        g_mesh_service.service_handle,
+        &ble_char_md,
+        &ble_attr, 
+        &g_mesh_service.ble_md_char_handles);
+        
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+    
+    
+    
+    return NRF_SUCCESS;
+}
+
+static uint32_t mesh_value_char_add(uint8_t index)
+{
+    if (index >= MAX_VALUE_COUNT)
+    {
+        return NRF_ERROR_INVALID_PARAM;
+    }
+    
+    /* metadata presentation format */
+    ble_gatts_char_pf_t ble_char_pf;
+    
+    memset(&ble_char_pf, 0, sizeof(ble_char_pf));
+    
+    ble_char_pf.name_space = BLE_GATT_CPF_NAMESPACE_BTSIG;
+    ble_char_pf.exponent = 0;
+    ble_char_pf.format = BLE_GATT_CPF_FORMAT_UINT8;
+    ble_char_pf.desc = index; /* identical to trickle instance id */
+    
+    
+    /* BLE GATT metadata */
+    ble_gatts_char_md_t ble_char_md;
+    
+    memset(&ble_char_md, 0, sizeof(ble_char_md));
+    
+    ble_char_md.p_char_pf = &ble_char_pf;
+    ble_char_md.char_props.read = 1;
+    ble_char_md.char_props.write = 1;
+    ble_char_md.char_props.notify = 1;
+    
+    ble_char_md.p_cccd_md = NULL;
+    ble_char_md.p_sccd_md = NULL;
+    ble_char_md.p_char_user_desc = NULL;
+    ble_char_md.p_user_desc_md = NULL;
+    
+    /* ATT metadata */
+    
+    ble_gatts_attr_md_t ble_attr_md;
+    
+    memset(&ble_attr_md, 0, sizeof(ble_attr_md));
+    
+    /* No security is required whatsoever, needs to be changed when encryption
+        is added */
+    ble_attr_md.read_perm.lv = 1;
+    ble_attr_md.read_perm.sm = 1;
+    ble_attr_md.write_perm.lv = 1;
+    ble_attr_md.write_perm.sm = 1;
+    
+    ble_attr_md.vloc = BLE_GATTS_VLOC_STACK;
+    ble_attr_md.rd_auth = 0;
+    ble_attr_md.wr_auth = 0;
+    ble_attr_md.vlen = 1;
+    
+    /* ble characteristic UUID */
+    ble_uuid_t ble_uuid;
+    
+    ble_uuid.type = mesh_base_uuid_type;
+    ble_uuid.uuid = MESH_VALUE_CHAR_UUID;
+    
+    /* ble attribute */
+    ble_gatts_attr_t ble_attr;
+    uint8_t default_value = 0;
+    
+    memset(&ble_attr, 0, sizeof(ble_attr));
+    
+    ble_attr.init_len = 1;
+    ble_attr.init_offs = 0;
+    ble_attr.max_len = MAX_VALUE_LENGTH;
+    ble_attr.p_attr_md = &ble_attr_md;
+    ble_attr.p_uuid = &ble_uuid;
+    ble_attr.p_value = &default_value;
+    
+    
+    /* add to service */
+    ble_gatts_char_handles_t ble_value_char_handles;
+    
+    uint32_t error_code = sd_ble_gatts_characteristic_add(
+        g_mesh_service.service_handle, 
+        &ble_char_md, 
+        &ble_attr, 
+        &ble_value_char_handles);
+        
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+    
+    g_mesh_service.char_metadata[index].char_value_handle =  ble_value_char_handles.value_handle;
+    
+    return NRF_SUCCESS;
+}
 
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
 
-void db_init(void)
+uint32_t mesh_srv_init(uint8_t mesh_value_count, 
+    uint32_t access_address, uint8_t channel, uint32_t adv_int_ms)
 {
-    trickle_setup(100, 20, 3);
-    for (uint16_t i = 0; i < VALUE_COUNT; ++i)
+    if (mesh_value_count > MAX_VALUE_COUNT)
     {
-        g_value_pool[i].flags = 0;
-        g_value_pool[i].variation.length = 0;
-        g_value_pool[i].variation.version = 0;
-        g_value_pool[i].variation.source = 0;
-        g_value_pool[i].variation.last_sender = 0;
+        return NRF_ERROR_INVALID_PARAM;
     }
-        
-}
-
-void db_packet_dissect(packet_t* packet)
-{
-    uint8_t index = 0;
-    while (index < packet->length)
+    
+    if (is_initialized)
     {
-        uint8_t flags = packet->data[index] & VARIATION_PACKET_FLAG_MASK;
-        
-        variation_t variation;
-        db_value_t* value = NULL;
-        uint16_t id = 0;
-        uint16_t target = 0;
-        
-        
-        variation.last_sender = packet->sender;
-        
-        variation.length = packet->data[index++] & VARIATION_FLAG_LENGTH_MASK;
-        variation.version = packet->data[index++];
-        
-        if (variation.length > DB_VARIATION_MAX_LENGTH)
-        {
-            /* assume broken packet, abort. */
-            /* This should never, ever happen */
-            
-            APP_ERROR_CHECK(NRF_ERROR_INVALID_LENGTH);
-        }
-        
-        /* identifier bytes are structured differently if the variation has 
-        * its source embedded in the header, and if it is unicast */
-        if (flags & DB_VALUE_FLAG_IS_BROADCAST_POS)
-        {
-            id = (packet->data[index++] << 8) | 
-                (packet->data[index++]);
-        }
-        else /* unicast */
-        {
-            target = (packet->data[index++] << 8) | 
-                (packet->data[index++]);
-            id = packet->data[index++];
-        }
-        
-        if (flags & DB_VALUE_FLAG_HAS_SOURCE_POS)
-        {
-            variation.source = (packet->data[index++] << 8) | 
-                (packet->data[index++]);
-        }
-        
-        
-        memcpy(&variation.data[0], &packet->data[index], variation.length);
-        
-        index += variation.length;
-        
-        value = db_value_get(id, target);
-        
-        TICK_PIN(PIN_ABORTED);
-        PIN_OUT(id, 16);
-        
-        if (value == NULL) /* value not in DB. */
-        {
-            TICK_PIN(PIN_ABORTED);
-            value = db_value_alloc();
-            value->flags = (flags & VARIATION_PACKET_FLAG_MASK);
-            if (flags & DB_VALUE_FLAG_IS_BROADCAST_POS)
-            {
-                value->identifier.broadcast.id = id;
-            }
-            else
-            {
-                value->identifier.unicast.target = 
-                    (packet->data[index++] << 8) | 
-                    (packet->data[index++]);
-            }
-            
-            /* Notify user of new value */
-            rbc_event_t new_val_event;
-            
-            uint8_t evt_data[DB_VARIATION_MAX_LENGTH];
-            memcpy(evt_data, variation.data, variation.length);
-            
-            new_val_event.event_type = RBC_EVENT_TYPE_NEW_VAL;
-            new_val_event.value_handle = id;
-            new_val_event.data = evt_data;
-            new_val_event.data_len = variation.length;
-            
-            /**@TODO: Move this to another, safer context?*/
-            rbc_event_handler(&new_val_event);
-            
-        }
-        else
-        {
-            /**@TODO */
-        }
-        
-        db_value_update_variation(value, &variation);
+        return NRF_ERROR_INVALID_STATE;
     }
+    
+    is_initialized = true;
+    
+    
+    g_mesh_service.value_count = mesh_value_count;
+    
+    ble_uuid_t ble_srv_uuid;
+    
+    /* add the mesh base UUID */
+    
+    sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
+    
+    uint32_t error_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, 
+        &ble_srv_uuid, &g_mesh_service.service_handle);
+    
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+    
+    /* Add metadata characteristic */
+    mesh_metadata_char_t mesh_metadata;
+    mesh_metadata.mesh_access_addr = access_address;
+    mesh_metadata.mesh_adv_int_ms = adv_int_ms;
+    mesh_metadata.mesh_channel = channel;
+    mesh_metadata.mesh_value_count = mesh_value_count;
+    
+    mesh_md_char_add(&mesh_metadata);
+    
+    /* allocate metadata array */
+    g_mesh_service.char_metadata = (mesh_char_metadata_t*) 
+        malloc(sizeof(mesh_char_metadata_t) * g_mesh_service.value_count);
+    
+    /* add characteristics to mesh service */
+    for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
+    {
+        error_code = mesh_value_char_add(i);
+        
+        if (error_code != NRF_SUCCESS)
+        {
+            return error_code;
+        }   
+    }
+    
+    
+    return NRF_SUCCESS;
 }
 
 
-db_value_t* db_value_get(uint16_t id, uint16_t target)
+uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len)
 {
-    for (uint16_t i = 0; i < VALUE_COUNT; ++i)
+    if (!is_initialized)
     {
-        db_value_t* value = &g_value_pool[i];
-        
-        if ((value->flags & (1 << DB_VALUE_FLAG_ACTIVE_POS)) == 0)
-            continue;
-        
-        if (value->flags & (1 << DB_VALUE_FLAG_IS_BROADCAST_POS))
-        {
-            if (value->identifier.broadcast.id == id)
-                return value;
-        }
-        else /* UNICAST */
-        {
-            if (value->identifier.unicast.id == (id & 0x00FF) && 
-                value->identifier.unicast.target == target)
-                return value;
-        }
+        return NRF_ERROR_INVALID_STATE;
     }
     
-    return NULL;        
+    if (index >= g_mesh_service.value_count)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
+    
+    if (len > MAX_VALUE_LENGTH)
+    {
+        return NRF_ERROR_INVALID_LENGTH;
+    }
+    
+    uint32_t error_code = sd_ble_gatts_value_set(
+        g_mesh_service.char_metadata[index].char_value_handle, 
+        0, &len, data);
+    
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+    
+    return NRF_SUCCESS;
 }
 
-db_value_t* db_value_alloc(void)
+uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len)
 {
-    db_value_t* oldest = NULL;
-    uint32_t oldest_i = 0;
-    
-    for (uint16_t i = 0; i < VALUE_COUNT; ++i)
+    if (!is_initialized)
     {
-        /* early escape if a non-allocated object is found */
-        if ((g_value_pool[i].flags & (1 << DB_VALUE_FLAG_ACTIVE_POS)) == 0)
-        {
-            oldest = &g_value_pool[i];
-            break;
-        }
-        
-        if (g_value_pool[i].flags & (1 << DB_VALUE_FLAG_VOLATILE_POS))
-            continue;
-        
-        
-        if (g_value_pool[i].trickle.i > oldest_i)
-        {
-            oldest_i = g_value_pool[i].trickle.i;
-            oldest = &g_value_pool[i];
-        }
+        return NRF_ERROR_INVALID_STATE;
     }
     
-    if (oldest == NULL)
+    if (index >= g_mesh_service.value_count)
     {
-        /* No non-volatile objects in pool */
-        return NULL;
+        return NRF_ERROR_INVALID_ADDR;
     }
     
-    /* Send message to user space notifying of any object erase */
-    if ((oldest->flags & (1 << DB_VALUE_FLAG_ACTIVE_POS)) != 0)
+    uint32_t error_code = sd_ble_gatts_value_get(
+        g_mesh_service.char_metadata[index].char_value_handle, 
+        0, len, data);
+    
+    if (error_code != NRF_SUCCESS)
     {
-        rbc_event_t delete_event;
-        uint8_t data[DB_VARIATION_MAX_LENGTH];
-        memcpy(data, oldest->variation.data, oldest->variation.length);
-        
-        delete_event.event_type = RBC_EVENT_TYPE_DELETE_VAL;
-        delete_event.value_handle = oldest->identifier.broadcast.id;
-        delete_event.data = data;
-        delete_event.data_len = oldest->variation.length;
-        
-        /**@TODO: Might want to handle this in a different context. */
-        rbc_event_handler(&delete_event);
+        return error_code;
     }
     
-    
-    trickle_init(&oldest->trickle);
-    
-    oldest->flags |= (1 << DB_VALUE_FLAG_ACTIVE_POS);
-    return oldest;
+    return NRF_SUCCESS;
 }
 
-void db_value_delete(db_value_t* value)
+uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata)
 {
-    value->flags = 0;
+    if (!is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    uint8_t data_array[MESH_MD_CHAR_LEN];
+    uint16_t len = MESH_MD_CHAR_LEN;
+    
+    uint32_t error_code = sd_ble_gatts_value_get(
+        g_mesh_service.ble_md_char_handles.value_handle, 0, &len, data_array);
+    
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+    
+    if (len != MESH_MD_CHAR_LEN)
+    {
+        return NRF_ERROR_INTERNAL;
+    }
+    
+    memcpy(&metadata->mesh_access_addr, 
+        &data_array[MESH_MD_CHAR_AA_OFFSET],
+        sizeof(metadata->mesh_access_addr));
+    
+    memcpy(&metadata->mesh_adv_int_ms, 
+        &data_array[MESH_MD_CHAR_ADV_INT_OFFSET],
+        sizeof(metadata->mesh_adv_int_ms));
+    
+    memcpy(&metadata->mesh_channel, 
+        &data_array[MESH_MD_CHAR_CH_OFFSET],
+        sizeof(metadata->mesh_channel));
+    
+    memcpy(&metadata->mesh_value_count, 
+        &data_array[MESH_MD_CHAR_COUNT_OFFSET],
+        sizeof(metadata->mesh_value_count));
+    
+    return NRF_SUCCESS;
 }
 
-
-void db_value_update_variation(db_value_t* value, variation_t* variation)
+uint32_t mesh_srv_get_next_processing_time(uint32_t* time)
 {
-    bool is_newer = (value->variation.version < variation->version);
-    
-    TICK_PIN(PIN_ABORTED);
-    if (value->variation.version == variation->version)
+    if (!is_initialized)
     {
-        trickle_rx_consistent(&value->trickle);
-    }
-    else
-    {
-        trickle_rx_inconsistent(&value->trickle);
-    } 
-
-    /* send system values to lower layer */
-    if (value->flags & (1 << DB_VALUE_FLAG_SYSTEM_POS))
-    {
-        TICK_PIN(PIN_ABORTED);
-        //sync_value_rx(variation);
-    }    
-    
-    /* update value construct */
-    if (is_newer || (value->flags & (1 << DB_VALUE_FLAG_ACTIVE_POS)) == 0)
-    {
-        value->variation.length = variation->length;
-        value->variation.version = variation->version;
-        value->variation.source = variation->source;
-        value->variation.last_sender = variation->last_sender;
-        memcpy(&(value->variation.data[0]), &(variation->data[0]), variation->length);
+        return NRF_ERROR_INVALID_STATE;
     }
     
-    
-    if (!(value->flags & (1 << DB_VALUE_FLAG_SYSTEM_POS)))
+    for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
     {
-        /*TODO: send message to user space */
-    }
-}
-
-
-void db_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_to_send)
-{
-    uint8_t packet_index = 0;
-    *has_anything_to_send = false;
-    
-    for (uint16_t i = 0; i < VALUE_COUNT; ++i)
-    {
-        if ((g_value_pool[i].flags & (1 << DB_VALUE_FLAG_ACTIVE_POS)) == 0)
-        {
-            continue;
-        }
-        bool do_tx;
-        trickle_step(&g_value_pool[i].trickle, &do_tx);
+        uint32_t temp_time = trickle_next_processing_get(&g_mesh_service.char_metadata[i].trickle);
         
-        if (do_tx)
+        if (temp_time < *time)
         {
-            uint8_t value_len = value_get_length(&g_value_pool[i]);
-            
-            /* Greedy approach, classic knapsack problem, a fitting-algorithm
-            * should be considered. Also, objects are not properly prioritized. */
-            if (value_len + packet_index < max_len)
-            {
-                if (g_value_pool[i].flags & (1 << DB_VALUE_FLAG_SYSTEM_POS))
-                {
-                    g_value_pool[i].variation.data[0] = g_value_pool[i].trickle.t - trickle_timestamp_get();
-                }
-                
-                value_place_in_buffer(&g_value_pool[i], &packet->data[packet_index]);
-                packet_index += value_len;
-                *has_anything_to_send = true;
-                trickle_register_tx(&g_value_pool[i].trickle);
-                
-                DEBUG_PIN_DB(3);
-            }
+            *time = temp_time;
         }
     }
-     
-    packet->length = packet_index - 1;
-}
-
-uint32_t db_get_next_processing_time(void)
-{
-    uint32_t next_time = UINT32_MAX;
-    for (uint8_t i = 0; i < VALUE_COUNT; ++i)
-    {
-        if ((g_value_pool[i].flags & (1 << DB_VALUE_FLAG_ACTIVE_POS)) == 0)
-        {
-            continue;
-        }
-        uint32_t this_timeout = trickle_next_processing_get(&g_value_pool[i].trickle);
         
-        if (this_timeout < next_time)
-            next_time = this_timeout;
-    }
-    
-    return next_time;
+    return NRF_SUCCESS;
 }
-

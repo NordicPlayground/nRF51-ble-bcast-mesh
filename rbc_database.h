@@ -5,14 +5,19 @@
 #include "ble_gap.h"
 #include <stdint.h>
 
-#define DB_VALUE_FLAG_SYSTEM_POS        (3)
-#define DB_VALUE_FLAG_VOLATILE_POS      (4)
-#define DB_VALUE_FLAG_ACTIVE_POS        (5)
-#define DB_VALUE_FLAG_HAS_SOURCE_POS    (6)
-#define DB_VALUE_FLAG_IS_BROADCAST_POS  (7)
+#define MAX_VALUE_COUNT                 (155)
+#define MAX_VALUE_LENGTH                (27)
 
-#define DB_VARIATION_MAX_LENGTH         (27)
-#define DB_MAX_PACKET_LENGTH            DB_VARIATION_MAX_LENGTH
+
+#define MESH_SRV_UUID                   (0x0001)
+#define MESH_MD_CHAR_UUID               (0x0002)
+#define MESH_VALUE_CHAR_UUID            (0x0003)
+
+#define MESH_MD_CHAR_LEN                (10)
+#define MESH_MD_CHAR_AA_OFFSET          (0)
+#define MESH_MD_CHAR_ADV_INT_OFFSET     (4)
+#define MESH_MD_CHAR_COUNT_OFFSET       (8)
+#define MESH_MD_CHAR_CH_OFFSET          (9)
 
 
 
@@ -24,50 +29,34 @@ typedef struct
 } packet_t;
 
 
-
 typedef struct
 {
-    uint8_t length;
-    uint8_t version;
-    uint8_t data[DB_VARIATION_MAX_LENGTH];
-    uint16_t source;
-    uint8_t last_sender[6]; /* last node to send new info */
-} variation_t;
+    uint16_t version_number;
+    uint16_t char_value_handle;
+    ble_gap_addr_t last_sender_addr;
+    trickle_t trickle;
+} mesh_char_metadata_t;
 
 
-typedef struct
+typedef struct 
 {
-    union
-    {
-        struct 
-        {
-            uint16_t id;
-        } broadcast;
-        struct 
-        {
-            uint16_t target;
-            uint8_t id;
-        } unicast;
-    } identifier;
-    uint8_t flags; /* [0 - 3]: RFU | [4]: IS VOLATILE | [5]: IS ALLOCATED | [6]: HAS SOURCE INCLUDED | [7]: BROADCAST[1]/UNICAST[0] */
-    variation_t variation; /* most recent version */
-    trickle_t trickle;   
-} db_value_t;
+    uint32_t mesh_access_addr;
+    uint32_t mesh_adv_int_ms;
+    uint8_t mesh_value_count;
+    uint8_t mesh_channel;
+} mesh_metadata_char_t;
 
-void db_init(void);
+uint32_t mesh_srv_init(uint8_t mesh_value_count, 
+    uint32_t access_address, uint8_t channel, uint32_t adv_int_ms);
 
-void db_packet_dissect(packet_t* packet);
+uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len);
 
-db_value_t* db_value_get(uint16_t id, uint16_t target);
+uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len);
 
-db_value_t* db_value_alloc(void);
+uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata);
 
-void db_value_update_variation(db_value_t* val, variation_t* variation);
+uint32_t mesh_srv_get_next_processing_time(uint32_t* time);
 
-void db_value_delete(db_value_t* val);
 
-void db_packet_assemble(packet_t* packet, uint8_t max_len, bool* has_anything_to_send);
-
-uint32_t db_get_next_processing_time(void);
 
 #endif /* _RBC_DATABASE_H__ */
