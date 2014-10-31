@@ -10,11 +10,13 @@
 #include <stdbool.h>
 #include <string.h>
 
+/* Packet related constants */
+#define MESH_PACKET_HANDLE_LEN          (1)
+#define MESH_PACKET_VERSION_LEN         (2)
 
-
-#define VARIATION_FLAG_LENGTH_MASK    (0x1F)
-#define VARIATION_PACKET_FLAG_MASK    (0xC0)
-
+#define MESH_PACKET_HANDLE_OFFSET       (0)
+#define MESH_PACKET_VERSION_OFFSET      (MESH_PACKET_HANDLE_OFFSET + MESH_PACKET_HANDLE_LEN)
+#define MESH_PACKET_DATA_OFFSET         (MESH_PACKET_VERSION_OFFSET + MESH_PACKET_VERSION_LEN)
 /*****************************************************************************
 * Local Type Definitions
 *****************************************************************************/
@@ -283,9 +285,11 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     
     mesh_md_char_add(&mesh_metadata);
     
+    uint32_t md_len = sizeof(mesh_char_metadata_t) * g_mesh_service.value_count;
+    
     /* allocate metadata array */
-    g_mesh_service.char_metadata = (mesh_char_metadata_t*) 
-        malloc(sizeof(mesh_char_metadata_t) * g_mesh_service.value_count);
+    g_mesh_service.char_metadata = (mesh_char_metadata_t*) malloc(md_len);    
+    memset(g_mesh_service.char_metadata, 0, md_len);
     
     /* add characteristics to mesh service */
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
@@ -405,8 +409,13 @@ uint32_t mesh_srv_get_next_processing_time(uint32_t* time)
         return NRF_ERROR_INVALID_STATE;
     }
     
+    *time = UINT32_MAX / 1000;
+    
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
     {
+        if ((g_mesh_service.char_metadata[i].flags & (1 << MESH_MD_FLAGS_USED_POS)) == 0)
+            continue;
+            
         uint32_t temp_time = trickle_next_processing_get(&g_mesh_service.char_metadata[i].trickle);
         
         if (temp_time < *time)
@@ -416,4 +425,114 @@ uint32_t mesh_srv_get_next_processing_time(uint32_t* time)
     }
         
     return NRF_SUCCESS;
+}
+
+uint32_t mesh_srv_packet_process(packet_t* packet)
+{
+    if (!is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    uint32_t error_code;
+    
+    uint8_t handle = packet->data[MESH_PACKET_HANDLE_OFFSET];
+    uint16_t version = (packet->data[MESH_PACKET_VERSION_OFFSET] | 
+                    (((uint16_t) packet->data[MESH_PACKET_VERSION_OFFSET]) << 8));
+    uint8_t* data = &packet->data[MESH_PACKET_DATA_OFFSET];
+    uint16_t data_len = packet->length - MESH_PACKET_DATA_OFFSET;
+    
+    if (data_len > MAX_VALUE_LENGTH)
+    {
+        return NRF_ERROR_INVALID_LENGTH;
+    }
+    
+    if (handle >= g_mesh_service.value_count)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
+    
+    
+    mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[handle];
+    
+    if (version != ch_md->version_number)
+    {
+        trickle_rx_inconsistent(&ch_md->trickle);
+    }
+    
+    /* new version */
+    /**@TODO: Handle version overflow */
+    if (version > ch_md->version_number)
+    {
+        bool uninitialized = !(ch_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS));
+        
+        /* update value */
+        memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
+        ch_md->version_number = version;
+        mesh_srv_char_val_set(handle, data, data_len);
+        ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
+                        (1 << MESH_MD_FLAGS_USED_POS);
+        
+        /* Propagate to application space */
+        uint8_t data_copy[MAX_VALUE_LENGTH]; /* use heap instead? */
+        memcpy(data_copy, data, data_len);
+        
+        rbc_event_t update_evt;
+        update_evt.event_type = ((uninitialized)? 
+            RBC_EVENT_TYPE_NEW_VAL :
+            RBC_EVENT_TYPE_UPDATE_VAL);
+        update_evt.data = data_copy;
+        update_evt.data_len = data_len;
+        update_evt.value_handle = handle;
+        
+        /**@TODO: Handle in different context? */
+        rbc_event_handler(&update_evt);
+    }
+    else if (version == ch_md->version_number)
+    {
+        /* check for conflicting data */
+        /**@TODO: use hash or checksum or something? 
+            This is SLOW and happens very often */
+        uint8_t old_data[MAX_VALUE_LENGTH];
+        uint16_t old_len = MAX_VALUE_LENGTH;
+        
+        
+        error_code = mesh_srv_char_val_get(handle, old_data, &old_len);
+        if (error_code != NRF_SUCCESS)
+        {
+            return error_code;
+        }
+        
+        bool conflicting = false;
+        
+        if (old_len != data_len)
+        {
+            conflicting = true;
+        }
+        else if (memcmp(old_data, data, data_len) != 0)
+        {
+            conflicting = true;
+        }
+        
+        if (conflicting)
+        {
+            rbc_event_t conflicting_evt;
+            uint8_t data_copy[MAX_VALUE_LENGTH]; /* use heap instead? */
+            memcpy(data_copy, data, data_len);
+            
+            conflicting_evt.event_type = RBC_EVENT_TYPE_CONFLICTING_VAL;
+            conflicting_evt.data = data_copy;
+            conflicting_evt.data_len = data_len;
+            conflicting_evt.value_handle = handle;
+            
+            trickle_rx_inconsistent(&ch_md->trickle);
+            
+            /**@TODO: Handle in different context? */
+            rbc_event_handler(&conflicting_evt);
+        }
+        else
+        {
+            trickle_rx_consistent(&ch_md->trickle);
+        }
+        
+    }
 }

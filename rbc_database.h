@@ -20,6 +20,9 @@
 #define MESH_MD_CHAR_CH_OFFSET          (9)
 
 
+#define MESH_MD_FLAGS_USED_POS          (0)
+#define MESH_MD_FLAGS_INITIALIZED_POS   (1)
+
 
 typedef struct
 {
@@ -35,6 +38,7 @@ typedef struct
     uint16_t char_value_handle;
     ble_gap_addr_t last_sender_addr;
     trickle_t trickle;
+    uint8_t flags;
 } mesh_char_metadata_t;
 
 
@@ -56,6 +60,8 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len);
 uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata);
 
 uint32_t mesh_srv_get_next_processing_time(uint32_t* time);
+
+uint32_t mesh_srv_packet_process(packet_t* packet);
 
 
 
