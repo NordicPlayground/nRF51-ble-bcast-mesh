@@ -46,102 +46,98 @@ typedef struct
 } rbc_event_t;
 
 
+/*****************************************************************************
+     Interface Functions 
+*****************************************************************************/
 
 /**
 * @brief Initialize Rebroadcast module, must be called before any other 
 *   rebroadcast function. 
+*
+* @note The nRF51 Softdevice must be initialized by the application before
+*    the mesh framework intialization is called, otherwise, the function will
+*    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED.
 * 
+* @param access_addr The access address the mesh will work on. This must be the 
+*    same for all nodes in the mesh. RBC_ACCESS_ADDRESS_BLE_ADV gives the mesh
+*    the same access address as regular BLE advertisements, which makes the
+*    traffic visible to external BLE devices (Note that other access addresses 
+*    does not provide any data security, the traffic is merely ignored by 
+*    regular BLE radios). Multiple meshes may in theory work concurrently in 
+*    the same area with different access addresses, but will be prone to 
+*    on-air collisions, and it is recommended to use separate channels for this
+* @param channel The BLE channel the mesh works on. It is strongly recommended 
+*    to use one of the three adv channels 37, 38 or 39, as others may be prone
+*    to on-air collisions with WiFi channels. Separate meshes may work 
+*    concurrently without packet collision if they are assigned to different 
+*    channels. Must be between 1 and 39.
+* @param handle_count The maximum number of handle-value pairs available to the
+*    application. May not be higher than 155 due to BLE namespace requirements
+* @param adv_int_ms The minimum adv_interval for nodes in the network in 
+*    millis. Must be between 5 and 60000.
 * 
 * @return NRF_SUCCESS the initialization is successful 
+* @return NRF_ERROR_INVALID_PARAM a parameter does not meet its requiremented range.
 * @return NRF_ERROR_INVALID_STATE the framework has already been initialized.
+* @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
-uint32_t rbc_init(void);
-
+uint32_t rbc_init(uint32_t access_addr, uint8_t channel, uint8_t handle_count, uint8_t adv_int_ms);
 
 /**
-* @brief Allocate a new rebroadcast value in the database. 
-*   The value is not shared with the network before any data is set. 
-* 
-* @warning If all value slots are full, the framework will overwrite an old value
-*   that has not been marked as volatile. The user will be notified of this 
-*   through a "DELETE_VAL" event in the callback. The callback will be invoked
-*   at the calling interrupt level, before the allocate call concludes. If 
-*   all value slots are occupied by volatile values, the function call will 
-*   return NRF_ERROR_NO_MEM.
-* 
-* @param[in] value_handle Handle for the newly allocated value
-*   in the database. Must be used as reference to all future
-*   operations on this value. It is up to the application to ensure non-conflicting
-*   handles throughout the network.
-* @param[in] is_volatile Whether to allocate the value as a volatile, meaning
-*   that it may not be deleted in this node in favor of new allocations
+* @brief Set the contents of the data array pointed to by the provided handle
 *
-* @return NRF_SUCCESS the allocation is successful
-* @return NRF_ERROR_NO_MEM there is no more non-volatile slots available
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-*/
-uint32_t rbc_value_alloc(const rbc_value_handle_t value_handle, const bool is_volatile);
-
-
-/**
-* @brief Set contents of data buffer represented of handle. Will be broadcasted
-*   to other nodes in the mesh. 
+* @param[in] handle The handle of the value we want to update. Is mesh-global.
+* @param[in] data Databuffer to be copied into the value slot
+* @param[in] len Length of the provided data. Must not exceed RBC_VALUE_MAX_LEN.
 * 
-* @note No data values will be broadcasted to the other notes before the first 
-*   time this function is called. 
-* @note If two different nodes update a value with this handle concurrently,
-*   a "CONFLICTING_VAL" event will be sent to the event handler upon arrival 
-*   of the external value. 
-* 
-* @param[in] value_handle Handle for the desired value, originating from 
-*   rbc_value_alloc() or a "NEW_VAL" event 
-* @param[in] data Byte array to be passed around the mesh as the handle value.
-*   max length is 27 bytes.
-* @param[in] len Length of the provided data array in number of byte elements.
-*   max length is 27 bytes.
-* 
-* @return NRF_SUCCESS if the data value update is successful
-* @return NRF_ERROR_INVALID_ADDR the given handle does not exist in the database
-* @return NRF_ERROR_INVALID_LENGTH the len parameter exceeds 27 bytes.
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-*/
-uint32_t rbc_value_data_set(const rbc_value_handle_t value_handle, 
-    const uint8_t* data, 
-    const uint8_t len);
-
-
-/**
-* @brief Get a copy of the data residing at the indicated handle slot
-*
-* @param[in] value_handle Handle to the wanted data set.
-* @param[in,out] data Pointer to a buffer (at least 27 bytes long) where to 
-*   store the value. Set to NULL to only obtain length of buffer
-* @param[out] len Length of current data
-*
-* @return NRF_SUCCESS if data and len has been successfully filled with 
-*   buffer information
-* @return NRF_ERROR_INVALID_ADDR if the given handle does not exist in the database
+* @return NRF_SUCCESS if the value has been successfully updated.
 * @return NRF_ERROR_INVALID_STATE if the framework has not been initialized.
+* @return NRF_ERROR_INVALID_ADDR if the handle is outside the range provided
+*    in rbc_init.
+* @return NRF_ERROR_INVALID_LENGTH if len exceeds RBC_VALUE_MAX_LEN.
 */
-uint32_t rbc_value_data_get(const rbc_value_handle_t value_handle, 
-    uint8_t* data, 
-    uint8_t* len);
-    
-/**
-* @brief Mark value handle for deletion. This frees the slot this value takes
-*   in the database for new allocations. Overrides any volatile attributes on 
-*   this value.
-* 
-* @param[in] value_handle Handle of the slot to be deleted
-* 
-* @return NRF_SUCCESS if the value has been successfully freed.
-* @return NRF_ERROR_INVALID_ADDR the given handle does not exist in the database
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-*/
-uint32_t rbc_value_delete(const rbc_value_handle_t value_handle);
+uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint8_t len);
 
 /**
-* @brief Softdevice interrupt handler, checking if there are any 
+ * @brief Get the contents of the data array pointed to by the provided handle
+*
+* @param[in] handle The handle of the value we want to update. Is mesh-global.
+* @param[out] data Databuffer to be copied into the value slot. Must be at least
+*    RBC_VALUE_MAX_LEN long
+* @param[out] len Length of the copied data. Will not exceed RBC_VALUE_MAX_LEN.
+* 
+* @return NRF_SUCCESS the value has been successfully fetched.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
+*    in rbc_init.
+*/
+uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint8_t* len);
+
+/**
+* @brief Get the mesh minimum advertise interval in ms
+*
+* @param[out] adv_int_ms The current adv_int in milliseconds
+*
+* @return NRF_SUCCESS the value was fetched successfully
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized
+*/
+uint32_t rbc_adv_int_get(uint32_t adv_int_ms);
+
+/**
+* @brief Set the mesh minimum advertise interval in ms
+*
+* @param[in] adv_int_ms The wanted minimum adv interval in ms. Must be
+*    between 5 and 60000.
+*
+* @return NRF_SUCCESS successfully updated adv_int
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized
+* @return NRF_ERROR_INVALID_PARAM The adv int was outside the required range,
+*    and has not been set.
+*/
+uint32_t rbc_adv_int_set(uint32_t adv_int_ms);
+
+/**
+ * @brief Softdevice interrupt handler, checking if there are any 
 *   incomming events related to the framework. 
 *
 * @note Should be called from the SD_IRQHandler function. Will poll the 
@@ -149,36 +145,17 @@ uint32_t rbc_value_delete(const rbc_value_handle_t value_handle);
 */
 void rbc_sd_irq_handler(void);
 
-
 /**
-* @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 
+ * @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 
 *   SPACE.
 *
 * @note Does not have an implementation within the framework, but acts as a 
 *   feedback channel for the framework to notify the application of any 
 *   changes in values.
+*
+* @param evt Framework generated event presented to the application. 
 */
 void rbc_event_handler(rbc_event_t* evt);
 
-
-
-/*****************************************************************************
-    Actual API
-    
-    rbc_init(uint32_t access_addr, uint8_t channel, uint8_t handle_range, uint8_t adv_int_ms)
-    rbc_value_set(uint8_t handle, uint8_t* data, uint8_t len)
-    rbc_value_get(uint8_t handle, uint8_t* data, uint8_t* len)
-    rbc_event_handler(rbc_event_t* evt)
-    rbc_sd_irq_handler(void)
-    rbc_access_addr_get(uint32_t* access_addr)
-    rbc_channel_get(uint32_t* ch)
-    rbc_handle_max_get(uint8_t* max_handle)
-    rbc_adv_int_get(uint32_t adv_int_ms)
-    rbc_adv_int_set(uint32_t adv_int_ms)
-    
-*****************************************************************************/
-    
-
-
-
 #endif /* _REBROADCAST_H__ */
+
