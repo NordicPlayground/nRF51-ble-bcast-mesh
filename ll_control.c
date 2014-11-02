@@ -125,13 +125,15 @@ static void search_callback(uint8_t* data)
     
     packet_t packet;
     packet_create_from_data(data, &packet);
-    db_packet_dissect(&packet);
+    mesh_srv_packet_process(&packet);
     
     /** @TODO: add packet chain handling */
     
     TICK_PIN(PIN_RX);
     
-    uint32_t new_processing_timeout = 1000 * db_get_next_processing_time();
+    uint32_t new_processing_timeout;
+    mesh_srv_get_next_processing_time(&new_processing_timeout);
+    new_processing_timeout *= 1000;
     if (new_processing_timeout < timeout_time)
     {
         timeout_time = new_processing_timeout;
@@ -151,7 +153,7 @@ static void trickle_step_callback(void)
     packet.data = temp_data;
     bool has_anything_to_send = false;
     
-    db_packet_assemble(&packet, PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN, 
+    mesh_srv_packet_assemble(&packet, PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN, 
         &has_anything_to_send);
     
     if (has_anything_to_send)
