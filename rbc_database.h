@@ -80,3 +80,4 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
 
 
 #endif /* _RBC_DATABASE_H__ */
+

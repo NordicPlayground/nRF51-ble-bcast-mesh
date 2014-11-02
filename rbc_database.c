@@ -142,7 +142,7 @@ static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
         
     if (error_code != NRF_SUCCESS)
     {
-        return error_code;
+        return NRF_ERROR_INTERNAL;
     }
     
     
@@ -232,7 +232,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
         
     if (error_code != NRF_SUCCESS)
     {
-        return error_code;
+        return NRF_ERROR_INTERNAL;
     }
     
     g_mesh_service.char_metadata[index].char_value_handle =  ble_value_char_handles.value_handle;
@@ -273,7 +273,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     
     if (error_code != NRF_SUCCESS)
     {
-        return error_code;
+        return NRF_ERROR_INTERNAL;
     }
     
     /* Add metadata characteristic */
