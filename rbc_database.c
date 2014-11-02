@@ -437,7 +437,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     
     uint8_t handle = packet->data[MESH_PACKET_HANDLE_OFFSET];
     uint16_t version = (packet->data[MESH_PACKET_VERSION_OFFSET] | 
-                    (((uint16_t) packet->data[MESH_PACKET_VERSION_OFFSET]) << 8));
+                    (((uint16_t) packet->data[MESH_PACKET_VERSION_OFFSET + 1]) << 8));
     uint8_t* data = &packet->data[MESH_PACKET_DATA_OFFSET];
     uint16_t data_len = packet->length - MESH_PACKET_DATA_OFFSET;
     
@@ -536,3 +536,50 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         
     }
 }
+
+
+uint32_t mesh_srv_packet_assemble(packet_t* packet, 
+    uint16_t packet_max_len, 
+    bool* has_anything_to_send)
+{
+    *has_anything_to_send = false;
+    if (!is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    uint32_t error_code;
+    
+    for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
+    {
+        mesh_char_metadata_t* md_ch = &g_mesh_service.char_metadata[i];
+        trickle_step(md_ch->trickle, has_anything_to_send);
+
+        if (has_anything_to_send)
+        {
+            uint8_t data[MAX_VALUE_LENGTH];
+            uint16_t len = MAX_VALUE_LEN;
+
+            error_code = mesh_srv_char_val_get(i, data, &len);
+
+            if (error_code != NRF_SUCCESS)
+            {
+                return error_code;
+            }
+
+            packet->data[MESH_PACKET_HANDLE_OFFSET] = i;
+            packet->data[MESH_PACKET_VERISON_OFFSET] = 
+                (md_ch->version_number & 0xFF); 
+            packet->data[MESH_PACKET_VERSION_OFFSET + 1] = 
+                ((md_ch->version_number >> 8) & 0xFF);
+          
+            memcpy(&packet->data[MESH_PACKET_DATA_OFFSET], data, len);
+
+            /**@TODO: Add multiple trickle messages in one packet */
+
+            break;
+        }
+    }
+}
+
+
