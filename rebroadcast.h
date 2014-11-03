@@ -4,17 +4,9 @@
 #include <stdbool.h>
 #include "nrf51.h"
 
-/**
-* @brief Compile time constant determining database size. 
-*
-* @note Should be set in "Preprocessor symbols" in Keil or with 
-*   -D RBC_MAX_VALUE_COUNT=(X) in gcc
-*/
-#ifndef RBC_MAX_VALUE_COUNT
-    #define RBC_MAX_VALUE_COUNT (8)
-#endif
-
-
+#define RBC_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
+#define RBC_ADV_INT_MIN             (5)
+#define RBC_ADV_INT_MAX             (60000)
 /** 
 * @brief Rebroadcast value handle type 
 *
@@ -96,7 +88,7 @@ uint32_t rbc_init(uint32_t access_addr, uint8_t channel, uint8_t handle_count, u
 *    in rbc_init.
 * @return NRF_ERROR_INVALID_LENGTH if len exceeds RBC_VALUE_MAX_LEN.
 */
-uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint8_t len);
+uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint16_t len);
 
 /**
  * @brief Get the contents of the data array pointed to by the provided handle
@@ -111,17 +103,47 @@ uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint8_t len);
 * @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
 *    in rbc_init.
 */
-uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint8_t* len);
+uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint16_t* len);
+
+/**
+* @brief Get current mesh access address
+* 
+* @param[out] access_addr Pointer location to put access address in
+* 
+* @return NRF_SUCCESS the value was fetched successfully
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
+*/
+uint32_t rbc_access_address_get(uint32_t* access_address);
+
+/**
+* @brief Get current mesh channel
+* 
+* @param[out] ch Pointer location to put mesh channel in 
+*
+* @return NRF_SUCCESS the value was fetched successfully
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
+*/
+uint32_t rbc_channel_get(uint8_t* ch);
+
+/**
+* @brief Get the amount of allocated handle-value pairs 
+* 
+* @param[out] handle_count Pointer location to put handle count in 
+*
+* @return NRF_SUCCESS the value was fetched successfully
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
+*/
+uint32_t rbc_handle_count_get(uint8_t* handle_count);
 
 /**
 * @brief Get the mesh minimum advertise interval in ms
 *
-* @param[out] adv_int_ms The current adv_int in milliseconds
+* @param[out] adv_int_ms Pointer location to put adv int in
 *
 * @return NRF_SUCCESS the value was fetched successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized
 */
-uint32_t rbc_adv_int_get(uint32_t adv_int_ms);
+uint32_t rbc_adv_int_get(uint32_t* adv_int_ms);
 
 /**
 * @brief Set the mesh minimum advertise interval in ms

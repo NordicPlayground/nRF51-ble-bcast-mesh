@@ -1,8 +1,10 @@
 #include "rebroadcast.h"
 #include "trickle_common.h"
 #include "rbc_database.h"
+#include "timeslot_handler.h"
 
 #include "nrf_error.h"
+#include "nrf_sdm.h"
 
 #include <string.h>
 
@@ -52,7 +54,7 @@ uint32_t rbc_init(uint32_t access_addr,
 
     uint32_t error_code;
     
-    error_code = mesh_srv_init(handle_range, access_address, channel, adv_int_ms);
+    error_code = mesh_srv_init(handle_count, access_addr, channel, adv_int_ms);
 
     if (error_code != NRF_SUCCESS)
     {
@@ -69,7 +71,9 @@ uint32_t rbc_init(uint32_t access_addr,
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint8_t len)
+/****** Getters and setters ******/
+
+uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint16_t len)
 {
     if (!g_is_initialized)
     {
@@ -79,7 +83,7 @@ uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint8_t len)
     return mesh_srv_char_val_set(handle, data, len);
 }
 
-uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint8_t* len)
+uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
 {
     if (!g_is_initialized)
     {
@@ -87,6 +91,42 @@ uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint8_t* len)
     }
 
     return mesh_srv_char_val_get(handle, data, len);
+}
+
+uint32_t rbc_access_address_get(uint32_t* access_address)
+{
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    *access_address = g_access_addr;
+    
+    return NRF_SUCCESS;
+}
+
+uint32_t rbc_channel_get(uint8_t* ch)
+{
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    *ch = g_channel;
+    
+    return NRF_SUCCESS;
+}
+    
+uint32_t rbc_handle_count_get(uint8_t* handle_count)
+{
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    *handle_count = g_handle_count;
+    
+    return NRF_SUCCESS;
 }
 
 uint32_t rbc_adv_int_get(uint32_t* adv_int_ms)
@@ -119,8 +159,10 @@ uint32_t rbc_adv_int_set(uint32_t adv_int_ms)
     return NRF_SUCCESS;
 }
 
+/***** event handler ******/
+
 void rbc_sd_irq_handler(void)
 {
     /* call lower layer event handler */
-    broadcast_event_handler();
+    ts_sd_event_handler();
 }
