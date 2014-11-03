@@ -421,11 +421,6 @@
           <GroupName>app</GroupName>
           <Files>
             <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\main.c</FilePath>
-            </File>
-            <File>
               <FileName>radio_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\radio_control.c</FilePath>
@@ -439,6 +434,36 @@
               <FileName>rebroadcast.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\rebroadcast.c</FilePath>
+            </File>
+            <File>
+              <FileName>ll_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ll_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_adv_conn.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\nrf_adv_conn.c</FilePath>
+            </File>
+            <File>
+              <FileName>rbc_database.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\rbc_database.c</FilePath>
+            </File>
+            <File>
+              <FileName>test_application.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\test_application.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\timer_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>timeslot_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\timeslot_handler.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -874,11 +899,6 @@
           <GroupName>app</GroupName>
           <Files>
             <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\main.c</FilePath>
-            </File>
-            <File>
               <FileName>radio_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\radio_control.c</FilePath>
@@ -892,6 +912,36 @@
               <FileName>rebroadcast.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\rebroadcast.c</FilePath>
+            </File>
+            <File>
+              <FileName>ll_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ll_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_adv_conn.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\nrf_adv_conn.c</FilePath>
+            </File>
+            <File>
+              <FileName>rbc_database.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\rbc_database.c</FilePath>
+            </File>
+            <File>
+              <FileName>test_application.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\test_application.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\timer_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>timeslot_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\timeslot_handler.c</FilePath>
             </File>
           </Files>
         </Group>
