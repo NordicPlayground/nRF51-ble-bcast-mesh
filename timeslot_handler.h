@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 
-void broadcast_event_handler(void);
+void ts_sd_event_handler(void);
 
 void timeslot_handler_init(void);
 

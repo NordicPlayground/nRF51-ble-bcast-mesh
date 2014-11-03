@@ -125,37 +125,6 @@ static uint32_t g_total_time = 0;
 
 
 /**
-* Callback for data reception. Called from radio_event_handler in radio_control.c
-* upon packet reception. Called in LowerStack interrupt priority (from radio_signal_callback)
-* Propagates relevant packets to user space
-*/
-void radio_rx_callback(uint8_t* rx_data)
-{    
-    
-    /* packet verification */
-    uint32_t faulty_packet = 0;
-    
-    faulty_packet |= (NRF_RADIO->CRCSTATUS == 0);
-    faulty_packet |= (rx_data[PACKET_TYPE_INDEX] != PACKET_TYPE);
-    faulty_packet |= (rx_data[PACKET_ADV_DATA_INDEX + 1] != PACKET_ADV_DATA_MAN_TYPE);
-    
-    if (faulty_packet)
-    {
-        return;
-    }
-    
-     
-    /* send to above layer */
-    packet_t packet;
-    packet.data = &rx_data[PACKET_MAN_DATA_INDEX];
-    packet.length = rx_data[PACKET_ADV_DATA_INDEX];
-    packet.sender = (rx_data[PACKET_ADV_ADDR_INDEX + 4] << 8) |
-                    (rx_data[PACKET_ADV_ADDR_INDEX + 5] & 0xFF);
-    
-    db_packet_dissect(&packet);
-}
-
-/**
 * Callback for TX completion. After a successful TX, the timeslot should end.
 */
 void radio_tx_callback(void)
@@ -216,7 +185,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 * Called whenever the softdevice tries to change the original course of actions 
 * related to the timeslots
 */
-void broadcast_event_handler(void)
+void ts_sd_event_handler(void)
 {
     uint32_t evt;
     SET_PIN(6);

@@ -11,7 +11,7 @@
 #define TRICKLE_SAFETY_MARGIN_US            (94)
 #define TRICKLE_RX_PROPAGATION_US           (350)
 
-#define TRICKLE_SEARCHING_TIMEOUT_PPI_CH    (8)         /* Softdevice hogs first 8 */
+#define TRICKLE_SEARCHING_TIMEOUT_PPI_CH    (8)
 #define TRICKLE_SYNC_PPI_CH                 (8)
 
 

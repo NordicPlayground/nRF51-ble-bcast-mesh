@@ -102,7 +102,7 @@ static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
     ble_uuid.uuid = MESH_MD_CHAR_UUID;
     
     /* metadata contents */
-    uint8_t value_array[9];
+    uint8_t value_array[MESH_MD_CHAR_LEN];
     
     memcpy(&value_array[MESH_MD_CHAR_AA_OFFSET], 
         &metadata->mesh_access_addr, 
@@ -535,6 +535,8 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         }
         
     }
+    
+    return NRF_SUCCESS;
 }
 
 
@@ -553,12 +555,12 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
     {
         mesh_char_metadata_t* md_ch = &g_mesh_service.char_metadata[i];
-        trickle_step(md_ch->trickle, has_anything_to_send);
+        trickle_step(&md_ch->trickle, has_anything_to_send);
 
         if (has_anything_to_send)
         {
             uint8_t data[MAX_VALUE_LENGTH];
-            uint16_t len = MAX_VALUE_LEN;
+            uint16_t len = MAX_VALUE_LENGTH;
 
             error_code = mesh_srv_char_val_get(i, data, &len);
 
@@ -568,7 +570,7 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
             }
 
             packet->data[MESH_PACKET_HANDLE_OFFSET] = i;
-            packet->data[MESH_PACKET_VERISON_OFFSET] = 
+            packet->data[MESH_PACKET_VERSION_OFFSET] = 
                 (md_ch->version_number & 0xFF); 
             packet->data[MESH_PACKET_VERSION_OFFSET + 1] = 
                 ((md_ch->version_number >> 8) & 0xFF);
@@ -580,6 +582,8 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
             break;
         }
     }
+    
+    return NRF_SUCCESS;
 }
 
 

@@ -144,7 +144,7 @@ void test_app_init(void)
 int main(void)
 {
     test_app_init();
-    rbc_init();
+    rbc_init(RBC_ACCESS_ADDRESS_BLE_ADV, 37, 2, 100);
     
     /* dummy connectable advertiser softdevice application: */
     //nrf_adv_conn_init();
