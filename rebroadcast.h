@@ -145,6 +145,8 @@ uint32_t rbc_handle_count_get(uint8_t* handle_count);
 */
 uint32_t rbc_adv_int_get(uint32_t* adv_int_ms);
 
+#if 0
+/* NOT IMPLEMENTED YET */
 /**
 * @brief Set the mesh minimum advertise interval in ms
 *
@@ -157,9 +159,9 @@ uint32_t rbc_adv_int_get(uint32_t* adv_int_ms);
 *    and has not been set.
 */
 uint32_t rbc_adv_int_set(uint32_t adv_int_ms);
-
+#endif 
 /**
- * @brief Softdevice interrupt handler, checking if there are any 
+* @brief Softdevice interrupt handler, checking if there are any 
 *   incomming events related to the framework. 
 *
 * @note Should be called from the SD_IRQHandler function. Will poll the 

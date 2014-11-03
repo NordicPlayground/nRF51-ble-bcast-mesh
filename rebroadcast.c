@@ -141,6 +141,7 @@ uint32_t rbc_adv_int_get(uint32_t* adv_int_ms)
     return NRF_SUCCESS;
 }
 
+#if 0
 uint32_t rbc_adv_int_set(uint32_t adv_int_ms)
 {
     if (!g_is_initialized)
@@ -158,6 +159,7 @@ uint32_t rbc_adv_int_set(uint32_t adv_int_ms)
 
     return NRF_SUCCESS;
 }
+#endif
 
 /***** event handler ******/
 
