@@ -1,5 +1,6 @@
 #include "radio_control.h"
 #include "timer_control.h"
+#include "timeslot_handler.h"
 #include "trickle_common.h"
 #include "trickle.h"
 #include "nrf.h"
@@ -307,18 +308,35 @@ static void radio_transition_end(bool successful_transmission)
         if (successful_transmission)
         {
             if (prev_evt.callback.rx != NULL)
-                (*prev_evt.callback.rx)(rx_data[!current_rx_buf]);
+            {
+                async_event_t evt;
+                evt.type = EVENT_TYPE_RADIO_RX;
+                evt.callback.radio_rx.function = prev_evt.callback.rx;
+                evt.callback.radio_rx.data = rx_data[!current_rx_buf];
+                timeslot_queue_async_event(&evt);
+            }
         }
         else
         {
             if (prev_evt.callback.rx != NULL)
-                (*prev_evt.callback.rx)(NULL);
+            {
+                async_event_t evt;
+                evt.type = EVENT_TYPE_RADIO_RX;
+                evt.callback.radio_rx.function = prev_evt.callback.rx;
+                evt.callback.radio_rx.data = NULL;
+                timeslot_queue_async_event(&evt);
+            }
         }
     }
     else
     {
         if (prev_evt.callback.tx != NULL)
-            (*prev_evt.callback.tx)();
+        {
+            async_event_t evt;
+            evt.type = EVENT_TYPE_RADIO_TX;
+            evt.callback.radio_tx = prev_evt.callback.tx;
+            timeslot_queue_async_event(&evt);
+        }
     }
     
 }

@@ -1,5 +1,7 @@
 #include "timer_control.h"
 
+#include "timeslot_handler.h"
+
 #include "app_error.h"
 #include "nrf_soc.h"
 
@@ -72,7 +74,12 @@ void timer_event_handler(void)
             timer_callback cb = callbacks[i];
             active_callbacks &= ~(1 << i);
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
-            (*cb)();
+            
+            /* propagate evt */
+            async_event_t evt;
+            evt.type = EVENT_TYPE_TIMER;
+            evt.callback.timer = cb;
+            timeslot_queue_async_event(&evt);
         }
     }
             

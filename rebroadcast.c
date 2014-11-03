@@ -61,12 +61,14 @@ uint32_t rbc_init(uint32_t access_addr,
         return error_code;
     }
 
+    timeslot_handler_init();
+    
     g_access_addr = access_addr;
     g_channel = channel;
     g_handle_count = handle_count;
     g_adv_int_ms = adv_int_ms;
 
-     g_is_initialized = true;
+    g_is_initialized = true;
     
     return NRF_SUCCESS;
 }

@@ -3,6 +3,7 @@
 #include "timeslot_handler.h"
 #include "trickle.h"
 
+#include "nrf_soc.h"
 #include "nrf_error.h"
 #include "ble.h"
 
@@ -266,9 +267,16 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     
     /* add the mesh base UUID */
     
-    sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
+    uint32_t error_code = sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
+    if (error_code != NRF_SUCCESS)
+    {
+        return NRF_ERROR_INTERNAL;
+    }
     
-    uint32_t error_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, 
+    ble_srv_uuid.type = mesh_base_uuid_type;
+    ble_srv_uuid.uuid = MESH_SRV_UUID;
+    
+    error_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, 
         &ble_srv_uuid, &g_mesh_service.service_handle);
     
     if (error_code != NRF_SUCCESS)

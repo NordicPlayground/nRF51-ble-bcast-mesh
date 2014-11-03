@@ -5,6 +5,8 @@
 #include "trickle_common.h"
 
 #include "nrf_soc.h"
+#include "app_error.h"
+#include "nrf_assert.h"
 #include "nrf_sdm.h"
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
@@ -31,6 +33,54 @@
 
 static uint8_t led_data;
 
+
+
+void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
+{
+    
+    SET_PIN(PIN_ABORTED);
+    uint8_t* name_ptr = (uint8_t*) p_file_name;
+    while (*name_ptr != '\0')
+    {
+        PIN_OUT(name_ptr[0], 8);
+        
+        ++name_ptr;
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+        TICK_PIN(0);
+    }
+    while (true)
+    {
+        PIN_OUT(line_num, 16);
+        nrf_delay_ms(500);
+        SET_PIN(LED_0);
+        CLEAR_PIN(LED_1);
+        nrf_delay_ms(500);
+        SET_PIN(LED_1);
+        CLEAR_PIN(LED_0);
+    }
+}
+
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+{
+
+    SET_PIN(PIN_ABORTED);
+    while (true)
+    {
+        PIN_OUT(error_code, 32);
+        nrf_delay_ms(500);
+        SET_PIN(LED_0);
+        CLEAR_PIN(LED_1);
+        nrf_delay_ms(500);
+        SET_PIN(LED_1);
+        CLEAR_PIN(LED_0);
+    }
+}
 
 void SD_IRQHandler(void)
 {
@@ -146,7 +196,23 @@ void test_app_init(void)
 int main(void)
 {
     test_app_init();
-    rbc_init(RBC_ACCESS_ADDRESS_BLE_ADV, 37, 2, 100);
+    uint32_t error_code = 
+        sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_250_PPM, sd_assert_handler);
+    
+    ble_enable_params_t ble_enable_params;
+    ble_enable_params.gatts_enable_params.service_changed = 0;
+    
+    error_code = sd_ble_enable(&ble_enable_params);
+    APP_ERROR_CHECK(error_code);
+    
+    error_code = rbc_init(RBC_ACCESS_ADDRESS_BLE_ADV, 37, 2, 100);
+    APP_ERROR_CHECK(error_code);
+    
+    uint8_t data[] = {0, 1, 2, 3, 4, 5};
+    
+    error_code = rbc_value_set(1, data, 6);
+    APP_ERROR_CHECK(error_code);
+    
     
     /* dummy connectable advertiser softdevice application: */
     //nrf_adv_conn_init();

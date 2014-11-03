@@ -115,6 +115,7 @@ __Vectors_Size  EQU     __Vectors_End - __Vectors
 
 NRF_POWER_RAMON_ADDRESS           EQU   0x40000524  ; NRF_POWER->RAMON address
 NRF_POWER_RAMON_RAMxON_ONMODE_Msk EQU   0x3         ; All RAM blocks on in onmode bit mask
+	
 
 Reset_Handler   PROC
                 EXPORT  Reset_Handler             [WEAK]
