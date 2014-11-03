@@ -135,9 +135,13 @@ static void radio_fifo_flush(void)
 
 static void radio_channel_set(uint8_t ch)
 {
-    if (ch < 37)
+    if (ch <= 10)
     {
         NRF_RADIO->FREQUENCY = 4 + ch * 2;
+    }
+    else if (ch <= 36)
+    {
+        NRF_RADIO->FREQUENCY = 6 + ch * 2;
     }
     else
     {
@@ -151,8 +155,13 @@ static void radio_channel_set(uint8_t ch)
 
 static bool radio_will_go_to_disabled_state(void)
 {
-    return (radio_fifo_get_length() == 2 && 
-        (NRF_RADIO->EVENTS_READY) && !(NRF_RADIO->EVENTS_END));
+    radio_event_t current_evt, next_evt;
+    radio_fifo_peek_at(&current_evt, 0);
+    radio_fifo_peek_at(&next_evt, 1);
+    
+    return ((radio_fifo_get_length() == 2 && 
+        (NRF_RADIO->EVENTS_READY) && !(NRF_RADIO->EVENTS_END)) || 
+        (current_evt.channel != next_evt.channel));
 }
 
 static void setup_rx_timeout(uint32_t rx_start_time)
@@ -171,8 +180,8 @@ static void radio_transition_end(bool successful_transmission)
     /* pop the event that just finished */
     radio_event_t prev_evt;
     radio_fifo_get(&prev_evt);
-    bool fly_through_disable = (NRF_RADIO->SHORTS & 
-        (RADIO_SHORTS_DISABLED_RXEN_Msk | RADIO_SHORTS_DISABLED_TXEN_Msk));    
+    bool fly_through_disable = ((NRF_RADIO->SHORTS & 
+        (RADIO_SHORTS_DISABLED_RXEN_Msk | RADIO_SHORTS_DISABLED_TXEN_Msk)) > 0);    
     
     current_rx_buf = !current_rx_buf;
     NRF_RADIO->SHORTS = 0;
@@ -205,7 +214,8 @@ static void radio_transition_end(bool successful_transmission)
             NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk;
             
             /* the ready->start shortcut doesn't work when we already are in IDLE */
-            if (prev_evt.event_type == evt.event_type)
+            if (prev_evt.event_type == evt.event_type &&
+                prev_evt.channel == evt.channel)
             {
                 start_manually = true;
             }
@@ -232,6 +242,7 @@ static void radio_transition_end(bool successful_transmission)
             /* manually begin ramp up */
             if (!fly_through_disable)
             {
+                radio_channel_set(evt.channel);
                 NRF_RADIO->TASKS_RXEN = 1;
             }
                 
@@ -247,6 +258,7 @@ static void radio_transition_end(bool successful_transmission)
             /* manually begin ramp up */
             if (!fly_through_disable)
             {
+                radio_channel_set(evt.channel);
                 NRF_RADIO->TASKS_TXEN = 1;
             }
         }
@@ -269,8 +281,11 @@ static void radio_transition_end(bool successful_transmission)
             radio_event_t next_evt;
             radio_fifo_peek_at(&next_evt, 1);
             
-            if (next_evt.event_type != evt.event_type)
+            if (next_evt.event_type != evt.event_type || 
+                next_evt.channel != evt.channel)
             {
+                radio_channel_set(next_evt.channel);
+                
                 NRF_RADIO->SHORTS |= RADIO_SHORTS_END_DISABLE_Msk;
                 
                 /* make shortcut through disabled to accelerate the process */
@@ -335,7 +350,6 @@ void radio_init(uint32_t access_address)
 
 
     /* Configure Access Address  */
-    //0x8E89BED6
     NRF_RADIO->PREFIX0	    = ((access_address >> 24) & 0x000000FF);
     NRF_RADIO->BASE0 		= (access_address & 0x00FFFFFF); 
     NRF_RADIO->TXADDRESS    = 0x00;			    // Use logical address 0 (prefix0 + base0) = 0x8E89BED6 when transmitting
@@ -379,6 +393,9 @@ void radio_order(radio_event_t* radio_event)
     {
         /* order radio right away */
         
+        radio_channel_set(radio_event->channel);
+        
+        NRF_RADIO->SHORTS = RADIO_SHORTS_END_DISABLE_Msk;
         
         if (radio_event->start_time > 0)
         {
@@ -415,13 +432,11 @@ void radio_order(radio_event_t* radio_event)
         
         if (radio_event->start_time == 0)
         {
-            NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | 
-                            RADIO_SHORTS_END_DISABLE_Msk;
+            NRF_RADIO->SHORTS |= RADIO_SHORTS_READY_START_Msk;
         }
         else
         {
             timer_order_ppi(radio_event->start_time, (uint32_t*) &(NRF_RADIO->TASKS_START));
-            NRF_RADIO->SHORTS = RADIO_SHORTS_END_DISABLE_Msk;
         }
         
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
@@ -436,8 +451,10 @@ void radio_order(radio_event_t* radio_event)
         {
             uint8_t queue_length = radio_fifo_get_length();
             
-            if (queue_length == 2)
+            if (queue_length == 2) 
             {
+                /* this event will come straight after the current */
+                
                 /* get current event */
                 radio_event_t ev;
                 radio_fifo_peek(&ev);

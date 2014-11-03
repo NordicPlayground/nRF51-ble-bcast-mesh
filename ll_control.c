@@ -2,6 +2,7 @@
 #include "radio_control.h"
 #include "timer_control.h"
 #include "rbc_database.h"
+#include "rebroadcast.h"
 #include "timeslot_handler.h"
 #include "trickle_common.h"
 #include "ble_gap.h"
@@ -30,7 +31,7 @@
 #define PACKET_ADDR_TYPE_MASK       (0x40)
 
 #define PACKET_DATA_MAX_LEN         (31)
-#define PACKET_MAX_CHAIN_LEN        (1) /**@TODO: May be increased to 8 when RX 
+#define PACKET_MAX_CHAIN_LEN        (1) /**@TODO: May be increased when RX 
                                         callback packet chain handling is implemented.*/
 
 #define TRICKLE_TIME_PERIOD         (20000) /* 20ms */
@@ -223,7 +224,10 @@ static void trickle_step_callback(void)
 
 void ll_control_timeslot_begin(uint32_t global_timer_value)
 {
-    radio_init();
+    uint32_t aa;    
+    rbc_access_address_get(&aa);
+    
+    radio_init(aa);
     order_search();  
     
     timeout_time = global_timer_value;
