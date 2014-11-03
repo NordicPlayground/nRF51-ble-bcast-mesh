@@ -2,6 +2,7 @@
 
 #include "rebroadcast.h"
 #include "nrf_adv_conn.h"
+#include "trickle_common.h"
 
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
@@ -45,6 +46,7 @@ void SD_IRQHandler(void)
 
 void rbc_event_handler(rbc_event_t* evt)
 {
+    TICK_PIN(28);
     switch (evt->event_type)
     {
         case RBC_EVENT_TYPE_NEW_VAL:
