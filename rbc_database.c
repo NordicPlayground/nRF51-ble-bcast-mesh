@@ -302,6 +302,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
         }   
     }
     
+    trickle_setup(1000 * adv_int_ms, 20, 3);
     
     return NRF_SUCCESS;
 }

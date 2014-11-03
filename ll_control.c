@@ -65,7 +65,7 @@ static void setup_next_step_callback(void)
     
     /**@TODO: Don't wake the processor just to process a trickle period change */
     mesh_srv_get_next_processing_time(&timeout_time);
-    timeout_time *= 1000;
+    
     
     if (timeout_time - global_time + 1500 > end_of_timeslot)
     {
@@ -134,19 +134,19 @@ static void search_callback(uint8_t* data)
     
     uint32_t new_processing_timeout;
     mesh_srv_get_next_processing_time(&new_processing_timeout);
-    new_processing_timeout *= 1000;
+    
     if (new_processing_timeout < timeout_time)
     {
         timeout_time = new_processing_timeout;
         timer_abort(timer_index);
-        timer_index = timer_order_cb(1000 * timeout_time, trickle_step_callback);
+        timer_index = timer_order_cb(timeout_time, trickle_step_callback);
     }
 }
 
 
 static void trickle_step_callback(void)
 {
-    trickle_time_update(timeout_time / 1000 + 1);
+    trickle_time_update(timeout_time + 1);
     
     uint8_t temp_data[PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN];
     
