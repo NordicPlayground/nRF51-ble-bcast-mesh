@@ -496,6 +496,11 @@ void radio_disable(void)
 */
 void radio_event_handler(void)
 {
+    if (RADIO_EVENT(EVENTS_END))
+    {
+        NRF_RADIO->EVENTS_END = 0;
+        radio_transition_end(true);
+    }
     switch (radio_state)
     {
         case RADIO_STATE_RX:
@@ -505,11 +510,6 @@ void radio_event_handler(void)
             }
             
         case RADIO_STATE_TX:
-            if (RADIO_EVENT(EVENTS_END))
-            {
-                NRF_RADIO->EVENTS_END = 0;
-                radio_transition_end(true);
-            }
         
             
             break;

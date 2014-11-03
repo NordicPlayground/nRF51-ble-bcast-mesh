@@ -49,9 +49,9 @@ static void trickle_step_callback(void);
 static void order_search(void)
 {
     radio_event_t search_event;
-    search_event.access_address = 1;
+    search_event.access_address = 1; /* RX: treat as bitfield */
     search_event.callback.rx = search_callback;
-    search_event.channel = 37;
+    rbc_channel_get(&search_event.channel);
     search_event.event_type = RADIO_EVENT_TYPE_RX;
     search_event.start_time = 0;
     
@@ -191,7 +191,7 @@ static void trickle_step_callback(void)
             
             radio_event_t tx_event;
             tx_event.access_address = 0;
-            tx_event.channel = 37;
+            rbc_channel_get(&tx_event.channel);
             tx_event.event_type = RADIO_EVENT_TYPE_TX;
             tx_event.packet_ptr = tx_data_ptr;
             tx_event.start_time = 0;
