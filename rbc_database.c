@@ -3,6 +3,7 @@
 #include "timeslot_handler.h"
 #include "trickle.h"
 
+#include "nrf_soc.h"
 #include "nrf_error.h"
 #include "ble.h"
 
@@ -102,7 +103,7 @@ static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
     ble_uuid.uuid = MESH_MD_CHAR_UUID;
     
     /* metadata contents */
-    uint8_t value_array[9];
+    uint8_t value_array[MESH_MD_CHAR_LEN];
     
     memcpy(&value_array[MESH_MD_CHAR_AA_OFFSET], 
         &metadata->mesh_access_addr, 
@@ -142,7 +143,7 @@ static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
         
     if (error_code != NRF_SUCCESS)
     {
-        return error_code;
+        return NRF_ERROR_INTERNAL;
     }
     
     
@@ -232,7 +233,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
         
     if (error_code != NRF_SUCCESS)
     {
-        return error_code;
+        return NRF_ERROR_INTERNAL;
     }
     
     g_mesh_service.char_metadata[index].char_value_handle =  ble_value_char_handles.value_handle;
@@ -266,14 +267,21 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     
     /* add the mesh base UUID */
     
-    sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
+    uint32_t error_code = sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
+    if (error_code != NRF_SUCCESS)
+    {
+        return NRF_ERROR_INTERNAL;
+    }
     
-    uint32_t error_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, 
+    ble_srv_uuid.type = mesh_base_uuid_type;
+    ble_srv_uuid.uuid = MESH_SRV_UUID;
+    
+    error_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, 
         &ble_srv_uuid, &g_mesh_service.service_handle);
     
     if (error_code != NRF_SUCCESS)
     {
-        return error_code;
+        return NRF_ERROR_INTERNAL;
     }
     
     /* Add metadata characteristic */
@@ -302,6 +310,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
         }   
     }
     
+    trickle_setup(1000 * adv_int_ms, 20, 3);
     
     return NRF_SUCCESS;
 }
@@ -437,7 +446,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     
     uint8_t handle = packet->data[MESH_PACKET_HANDLE_OFFSET];
     uint16_t version = (packet->data[MESH_PACKET_VERSION_OFFSET] | 
-                    (((uint16_t) packet->data[MESH_PACKET_VERSION_OFFSET]) << 8));
+                    (((uint16_t) packet->data[MESH_PACKET_VERSION_OFFSET + 1]) << 8));
     uint8_t* data = &packet->data[MESH_PACKET_DATA_OFFSET];
     uint16_t data_len = packet->length - MESH_PACKET_DATA_OFFSET;
     
@@ -535,4 +544,55 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         }
         
     }
+    
+    return NRF_SUCCESS;
 }
+
+
+uint32_t mesh_srv_packet_assemble(packet_t* packet, 
+    uint16_t packet_max_len, 
+    bool* has_anything_to_send)
+{
+    *has_anything_to_send = false;
+    if (!is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    uint32_t error_code;
+    
+    for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
+    {
+        mesh_char_metadata_t* md_ch = &g_mesh_service.char_metadata[i];
+        trickle_step(&md_ch->trickle, has_anything_to_send);
+
+        if (has_anything_to_send)
+        {
+            uint8_t data[MAX_VALUE_LENGTH];
+            uint16_t len = MAX_VALUE_LENGTH;
+
+            error_code = mesh_srv_char_val_get(i, data, &len);
+
+            if (error_code != NRF_SUCCESS)
+            {
+                return error_code;
+            }
+
+            packet->data[MESH_PACKET_HANDLE_OFFSET] = i;
+            packet->data[MESH_PACKET_VERSION_OFFSET] = 
+                (md_ch->version_number & 0xFF); 
+            packet->data[MESH_PACKET_VERSION_OFFSET + 1] = 
+                ((md_ch->version_number >> 8) & 0xFF);
+          
+            memcpy(&packet->data[MESH_PACKET_DATA_OFFSET], data, len);
+
+            /**@TODO: Add multiple trickle messages in one packet */
+
+            break;
+        }
+    }
+    
+    return NRF_SUCCESS;
+}
+
+

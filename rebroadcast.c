@@ -1,8 +1,10 @@
 #include "rebroadcast.h"
 #include "trickle_common.h"
 #include "rbc_database.h"
+#include "timeslot_handler.h"
 
 #include "nrf_error.h"
+#include "nrf_sdm.h"
 
 #include <string.h>
 
@@ -13,7 +15,10 @@
 
 
 static bool g_is_initialized = false;
-
+static uint32_t g_access_addr;
+static uint8_t g_channel;
+static uint8_t g_handle_count;
+static uint8_t g_adv_int_ms;
 
 
 /*****************************************************************************
@@ -28,131 +33,140 @@ static bool g_is_initialized = false;
 * Interface Functions
 *****************************************************************************/
 
-uint32_t rbc_init(void)
+uint32_t rbc_init(uint32_t access_addr, 
+        uint8_t channel, 
+        uint8_t handle_count, 
+        uint8_t adv_int_ms)
 {
+    uint8_t sd_is_enabled = 0;
+    sd_softdevice_is_enabled(&sd_is_enabled);
+
+    if (!sd_is_enabled)
+    {
+        return NRF_ERROR_SOFTDEVICE_NOT_ENABLED;
+    }
+        
+
     if (g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    else
+
+    uint32_t error_code;
+    
+    error_code = mesh_srv_init(handle_count, access_addr, channel, adv_int_ms);
+
+    if (error_code != NRF_SUCCESS)
     {
-        g_is_initialized = true;
+        return error_code;
     }
+
+    timeslot_handler_init();
     
-    
-    db_init();
+    g_access_addr = access_addr;
+    g_channel = channel;
+    g_handle_count = handle_count;
+    g_adv_int_ms = adv_int_ms;
+
+    g_is_initialized = true;
     
     return NRF_SUCCESS;
 }
 
+/****** Getters and setters ******/
 
-uint32_t rbc_value_alloc(const rbc_value_handle_t value_handle, const bool is_volatile)
+uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint16_t len)
+{
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    return mesh_srv_char_val_set(handle, data, len);
+}
+
+uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
+{
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    return mesh_srv_char_val_get(handle, data, len);
+}
+
+uint32_t rbc_access_address_get(uint32_t* access_address)
 {
     if (!g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
     
-    db_value_t* val = db_value_alloc();
-    
-    if (val == NULL)
-    {
-        return NRF_ERROR_NO_MEM;
-    }
-    
-    val->identifier.broadcast.id = value_handle;
-    
-    val->flags |= (1 << DB_VALUE_FLAG_IS_BROADCAST_POS);
-    
-    if (is_volatile)
-    {
-        val->flags |= (1 << DB_VALUE_FLAG_VOLATILE_POS);
-    }
+    *access_address = g_access_addr;
     
     return NRF_SUCCESS;
 }
 
-
-uint32_t rbc_value_data_set(const rbc_value_handle_t value_handle, 
-    const uint8_t* data, 
-    const uint8_t len)
+uint32_t rbc_channel_get(uint8_t* ch)
 {
     if (!g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
     
-    if (len > DB_VARIATION_MAX_LENGTH)
-    {
-        return NRF_ERROR_INVALID_LENGTH;
-    }
-    
-    db_value_t* val = db_value_get(value_handle, 0);
-    
-    if (val == NULL)
-    {
-        return NRF_ERROR_INVALID_ADDR;
-    }
-    
-    variation_t new_variation;
-    
-    memcpy(new_variation.data, data, len);
-    
-    new_variation.length = len;
-    new_variation.version = val->variation.version + 1;
-    
-    db_value_update_variation(val, &new_variation);
-    
+    *ch = g_channel;
     
     return NRF_SUCCESS;
 }
-
-
-uint32_t rbc_value_data_get(const rbc_value_handle_t value_handle, 
-    uint8_t* data, 
-    uint8_t* len)
+    
+uint32_t rbc_handle_count_get(uint8_t* handle_count)
 {
     if (!g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
     
-    db_value_t* val = db_value_get(value_handle, 0);
-    
-    if (val == NULL)
-    {
-        return NRF_ERROR_INVALID_ADDR;
-    }
-    
-    memcpy(data, val->variation.data, val->variation.length);
-    *len = val->variation.length;
+    *handle_count = g_handle_count;
     
     return NRF_SUCCESS;
 }
 
-
-uint32_t rbc_value_delete(const rbc_value_handle_t value_handle)
+uint32_t rbc_adv_int_get(uint32_t* adv_int_ms)
 {
     if (!g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
-    db_value_t* val = db_value_get(value_handle, 0);
-    
-    if (val == NULL)
-    {
-        return NRF_ERROR_INVALID_ADDR;
-    }
-    
-    val->flags &= ~(1 << DB_VALUE_FLAG_ACTIVE_POS);
-    
+
+    *adv_int_ms = g_adv_int_ms;
+
     return NRF_SUCCESS;
 }
 
+#if 0
+uint32_t rbc_adv_int_set(uint32_t adv_int_ms)
+{
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    if (adv_int_ms < RBC_ADV_INT_MIN ||
+            adv_int_ms > RBC_ADV_INT_MAX)
+    {
+        return NRF_ERROR_INVALID_PARAM;
+    }
+
+    g_adv_int_ms = adv_int_ms;
+
+    return NRF_SUCCESS;
+}
+#endif
+
+/***** event handler ******/
 
 void rbc_sd_irq_handler(void)
 {
     /* call lower layer event handler */
-    broadcast_event_handler();
+    ts_sd_event_handler();
 }

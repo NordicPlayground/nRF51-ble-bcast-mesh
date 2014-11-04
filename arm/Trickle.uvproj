@@ -14,6 +14,8 @@
         <TargetCommonOption>
           <Device>nRF51822_xxAA</Device>
           <Vendor>Nordic Semiconductor</Vendor>
+          <PackID>NordicSemiconductor.nRF_DeviceFamilyPack.1.1.1</PackID>
+          <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IRAM(0x20000000-0x20003FFF) IROM(0-0x3FFFF) CLOCK(16000000) CPUTYPE("Cortex-M0") ESEL ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile>"Device\Nordic\nRF51822\Source\templates\arm\arm_startup_nrf51.s"("Nordic Semiconductor nRF51822_xxAA Startup Code")</StartupFile>
@@ -72,6 +74,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -362,7 +366,7 @@
               <MiscControls></MiscControls>
               <Define>BOARD_PCA10003 NRF51</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\Trickle;..\..\..\SDK\nrf51822\Include;..\..\..\SDK\nrf51822\Include\app_common;..\..\..\SDK\nrf51822\Include\s110;..\..\..\SDK\nrf51822\Include\sd_common</IncludePath>
+              <IncludePath>..\..\Trickle;..\..\..\SDK\nrf51822\Include;..\..\..\SDK\nrf51822\Include\app_common;..\..\..\SDK\nrf51822\Include\s110;..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\SDK\nrf51822\Include\ble;..\..\..\SDK\nrf51822\Include\ble\ble_services</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -421,11 +425,6 @@
           <GroupName>app</GroupName>
           <Files>
             <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\main.c</FilePath>
-            </File>
-            <File>
               <FileName>radio_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\radio_control.c</FilePath>
@@ -439,6 +438,36 @@
               <FileName>rebroadcast.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\rebroadcast.c</FilePath>
+            </File>
+            <File>
+              <FileName>ll_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ll_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_adv_conn.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\nrf_adv_conn.c</FilePath>
+            </File>
+            <File>
+              <FileName>rbc_database.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\rbc_database.c</FilePath>
+            </File>
+            <File>
+              <FileName>test_application.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\test_application.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\timer_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>timeslot_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\timeslot_handler.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -455,6 +484,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
             </File>
+            <File>
+              <FileName>ble_advdata.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
@@ -467,6 +501,8 @@
         <TargetCommonOption>
           <Device>nRF51822_xxAA</Device>
           <Vendor>Nordic Semiconductor</Vendor>
+          <PackID>NordicSemiconductor.nRF_DeviceFamilyPack.1.1.1</PackID>
+          <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IRAM(0x20000000-0x20003FFF) IROM(0-0x3FFFF) CLOCK(16000000) CPUTYPE("Cortex-M0") ESEL ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile>"Device\Nordic\nRF51822\Source\templates\arm\arm_startup_nrf51.s"("Nordic Semiconductor nRF51822_xxAA Startup Code")</StartupFile>
@@ -525,6 +561,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -874,11 +912,6 @@
           <GroupName>app</GroupName>
           <Files>
             <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\main.c</FilePath>
-            </File>
-            <File>
               <FileName>radio_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\radio_control.c</FilePath>
@@ -892,6 +925,36 @@
               <FileName>rebroadcast.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\rebroadcast.c</FilePath>
+            </File>
+            <File>
+              <FileName>ll_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ll_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_adv_conn.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\nrf_adv_conn.c</FilePath>
+            </File>
+            <File>
+              <FileName>rbc_database.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\rbc_database.c</FilePath>
+            </File>
+            <File>
+              <FileName>test_application.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\test_application.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\timer_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>timeslot_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\timeslot_handler.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -907,6 +970,11 @@
               <FileName>simple_uart.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble_advdata.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
             </File>
           </Files>
         </Group>

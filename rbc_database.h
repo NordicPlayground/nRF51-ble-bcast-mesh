@@ -63,6 +63,21 @@ uint32_t mesh_srv_get_next_processing_time(uint32_t* time);
 
 uint32_t mesh_srv_packet_process(packet_t* packet);
 
+/**
+* @brief fills databuffer in the provided packet object with any mesh service 
+*    that is to be sent. Indicates sending with the anything_to_send flag
+*
+* @param[in,out] packet Packet to be filled. data member must point to 
+*    existing databuffer (i.e. not NULL)
+* @param[in] packet_max_len Maximum permitted length of message 
+*    (length of packet->data)
+* @param[out] has_anything_to_send Set to true if any operation was performed 
+*    on the data buffer
+*/
+uint32_t mesh_srv_packet_assemble(packet_t* packet, 
+    uint16_t packet_max_len, 
+    bool* has_anything_to_send);
 
 
 #endif /* _RBC_DATABASE_H__ */
+

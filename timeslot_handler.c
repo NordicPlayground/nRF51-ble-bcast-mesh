@@ -20,7 +20,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define USE_SWI_FOR_PROCESSING      (0)
+#define USE_SWI_FOR_PROCESSING      (1)
 
 
 #define PACKET_ADV_ADDR_INDEX       (3)
@@ -40,6 +40,12 @@
 #define PACKET_RAMP_UP_TIME_US      (140)
 
 #define TIMESLOT_END_SAFETY_MARGIN_US  (150)
+
+
+#if USE_SWI_FOR_PROCESSING
+#define ASYNC_EVENT_FIFO_QUEUE_SIZE (8)
+#define ASYNC_EVENT_FIFO_QUEUE_MASK (ASYNC_EVENT_FIFO_QUEUE_SIZE - 1)      
+#endif
 
 /*****************************************************************************
 * Local type definitions
@@ -79,81 +85,122 @@ static nrf_radio_request_t radio_request_earliest =
                         .timeout_us = 1000000 /* 1s */
                     }
                 };
-                        
-#if 0                
-/**
-* Timeslot callback return parameters
-*/
-static const nrf_radio_signal_callback_return_param_t radio_signal_cb_ret_param_none =
-                {
-                    .callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE
-                };
-                
-static nrf_radio_signal_callback_return_param_t radio_signal_cb_ret_param_request =
-                {
-                    .callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END,
-                    .params.request.p_next = (nrf_radio_request_t*) &radio_request_normal
-                };
-                
-static const nrf_radio_signal_callback_return_param_t radio_signal_cb_ret_param_extend =
-                {
-                    .callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND,
-                    .params.extend.length_us = 900000 /* 0.9 seconds */
-                };
-#endif
                 
                 
                   
 static nrf_radio_signal_callback_return_param_t g_ret_param;
-static nrf_radio_signal_callback_return_param_t g_final_ret_param;
+//static nrf_radio_signal_callback_return_param_t g_final_ret_param;
 
 static bool g_is_in_callback = true;
                 
 static uint32_t g_timeslot_length;      
 static uint32_t g_timeslot_end_timer;      
 static uint32_t g_next_timeslot_length;    
-static uint32_t g_total_time = 0;                
+static uint32_t g_total_time = 0;      
+
+#if USE_SWI_FOR_PROCESSING
+static uint8_t event_fifo_head = 0;
+static uint8_t event_fifo_tail = 0;       
+static async_event_t async_event_fifo_queue[ASYNC_EVENT_FIFO_QUEUE_SIZE];
+#endif                
                 
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
+
+#if USE_SWI_FOR_PROCESSING
+static bool event_fifo_full(void)
+{
+    return ((event_fifo_tail + ASYNC_EVENT_FIFO_QUEUE_SIZE) == event_fifo_head);
+}
+
+static bool event_fifo_empty(void)
+{
+    return (event_fifo_head == event_fifo_tail);
+}
+
+static uint8_t event_fifo_get_length(void)
+{
+    return (event_fifo_head - event_fifo_tail) & 0xFF;
+}
+
+static uint8_t event_fifo_put(async_event_t* evt)
+{
+    if (event_fifo_full())
+    {
+        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
+    }
+    
+    async_event_t* head = &async_event_fifo_queue[event_fifo_head & ASYNC_EVENT_FIFO_QUEUE_MASK];
+    
+    memcpy(head, evt, sizeof(async_event_t));
+    
+    return ((event_fifo_head++) & ASYNC_EVENT_FIFO_QUEUE_MASK);
+}
+
+static uint32_t event_fifo_get(async_event_t* evt)
+{
+    if (event_fifo_empty())
+    {
+        return NRF_ERROR_NULL;
+    }
+    
+    async_event_t* tail = &async_event_fifo_queue[event_fifo_tail & ASYNC_EVENT_FIFO_QUEUE_MASK];
+    
+    memcpy(evt, tail, sizeof(async_event_t));
+    
+    ++event_fifo_tail;
+    return NRF_SUCCESS;
+}
+
+
+static uint32_t event_fifo_peek_at(async_event_t* evt, uint8_t offset)
+{
+    if (event_fifo_get_length() < offset)
+    {
+        return NRF_ERROR_NULL;
+    }
+    
+    async_event_t* tail = &async_event_fifo_queue[(event_fifo_tail + offset) & ASYNC_EVENT_FIFO_QUEUE_MASK];
+    
+    memcpy(evt, tail, sizeof(async_event_t));
+    
+    return NRF_SUCCESS;
+}
+
+static uint32_t event_fifo_peek(async_event_t* evt)
+{
+    return event_fifo_peek_at(evt, 0);
+}
+
+static void event_fifo_flush(void)
+{
+    event_fifo_tail = event_fifo_head;
+}
+#endif
+
+
+static void async_event_execute(async_event_t* evt)
+{
+    switch (evt->type)
+    {
+        case EVENT_TYPE_RADIO_RX:
+            (*evt->callback.radio_rx.function)(evt->callback.radio_rx.data);
+            break;
+        case EVENT_TYPE_RADIO_TX:
+            (*evt->callback.radio_tx)();
+            break;
+        case EVENT_TYPE_TIMER:
+            (*evt->callback.timer)();
+            break;
+    }
+}
 
 
 /*****************************************************************************
 * System callback functions
 *****************************************************************************/
 
-
-/**
-* Callback for data reception. Called from radio_event_handler in radio_control.c
-* upon packet reception. Called in LowerStack interrupt priority (from radio_signal_callback)
-* Propagates relevant packets to user space
-*/
-void radio_rx_callback(uint8_t* rx_data)
-{    
-    
-    /* packet verification */
-    uint32_t faulty_packet = 0;
-    
-    faulty_packet |= (NRF_RADIO->CRCSTATUS == 0);
-    faulty_packet |= (rx_data[PACKET_TYPE_INDEX] != PACKET_TYPE);
-    faulty_packet |= (rx_data[PACKET_ADV_DATA_INDEX + 1] != PACKET_ADV_DATA_MAN_TYPE);
-    
-    if (faulty_packet)
-    {
-        return;
-    }
-    
-     
-    /* send to above layer */
-    packet_t packet;
-    packet.data = &rx_data[PACKET_MAN_DATA_INDEX];
-    packet.length = rx_data[PACKET_ADV_DATA_INDEX];
-    packet.sender = (rx_data[PACKET_ADV_ADDR_INDEX + 4] << 8) |
-                    (rx_data[PACKET_ADV_ADDR_INDEX + 5] & 0xFF);
-    
-    db_packet_dissect(&packet);
-}
 
 /**
 * Callback for TX completion. After a successful TX, the timeslot should end.
@@ -164,59 +211,13 @@ void radio_tx_callback(void)
 }
 
 
-void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
-{
-    
-    SET_PIN(PIN_ABORTED);
-    uint8_t* name_ptr = (uint8_t*) p_file_name;
-    while (*name_ptr != '\0')
-    {
-        PIN_OUT(name_ptr[0], 8);
-        
-        ++name_ptr;
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-    }
-    while (true)
-    {
-        PIN_OUT(line_num, 16);
-        nrf_delay_ms(500);
-        SET_PIN(LED_0);
-        CLEAR_PIN(LED_1);
-        nrf_delay_ms(500);
-        SET_PIN(LED_1);
-        CLEAR_PIN(LED_0);
-    }
-}
-
-void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
-{
-
-    SET_PIN(PIN_ABORTED);
-    while (true)
-    {
-        PIN_OUT(error_code, 32);
-        nrf_delay_ms(500);
-        SET_PIN(LED_0);
-        CLEAR_PIN(LED_1);
-        nrf_delay_ms(500);
-        SET_PIN(LED_1);
-        CLEAR_PIN(LED_0);
-    }
-}
 
 /**
 * Timeslot related events callback
 * Called whenever the softdevice tries to change the original course of actions 
 * related to the timeslots
 */
-void broadcast_event_handler(void)
+void ts_sd_event_handler(void)
 {
     uint32_t evt;
     SET_PIN(6);
@@ -263,7 +264,15 @@ static void end_timer_handler(void)
 #if USE_SWI_FOR_PROCESSING
 void SWI0_IRQHandler(void)
 {
-    ll_control_timeslot_begin(g_total_time);
+    DEBUG_PIN_TIMESLOT(7);
+    while (!event_fifo_empty())
+    {
+        async_event_t evt;
+        if (event_fifo_get(&evt) == NRF_SUCCESS)
+        {
+            async_event_execute(&evt);
+        }
+    }
 }
 #endif
 /**
@@ -290,10 +299,10 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             
 #if USE_SWI_FOR_PROCESSING
             NVIC_EnableIRQ(SWI0_IRQn);
-            NVIC_SetPendingIRQ(SWI0_IRQn);
-#else
-            ll_control_timeslot_begin(g_total_time);
+            NVIC_SetPriority(SWI0_IRQn, 3);
 #endif
+
+            ll_control_timeslot_begin(g_total_time);
         
             break;
         
@@ -363,13 +372,11 @@ void timeslot_handler_init(void)
     
     g_is_in_callback = false;
     
-    error = sd_softdevice_enable((uint32_t)NRF_CLOCK_LFCLKSRC_XTAL_250_PPM, sd_assert_handler);
-    APP_ERROR_CHECK(error); 
-    
     error = sd_nvic_EnableIRQ(SD_EVT_IRQn);
     APP_ERROR_CHECK(error);
     
-    sd_radio_session_open(&radio_signal_callback);
+    error = sd_radio_session_open(&radio_signal_callback);
+    APP_ERROR_CHECK(error);
     g_total_time = 0;
     
     timeslot_order_earliest(10000, true);
@@ -395,8 +402,8 @@ void timeslot_order_earliest(uint32_t length_us, bool immediately)
     else
     {
         radio_request_earliest.params.earliest.length_us = length_us;
-        g_final_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END;
-        g_final_ret_param.params.request.p_next = &radio_request_earliest;
+        //g_final_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END;
+        //g_final_ret_param.params.request.p_next = &radio_request_earliest;
         
         g_next_timeslot_length = length_us;
     }
@@ -423,8 +430,8 @@ void timeslot_order_normal(uint32_t length_us, uint32_t distance_us, bool immedi
     {
         radio_request_normal.params.normal.length_us = length_us;
         radio_request_normal.params.normal.distance_us = distance_us;
-        g_final_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END;
-        g_final_ret_param.params.request.p_next = &radio_request_normal;
+        //g_final_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END;
+        //g_final_ret_param.params.request.p_next = &radio_request_normal;
         
         g_next_timeslot_length = length_us;
     }
@@ -437,6 +444,18 @@ void timeslot_extend(uint32_t extra_time_us)
         g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND;
         g_ret_param.params.extend.length_us = extra_time_us;
     }
+}
+
+
+void timeslot_queue_async_event(async_event_t* evt)
+{
+#if USE_SWI_FOR_PROCESSING
+    event_fifo_put(evt);
+    NVIC_SetPendingIRQ(SWI0_IRQn);
+#else
+    /* execute immediately */
+    async_event_execute(evt);
+#endif
 }
 
 uint32_t timeslot_get_remaining_time(void)
