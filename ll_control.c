@@ -19,8 +19,9 @@
 #define PACKET_ADDR_LEN             (BLE_GAP_ADDR_LEN)
 
 #define PACKET_TYPE_POS             (0)
-#define PACKET_LENGTH_POS           (2)
-#define PACKET_ADDR_POS             (PACKET_LENGTH_POS + PACKET_LENGTH_LEN)
+#define PACKET_LENGTH_POS           (1)
+#define PACKET_PADDING_POS          (2)
+#define PACKET_ADDR_POS             (3)
 #define PACKET_DATA_POS             (PACKET_ADDR_POS + PACKET_ADDR_LEN)
 
 
@@ -30,7 +31,7 @@
 #define PACKET_LENGTH_MASK          (0x3F)
 #define PACKET_ADDR_TYPE_MASK       (0x40)
 
-#define PACKET_DATA_MAX_LEN         (31)
+#define PACKET_DATA_MAX_LEN         (28)
 #define PACKET_MAX_CHAIN_LEN        (1) /**@TODO: May be increased when RX 
                                         callback packet chain handling is implemented.*/
 
@@ -40,8 +41,8 @@
 
 static uint8_t tx_data[(PACKET_DATA_MAX_LEN + PACKET_DATA_POS) * PACKET_MAX_CHAIN_LEN];
 static uint8_t timer_index = 0xFF;
-static uint32_t timeout_time = UINT32_MAX;
 static uint32_t global_time = 0;
+static uint32_t step_time = 0;
 
 static void search_callback(uint8_t* data);
 static void trickle_step_callback(void);
@@ -58,29 +59,11 @@ static void order_search(void)
     radio_order(&search_event);   
 }
 
-static void setup_next_step_callback(void)
-{
-    uint32_t current_time = timer_get_timestamp();
-    uint32_t end_of_timeslot = timeslot_get_remaining_time() + current_time;
-    
-    /**@TODO: Don't wake the processor just to process a trickle period change */
-    mesh_srv_get_next_processing_time(&timeout_time);
-    
-    
-    if (timeout_time - global_time + 1500 > end_of_timeslot)
-    {
-        timeslot_extend(timeout_time - global_time + 1500);
-    }
-    
-    timer_index = timer_order_cb(timeout_time - global_time, trickle_step_callback);
-}
-
 static inline void packet_create_from_data(uint8_t* data, packet_t* packet)
 {
     /* advertisement package */
     packet->data = &data[PACKET_DATA_POS];
-    packet->length = (data[PACKET_LENGTH_POS - PACKET_ADDR_LEN] & 
-        PACKET_LENGTH_MASK);
+    packet->length = (data[PACKET_LENGTH_POS] & PACKET_LENGTH_MASK);
     
     memcpy(packet->sender.addr, &data[PACKET_ADDR_POS], PACKET_ADDR_LEN);
     
@@ -96,7 +79,6 @@ static inline void packet_create_from_data(uint8_t* data, packet_t* packet)
         }
         else
         {
-            
             bool is_resolvable = ((packet->sender.addr[5] & 0xC0) == 0x40);
             packet->sender.addr_type = (is_resolvable? 
                 BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE :
@@ -116,39 +98,45 @@ static inline bool packet_is_data_packet(uint8_t* data)
         == PACKET_TYPE_ADV_NONCONN);
 }
 
+/**
+* @brief Handle incoming packets 
+*/
 static void search_callback(uint8_t* data)
 {
     TICK_PIN(PIN_RX);
     order_search();
     
-    if (!packet_is_data_packet(data))
+    if (data == NULL || !packet_is_data_packet(data))
         return;
     
+    TICK_PIN(1);
     packet_t packet;
     packet_create_from_data(data, &packet);
     mesh_srv_packet_process(&packet);
     
     /** @TODO: add packet chain handling */
     
+    /* setup timer again, in case things have changed */    
     TICK_PIN(PIN_RX);
-    
     uint32_t new_processing_timeout;
-    mesh_srv_get_next_processing_time(&new_processing_timeout);
-    
-    if (new_processing_timeout < timeout_time)
+    if (mesh_srv_get_next_processing_time(&new_processing_timeout) != NRF_SUCCESS)
     {
-        timeout_time = new_processing_timeout;
         timer_abort(timer_index);
-        timer_index = timer_order_cb(timeout_time, trickle_step_callback);
+        return;
     }
+    
 }
 
-
+/**
+* @brief Handle trickle timing events 
+*/
 static void trickle_step_callback(void)
 {
-    trickle_time_update(timeout_time + 1);
+    trickle_time_update(step_time);
     
     uint8_t temp_data[PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN];
+    
+    //PIN_OUT(global_time, 32);
     
     packet_t packet;
     packet.data = temp_data;
@@ -159,6 +147,7 @@ static void trickle_step_callback(void)
     
     if (has_anything_to_send)
     {
+        TICK_PIN(0);
         radio_disable();
         
         ble_gap_addr_t my_adv_addr;
@@ -177,49 +166,52 @@ static void trickle_step_callback(void)
          to be implemented. */
         do
         {
-            TICK_PIN(0);
             uint8_t min_len = ((packet.length > PACKET_DATA_MAX_LEN)? 
                 PACKET_DATA_MAX_LEN : 
                 packet.length);
             
-            tx_data_ptr[PACKET_LENGTH_POS] = min_len;
+            tx_data_ptr[PACKET_PADDING_POS] = 0;
+            tx_data_ptr[PACKET_LENGTH_POS] = (min_len + PACKET_ADDR_LEN);
+            if (my_adv_addr.addr_type != BLE_GAP_ADDR_TYPE_PUBLIC)
+            {
+                tx_data_ptr[PACKET_LENGTH_POS] |= (0x40);
+            }
+            
             tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
             
-            
-            
-            memcpy(&tx_data_ptr[PACKET_DATA_POS], temp_data_ptr, min_len);
+            memcpy(&tx_data_ptr[PACKET_ADDR_POS], my_adv_addr.addr, PACKET_ADDR_LEN);
+            memcpy(&tx_data_ptr[PACKET_DATA_POS], &temp_data_ptr[0], min_len);
             
             radio_event_t tx_event;
             tx_event.access_address = 0;
             rbc_channel_get(&tx_event.channel);
             tx_event.event_type = RADIO_EVENT_TYPE_TX;
-            tx_event.packet_ptr = tx_data_ptr;
+            tx_event.packet_ptr = &tx_data_ptr[0];
             tx_event.start_time = 0;
             tx_event.callback.tx = NULL;
             
-            if (packet.length > PACKET_DATA_MAX_LEN) 
-            {
-                tx_data_ptr[PACKET_TYPE_POS] |= (1 << 4); /* MD = 1 */
-            }
-            
+            /* testing CRC bug */
+            tx_data_ptr[min_len + PACKET_DATA_POS + 0] = 0x33;
+            tx_data_ptr[min_len + PACKET_DATA_POS + 1] = 0xcA;
+            tx_data_ptr[min_len + PACKET_DATA_POS + 2] = 0xB2;
             
             radio_order(&tx_event);
-            
+            /*
             temp_data_ptr += min_len;
             tx_data_ptr += min_len + PACKET_DATA_POS;
             packet.length -= min_len;
             
             tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
-            
-        } while (packet.length > 0);
-        order_search();
+            */
+        } while (0);
+        
+        order_search(); /* search for the rest of the timeslot */
     }
     else
     {
         TICK_PIN(6);
     }
     
-    setup_next_step_callback();
 }
 
 void ll_control_timeslot_begin(uint32_t global_timer_value)
@@ -228,10 +220,21 @@ void ll_control_timeslot_begin(uint32_t global_timer_value)
     rbc_access_address_get(&aa);
     
     radio_init(aa);
-    order_search();  
+    //order_search();  
     
-    timeout_time = global_timer_value;
     global_time = global_timer_value;
     
-    setup_next_step_callback();
+    ll_control_step();
+    order_search();
 }
+
+void ll_control_step(void)
+{
+    step_time = global_time + timer_get_timestamp();
+    
+    async_event_t async_evt;
+    async_evt.callback.generic = trickle_step_callback;
+    async_evt.type = EVENT_TYPE_GENERIC;
+    timeslot_queue_async_event(&async_evt);
+}
+
