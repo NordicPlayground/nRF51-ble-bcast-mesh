@@ -13,8 +13,11 @@ typedef enum
 {
     EVENT_TYPE_TIMER,
     EVENT_TYPE_RADIO_RX,
-    EVENT_TYPE_RADIO_TX
+    EVENT_TYPE_RADIO_TX,
+    EVENT_TYPE_GENERIC
 } event_type_t;
+
+typedef void(*generic_cb)(void);
 
 typedef struct
 {
@@ -28,6 +31,7 @@ typedef struct
         }radio_rx;
         radio_tx_cb radio_tx;/*void*/
         timer_callback timer;/*void*/
+        generic_cb generic; /*void*/
     } callback;
 } async_event_t;
 

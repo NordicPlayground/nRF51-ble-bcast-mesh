@@ -39,8 +39,9 @@
 #define PACKET_SAFETY_MARGIN_US     (80)
 #define PACKET_RAMP_UP_TIME_US      (140)
 
-#define TIMESLOT_END_SAFETY_MARGIN_US  (150)
-
+#define TIMESLOT_END_SAFETY_MARGIN_US  (500)
+#define TIMESLOT_SLOT_LENGTH        (25000)
+#define TIMESLOT_MAX_EXTENDS        (40)
 
 #if USE_SWI_FOR_PROCESSING
 #define ASYNC_EVENT_FIFO_QUEUE_SIZE (8)
@@ -108,6 +109,8 @@ static async_event_t async_event_fifo_queue[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 * Static Functions
 *****************************************************************************/
 
+/***** ASYNC EVENT QUEUE *****/
+/**@TODO: add generic implementation shared with radio fifo */
 #if USE_SWI_FOR_PROCESSING
 static bool event_fifo_full(void)
 {
@@ -193,6 +196,9 @@ static void async_event_execute(async_event_t* evt)
         case EVENT_TYPE_TIMER:
             (*evt->callback.timer)();
             break;
+        case EVENT_TYPE_GENERIC:
+            (*evt->callback.generic)();
+            break;
     }
 }
 
@@ -228,7 +234,7 @@ void ts_sd_event_handler(void)
         {
             case NRF_EVT_RADIO_SESSION_IDLE:
                 
-                timeslot_order_earliest(20000, true);
+                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
                 break;
             
             case NRF_EVT_RADIO_SESSION_CLOSED:
@@ -238,7 +244,7 @@ void ts_sd_event_handler(void)
             
             case NRF_EVT_RADIO_BLOCKED:
                 /*TODO*/
-                timeslot_order_earliest(20000, true);
+                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
                 break;
             
             case NRF_EVT_RADIO_SIGNAL_CALLBACK_INVALID_RETURN:
@@ -257,14 +263,13 @@ void ts_sd_event_handler(void)
 
 static void end_timer_handler(void)
 {
-    timeslot_order_earliest(25000, true);
-    //timeslot_extend(10000);
+    //timeslot_order_earliest(25000, true);
+    timeslot_extend(TIMESLOT_SLOT_LENGTH);
 }
     
 #if USE_SWI_FOR_PROCESSING
 void SWI0_IRQHandler(void)
 {
-    DEBUG_PIN_TIMESLOT(7);
     while (!event_fifo_empty())
     {
         async_event_t evt;
@@ -283,6 +288,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
     g_is_in_callback = true;
     static uint32_t requested_extend_time = 0;
+    static uint32_t successful_extensions = 0;
     SET_PIN(PIN_SYNC_TIME);
     
     switch (sig)
@@ -291,10 +297,11 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             /* default end action is extend */
             timer_init();
             SET_PIN(2);
+            successful_extensions = 0;
             g_timeslot_length = g_next_timeslot_length;
         
             g_timeslot_end_timer = 
-                timer_order_cb(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
+                timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
                     end_timer_handler);
             
 #if USE_SWI_FOR_PROCESSING
@@ -322,19 +329,28 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             TICK_PIN(1);
             g_timeslot_length += requested_extend_time;
             requested_extend_time = 0;
+            ++successful_extensions;
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
         
-            timer_abort(g_timeslot_end_timer);
-        
-            g_timeslot_end_timer = 
-                timer_order_cb(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
-                    end_timer_handler);
+            if (successful_extensions >= TIMESLOT_MAX_EXTENDS)
+            {
+                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+            }
+            else
+            {
+                timer_abort(g_timeslot_end_timer);
+            
+                g_timeslot_end_timer = 
+                    timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
+                        end_timer_handler);
+            
+                ll_control_step();
+            }
         
             break;
         
-        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:
-            /* trust timeout timer to take care of the timeslot before it runs out */
-            g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;           
+        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:      
+            timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);        
             break;
         
         default:
@@ -379,7 +395,7 @@ void timeslot_handler_init(void)
     APP_ERROR_CHECK(error);
     g_total_time = 0;
     
-    timeslot_order_earliest(10000, true);
+    timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
 }
 
 
