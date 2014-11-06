@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "nrf51.h"
+#include "ble.h"
 
 #define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
 #define RBC_MESH_ADV_INT_MIN             (5)
@@ -50,7 +51,7 @@ typedef struct
 *    the mesh framework intialization is called, otherwise, the function will
 *    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED.
 * 
-* @param access_addr The access address the mesh will work on. This must be the 
+* @param[in] access_addr The access address the mesh will work on. This must be the 
 *    same for all nodes in the mesh. RBC_MESH_ACCESS_ADDRESS_BLE_ADV gives the mesh
 *    the same access address as regular BLE advertisements, which makes the
 *    traffic visible to external BLE devices (Note that other access addresses 
@@ -58,14 +59,14 @@ typedef struct
 *    regular BLE radios). Multiple meshes may in theory work concurrently in 
 *    the same area with different access addresses, but will be prone to 
 *    on-air collisions, and it is recommended to use separate channels for this
-* @param channel The BLE channel the mesh works on. It is strongly recommended 
+* @param[in] channel The BLE channel the mesh works on. It is strongly recommended 
 *    to use one of the three adv channels 37, 38 or 39, as others may be prone
 *    to on-air collisions with WiFi channels. Separate meshes may work 
 *    concurrently without packet collision if they are assigned to different 
 *    channels. Must be between 1 and 39.
-* @param handle_count The maximum number of handle-value pairs available to the
+* @param[in] handle_count The maximum number of handle-value pairs available to the
 *    application. May not be higher than 155 due to BLE namespace requirements
-* @param adv_int_ms The minimum adv_interval for nodes in the network in 
+* @param[in] adv_int_ms The minimum adv_interval for nodes in the network in 
 *    millis. Must be between 5 and 60000.
 * 
 * @return NRF_SUCCESS the initialization is successful 
@@ -74,6 +75,23 @@ typedef struct
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
 uint32_t rbc_mesh_init(uint32_t access_addr, uint8_t channel, uint8_t handle_count, uint8_t adv_int_ms);
+
+/**
+* @brief Broadcast a request for an update on the value connected to the 
+*   handle indicated.
+*
+* @note The value request is sent asynchronously to the function call, and 
+*   a response is likely to be received after several milliseconds (depending
+*   on the adv_int_ms value set in @ref rbc_mesh_init
+*
+* @param[in] handle Handle to request a value for 
+*
+* @return NRF_SUCCESS A request was successfully scheduled for broadcast
+* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
+*   in @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initiated
+*/
+uint32_t rbc_mesh_value_req(uint8_t handle);
 
 /**
 * @brief Set the contents of the data array pointed to by the provided handle
@@ -85,7 +103,7 @@ uint32_t rbc_mesh_init(uint32_t access_addr, uint8_t channel, uint8_t handle_cou
 * @return NRF_SUCCESS if the value has been successfully updated.
 * @return NRF_ERROR_INVALID_STATE if the framework has not been initialized.
 * @return NRF_ERROR_INVALID_ADDR if the handle is outside the range provided
-*    in rbc_mesh_init.
+*    in @ref rbc_mesh_init.
 * @return NRF_ERROR_INVALID_LENGTH if len exceeds RBC_VALUE_MAX_LEN.
 */
 uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
@@ -101,7 +119,7 @@ uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
 * @return NRF_SUCCESS the value has been successfully fetched.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 * @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
-*    in rbc_mesh_init.
+*    in @ref rbc_mesh_init.
 */
 uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len);
 
@@ -144,6 +162,30 @@ uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized
 */
 uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms);
+
+/**
+* @brief Event handler to be called upon external BLE event arrival.
+*   Only handles GATTS write events, all other types are ignored.
+*   Has a similar effect as @ref rbc_mesh_value_set, by refreshing version
+*   numbers and timing parameters related to the indicated characteristic.
+*
+* @note This event may be called regardless of if the indicated characteristic
+*   belongs to the mesh or not, the framework will filter out uninteresting 
+*   events and return NRF_SUCCESS. However, if the incoming event points at 
+*   the mesh service, but the characteristic handle is out of range, the 
+*   function returns NRF_ERROR_INVALID_ADDR. 
+*
+* @note This function will also trigger any update/new events in the application
+*   space 
+*   
+* @param[in] evt BLE event received from softdevice.
+*
+* @return NRF_SUCCESS Event successfully handled.
+* @return NRF_ERROR_INVALID_ADDR Handle is part of service, but does not belong
+*   any valid characteristics.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+*/
+uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
 
 #if 0
 /* NOT IMPLEMENTED YET */

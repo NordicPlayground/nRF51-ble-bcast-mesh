@@ -73,25 +73,20 @@ uint32_t rbc_mesh_init(uint32_t access_addr,
     return NRF_SUCCESS;
 }
 
+uint32_t rbc_mesh_value_req(uint8_t handle)
+{
+    return mesh_srv_char_val_init(handle);
+}
+
 /****** Getters and setters ******/
 
 uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
 {
-    if (!g_is_initialized)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-
     return mesh_srv_char_val_set(handle, data, len);
 }
 
 uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
 {
-    if (!g_is_initialized)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-
     return mesh_srv_char_val_get(handle, data, len);
 }
 
@@ -140,6 +135,38 @@ uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms)
 
     *adv_int_ms = g_adv_int_ms;
 
+    return NRF_SUCCESS;
+}
+
+uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
+{
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    /* may safely ignore all events that don't write to a value */
+    if (evt->header.evt_id != BLE_GATTS_EVT_WRITE)
+    {
+        return NRF_SUCCESS;
+    }
+    ble_gatts_evt_write_t* write_evt = &evt->evt.gatts_evt.params.write;
+    
+    uint32_t error_code = mesh_srv_gatts_evt_write_handle(write_evt);
+    
+    if (error_code != NRF_SUCCESS && 
+        error_code != NRF_ERROR_INVALID_ADDR)
+    {
+        if (error_code == NRF_ERROR_FORBIDDEN)
+        {
+            return NRF_SUCCESS; /* wrong service, just ignore */
+        }
+        else
+        {
+            return error_code;
+        }
+    }    
+    
     return NRF_SUCCESS;
 }
 
