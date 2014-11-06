@@ -10,6 +10,8 @@ void timer_event_handler(void);
 
 uint8_t timer_order_cb(uint32_t time, timer_callback callback);
 
+uint8_t timer_order_cb_sync_exec(uint32_t time, timer_callback callback);
+
 uint8_t timer_order_cb_ppi(uint32_t time, timer_callback callback, uint32_t* task);
 
 uint8_t timer_order_ppi(uint32_t time, uint32_t* task);

@@ -19,6 +19,10 @@ static uint8_t reference_channel = 0xFF;
 
 static uint8_t never_used_bitmap = 0xFF;
 
+/* bitmap indicating that callback should be executed in handlers interrupt
+ context, instead of swi context */
+static uint8_t sync_exec_bitmap = 0; 
+
 static int32_t reference_offset;
 
 static timer_callback callbacks[4];
@@ -75,11 +79,19 @@ void timer_event_handler(void)
             active_callbacks &= ~(1 << i);
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
             
-            /* propagate evt */
-            async_event_t evt;
-            evt.type = EVENT_TYPE_TIMER;
-            evt.callback.timer = cb;
-            timeslot_queue_async_event(&evt);
+            if (sync_exec_bitmap & (1 << i))
+            {
+                sync_exec_bitmap &= ~(1 << i);
+                (*cb)();
+            }
+            else
+            {
+                /* propagate evt */
+                async_event_t evt;
+                evt.type = EVENT_TYPE_TIMER;
+                evt.callback.timer = cb;
+                timeslot_queue_async_event(&evt);
+            }
         }
     }
             
@@ -93,6 +105,29 @@ uint8_t timer_order_cb(uint32_t time, timer_callback callback)
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
+    
+    NRF_TIMER0->CC[timer] = reference_point + time;
+    NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
+    NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
+    callbacks[timer] = callback;
+    active_callbacks |= (1 << timer);
+    
+    
+    return timer;
+}
+
+uint8_t timer_order_cb_sync_exec(uint32_t time, timer_callback callback)
+{
+    /* just calling timer_order_cb and setting flag here creates a race condition,
+        needs full impl.*/
+    uint8_t timer = get_available_timer();
+    
+    if (timer == 0xFF)
+    {
+        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
+    }
+    
+    sync_exec_bitmap |= (1 << timer);
     
     NRF_TIMER0->CC[timer] = reference_point + time;
     NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
