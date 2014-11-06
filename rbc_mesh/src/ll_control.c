@@ -1,10 +1,10 @@
 #include "ll_control.h"
 #include "radio_control.h"
 #include "timer_control.h"
-#include "rbc_database.h"
-#include "rebroadcast.h"
+#include "mesh_srv.h"
+#include "rbc_mesh.h"
 #include "timeslot_handler.h"
-#include "trickle_common.h"
+#include "rbc_mesh_common.h"
 #include "ble_gap.h"
 #include <string.h>
 
@@ -52,7 +52,7 @@ static void order_search(void)
     radio_event_t search_event;
     search_event.access_address = 1; /* RX: treat as bitfield */
     search_event.callback.rx = search_callback;
-    rbc_channel_get(&search_event.channel);
+    rbc_mesh_channel_get(&search_event.channel);
     search_event.event_type = RADIO_EVENT_TYPE_RX;
     search_event.start_time = 0;
     
@@ -184,7 +184,7 @@ static void trickle_step_callback(void)
             
             radio_event_t tx_event;
             tx_event.access_address = 0;
-            rbc_channel_get(&tx_event.channel);
+            rbc_mesh_channel_get(&tx_event.channel);
             tx_event.event_type = RADIO_EVENT_TYPE_TX;
             tx_event.packet_ptr = &tx_data_ptr[0];
             tx_event.start_time = 0;
@@ -217,7 +217,7 @@ static void trickle_step_callback(void)
 void ll_control_timeslot_begin(uint32_t global_timer_value)
 {
     uint32_t aa;    
-    rbc_access_address_get(&aa);
+    rbc_mesh_access_address_get(&aa);
     
     radio_init(aa);
     //order_search();  

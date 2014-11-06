@@ -1,13 +1,10 @@
-#include "test_application.h"
-
-#include "rebroadcast.h"
+#include "rbc_mesh.h"
 #include "nrf_adv_conn.h"
-#include "trickle_common.h"
 
 #include "nrf_soc.h"
-#include "app_error.h"
 #include "nrf_assert.h"
 #include "nrf_sdm.h"
+#include "app_error.h"
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
 #include "boards.h"
@@ -30,6 +27,10 @@
     #define LED_1 LED_RGB_BLUE
 #endif
 
+#define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
+#define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
+
+#define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
 
 static uint8_t led_data;
 
@@ -56,28 +57,11 @@ static void led_config(void)
     }
 } 
 
-void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
+static void error_loop(void)
 {
-    
-    SET_PIN(PIN_ABORTED);
-    uint8_t* name_ptr = (uint8_t*) p_file_name;
-    while (*name_ptr != '\0')
-    {
-        PIN_OUT(name_ptr[0], 8);
-        
-        ++name_ptr;
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-        TICK_PIN(0);
-    }
+    SET_PIN(7);
     while (true)
     {
-        PIN_OUT(line_num, 16);
         nrf_delay_ms(500);
         SET_PIN(LED_0);
         CLEAR_PIN(LED_1);
@@ -85,27 +69,21 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
         SET_PIN(LED_1);
         CLEAR_PIN(LED_0);
     }
+}    
+
+void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
+{
+    error_loop();
 }
 
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-
-    SET_PIN(PIN_ABORTED);
-    while (true)
-    {
-        PIN_OUT(error_code, 32);
-        nrf_delay_ms(500);
-        SET_PIN(LED_0);
-        CLEAR_PIN(LED_1);
-        nrf_delay_ms(500);
-        SET_PIN(LED_1);
-        CLEAR_PIN(LED_0);
-    }
+    error_loop();
 }
 
 void SD_IRQHandler(void)
 {
-    rbc_sd_irq_handler();
+    rbc_mesh_sd_irq_handler();
     
     ble_evt_t ble_evt;
     uint16_t len = sizeof(ble_evt);
@@ -115,13 +93,13 @@ void SD_IRQHandler(void)
     }
 }
 
-void rbc_event_handler(rbc_event_t* evt)
+void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     TICK_PIN(28);
     switch (evt->event_type)
     {
-        case RBC_EVENT_TYPE_NEW_VAL:
-        case RBC_EVENT_TYPE_UPDATE_VAL:
+        case RBC_MESH_EVENT_TYPE_NEW_VAL:
+        case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
         
             if (evt->value_handle > 1)
                 break;
@@ -138,9 +116,9 @@ void rbc_event_handler(rbc_event_t* evt)
             break;
         
             
-        case RBC_EVENT_TYPE_CONFLICTING_VAL:
-        case RBC_EVENT_TYPE_DELETE_VAL:
-        case RBC_EVENT_TYPE_DISCARDED_VAL:
+        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+        case RBC_MESH_EVENT_TYPE_DELETE_VAL:
+        case RBC_MESH_EVENT_TYPE_DISCARDED_VAL:
             break;
     }
 }
@@ -176,7 +154,7 @@ void GPIOTE_IRQHandler(void)
         {
             NRF_GPIOTE->EVENTS_IN[i] = 0; 
             uint8_t data[1] = { 0x6E };
-            APP_ERROR_CHECK(rbc_value_set(1, data, 1));
+            APP_ERROR_CHECK(rbc_mesh_value_set(1, data, 1));
             led_data ^= 0xFF;
             led_config();
         }
@@ -219,7 +197,7 @@ int main(void)
     error_code = sd_ble_enable(&ble_enable_params);
     APP_ERROR_CHECK(error_code);
     
-    error_code = rbc_init(RBC_ACCESS_ADDRESS_BLE_ADV, 37, 2, 100);
+    error_code = rbc_mesh_init(RBC_MESH_ACCESS_ADDRESS_BLE_ADV, 37, 2, 100);
     APP_ERROR_CHECK(error_code);
     
     test_app_init();
@@ -238,13 +216,13 @@ int main(void)
         {
             led_data ^= 1;
             uint8_t data[1] = { led_data & 1 };
-            APP_ERROR_CHECK(rbc_value_set(0, data, 1));
+            APP_ERROR_CHECK(rbc_mesh_value_set(0, data, 1));
         }
         if (!nrf_gpio_pin_read(BUTTON_1))
         {
             led_data ^= 2;
             uint8_t data[1] = { (led_data & 2) };
-            APP_ERROR_CHECK(rbc_value_set(1, data, 1));
+            APP_ERROR_CHECK(rbc_mesh_value_set(1, data, 1));
         }
         led_config();
         nrf_delay_ms(500);

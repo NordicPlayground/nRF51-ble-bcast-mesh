@@ -1,31 +1,18 @@
-#ifndef _TRICKLE_COMMON_H__
-#define _TRICKLE_COMMON_H__
+#ifndef _RBC_MESH_COMMON_H__
+#define _RBC_MESH_COMMON_H__
 #include <stdint.h>
-
-
-#define USE_SOFTDEVICE          (1)
-
-#define TRICKLE_INTERVAL_US                 (10000)     /* 10ms */
-#define TRICKLE_TIMESLOT_LENGTH_US          (500000)      /* 1ms */
-#define TRICKLE_SEARCHING_TIMEOUT_US        (10000000)   /* 10 seconds */
-#define TRICKLE_SAFETY_MARGIN_US            (94)
-#define TRICKLE_RX_PROPAGATION_US           (350)
-
-#define TRICKLE_SEARCHING_TIMEOUT_PPI_CH    (8)
-#define TRICKLE_SYNC_PPI_CH                 (8)
-
 
 
 /******************************************************************************
 * Debug related defines
 ******************************************************************************/
 #ifdef BOARD_PCA10000
-    #define PIN_TRICKLE_TX      LED_RGB_GREEN
+    #define PIN_MESH_TX      LED_RGB_GREEN
     #define TICK_PIN(x) 
     #define SET_PIN(x) 
     #define CLEAR_PIN(x) 
 #else
-    #define PIN_TRICKLE_TX      (0)
+    #define PIN_MESH_TX      (0)
     
     #define TICK_PIN(x) NRF_GPIO->OUTSET = (1 << (x)); \
                                                     __nop();\
@@ -90,4 +77,4 @@
 
 
 
-#endif /* _TRICKLE_COMMON_H__ */
+#endif /* _RBC_MESH_COMMON_H__ */

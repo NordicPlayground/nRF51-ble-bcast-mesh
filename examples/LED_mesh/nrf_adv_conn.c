@@ -35,10 +35,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "nrf_adv_conn.h"
 
-#include <ble.h>
+#include "ble.h"
 #include "ble_advdata.h"
-#include <nrf_assert.h>
-#include <nrf_gpio.h>
+#include "nrf_assert.h"
+#include "nrf_gpio.h"
+#include "app_error.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -49,12 +50,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Static Globals
 *****************************************************************************/
-                              
-/* Address used in BLE advertisement */
-static const ble_gap_addr_t ble_addr = {
-  .addr_type   = BLE_GAP_ADDR_TYPE_RANDOM_STATIC, 
-  .addr       = {0xfc, 0xde, 0x48, 0xab, 0xce, 0xfb}};
-
+      
 /* Advertisement data */
 static uint8_t ble_adv_man_data[] = {0x01 /* PDU_ID */, 0xA0, 0xA1, 0xA2, 0xA3};
 
@@ -140,7 +136,7 @@ void nrf_adv_conn_init(void)
 
   /* Enable BLE */
   error_code = sd_ble_enable(&enable_params);
-  ASSERT(error_code == NRF_SUCCESS);
+  APP_ERROR_CHECK(error_code);
 
   /* Set address */
   //error_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE, &ble_addr);

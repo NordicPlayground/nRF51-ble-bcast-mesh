@@ -1,5 +1,5 @@
 #include "trickle.h"
-#include "trickle_common.h"
+#include "rbc_mesh_common.h"
 
 #include "nrf_soc.h"
 #include "boards.h"

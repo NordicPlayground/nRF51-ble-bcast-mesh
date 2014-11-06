@@ -2,8 +2,8 @@
 
 #include "radio_control.h"
 #include "trickle.h"
-#include "trickle_common.h"
-#include "rbc_database.h"
+#include "rbc_mesh_common.h"
+#include "mesh_srv.h"
 #include "timer_control.h"
 #include "ll_control.h"
 
@@ -70,8 +70,8 @@ static nrf_radio_request_t radio_request_normal =
                     {
                         .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
                         .priority = NRF_RADIO_PRIORITY_NORMAL,
-                        .distance_us = TRICKLE_INTERVAL_US,
-                        .length_us = TRICKLE_TIMESLOT_LENGTH_US
+                        .distance_us = 10000,
+                        .length_us = TIMESLOT_SLOT_LENGTH
                     }
                 };
                 
@@ -82,7 +82,7 @@ static nrf_radio_request_t radio_request_earliest =
                     {
                         .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
                         .priority = NRF_RADIO_PRIORITY_NORMAL,
-                        .length_us = TRICKLE_TIMESLOT_LENGTH_US,
+                        .length_us = TIMESLOT_SLOT_LENGTH,
                         .timeout_us = 1000000 /* 1s */
                     }
                 };
@@ -111,6 +111,8 @@ static async_event_t async_event_fifo_queue[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 
 /***** ASYNC EVENT QUEUE *****/
 /**@TODO: add generic implementation shared with radio fifo */
+
+#pragma diag_suppress 177 /* silence "not used" warnings */
 #if USE_SWI_FOR_PROCESSING
 static bool event_fifo_full(void)
 {
@@ -207,17 +209,6 @@ static void async_event_execute(async_event_t* evt)
 * System callback functions
 *****************************************************************************/
 
-
-/**
-* Callback for TX completion. After a successful TX, the timeslot should end.
-*/
-void radio_tx_callback(void)
-{
-    TICK_PIN(PIN_TRICKLE_TX);
-}
-
-
-
 /**
 * Timeslot related events callback
 * Called whenever the softdevice tries to change the original course of actions 
@@ -263,11 +254,16 @@ void ts_sd_event_handler(void)
 
 static void end_timer_handler(void)
 {
-    //timeslot_order_earliest(25000, true);
     timeslot_extend(TIMESLOT_SLOT_LENGTH);
 }
     
+
+
 #if USE_SWI_FOR_PROCESSING
+
+/**
+* @brief Asyn event dispatcher, works in APP LOW
+*/
 void SWI0_IRQHandler(void)
 {
     while (!event_fifo_empty())
@@ -280,6 +276,8 @@ void SWI0_IRQHandler(void)
     }
 }
 #endif
+
+
 /**
 * Radio signal callback handler taking care of all signals in searching mode
 */
@@ -294,7 +292,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     switch (sig)
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
-            /* default end action is extend */
             timer_init();
             SET_PIN(2);
             successful_extensions = 0;

@@ -1,29 +1,29 @@
-#ifndef _REBROADCAST_H__
-#define _REBROADCAST_H__
+#ifndef _RBC_MESH_H__
+#define _RBC_MESH_H__
 #include <stdint.h>
 #include <stdbool.h>
 #include "nrf51.h"
 
-#define RBC_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
-#define RBC_ADV_INT_MIN             (5)
-#define RBC_ADV_INT_MAX             (60000)
+#define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
+#define RBC_MESH_ADV_INT_MIN             (5)
+#define RBC_MESH_ADV_INT_MAX             (60000)
 /** 
 * @brief Rebroadcast value handle type 
 *
 * @detailed Handle type used to identify a value in the mesh, is consistent
 *   throughout the network
 */
-typedef uint16_t rbc_value_handle_t;
+typedef uint16_t rbc_mesh_value_handle_t;
     
 /** @brief Event type enum. Identifies framework generated events */
 typedef enum
 {
-    RBC_EVENT_TYPE_UPDATE_VAL,      /** Another node has updated the value */
-    RBC_EVENT_TYPE_CONFLICTING_VAL, /** Another node has a conflicting version of the value */
-    RBC_EVENT_TYPE_NEW_VAL,         /** A previously unallocated value has been received and allocated */
-    RBC_EVENT_TYPE_DISCARDED_VAL,   /** A previously unallocated value has been received but there was no room for it. */
-    RBC_EVENT_TYPE_DELETE_VAL       /** The indicated value has been deleted from the database, but may be reallocated by user */
-} rbc_event_type_t;
+    RBC_MESH_EVENT_TYPE_UPDATE_VAL,      /** Another node has updated the value */
+    RBC_MESH_EVENT_TYPE_CONFLICTING_VAL, /** Another node has a conflicting version of the value */
+    RBC_MESH_EVENT_TYPE_NEW_VAL,         /** A previously unallocated value has been received and allocated */
+    RBC_MESH_EVENT_TYPE_DISCARDED_VAL,   /** A previously unallocated value has been received but there was no room for it. */
+    RBC_MESH_EVENT_TYPE_DELETE_VAL       /** The indicated value has been deleted from the database, but may be reallocated by user */
+} rbc_mesh_event_type_t;
 
 /** 
 * @brief Rebroadcast framework generated event. Carries information about a
@@ -31,11 +31,11 @@ typedef enum
 */
 typedef struct
 {
-    rbc_event_type_t event_type;        /** See @ref rbc_event_type_t */
-    rbc_value_handle_t value_handle;    /** Handle of the value the event is generated for */
+    rbc_mesh_event_type_t event_type;        /** See @ref rbc_mesh_event_type_t */
+    rbc_mesh_value_handle_t value_handle;    /** Handle of the value the event is generated for */
     uint8_t* data;                      /** Current data array contained at the event handle location */
     uint8_t data_len;                   /** Length of data array */
-} rbc_event_t;
+} rbc_mesh_event_t;
 
 
 /*****************************************************************************
@@ -51,7 +51,7 @@ typedef struct
 *    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED.
 * 
 * @param access_addr The access address the mesh will work on. This must be the 
-*    same for all nodes in the mesh. RBC_ACCESS_ADDRESS_BLE_ADV gives the mesh
+*    same for all nodes in the mesh. RBC_MESH_ACCESS_ADDRESS_BLE_ADV gives the mesh
 *    the same access address as regular BLE advertisements, which makes the
 *    traffic visible to external BLE devices (Note that other access addresses 
 *    does not provide any data security, the traffic is merely ignored by 
@@ -73,7 +73,7 @@ typedef struct
 * @return NRF_ERROR_INVALID_STATE the framework has already been initialized.
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
-uint32_t rbc_init(uint32_t access_addr, uint8_t channel, uint8_t handle_count, uint8_t adv_int_ms);
+uint32_t rbc_mesh_init(uint32_t access_addr, uint8_t channel, uint8_t handle_count, uint8_t adv_int_ms);
 
 /**
 * @brief Set the contents of the data array pointed to by the provided handle
@@ -85,10 +85,10 @@ uint32_t rbc_init(uint32_t access_addr, uint8_t channel, uint8_t handle_count, u
 * @return NRF_SUCCESS if the value has been successfully updated.
 * @return NRF_ERROR_INVALID_STATE if the framework has not been initialized.
 * @return NRF_ERROR_INVALID_ADDR if the handle is outside the range provided
-*    in rbc_init.
+*    in rbc_mesh_init.
 * @return NRF_ERROR_INVALID_LENGTH if len exceeds RBC_VALUE_MAX_LEN.
 */
-uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint16_t len);
+uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
 
 /**
  * @brief Get the contents of the data array pointed to by the provided handle
@@ -101,9 +101,9 @@ uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint16_t len);
 * @return NRF_SUCCESS the value has been successfully fetched.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 * @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
-*    in rbc_init.
+*    in rbc_mesh_init.
 */
-uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint16_t* len);
+uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len);
 
 /**
 * @brief Get current mesh access address
@@ -113,7 +113,7 @@ uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint16_t* len);
 * @return NRF_SUCCESS the value was fetched successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
 */
-uint32_t rbc_access_address_get(uint32_t* access_address);
+uint32_t rbc_mesh_access_address_get(uint32_t* access_address);
 
 /**
 * @brief Get current mesh channel
@@ -123,7 +123,7 @@ uint32_t rbc_access_address_get(uint32_t* access_address);
 * @return NRF_SUCCESS the value was fetched successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
 */
-uint32_t rbc_channel_get(uint8_t* ch);
+uint32_t rbc_mesh_channel_get(uint8_t* ch);
 
 /**
 * @brief Get the amount of allocated handle-value pairs 
@@ -133,7 +133,7 @@ uint32_t rbc_channel_get(uint8_t* ch);
 * @return NRF_SUCCESS the value was fetched successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
 */
-uint32_t rbc_handle_count_get(uint8_t* handle_count);
+uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
 
 /**
 * @brief Get the mesh minimum advertise interval in ms
@@ -143,7 +143,7 @@ uint32_t rbc_handle_count_get(uint8_t* handle_count);
 * @return NRF_SUCCESS the value was fetched successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized
 */
-uint32_t rbc_adv_int_get(uint32_t* adv_int_ms);
+uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms);
 
 #if 0
 /* NOT IMPLEMENTED YET */
@@ -158,7 +158,7 @@ uint32_t rbc_adv_int_get(uint32_t* adv_int_ms);
 * @return NRF_ERROR_INVALID_PARAM The adv int was outside the required range,
 *    and has not been set.
 */
-uint32_t rbc_adv_int_set(uint32_t adv_int_ms);
+uint32_t rbc_mesh_adv_int_set(uint32_t adv_int_ms);
 #endif 
 /**
 * @brief Softdevice interrupt handler, checking if there are any 
@@ -167,7 +167,7 @@ uint32_t rbc_adv_int_set(uint32_t adv_int_ms);
 * @note Should be called from the SD_IRQHandler function. Will poll the 
 *   softdevice for new sd_evt.
 */
-void rbc_sd_irq_handler(void);
+void rbc_mesh_sd_irq_handler(void);
 
 /**
  * @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 
@@ -179,7 +179,7 @@ void rbc_sd_irq_handler(void);
 *
 * @param evt Framework generated event presented to the application. 
 */
-void rbc_event_handler(rbc_event_t* evt);
+void rbc_mesh_event_handler(rbc_mesh_event_t* evt);
 
-#endif /* _REBROADCAST_H__ */
+#endif /* _RBC_MESH_H__ */
 

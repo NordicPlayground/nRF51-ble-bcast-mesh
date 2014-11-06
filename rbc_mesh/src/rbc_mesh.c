@@ -1,6 +1,6 @@
-#include "rebroadcast.h"
-#include "trickle_common.h"
-#include "rbc_database.h"
+#include "rbc_mesh.h"
+#include "rbc_mesh_common.h"
+#include "mesh_srv.h"
 #include "timeslot_handler.h"
 
 #include "nrf_error.h"
@@ -33,7 +33,7 @@ static uint8_t g_adv_int_ms;
 * Interface Functions
 *****************************************************************************/
 
-uint32_t rbc_init(uint32_t access_addr, 
+uint32_t rbc_mesh_init(uint32_t access_addr, 
         uint8_t channel, 
         uint8_t handle_count, 
         uint8_t adv_int_ms)
@@ -75,7 +75,7 @@ uint32_t rbc_init(uint32_t access_addr,
 
 /****** Getters and setters ******/
 
-uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint16_t len)
+uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
 {
     if (!g_is_initialized)
     {
@@ -85,7 +85,7 @@ uint32_t rbc_value_set(uint8_t handle, uint8_t* data, uint16_t len)
     return mesh_srv_char_val_set(handle, data, len);
 }
 
-uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
+uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
 {
     if (!g_is_initialized)
     {
@@ -95,7 +95,7 @@ uint32_t rbc_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
     return mesh_srv_char_val_get(handle, data, len);
 }
 
-uint32_t rbc_access_address_get(uint32_t* access_address)
+uint32_t rbc_mesh_access_address_get(uint32_t* access_address)
 {
     if (!g_is_initialized)
     {
@@ -107,7 +107,7 @@ uint32_t rbc_access_address_get(uint32_t* access_address)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_channel_get(uint8_t* ch)
+uint32_t rbc_mesh_channel_get(uint8_t* ch)
 {
     if (!g_is_initialized)
     {
@@ -119,7 +119,7 @@ uint32_t rbc_channel_get(uint8_t* ch)
     return NRF_SUCCESS;
 }
     
-uint32_t rbc_handle_count_get(uint8_t* handle_count)
+uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count)
 {
     if (!g_is_initialized)
     {
@@ -131,7 +131,7 @@ uint32_t rbc_handle_count_get(uint8_t* handle_count)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_adv_int_get(uint32_t* adv_int_ms)
+uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms)
 {
     if (!g_is_initialized)
     {
@@ -144,7 +144,7 @@ uint32_t rbc_adv_int_get(uint32_t* adv_int_ms)
 }
 
 #if 0
-uint32_t rbc_adv_int_set(uint32_t adv_int_ms)
+uint32_t rbc_mesh_adv_int_set(uint32_t adv_int_ms)
 {
     if (!g_is_initialized)
     {
@@ -165,7 +165,7 @@ uint32_t rbc_adv_int_set(uint32_t adv_int_ms)
 
 /***** event handler ******/
 
-void rbc_sd_irq_handler(void)
+void rbc_mesh_sd_irq_handler(void)
 {
     /* call lower layer event handler */
     ts_sd_event_handler();

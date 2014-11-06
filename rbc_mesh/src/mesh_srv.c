@@ -1,8 +1,8 @@
-#include "rbc_database.h"
-#include "rebroadcast.h"
+#include "mesh_srv.h"
+#include "rbc_mesh.h"
 #include "timeslot_handler.h"
 #include "trickle.h"
-#include "trickle_common.h"
+#include "rbc_mesh_common.h"
 
 #include "nrf_soc.h"
 #include "nrf_error.h"
@@ -512,16 +512,16 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         uint8_t data_copy[MAX_VALUE_LENGTH]; /* use heap instead? */
         memcpy(data_copy, data, data_len);
         
-        rbc_event_t update_evt;
+        rbc_mesh_event_t update_evt;
         update_evt.event_type = ((uninitialized)? 
-            RBC_EVENT_TYPE_NEW_VAL :
-            RBC_EVENT_TYPE_UPDATE_VAL);
+            RBC_MESH_EVENT_TYPE_NEW_VAL :
+            RBC_MESH_EVENT_TYPE_UPDATE_VAL);
         update_evt.data = data_copy;
         update_evt.data_len = data_len;
         update_evt.value_handle = handle;
         
         /**@TODO: Handle in different context? */
-        rbc_event_handler(&update_evt);
+        rbc_mesh_event_handler(&update_evt);
     }
     else if (version == ch_md->version_number)
     {
@@ -551,11 +551,11 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         
         if (conflicting)
         {
-            rbc_event_t conflicting_evt;
+            rbc_mesh_event_t conflicting_evt;
             uint8_t data_copy[MAX_VALUE_LENGTH]; /* use heap instead? */
             memcpy(data_copy, data, data_len);
             
-            conflicting_evt.event_type = RBC_EVENT_TYPE_CONFLICTING_VAL;
+            conflicting_evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
             conflicting_evt.data = data_copy;
             conflicting_evt.data_len = data_len;
             conflicting_evt.value_handle = handle;
@@ -563,7 +563,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
             trickle_rx_inconsistent(&ch_md->trickle);
             
             /**@TODO: Handle in different context? */
-            rbc_event_handler(&conflicting_evt);
+            rbc_mesh_event_handler(&conflicting_evt);
         }
         else
         {

@@ -1,5 +1,5 @@
-#ifndef _RBC_DATABASE_H__
-#define _RBC_DATABASE_H__
+#ifndef _MESH_SRV_H__
+#define _MESH_SRV_H__
 
 #include "trickle.h"
 #include "ble_gap.h"
@@ -79,5 +79,5 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
     bool* has_anything_to_send);
 
 
-#endif /* _RBC_DATABASE_H__ */
+#endif /* _MESH_SRV_H__ */
 

@@ -1,7 +1,7 @@
 #include "radio_control.h"
 #include "timer_control.h"
 #include "timeslot_handler.h"
-#include "trickle_common.h"
+#include "rbc_mesh_common.h"
 #include "trickle.h"
 #include "nrf.h"
 #include "nrf_sdm.h"
