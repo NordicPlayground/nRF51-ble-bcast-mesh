@@ -2,7 +2,7 @@
 #define _MESH_SRV_H__
 
 #include "trickle.h"
-#include "ble_gap.h"
+#include "ble.h"
 #include <stdint.h>
 
 #define MAX_VALUE_COUNT                 (155)
@@ -77,6 +77,11 @@ uint32_t mesh_srv_packet_process(packet_t* packet);
 uint32_t mesh_srv_packet_assemble(packet_t* packet, 
     uint16_t packet_max_len, 
     bool* has_anything_to_send);
+    
+
+uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt);
+
+uint32_t mesh_srv_char_val_init(uint8_t index);
 
 
 #endif /* _MESH_SRV_H__ */

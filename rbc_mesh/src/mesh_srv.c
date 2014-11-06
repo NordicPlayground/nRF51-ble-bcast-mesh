@@ -311,7 +311,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
         }   
     }
     
-    trickle_setup(1000 * adv_int_ms, 600, 3);
+    trickle_setup(1000 * adv_int_ms, 100, 3);
     
     return NRF_SUCCESS;
 }
@@ -336,9 +336,12 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len)
     
     mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index];
     
+    /* this is now a new version of this data, signal to the rest of the mesh */
+    ++ch_md->version_number;
+    
     bool first_time = 
-        !(ch_md->flags & 
-        (1 << MESH_MD_FLAGS_USED_POS));
+        (ch_md->flags & 
+        (1 << MESH_MD_FLAGS_USED_POS)) == 0;
     
     if (first_time)
     {
@@ -361,8 +364,6 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len)
         return error_code;
     }
     
-    /* this is now a new version of this data, signal to the rest of the mesh */
-    ++ch_md->version_number;
     
     return NRF_SUCCESS;
 }
@@ -490,16 +491,23 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     
     mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[handle];
     
-    if (version != ch_md->version_number)
+    bool uninitialized = !(ch_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS));
+    
+    if (uninitialized)
+    {
+        trickle_init(&ch_md->trickle);
+    }
+    
+    if (ch_md->version_number != version)
     {
         trickle_rx_inconsistent(&ch_md->trickle);
     }
     
     /* new version */
     /**@TODO: Handle version overflow */
-    if (version > ch_md->version_number)
+    if (version > ch_md->version_number || uninitialized)
     {
-        bool uninitialized = !(ch_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS));
+        
         
         /* update value */
         memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
@@ -562,7 +570,6 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
             
             trickle_rx_inconsistent(&ch_md->trickle);
             
-            /**@TODO: Handle in different context? */
             rbc_mesh_event_handler(&conflicting_evt);
         }
         else
@@ -599,7 +606,7 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
         trickle_step(&md_ch->trickle, &do_trickle_tx);
         
 
-        if (do_trickle_tx)
+        if (do_trickle_tx && !(*has_anything_to_send))
         {
             trickle_register_tx(&md_ch->trickle);
             uint8_t data[MAX_VALUE_LENGTH];
@@ -624,7 +631,7 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
             /**@TODO: Add multiple trickle messages in one packet */
 
             *has_anything_to_send = true;
-            break;
+            //break;
         }
     }
     
@@ -632,3 +639,76 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
 }
 
 
+uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
+{
+    if (!is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    if (evt->context.srvc_handle != g_mesh_service.service_handle)
+    {
+        return NRF_ERROR_FORBIDDEN;
+    }
+    
+    for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
+    {
+        if (g_mesh_service.char_metadata[i].char_value_handle == evt->handle)
+        {
+            mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[i];
+            bool uninitialized = !(ch_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS));
+    
+            if (uninitialized)
+            {
+                trickle_init(&ch_md->trickle);
+            }
+    
+            ch_md->flags |= 
+                (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
+                (1 << MESH_MD_FLAGS_USED_POS);
+            
+            ++ch_md->version_number;
+            trickle_rx_inconsistent(&ch_md->trickle);
+            ble_gap_addr_t my_addr;
+            sd_ble_gap_address_get(&my_addr);
+            memcpy(&ch_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
+            
+            rbc_mesh_event_t update_evt;
+            update_evt.event_type = ((uninitialized)? 
+                RBC_MESH_EVENT_TYPE_NEW_VAL :
+                RBC_MESH_EVENT_TYPE_UPDATE_VAL);
+            update_evt.data = evt->data;
+            update_evt.data_len = evt->len;
+            update_evt.value_handle = i;
+            
+            rbc_mesh_event_handler(&update_evt);
+            
+            PIN_OUT(evt->len, 32);
+            
+            return NRF_SUCCESS;
+        }
+    }
+    return NRF_ERROR_INVALID_ADDR;
+}
+
+uint32_t mesh_srv_char_val_init(uint8_t index)
+{
+    if (!is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    if (index >= g_mesh_service.value_count)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
+    
+    trickle_init(&g_mesh_service.char_metadata[index].trickle);
+    
+    g_mesh_service.char_metadata[index].flags |= 
+        (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
+        (1 << MESH_MD_FLAGS_USED_POS);
+    
+    
+    return NRF_SUCCESS;
+}
