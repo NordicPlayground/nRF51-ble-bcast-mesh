@@ -34,20 +34,6 @@ static uint8_t g_k;
 * Static Functions
 *****************************************************************************/
 
-#if !USE_SOFTDEVICE
-void TIMER0_IRQHandler(void)
-{
-    if (NRF_TIMER0->EVENTS_COMPARE[0])
-    {
-        NRF_TIMER0->EVENTS_COMPARE[0] = 0;
-        NRF_TIMER0->CC[0] = TRICKLE_INTERVAL_US;
-        TICK_PIN(PIN_SYNC_TIME);
-        
-        trickle_step();
-    }
-}
-#endif
-
 static void trickle_interval_begin(trickle_t* trickle)
 {
     trickle->c = 0;
@@ -154,6 +140,7 @@ void trickle_register_tx(trickle_t* trickle)
 void trickle_step(trickle_t* trickle, bool* out_do_tx)
 {
     *out_do_tx = false;
+    
     if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
     {
         if (trickle->i <= g_trickle_time)
