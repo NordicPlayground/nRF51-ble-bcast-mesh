@@ -33,14 +33,20 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#ifndef __NRF_ADV_CONN_H__
-#define __NRF_ADV_CONN_H__
+#ifndef _LED_CONFIG_H__
+#define _LED_CONFIG_H__
 
-#include <ble.h>
-
+#include "boards.h"
 #include <stdint.h>
 
-void nrf_adv_conn_init(void);
-void nrf_adv_conn_evt_handler(ble_evt_t *evt);
+/* Aliases for LEDs */
+#ifdef BOARD_PCA10000
+    #define LED_0 LED_RGB_RED
+    #define LED_1 LED_RGB_GREEN
+#endif
 
-#endif /* __NRF_ADV_CONN_H__ */
+
+void led_config(uint8_t led, uint8_t conf);
+
+
+#endif /* _LED_CONFIG_H__ */
