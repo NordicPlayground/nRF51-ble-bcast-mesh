@@ -35,6 +35,27 @@ static uint8_t led_data;
 
 
 
+static void led_config(void)
+{
+    if ((led_data & 0x01) > 0)
+    {
+        nrf_gpio_pin_set(LED_0);
+    }
+    else
+    {
+        nrf_gpio_pin_clear(LED_0);
+    }
+    
+    if ((led_data & 0x02) > 0)
+    {
+        nrf_gpio_pin_set(LED_1);
+    }
+    else
+    {
+        nrf_gpio_pin_clear(LED_1);
+    }
+} 
+
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
     
@@ -100,70 +121,64 @@ void rbc_event_handler(rbc_event_t* evt)
     switch (evt->event_type)
     {
         case RBC_EVENT_TYPE_NEW_VAL:
-            break;
-        
         case RBC_EVENT_TYPE_UPDATE_VAL:
+        
+            if (evt->value_handle > 1)
+                break;
+            
+            if (evt->data[0])
+            {
+                led_data |= (evt->value_handle + 1);
+            }
+            else
+            {
+                led_data &= ~(evt->value_handle + 1);
+            }
+            led_config();
             break;
         
-        case RBC_EVENT_TYPE_DELETE_VAL:
-            break;
-        
+            
         case RBC_EVENT_TYPE_CONFLICTING_VAL:
-            break;
-        
+        case RBC_EVENT_TYPE_DELETE_VAL:
         case RBC_EVENT_TYPE_DISCARDED_VAL:
             break;
     }
 }
 
 
-static void led_config(void)
-{
-    if ((led_data & 0x01) > 0)
-    {
-        nrf_gpio_pin_set(LED_0);
-    }
-    else
-    {
-        nrf_gpio_pin_clear(LED_0);
-    }
-    
-    if ((led_data & 0x02) > 0)
-    {
-        nrf_gpio_pin_set(LED_1);
-    }
-    else
-    {
-        nrf_gpio_pin_clear(LED_1);
-    }
-} 
-
-#if BOARD_PCA10003
+#ifdef BOARD_PCA10003
 /* configure button interrupt for evkits */
 static void gpiote_init(void)
 {
+    NRF_GPIOTE->POWER = 1;
 	NRF_GPIOTE->CONFIG[0] = 	GPIOTE_CONFIG_MODE_Event 		<< GPIOTE_CONFIG_MODE_Pos       |
                                 GPIOTE_CONFIG_POLARITY_HiToLo 	<< GPIOTE_CONFIG_POLARITY_Pos   |
                                 BUTTON_0						<< GPIOTE_CONFIG_PSEL_Pos;
     
 	NRF_GPIOTE->CONFIG[1] = 	GPIOTE_CONFIG_MODE_Event 		<< GPIOTE_CONFIG_MODE_Pos       |
-                                GPIOTE_CONFIG_POLARITY_HiToLo 	<< GPIOTE_CONFIG_POLARITY_Pos   |
+                                GPIOTE_CONFIG_POLARITY_Toggle   << GPIOTE_CONFIG_POLARITY_Pos   |
                                 BUTTON_1						<< GPIOTE_CONFIG_PSEL_Pos;
     
     NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_IN0_Msk | GPIOTE_INTENSET_IN1_Msk;
-    //NVIC_EnableIRQ(GPIOTE_IRQn);
+    NRF_GPIOTE->EVENTS_IN[0] = 0;
+    NRF_GPIOTE->EVENTS_IN[1] = 0;
+    sd_nvic_EnableIRQ(GPIOTE_IRQn);
 }
 #endif
 
-#if BOARD_PCA10003
+#ifdef BOARD_PCA10003
 void GPIOTE_IRQHandler(void)
 {
+    TICK_PIN(1);
     for (uint8_t i = 0; i < 2; ++i)
     {
         if (NRF_GPIOTE->EVENTS_IN[i])
         {
             NRF_GPIOTE->EVENTS_IN[i] = 0; 
-            
+            uint8_t data[1] = { 0x6E };
+            APP_ERROR_CHECK(rbc_value_set(1, data, 1));
+            led_data ^= 0xFF;
+            led_config();
         }
     } 
 }
@@ -195,7 +210,6 @@ void test_app_init(void)
 
 int main(void)
 {
-    test_app_init();
     uint32_t error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_250_PPM, sd_assert_handler);
     
@@ -208,10 +222,8 @@ int main(void)
     error_code = rbc_init(RBC_ACCESS_ADDRESS_BLE_ADV, 37, 2, 100);
     APP_ERROR_CHECK(error_code);
     
-    uint8_t data[] = {0, 1, 2, 3, 4, 5};
+    test_app_init();
     
-    error_code = rbc_value_set(1, data, 6);
-    APP_ERROR_CHECK(error_code);
     
     
     /* dummy connectable advertiser softdevice application: */
@@ -220,11 +232,23 @@ int main(void)
     /* sleep */
     while (true)
     {
-#if USE_SOFTDEVICE        
-        sd_app_evt_wait();
-#else
-        //_WFE();
-#endif        
+        //sd_app_evt_wait();
+        
+        if (!nrf_gpio_pin_read(BUTTON_0))
+        {
+            led_data ^= 1;
+            uint8_t data[1] = { led_data & 1 };
+            APP_ERROR_CHECK(rbc_value_set(0, data, 1));
+        }
+        if (!nrf_gpio_pin_read(BUTTON_1))
+        {
+            led_data ^= 2;
+            uint8_t data[1] = { (led_data & 2) };
+            APP_ERROR_CHECK(rbc_value_set(1, data, 1));
+        }
+        led_config();
+        nrf_delay_ms(500);
+ 
     }
     
 
