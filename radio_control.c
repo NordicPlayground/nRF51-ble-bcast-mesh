@@ -150,7 +150,7 @@ static void radio_channel_set(uint8_t ch)
         NRF_RADIO->FREQUENCY = adv_freqs[(ch - 37)];
     }
     
-    NRF_RADIO->DATAWHITEIV = ch;
+    NRF_RADIO->DATAWHITEIV = ch & RADIO_DATAWHITEIV_DATAWHITEIV_Msk;
     
 }
 
@@ -178,6 +178,9 @@ static void setup_rx_timeout(uint32_t rx_start_time)
 */
 static void radio_transition_end(bool successful_transmission)
 {
+    /**@NOTE: CRC bug workaround */
+    bool crc_status = true;
+    
     /* pop the event that just finished */
     radio_event_t prev_evt;
     radio_fifo_get(&prev_evt);
@@ -252,7 +255,7 @@ static void radio_transition_end(bool successful_transmission)
         {
             NRF_RADIO->TXADDRESS = evt.access_address;
             radio_state = RADIO_STATE_TX;
-            NRF_RADIO->PACKETPTR = (uint32_t) evt.packet_ptr;
+            NRF_RADIO->PACKETPTR = (uint32_t) &evt.packet_ptr[0];  
             NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk;
             
             
@@ -305,7 +308,7 @@ static void radio_transition_end(bool successful_transmission)
     /* send to super space */
     if (prev_evt.event_type == RADIO_EVENT_TYPE_RX)
     {
-        if (successful_transmission)
+        if (successful_transmission && crc_status)
         {
             if (prev_evt.callback.rx != NULL)
             {
@@ -354,14 +357,15 @@ static void rx_abort_cb(void)
 
 void radio_init(uint32_t access_address)
 {
-	/* Reset all states in the radio peripheral */
-	NRF_RADIO->POWER = 1;
-	//NRF_RADIO->EVENTS_DISABLED = 0; 
-    NVIC_EnableIRQ(RADIO_IRQn);
+	/* Reset all states in the radio peripheral */    
+    NRF_RADIO->POWER            = ((RADIO_POWER_POWER_Disabled << RADIO_POWER_POWER_Pos) & RADIO_POWER_POWER_Msk);
+    NRF_RADIO->POWER            = ((RADIO_POWER_POWER_Enabled  << RADIO_POWER_POWER_Pos) & RADIO_POWER_POWER_Msk);
+	
+    
     
     /* Set radio configuration parameters */
-    NRF_RADIO->TXPOWER      = (RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos);
-    NRF_RADIO->MODE 	    = (RADIO_MODE_MODE_Ble_1Mbit << RADIO_MODE_MODE_Pos);
+    NRF_RADIO->TXPOWER      = ((RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos) & RADIO_TXPOWER_TXPOWER_Msk);
+    NRF_RADIO->MODE 	    = ((RADIO_MODE_MODE_Ble_1Mbit << RADIO_MODE_MODE_Pos) & RADIO_MODE_MODE_Msk);
 
     NRF_RADIO->FREQUENCY 	    = 2;					// Frequency bin 2, 2402MHz, channel 37.
     NRF_RADIO->DATAWHITEIV      = 37;					// NOTE: This value needs to correspond to the frequency being used
@@ -369,7 +373,7 @@ void radio_init(uint32_t access_address)
 
     /* Configure Access Address  */
     NRF_RADIO->PREFIX0	    = ((access_address >> 24) & 0x000000FF);
-    NRF_RADIO->BASE0 		= (access_address & 0x00FFFFFF); 
+    NRF_RADIO->BASE0 		= ((access_address << 8) & 0xFFFFFF00); 
     NRF_RADIO->TXADDRESS    = 0x00;			    // Use logical address 0 (prefix0 + base0) = 0x8E89BED6 when transmitting
     NRF_RADIO->RXADDRESSES  = 0x01;				// Enable reception on logical address 0 (PREFIX0 + BASE0)
 
@@ -382,25 +386,27 @@ void radio_init(uint32_t access_address)
 
     /* Packet configuration */
     NRF_RADIO->PCNF1 =  (
-                          (((37UL)                      << RADIO_PCNF1_MAXLEN_Pos)  & RADIO_PCNF1_MAXLEN_Msk)   // maximum length of payload in bytes [0-255]
-                        | (((0UL)                       << RADIO_PCNF1_STATLEN_Pos) & RADIO_PCNF1_STATLEN_Msk)	// expand the payload with N bytes in addition to LENGTH [0-255]
-                        | (((3UL)                       << RADIO_PCNF1_BALEN_Pos)   & RADIO_PCNF1_BALEN_Msk)    // base address length in number of bytes.
-                        | (((RADIO_PCNF1_ENDIAN_Little) << RADIO_PCNF1_ENDIAN_Pos)  & RADIO_PCNF1_ENDIAN_Msk)   // endianess of the S0, LENGTH, S1 and PAYLOAD fields.
-                        | (((1UL)                       << RADIO_PCNF1_WHITEEN_Pos) & RADIO_PCNF1_WHITEEN_Msk)	// enable packet whitening
+                          (((37UL)                          << RADIO_PCNF1_MAXLEN_Pos)  & RADIO_PCNF1_MAXLEN_Msk)   // maximum length of payload in bytes [0-255]
+                        | (((0UL)                           << RADIO_PCNF1_STATLEN_Pos) & RADIO_PCNF1_STATLEN_Msk)	// expand the payload with N bytes in addition to LENGTH [0-255]
+                        | (((3UL)                           << RADIO_PCNF1_BALEN_Pos)   & RADIO_PCNF1_BALEN_Msk)    // base address length in number of bytes.
+                        | (((RADIO_PCNF1_ENDIAN_Little)     << RADIO_PCNF1_ENDIAN_Pos)  & RADIO_PCNF1_ENDIAN_Msk)   // endianess of the S0, LENGTH, S1 and PAYLOAD fields.
+                        | (((RADIO_PCNF1_WHITEEN_Enabled)   << RADIO_PCNF1_WHITEEN_Pos) & RADIO_PCNF1_WHITEEN_Msk)	// enable packet whitening
                       );
 
-    /* CRC config */
-    NRF_RADIO->CRCCNF  = (RADIO_CRCCNF_LEN_Three << RADIO_CRCCNF_LEN_Pos) | 
-                            (RADIO_CRCCNF_SKIPADDR_Skip << RADIO_CRCCNF_SKIPADDR_Pos); // Skip Address when computing crc     
-    NRF_RADIO->CRCINIT = 0x555555;    // Initial value of CRC
-    NRF_RADIO->CRCPOLY = 0x00065B;    // CRC polynomial function
- 
+	/* CRC config */
+    NRF_RADIO->CRCPOLY = ((0x00065B << RADIO_CRCPOLY_CRCPOLY_Pos) & RADIO_CRCPOLY_CRCPOLY_Msk);    // CRC polynomial function
+    NRF_RADIO->CRCCNF = (((RADIO_CRCCNF_SKIPADDR_Skip) << RADIO_CRCCNF_SKIPADDR_Pos) & RADIO_CRCCNF_SKIPADDR_Msk)
+                      | (((RADIO_CRCCNF_LEN_Two)      << RADIO_CRCCNF_LEN_Pos)       & RADIO_CRCCNF_LEN_Msk);
+  
+    NRF_RADIO->CRCINIT = ((0x555555 << RADIO_CRCINIT_CRCINIT_Pos) & RADIO_CRCINIT_CRCINIT_Msk);    // Initial value of CRC
     /* Lock interframe spacing, so that the radio won't send too soon / start RX too early */
     NRF_RADIO->TIFS = 148;
     
     rx_abort_timer_index = 0xFF;
     radio_state = RADIO_STATE_DISABLED;
     radio_fifo_flush();
+    NVIC_ClearPendingIRQ(RADIO_IRQn);
+    NVIC_EnableIRQ(RADIO_IRQn);
 }
 
 void radio_order(radio_event_t* radio_event)
@@ -427,8 +433,8 @@ void radio_order(radio_event_t* radio_event)
         
         if (radio_event->event_type == RADIO_EVENT_TYPE_RX)
         {
-            NRF_RADIO->TASKS_RXEN = 1;
             NRF_RADIO->PACKETPTR = (uint32_t) rx_data[current_rx_buf];
+            NRF_RADIO->TASKS_RXEN = 1;
             
             /* if the event is not an "as soon as possible", we setup an RX timeout,
                 else the user must do it themselves */
@@ -442,9 +448,9 @@ void radio_order(radio_event_t* radio_event)
         }
         else
         {
-            NRF_RADIO->TASKS_TXEN = 1;
-            NRF_RADIO->PACKETPTR = (uint32_t) radio_event->packet_ptr;     
-            NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk;
+            NRF_RADIO->PACKETPTR = (uint32_t) &radio_event->packet_ptr[0]; 
+            NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk; 
+            NRF_RADIO->TASKS_TXEN = 1;   
             radio_state = RADIO_STATE_TX;
         }
         
