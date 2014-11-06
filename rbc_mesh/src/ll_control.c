@@ -1,4 +1,8 @@
 #include "ll_control.h"
+
+#include "boards.h"
+#include "nrf_delay.h"
+
 #include "radio_control.h"
 #include "timer_control.h"
 #include "mesh_srv.h"
@@ -110,6 +114,7 @@ static void search_callback(uint8_t* data)
         return;
     
     TICK_PIN(1);
+    
     packet_t packet;
     packet_create_from_data(data, &packet);
     mesh_srv_packet_process(&packet);
@@ -147,7 +152,7 @@ static void trickle_step_callback(void)
     
     if (has_anything_to_send)
     {
-        TICK_PIN(0);
+        TICK_PIN(PIN_MESH_TX);
         radio_disable();
         
         ble_gap_addr_t my_adv_addr;

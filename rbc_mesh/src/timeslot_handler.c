@@ -234,7 +234,6 @@ void ts_sd_event_handler(void)
                 break;
             
             case NRF_EVT_RADIO_BLOCKED:
-                /*TODO*/
                 timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
                 break;
             
@@ -243,7 +242,7 @@ void ts_sd_event_handler(void)
                 break;
             
             case NRF_EVT_RADIO_CANCELED:
-                APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
+                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
                 break;
             default:
                 APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
@@ -254,7 +253,9 @@ void ts_sd_event_handler(void)
 
 static void end_timer_handler(void)
 {
-    timeslot_extend(TIMESLOT_SLOT_LENGTH);
+    static uint8_t noise_val = 0xA7;
+    noise_val ^= 0x55 + (noise_val >> 1);
+    timeslot_extend(TIMESLOT_SLOT_LENGTH + noise_val * 50);
 }
     
 
@@ -262,7 +263,7 @@ static void end_timer_handler(void)
 #if USE_SWI_FOR_PROCESSING
 
 /**
-* @brief Asyn event dispatcher, works in APP LOW
+* @brief Async event dispatcher, works in APP LOW
 */
 void SWI0_IRQHandler(void)
 {
@@ -286,12 +287,16 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
     g_is_in_callback = true;
     static uint32_t requested_extend_time = 0;
-    static uint32_t successful_extensions = 0;
+    static uint32_t successful_extensions = 0;  
+    static uint8_t noise_val = 0x5F;
     SET_PIN(PIN_SYNC_TIME);
     
     switch (sig)
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
+            NVIC_ClearPendingIRQ(SWI0_IRQn);
+            
+            event_fifo_flush();
             timer_init();
             SET_PIN(2);
             successful_extensions = 0;
@@ -346,8 +351,9 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         
             break;
         
-        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:      
-            timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);        
+        case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:    
+            noise_val ^= 0xAA + (noise_val >> 1);
+            timeslot_order_earliest(TIMESLOT_SLOT_LENGTH + noise_val * 50, true);        
             break;
         
         default:
