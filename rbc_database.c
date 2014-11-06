@@ -2,6 +2,7 @@
 #include "rebroadcast.h"
 #include "timeslot_handler.h"
 #include "trickle.h"
+#include "trickle_common.h"
 
 #include "nrf_soc.h"
 #include "nrf_error.h"
@@ -310,7 +311,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
         }   
     }
     
-    trickle_setup(1000 * adv_int_ms, 20, 3);
+    trickle_setup(1000 * adv_int_ms, 600, 3);
     
     return NRF_SUCCESS;
 }
@@ -333,14 +334,35 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len)
         return NRF_ERROR_INVALID_LENGTH;
     }
     
+    mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index];
+    
+    bool first_time = 
+        !(ch_md->flags & 
+        (1 << MESH_MD_FLAGS_USED_POS));
+    
+    if (first_time)
+    {
+        ch_md->flags |= 
+            (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
+            (1 << MESH_MD_FLAGS_USED_POS);
+        trickle_init(&ch_md->trickle);
+    }
+    else
+    {
+        trickle_rx_inconsistent(&ch_md->trickle);
+    }
+    
     uint32_t error_code = sd_ble_gatts_value_set(
-        g_mesh_service.char_metadata[index].char_value_handle, 
+        ch_md->char_value_handle, 
         0, &len, data);
     
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
+    
+    /* this is now a new version of this data, signal to the rest of the mesh */
+    ++ch_md->version_number;
     
     return NRF_SUCCESS;
 }
@@ -417,7 +439,7 @@ uint32_t mesh_srv_get_next_processing_time(uint32_t* time)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+    bool anything_to_process = false;
     *time = UINT32_MAX / 1000;
     
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
@@ -429,8 +451,13 @@ uint32_t mesh_srv_get_next_processing_time(uint32_t* time)
         
         if (temp_time < *time)
         {
+            anything_to_process = true;
             *time = temp_time;
         }
+    }
+    if (!anything_to_process)
+    {
+        return NRF_ERROR_NOT_FOUND;
     }
         
     return NRF_SUCCESS;
@@ -564,10 +591,17 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
     {
         mesh_char_metadata_t* md_ch = &g_mesh_service.char_metadata[i];
-        trickle_step(&md_ch->trickle, has_anything_to_send);
+        
+        if ((md_ch->flags & (1 << MESH_MD_FLAGS_USED_POS)) == 0)
+            continue;
+        
+        bool do_trickle_tx = false;
+        trickle_step(&md_ch->trickle, &do_trickle_tx);
+        
 
-        if (has_anything_to_send)
+        if (do_trickle_tx)
         {
+            trickle_register_tx(&md_ch->trickle);
             uint8_t data[MAX_VALUE_LENGTH];
             uint16_t len = MAX_VALUE_LENGTH;
 
@@ -583,11 +617,13 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
                 (md_ch->version_number & 0xFF); 
             packet->data[MESH_PACKET_VERSION_OFFSET + 1] = 
                 ((md_ch->version_number >> 8) & 0xFF);
-          
+            
             memcpy(&packet->data[MESH_PACKET_DATA_OFFSET], data, len);
-
+            packet->length = len + MESH_PACKET_DATA_OFFSET;
+           
             /**@TODO: Add multiple trickle messages in one packet */
 
+            *has_anything_to_send = true;
             break;
         }
     }
