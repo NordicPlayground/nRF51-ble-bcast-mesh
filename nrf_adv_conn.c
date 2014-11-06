@@ -143,8 +143,8 @@ void nrf_adv_conn_init(void)
   ASSERT(error_code == NRF_SUCCESS);
 
   /* Set address */
-  error_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE, &ble_addr);
-  ASSERT(error_code == NRF_SUCCESS);
+  //error_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE, &ble_addr);
+  //ASSERT(error_code == NRF_SUCCESS);
 
   /* Fill advertisement data struct: */
   uint8_t flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
