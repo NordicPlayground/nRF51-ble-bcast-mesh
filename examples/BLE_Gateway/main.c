@@ -32,10 +32,10 @@ static void error_loop(void)
     {
         nrf_delay_ms(500);
         SET_PIN(LED_0);
-        CLEAR_PIN(LED_1);
-        nrf_delay_ms(500);
         SET_PIN(LED_1);
+        nrf_delay_ms(500);
         CLEAR_PIN(LED_0);
+        CLEAR_PIN(LED_1);
     }
 }    
 
@@ -48,7 +48,23 @@ static void error_loop(void)
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    error_loop();
+    char str[256];
+    sprintf(str, "SD ERROR: PC: %d, LINE: %d, FILE: %s\n", 
+        pc, 
+        line_num, 
+        p_file_name);
+    
+    while (true)
+    {
+        simple_uart_putstring((uint8_t*) str);
+        nrf_delay_ms(500);
+        SET_PIN(LED_0);
+        CLEAR_PIN(LED_1);
+        nrf_delay_ms(500);
+        SET_PIN(LED_1);
+        CLEAR_PIN(LED_0);
+    }
+    //error_loop();
 }
 
 /**
@@ -61,11 +77,32 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    error_loop();
+    SET_PIN(7);
+    
+    char str[256];
+    sprintf(str, "APP ERROR: CODE: %d, LINE: %d, FILE: %s\n", 
+        error_code, 
+        line_num, 
+        p_file_name);
+    
+    while (true)
+    {
+        simple_uart_putstring((uint8_t*) str);
+        nrf_delay_ms(500);
+        SET_PIN(LED_0);
+        CLEAR_PIN(LED_1);
+        nrf_delay_ms(500);
+        SET_PIN(LED_1);
+        CLEAR_PIN(LED_0);
+    }
+    //error_loop();
 }
 
 void HardFault_Handler(void)
 {
+    
+    simple_uart_putstring((uint8_t*) "HARDFAULT\n");
+    
     error_loop();
 }
 
@@ -109,12 +146,6 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
                 break;
             
             led_config(evt->value_handle, evt->data[0]);
-            
-            #ifdef BOARD_PCA10000
-                CLEAR_PIN(LED_RGB_BLUE);
-                nrf_delay_ms(20);
-                SET_PIN(LED_RGB_BLUE);
-            #endif
             break;
         
             
@@ -151,6 +182,7 @@ void gpio_init(void)
 /** @brief main function */
 int main(void)
 {
+    simple_uart_config(RTS_PIN_NUMBER, TX_PIN_NUMBER, CTS_PIN_NUMBER, RX_PIN_NUMBER, true);
     /* Enable Softdevice (including sd_ble before framework */
     uint32_t error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
@@ -166,12 +198,13 @@ int main(void)
     error_code = rbc_mesh_init(0x3414A68F, 37, 2, 100);
     APP_ERROR_CHECK(error_code);
     
+#if 1
     /* request values for both LEDs on the mesh */
     error_code = rbc_mesh_value_req(0);
     APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_req(1);
     APP_ERROR_CHECK(error_code);
-    
+#endif
     /* init leds and pins */
     gpio_init();
     
