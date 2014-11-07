@@ -179,7 +179,7 @@ static void setup_rx_timeout(uint32_t rx_start_time)
 static void radio_transition_end(bool successful_transmission)
 {
     /**@NOTE: CRC bug workaround */
-    bool crc_status = true;
+    bool crc_status = NRF_RADIO->CRCSTATUS;
     
     /* pop the event that just finished */
     radio_event_t prev_evt;
@@ -433,7 +433,7 @@ void radio_order(radio_event_t* radio_event)
         
         if (radio_event->event_type == RADIO_EVENT_TYPE_RX)
         {
-            NRF_RADIO->PACKETPTR = (uint32_t) rx_data[current_rx_buf];
+            NRF_RADIO->PACKETPTR = (uint32_t) rx_data[current_rx_buf]; /* double pointer */
             NRF_RADIO->TASKS_RXEN = 1;
             
             /* if the event is not an "as soon as possible", we setup an RX timeout,
