@@ -55,7 +55,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *****************************************************************************/
       
 /* Advertisement data */
-static uint8_t ble_adv_man_data[] = {0x01 /* PDU_ID */, 0xA0, 0xA1, 0xA2, 0xA3};
+//static uint8_t ble_adv_man_data[] = {0x01 /* PDU_ID */, 0xA0, 0xA1, 0xA2, 0xA3};
 
 /* BLE advertisement parameters */
 static ble_gap_adv_params_t ble_adv_params = {
@@ -138,21 +138,29 @@ void nrf_adv_conn_init(void)
     
     /* Fill advertisement data struct: */
     uint8_t flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
-    ble_advdata_manuf_data_t man_data;
-    man_data.company_identifier = 0x004C;
-    man_data.data.p_data        = &ble_adv_man_data[0];
-    man_data.data.size          = 5;
 
     memset(&ble_adv_data, 0, sizeof(ble_adv_data));
 
     ble_adv_data.flags.size = 1;
     ble_adv_data.flags.p_data = &flags;
     ble_adv_data.name_type    = BLE_ADVDATA_FULL_NAME;
-    ble_adv_data.p_manuf_specific_data = &man_data;
+    //ble_adv_data.p_manuf_specific_data = &man_data;
 
+    ble_gap_conn_sec_mode_t name_sec_mode = {1, 1};
+    ble_gap_addr_t my_addr;
+    
+    error_code = sd_ble_gap_address_get(&my_addr);
+    APP_ERROR_CHECK(error_code);
+    
+    char name[64];
+    sprintf(name, "rbc_mesh #%d", 
+        ((uint16_t) my_addr.addr[4] << 8) | (my_addr.addr[5]));
+    
+    error_code = sd_ble_gap_device_name_set(&name_sec_mode, (uint8_t*) name, strlen(name));
+    APP_ERROR_CHECK(error_code);
+    
     /* Set advertisement data with ble_advdata-lib */
     error_code = ble_advdata_set(&ble_adv_data, NULL);
-
     APP_ERROR_CHECK(error_code);
 
     /* Start advertising */
