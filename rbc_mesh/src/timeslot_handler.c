@@ -97,7 +97,8 @@ static bool g_is_in_callback = true;
 static uint32_t g_timeslot_length;      
 static uint32_t g_timeslot_end_timer;      
 static uint32_t g_next_timeslot_length;    
-static uint32_t g_total_time = 0;      
+static uint32_t g_total_time = 0;     
+static uint32_t g_is_in_timeslot = false; 
 
 #if USE_SWI_FOR_PROCESSING
 static uint8_t event_fifo_head = 0;
@@ -267,7 +268,7 @@ static void end_timer_handler(void)
 */
 void SWI0_IRQHandler(void)
 {
-    while (!event_fifo_empty())
+    while (!event_fifo_empty() && g_is_in_timeslot)
     {
         async_event_t evt;
         if (event_fifo_get(&evt) == NRF_SUCCESS)
@@ -295,6 +296,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
             NVIC_ClearPendingIRQ(SWI0_IRQn);
+            g_is_in_timeslot = true;
             
             event_fifo_flush();
             timer_init();
@@ -370,6 +372,8 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     {
         CLEAR_PIN(2);
         g_total_time += timer_get_timestamp();
+        g_is_in_timeslot = false;
+        event_fifo_flush();
     }
     else
     {
@@ -479,6 +483,18 @@ void timeslot_queue_async_event(async_event_t* evt)
 
 uint32_t timeslot_get_remaining_time(void)
 {
+    if (!g_is_in_timeslot)
+    {
+        return 0;
+    }
+    
     uint32_t timestamp = timer_get_timestamp();
-    return (g_timeslot_length - timestamp - TIMESLOT_END_SAFETY_MARGIN_US);
+    if (timestamp > g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US)
+    {
+        return 0;
+    }
+    else
+    {
+        return (g_timeslot_length - timestamp - TIMESLOT_END_SAFETY_MARGIN_US);
+    }
 }
