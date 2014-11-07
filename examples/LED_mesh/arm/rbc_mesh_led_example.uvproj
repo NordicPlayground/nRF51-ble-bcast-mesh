@@ -14,8 +14,6 @@
         <TargetCommonOption>
           <Device>nRF51822_xxAA</Device>
           <Vendor>Nordic Semiconductor</Vendor>
-          <PackID>NordicSemiconductor.nRF_DeviceFamilyPack.1.1.1</PackID>
-          <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IROM(0x00000000,0x40000) IRAM(0x20000000,0x4000) CPUTYPE("Cortex-M0") CLOCK(12000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile></StartupFile>
@@ -74,8 +72,6 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
-            <nStopB1X>0</nStopB1X>
-            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -414,20 +410,15 @@
               <FileType>1</FileType>
               <FilePath>..\main.c</FilePath>
             </File>
-            <File>
-              <FileName>nrf_adv_conn.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\nrf_adv_conn.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>rbc_mesh</GroupName>
           <Files>
             <File>
-              <FileName>ble_advdata.c</FileName>
+              <FileName>ll_control.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\ll_control.c</FilePath>
             </File>
             <File>
               <FileName>radio_control.c</FileName>
@@ -480,9 +471,9 @@
           <GroupName>lib</GroupName>
           <Files>
             <File>
-              <FileName>ll_control.c</FileName>
+              <FileName>ble_advdata.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\ll_control.c</FilePath>
+              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
             </File>
             <File>
               <FileName>nrf_delay.c</FileName>
