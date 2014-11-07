@@ -72,7 +72,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 
 void HardFault_Handler(void)
 {
-    error_loop();
+    NVIC_SystemReset();
 }
 
 /**
