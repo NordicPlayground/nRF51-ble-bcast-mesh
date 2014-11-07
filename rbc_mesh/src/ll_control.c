@@ -39,8 +39,8 @@
 #define PACKET_MAX_CHAIN_LEN        (1) /**@TODO: May be increased when RX 
                                         callback packet chain handling is implemented.*/
 
-#define TRICKLE_TIME_PERIOD         (20000) /* 20ms */
-#define TRICKLE_TIME_OFFSET         (2000) /* 2ms */
+/* minimum time to be left in the timeslot for there to be any point in ordering the radio */
+#define RADIO_SAFETY_TIMING_MS      (200)
 
 
 static uint8_t tx_data[(PACKET_DATA_MAX_LEN + PACKET_DATA_POS) * PACKET_MAX_CHAIN_LEN];
@@ -137,6 +137,10 @@ static void search_callback(uint8_t* data)
 */
 static void trickle_step_callback(void)
 {
+    /* check if timeslot is about to end */
+    if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_MS)
+        return;
+    
     trickle_time_update(step_time);
     
     uint8_t temp_data[PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN];
@@ -177,11 +181,6 @@ static void trickle_step_callback(void)
             
             tx_data_ptr[PACKET_PADDING_POS] = 0;
             tx_data_ptr[PACKET_LENGTH_POS] = (min_len + PACKET_ADDR_LEN);
-            if (my_adv_addr.addr_type != BLE_GAP_ADDR_TYPE_PUBLIC)
-            {
-                tx_data_ptr[PACKET_LENGTH_POS] |= (0x40);
-            }
-            
             tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
             
             memcpy(&tx_data_ptr[PACKET_ADDR_POS], my_adv_addr.addr, PACKET_ADDR_LEN);
