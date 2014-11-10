@@ -5,4 +5,6 @@
 
 void ll_control_timeslot_begin(uint32_t global_timer_value);
 
+void ll_control_step(void);
+
 #endif /* _LL_CONTROL_H__ */
