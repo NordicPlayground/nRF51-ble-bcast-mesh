@@ -10,6 +10,7 @@
 #include "timeslot_handler.h"
 #include "rbc_mesh_common.h"
 #include "ble_gap.h"
+#include "nrf_soc.h"
 #include <string.h>
 
 /**@file
@@ -40,7 +41,7 @@
                                         callback packet chain handling is implemented.*/
 
 /* minimum time to be left in the timeslot for there to be any point in ordering the radio */
-#define RADIO_SAFETY_TIMING_MS      (200)
+#define RADIO_SAFETY_TIMING_US      (500)
 
 
 static uint8_t tx_data[(PACKET_DATA_MAX_LEN + PACKET_DATA_POS) * PACKET_MAX_CHAIN_LEN];
@@ -109,8 +110,34 @@ static void search_callback(uint8_t* data)
 {
     TICK_PIN(PIN_RX);
     
+    /* check if timeslot is about to end */
+    uint8_t dummy;
+    
+    /* Do the radio order in a critical section to keep the timeslot handler 
+    from ending the timeslot while we're working on the hardware, as it 
+    causes a hardfault */
+    sd_nvic_critical_region_enter(&dummy);
+    
+    uint32_t radio_time_left = timeslot_get_remaining_time();
+    
+    if (radio_time_left > RADIO_SAFETY_TIMING_US)
+    {
+        /* setup next RX */
+        order_search();
+        /* setup timer again, in case things have changed */    
+        TICK_PIN(PIN_RX);
+        uint32_t new_processing_timeout;
+        if (mesh_srv_get_next_processing_time(&new_processing_timeout) != NRF_SUCCESS)
+        {
+            timer_abort(timer_index);
+        }
+    }
+    /* all hardware work done */
+    sd_nvic_critical_region_exit(dummy);
+    
     if (data == NULL || !packet_is_data_packet(data))
         return;
+    
     
     TICK_PIN(1);
     
@@ -119,22 +146,6 @@ static void search_callback(uint8_t* data)
     mesh_srv_packet_process(&packet);
     
     /** @TODO: add packet chain handling */
-    
-    
-    /* check if timeslot is about to end */
-    if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_MS)
-        return;
-    
-    order_search();
-    /* setup timer again, in case things have changed */    
-    TICK_PIN(PIN_RX);
-    uint32_t new_processing_timeout;
-    if (mesh_srv_get_next_processing_time(&new_processing_timeout) != NRF_SUCCESS)
-    {
-        timer_abort(timer_index);
-        return;
-    }
-    
 }
 
 /**
@@ -143,7 +154,7 @@ static void search_callback(uint8_t* data)
 static void trickle_step_callback(void)
 {
     /* check if timeslot is about to end */
-    if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_MS)
+    if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_US)
         return;
     
     trickle_time_update(step_time);
