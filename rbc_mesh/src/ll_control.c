@@ -108,7 +108,6 @@ static inline bool packet_is_data_packet(uint8_t* data)
 static void search_callback(uint8_t* data)
 {
     TICK_PIN(PIN_RX);
-    order_search();
     
     if (data == NULL || !packet_is_data_packet(data))
         return;
@@ -121,6 +120,12 @@ static void search_callback(uint8_t* data)
     
     /** @TODO: add packet chain handling */
     
+    
+    /* check if timeslot is about to end */
+    if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_MS)
+        return;
+    
+    order_search();
     /* setup timer again, in case things have changed */    
     TICK_PIN(PIN_RX);
     uint32_t new_processing_timeout;
