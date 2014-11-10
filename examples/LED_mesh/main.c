@@ -115,11 +115,6 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
                 SET_PIN(LED_RGB_BLUE);
             #endif
             break;
-        
-            
-        case RBC_MESH_EVENT_TYPE_DELETE_VAL:
-        case RBC_MESH_EVENT_TYPE_DISCARDED_VAL:
-            break;
     }
 }
 
@@ -202,6 +197,7 @@ int main(void)
     while (true)
     {
         sd_app_evt_wait();
+#ifdef BOARD_PCA10001        
         if (NRF_GPIOTE->EVENTS_IN[0] || NRF_GPIOTE->EVENTS_IN[1])
         {
             sd_nvic_ClearPendingIRQ(GPIOTE_IRQn);
@@ -216,6 +212,7 @@ int main(void)
                 }
             }
         }
+#endif
     }
     
 

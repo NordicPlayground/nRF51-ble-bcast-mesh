@@ -112,6 +112,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
     switch (evt->event_type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+            /* use new value */
             APP_ERROR_CHECK(rbc_mesh_value_set(
                 evt->value_handle, 
                 evt->data, 
@@ -125,11 +126,6 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
                 break;
             
             led_config(evt->value_handle, evt->data[0]);
-            break;
-        
-            
-        case RBC_MESH_EVENT_TYPE_DELETE_VAL:
-        case RBC_MESH_EVENT_TYPE_DISCARDED_VAL:
             break;
     }
 }

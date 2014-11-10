@@ -22,8 +22,6 @@ typedef enum
     RBC_MESH_EVENT_TYPE_UPDATE_VAL,      /** Another node has updated the value */
     RBC_MESH_EVENT_TYPE_CONFLICTING_VAL, /** Another node has a conflicting version of the value */
     RBC_MESH_EVENT_TYPE_NEW_VAL,         /** A previously unallocated value has been received and allocated */
-    RBC_MESH_EVENT_TYPE_DISCARDED_VAL,   /** A previously unallocated value has been received but there was no room for it. */
-    RBC_MESH_EVENT_TYPE_DELETE_VAL       /** The indicated value has been deleted from the database, but may be reallocated by user */
 } rbc_mesh_event_type_t;
 
 /** 
