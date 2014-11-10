@@ -148,6 +148,22 @@ static void gpiote_init(void)
     sd_nvic_ClearPendingIRQ(GPIOTE_IRQn);
     sd_nvic_EnableIRQ(GPIOTE_IRQn);
 }
+
+void GPIOTE_IRQHandler(void)
+{
+    sd_nvic_ClearPendingIRQ(GPIOTE_IRQn);
+    uint8_t val[] = {nrf_gpio_pin_read(BUTTON_0), nrf_gpio_pin_read(BUTTON_1)};
+    for (uint8_t i = 0; i < 2; ++i)
+    {
+        if (NRF_GPIOTE->EVENTS_IN[i])
+        {
+            NRF_GPIOTE->EVENTS_IN[i] = 0; 
+            led_config(i, val[i]);
+            APP_ERROR_CHECK(rbc_mesh_value_set(i, &val[i], 1));
+        }
+    }
+}
+
 #endif
 
 
@@ -189,6 +205,11 @@ int main(void)
     error_code = rbc_mesh_init(0x3414A68F, 37, 2, 100);
     APP_ERROR_CHECK(error_code);
     
+    error_code = rbc_mesh_value_req(0);
+    APP_ERROR_CHECK(error_code);
+    error_code = rbc_mesh_value_req(1);
+    APP_ERROR_CHECK(error_code);
+    
     test_app_init();
     
     sd_nvic_EnableIRQ(SD_EVT_IRQn);
@@ -198,7 +219,7 @@ int main(void)
     {
         sd_app_evt_wait();
 #ifdef BOARD_PCA10001        
-        if (NRF_GPIOTE->EVENTS_IN[0] || NRF_GPIOTE->EVENTS_IN[1])
+        /*if (NRF_GPIOTE->EVENTS_IN[0] || NRF_GPIOTE->EVENTS_IN[1])
         {
             sd_nvic_ClearPendingIRQ(GPIOTE_IRQn);
             uint8_t val[] = {nrf_gpio_pin_read(BUTTON_0), nrf_gpio_pin_read(BUTTON_1)};
@@ -211,7 +232,7 @@ int main(void)
                     APP_ERROR_CHECK(rbc_mesh_value_set(i, &val[i], 1));
                 }
             }
-        }
+        }*/
 #endif
     }
     
