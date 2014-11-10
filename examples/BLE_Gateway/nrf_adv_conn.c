@@ -48,7 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
                             
-#define BLE_ADV_INTERVAL_150MS 0x00F0
+#define BLE_ADV_INTERVAL_750MS (800)
 
 /*****************************************************************************
 * Static Globals
@@ -63,7 +63,7 @@ static ble_gap_adv_params_t ble_adv_params = {
     NULL,                      /* Not used for this type of advertisement */
     BLE_GAP_ADV_FP_ANY,        /* Don't filter */
     NULL,                      /* Whitelist not in use */
-    BLE_ADV_INTERVAL_150MS,    /* Advertising interval set to intentionally disrupt the timeslot example */
+    BLE_ADV_INTERVAL_750MS,       /* Advertising interval set to intentionally disrupt the timeslot example */
     0                          /* Timeout in seconds */
 };
 
