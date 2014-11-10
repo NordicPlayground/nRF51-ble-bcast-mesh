@@ -360,7 +360,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>BOARD_PCA10001 NRF51</Define>
+              <Define>BOARD_PCA10000 NRF51</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\SDK\nrf51822\Include;..\..\..\..\..\SDK\nrf51822\Include\ble;..\..\..\..\..\SDK\nrf51822\Include\ble\ble_services;..\..\..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\..\..\SDK\nrf51822\Include\s110;..\..\..\..\..\SDK\nrf51822\Include\app_common</IncludePath>
             </VariousControls>
@@ -409,6 +409,11 @@
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\main.c</FilePath>
+            </File>
+            <File>
+              <FileName>led_config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\led_config.c</FilePath>
             </File>
           </Files>
         </Group>
