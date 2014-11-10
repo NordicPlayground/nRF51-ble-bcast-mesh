@@ -507,8 +507,6 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     /**@TODO: Handle version overflow */
     if (version > ch_md->version_number || uninitialized)
     {
-        
-        
         /* update value */
         memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
         ch_md->version_number = version;
@@ -528,7 +526,6 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         update_evt.data_len = data_len;
         update_evt.value_handle = handle;
         
-        /**@TODO: Handle in different context? */
         rbc_mesh_event_handler(&update_evt);
     }
     else if (version == ch_md->version_number)

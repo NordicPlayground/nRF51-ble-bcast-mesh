@@ -1,6 +1,7 @@
 #include "rbc_mesh.h"
 #include "nrf_adv_conn.h"
 #include "led_config.h"
+#include "timeslot_handler.h"
 
 #include "nrf_soc.h"
 #include "nrf_assert.h"
@@ -25,17 +26,18 @@
 /**
 * @brief General error handler. Sets the LEDs to blink forever
 */
-static void error_loop(void)
+static void error_loop(char* message)
 {
     SET_PIN(7);
     while (true)
     {
+        simple_uart_putstring((uint8_t*) message);
         nrf_delay_ms(500);
         SET_PIN(LED_0);
-        SET_PIN(LED_1);
+        CLEAR_PIN(LED_1);
         nrf_delay_ms(500);
         CLEAR_PIN(LED_0);
-        CLEAR_PIN(LED_1);
+        SET_PIN(LED_1);
     }
 }    
 
@@ -54,17 +56,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
         line_num, 
         p_file_name);
     
-    while (true)
-    {
-        simple_uart_putstring((uint8_t*) str);
-        nrf_delay_ms(500);
-        SET_PIN(LED_0);
-        CLEAR_PIN(LED_1);
-        nrf_delay_ms(500);
-        SET_PIN(LED_1);
-        CLEAR_PIN(LED_0);
-    }
-    //error_loop();
+    error_loop(str);
 }
 
 /**
@@ -85,25 +77,12 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
         line_num, 
         p_file_name);
     
-    while (true)
-    {
-        simple_uart_putstring((uint8_t*) str);
-        nrf_delay_ms(500);
-        SET_PIN(LED_0);
-        CLEAR_PIN(LED_1);
-        nrf_delay_ms(500);
-        SET_PIN(LED_1);
-        CLEAR_PIN(LED_0);
-    }
-    //error_loop();
+    error_loop(str);
 }
 
 void HardFault_Handler(void)
 {
-    
-    simple_uart_putstring((uint8_t*) "HARDFAULT\n");
-    
-    error_loop();
+    error_loop("HARDFAULT\n");
 }
 
 /**

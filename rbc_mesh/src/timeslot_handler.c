@@ -104,6 +104,8 @@ static uint32_t g_is_in_timeslot = false;
 static uint8_t event_fifo_head = 0;
 static uint8_t event_fifo_tail = 0;       
 static async_event_t async_event_fifo_queue[ASYNC_EVENT_FIFO_QUEUE_SIZE];
+
+static async_event_t evt;                
 #endif                
                 
 /*****************************************************************************
@@ -202,6 +204,8 @@ static void async_event_execute(async_event_t* evt)
         case EVENT_TYPE_GENERIC:
             (*evt->callback.generic)();
             break;
+        default:
+            break;
     }
 }
 
@@ -270,7 +274,7 @@ void SWI0_IRQHandler(void)
 {
     while (!event_fifo_empty() && g_is_in_timeslot)
     {
-        async_event_t evt;
+        
         if (event_fifo_get(&evt) == NRF_SUCCESS)
         {
             async_event_execute(&evt);
@@ -495,6 +499,6 @@ uint32_t timeslot_get_remaining_time(void)
     }
     else
     {
-        return (g_timeslot_length - timestamp - TIMESLOT_END_SAFETY_MARGIN_US);
+        return (g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US - timestamp);
     }
 }
