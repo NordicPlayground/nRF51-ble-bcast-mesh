@@ -110,6 +110,8 @@ static void search_callback(uint8_t* data)
 {
     TICK_PIN(PIN_RX);
     
+    uint32_t checksum = (NRF_RADIO->RXCRC & 0x00FFFFFF);
+    
     /* check if timeslot is about to end */
     uint8_t dummy;
     
@@ -143,6 +145,7 @@ static void search_callback(uint8_t* data)
     
     packet_t packet;
     packet_create_from_data(data, &packet);
+    packet.rx_crc = checksum;
     mesh_srv_packet_process(&packet);
     
     /** @TODO: add packet chain handling */

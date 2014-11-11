@@ -364,6 +364,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
         ble_gap_addr_t my_addr;
         sd_ble_gap_address_get(&my_addr);
         memcpy(&ch_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
+        ch_md->flags |= (1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
     }
     
     if (error_code != NRF_SUCCESS)
@@ -518,6 +519,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         mesh_srv_char_val_set(handle, data, data_len, false);
         ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
                         (1 << MESH_MD_FLAGS_USED_POS);
+        ch_md->flags &= ~(1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
         ch_md->version_number = version;
         
         /* Manually set originator address */
@@ -542,13 +544,10 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     else if (version == ch_md->version_number)
     {
         /* check for conflicting data */
-        /**@TODO: use hash or checksum or something? 
-            This is SLOW and happens very often */
-        uint8_t old_data[MAX_VALUE_LENGTH];
         uint16_t old_len = MAX_VALUE_LENGTH;
         
         
-        error_code = mesh_srv_char_val_get(handle, old_data, &old_len);
+        error_code = mesh_srv_char_val_get(handle, NULL, &old_len);
         if (error_code != NRF_SUCCESS)
         {
             return error_code;
@@ -556,11 +555,12 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         
         volatile bool conflicting = false;
         
-        if (old_len != data_len)
+        if (packet->rx_crc != ch_md->crc && 
+            !(ch_md->flags & (1 << MESH_MD_FLAGS_IS_ORIGIN_POS)))
         {
             conflicting = true;
         }
-        else if (memcmp(old_data, data, data_len) != 0)
+        else if (old_len != data_len)
         {
             conflicting = true;
         }
@@ -677,7 +677,8 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
     
             ch_md->flags |= 
                 (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
-                (1 << MESH_MD_FLAGS_USED_POS);
+                (1 << MESH_MD_FLAGS_USED_POS) |
+                (1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
             
             ++ch_md->version_number;
             trickle_rx_inconsistent(&ch_md->trickle);

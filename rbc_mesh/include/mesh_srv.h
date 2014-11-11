@@ -22,6 +22,7 @@
 
 #define MESH_MD_FLAGS_USED_POS          (0)
 #define MESH_MD_FLAGS_INITIALIZED_POS   (1)
+#define MESH_MD_FLAGS_IS_ORIGIN_POS     (2)
 
 
 typedef struct
@@ -29,6 +30,7 @@ typedef struct
     ble_gap_addr_t sender;
     uint8_t length;
     uint8_t* data;
+    uint32_t rx_crc;
 } packet_t;
 
 
@@ -36,6 +38,7 @@ typedef struct
 {
     uint16_t version_number;
     uint16_t char_value_handle;
+    uint32_t crc;
     ble_gap_addr_t last_sender_addr;
     trickle_t trickle;
     uint8_t flags;
