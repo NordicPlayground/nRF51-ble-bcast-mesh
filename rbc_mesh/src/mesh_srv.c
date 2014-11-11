@@ -317,7 +317,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
 }
 
 
-uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len)
+uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool update_sender)
 {
     if (!is_initialized)
     {
@@ -358,6 +358,13 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len)
     uint32_t error_code = sd_ble_gatts_value_set(
         ch_md->char_value_handle, 
         0, &len, data);
+    
+    if (update_sender || first_time)
+    {
+        ble_gap_addr_t my_addr;
+        sd_ble_gap_address_get(&my_addr);
+        memcpy(&ch_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
+    }
     
     if (error_code != NRF_SUCCESS)
     {
@@ -508,11 +515,14 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     if (version > ch_md->version_number || uninitialized)
     {
         /* update value */
-        memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
-        ch_md->version_number = version;
-        mesh_srv_char_val_set(handle, data, data_len);
+        mesh_srv_char_val_set(handle, data, data_len, false);
         ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
                         (1 << MESH_MD_FLAGS_USED_POS);
+        ch_md->version_number = version;
+        
+        /* Manually set originator address */
+        memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
+        
         
         /* Propagate to application space */
         uint8_t data_copy[MAX_VALUE_LENGTH]; /* use heap instead? */
@@ -525,6 +535,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         update_evt.data = data_copy;
         update_evt.data_len = data_len;
         update_evt.value_handle = handle;
+        memcpy(&update_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
         
         rbc_mesh_event_handler(&update_evt);
     }
@@ -543,7 +554,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
             return error_code;
         }
         
-        bool conflicting = false;
+        volatile bool conflicting = false;
         
         if (old_len != data_len)
         {
@@ -556,6 +567,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         
         if (conflicting)
         {
+            TICK_PIN(7);
             rbc_mesh_event_t conflicting_evt;
             uint8_t data_copy[MAX_VALUE_LENGTH]; /* use heap instead? */
             memcpy(data_copy, data, data_len);
@@ -564,13 +576,14 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
             conflicting_evt.data = data_copy;
             conflicting_evt.data_len = data_len;
             conflicting_evt.value_handle = handle;
+            memcpy(&conflicting_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
             
             trickle_rx_inconsistent(&ch_md->trickle);
             
             rbc_mesh_event_handler(&conflicting_evt);
         }
         else
-        {
+        { 
             trickle_rx_consistent(&ch_md->trickle);
         }
         
@@ -624,6 +637,8 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
             
             memcpy(&packet->data[MESH_PACKET_DATA_OFFSET], data, len);
             packet->length = len + MESH_PACKET_DATA_OFFSET;
+            
+            memcpy(&packet->sender, &md_ch->last_sender_addr, sizeof(md_ch->last_sender_addr));
            
             /**@TODO: Add multiple trickle messages in one packet */
 
@@ -677,6 +692,8 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
             update_evt.data = evt->data;
             update_evt.data_len = evt->len;
             update_evt.value_handle = i;
+            
+            memcpy(&update_evt.originator_address, &my_addr, sizeof(ble_gap_addr_t));
             
             rbc_mesh_event_handler(&update_evt);
             

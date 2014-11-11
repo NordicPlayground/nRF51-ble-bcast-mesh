@@ -82,7 +82,7 @@ uint32_t rbc_mesh_value_req(uint8_t handle)
 
 uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
 {
-    return mesh_srv_char_val_set(handle, data, len);
+    return mesh_srv_char_val_set(handle, data, len, true);
 }
 
 uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len)

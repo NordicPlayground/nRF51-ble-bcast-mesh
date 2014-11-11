@@ -53,7 +53,7 @@ typedef struct
 uint32_t mesh_srv_init(uint8_t mesh_value_count, 
     uint32_t access_address, uint8_t channel, uint32_t adv_int_ms);
 
-uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len);
+uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool update_sender);
 
 uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len);
 

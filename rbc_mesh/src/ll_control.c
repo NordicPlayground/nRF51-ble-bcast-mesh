@@ -175,11 +175,10 @@ static void trickle_step_callback(void)
         TICK_PIN(PIN_MESH_TX);
         radio_disable();
         
-        ble_gap_addr_t my_adv_addr;
-        sd_ble_gap_address_get(&my_adv_addr);
+        
         
         uint8_t packet_and_addr_type = PACKET_TYPE_ADV_NONCONN |
-            ((my_adv_addr.addr_type == BLE_GAP_ADDR_TYPE_PUBLIC)?
+            ((packet.sender.addr_type == BLE_GAP_ADDR_TYPE_PUBLIC)?
             0 :
             PACKET_ADDR_TYPE_MASK);
         
@@ -199,7 +198,7 @@ static void trickle_step_callback(void)
             tx_data_ptr[PACKET_LENGTH_POS] = (min_len + PACKET_ADDR_LEN);
             tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
             
-            memcpy(&tx_data_ptr[PACKET_ADDR_POS], my_adv_addr.addr, PACKET_ADDR_LEN);
+            memcpy(&tx_data_ptr[PACKET_ADDR_POS], packet.sender.addr, PACKET_ADDR_LEN);
             memcpy(&tx_data_ptr[PACKET_DATA_POS], &temp_data_ptr[0], min_len);
             
             radio_event_t tx_event;

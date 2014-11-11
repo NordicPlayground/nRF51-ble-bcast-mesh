@@ -34,6 +34,7 @@ typedef struct
     rbc_mesh_value_handle_t value_handle;    /** Handle of the value the event is generated for */
     uint8_t* data;                      /** Current data array contained at the event handle location */
     uint8_t data_len;                   /** Length of data array */
+    ble_gap_addr_t originator_address; /** GAP address of node where this version of the message appeared */
 } rbc_mesh_event_t;
 
 
@@ -72,7 +73,11 @@ typedef struct
 * @return NRF_ERROR_INVALID_STATE the framework has already been initialized.
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
-uint32_t rbc_mesh_init(uint32_t access_addr, uint8_t channel, uint8_t handle_count, uint8_t adv_int_ms);
+uint32_t rbc_mesh_init(
+    uint32_t access_addr, 
+    uint8_t channel, 
+    uint8_t handle_count, 
+    uint8_t adv_int_ms);
 
 /**
 * @brief Broadcast a request for an update on the value connected to the 
