@@ -1,13 +1,13 @@
 #include "trickle.h"
-#include "trickle_common.h"
+#include "rbc_mesh_common.h"
 
+#include "nrf_soc.h"
 #include "boards.h"
 #include "nrf51_bitfields.h"
 #include <string.h>
 
 
-#define MAX_TRICKLE_INSTANCES 8
-
+#define TRICKLE_RNG_POOL_SIZE   (64)
 #define APP_TIMER_PRESCALER 16
 
 #define RX_PROPAGATION_TIME         (377)
@@ -33,20 +33,6 @@ static uint8_t g_k;
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
-
-#if !USE_SOFTDEVICE
-void TIMER0_IRQHandler(void)
-{
-    if (NRF_TIMER0->EVENTS_COMPARE[0])
-    {
-        NRF_TIMER0->EVENTS_COMPARE[0] = 0;
-        NRF_TIMER0->CC[0] = TRICKLE_INTERVAL_US;
-        TICK_PIN(PIN_SYNC_TIME);
-        
-        trickle_step();
-    }
-}
-#endif
 
 static void trickle_interval_begin(trickle_t* trickle)
 {
@@ -74,17 +60,32 @@ void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k)
     g_i_min = i_min;
     g_i_max = i_max;
     g_k = k;
-    
+    uint32_t error_code;
     rng_index = 0;
     
     /* Fill rng pool */
-    for (uint8_t i = 0; i < 64; ++i)
+    uint8_t bytes_available;
+    do 
     {
-        NRF_RNG->EVENTS_VALRDY = 0;
-        NRF_RNG->TASKS_START = 1;
-        while (!NRF_RNG->EVENTS_VALRDY);
-        rng_vals[i] = NRF_RNG->VALUE;
-    }
+        error_code = 
+            sd_rand_application_bytes_available_get(&bytes_available);
+        APP_ERROR_CHECK(error_code);
+        if (bytes_available > 0)
+        {
+            uint8_t byte_count = 
+                ((bytes_available > TRICKLE_RNG_POOL_SIZE - rng_index)? 
+                (TRICKLE_RNG_POOL_SIZE - rng_index) : 
+                (bytes_available));
+            
+            error_code = 
+                sd_rand_application_vector_get(&rng_vals[rng_index], 
+                byte_count);
+            APP_ERROR_CHECK(error_code);
+            
+            rng_index += byte_count;
+        }
+    } while (rng_index < TRICKLE_RNG_POOL_SIZE);
+    
 }
 
 
@@ -139,6 +140,7 @@ void trickle_register_tx(trickle_t* trickle)
 void trickle_step(trickle_t* trickle, bool* out_do_tx)
 {
     *out_do_tx = false;
+    
     if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
     {
         if (trickle->i <= g_trickle_time)

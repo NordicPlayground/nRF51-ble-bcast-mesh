@@ -1,6 +1,7 @@
 #include "radio_control.h"
 #include "timer_control.h"
-#include "trickle_common.h"
+#include "timeslot_handler.h"
+#include "rbc_mesh_common.h"
 #include "trickle.h"
 #include "nrf.h"
 #include "nrf_sdm.h"
@@ -135,9 +136,13 @@ static void radio_fifo_flush(void)
 
 static void radio_channel_set(uint8_t ch)
 {
-    if (ch < 37)
+    if (ch <= 10)
     {
         NRF_RADIO->FREQUENCY = 4 + ch * 2;
+    }
+    else if (ch <= 36)
+    {
+        NRF_RADIO->FREQUENCY = 6 + ch * 2;
     }
     else
     {
@@ -145,14 +150,19 @@ static void radio_channel_set(uint8_t ch)
         NRF_RADIO->FREQUENCY = adv_freqs[(ch - 37)];
     }
     
-    NRF_RADIO->DATAWHITEIV = ch;
+    NRF_RADIO->DATAWHITEIV = ch & RADIO_DATAWHITEIV_DATAWHITEIV_Msk;
     
 }
 
 static bool radio_will_go_to_disabled_state(void)
 {
-    return (radio_fifo_get_length() == 2 && 
-        (NRF_RADIO->EVENTS_READY) && !(NRF_RADIO->EVENTS_END));
+    radio_event_t current_evt, next_evt;
+    radio_fifo_peek_at(&current_evt, 0);
+    radio_fifo_peek_at(&next_evt, 1);
+    
+    return ((radio_fifo_get_length() == 2 && 
+        (NRF_RADIO->EVENTS_READY) && !(NRF_RADIO->EVENTS_END)) || 
+        (current_evt.channel != next_evt.channel));
 }
 
 static void setup_rx_timeout(uint32_t rx_start_time)
@@ -168,11 +178,14 @@ static void setup_rx_timeout(uint32_t rx_start_time)
 */
 static void radio_transition_end(bool successful_transmission)
 {
+    /**@NOTE: CRC bug workaround */
+    bool crc_status = NRF_RADIO->CRCSTATUS;
+    
     /* pop the event that just finished */
     radio_event_t prev_evt;
     radio_fifo_get(&prev_evt);
-    bool fly_through_disable = (NRF_RADIO->SHORTS & 
-        (RADIO_SHORTS_DISABLED_RXEN_Msk | RADIO_SHORTS_DISABLED_TXEN_Msk));    
+    bool fly_through_disable = ((NRF_RADIO->SHORTS & 
+        (RADIO_SHORTS_DISABLED_RXEN_Msk | RADIO_SHORTS_DISABLED_TXEN_Msk)) > 0);    
     
     current_rx_buf = !current_rx_buf;
     NRF_RADIO->SHORTS = 0;
@@ -205,7 +218,8 @@ static void radio_transition_end(bool successful_transmission)
             NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk;
             
             /* the ready->start shortcut doesn't work when we already are in IDLE */
-            if (prev_evt.event_type == evt.event_type)
+            if (prev_evt.event_type == evt.event_type &&
+                prev_evt.channel == evt.channel)
             {
                 start_manually = true;
             }
@@ -232,6 +246,7 @@ static void radio_transition_end(bool successful_transmission)
             /* manually begin ramp up */
             if (!fly_through_disable)
             {
+                radio_channel_set(evt.channel);
                 NRF_RADIO->TASKS_RXEN = 1;
             }
                 
@@ -240,13 +255,14 @@ static void radio_transition_end(bool successful_transmission)
         {
             NRF_RADIO->TXADDRESS = evt.access_address;
             radio_state = RADIO_STATE_TX;
-            NRF_RADIO->PACKETPTR = (uint32_t) evt.packet_ptr;
+            NRF_RADIO->PACKETPTR = (uint32_t) &evt.packet_ptr[0];  
             NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk;
             
             
             /* manually begin ramp up */
             if (!fly_through_disable)
             {
+                radio_channel_set(evt.channel);
                 NRF_RADIO->TASKS_TXEN = 1;
             }
         }
@@ -269,8 +285,11 @@ static void radio_transition_end(bool successful_transmission)
             radio_event_t next_evt;
             radio_fifo_peek_at(&next_evt, 1);
             
-            if (next_evt.event_type != evt.event_type)
+            if (next_evt.event_type != evt.event_type || 
+                next_evt.channel != evt.channel)
             {
+                radio_channel_set(next_evt.channel);
+                
                 NRF_RADIO->SHORTS |= RADIO_SHORTS_END_DISABLE_Msk;
                 
                 /* make shortcut through disabled to accelerate the process */
@@ -289,21 +308,38 @@ static void radio_transition_end(bool successful_transmission)
     /* send to super space */
     if (prev_evt.event_type == RADIO_EVENT_TYPE_RX)
     {
-        if (successful_transmission)
+        if (successful_transmission && crc_status)
         {
             if (prev_evt.callback.rx != NULL)
-                (*prev_evt.callback.rx)(rx_data[!current_rx_buf]);
+            {
+                async_event_t evt;
+                evt.type = EVENT_TYPE_RADIO_RX;
+                evt.callback.radio_rx.function = prev_evt.callback.rx;
+                evt.callback.radio_rx.data = rx_data[!current_rx_buf];
+                timeslot_queue_async_event(&evt);
+            }
         }
         else
         {
             if (prev_evt.callback.rx != NULL)
-                (*prev_evt.callback.rx)(NULL);
+            {
+                async_event_t evt;
+                evt.type = EVENT_TYPE_RADIO_RX;
+                evt.callback.radio_rx.function = prev_evt.callback.rx;
+                evt.callback.radio_rx.data = NULL;
+                timeslot_queue_async_event(&evt);
+            }
         }
     }
     else
     {
         if (prev_evt.callback.tx != NULL)
-            (*prev_evt.callback.tx)();
+        {
+            async_event_t evt;
+            evt.type = EVENT_TYPE_RADIO_TX;
+            evt.callback.radio_tx = prev_evt.callback.tx;
+            timeslot_queue_async_event(&evt);
+        }
     }
     
 }
@@ -321,23 +357,23 @@ static void rx_abort_cb(void)
 
 void radio_init(uint32_t access_address)
 {
-	/* Reset all states in the radio peripheral */
-	NRF_RADIO->POWER = 1;
-	//NRF_RADIO->EVENTS_DISABLED = 0; 
-    NVIC_EnableIRQ(RADIO_IRQn);
+	/* Reset all states in the radio peripheral */    
+    NRF_RADIO->POWER            = ((RADIO_POWER_POWER_Disabled << RADIO_POWER_POWER_Pos) & RADIO_POWER_POWER_Msk);
+    NRF_RADIO->POWER            = ((RADIO_POWER_POWER_Enabled  << RADIO_POWER_POWER_Pos) & RADIO_POWER_POWER_Msk);
+	
+    
     
     /* Set radio configuration parameters */
-    NRF_RADIO->TXPOWER      = (RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos);
-    NRF_RADIO->MODE 	    = (RADIO_MODE_MODE_Ble_1Mbit << RADIO_MODE_MODE_Pos);
+    NRF_RADIO->TXPOWER      = ((RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos) & RADIO_TXPOWER_TXPOWER_Msk);
+    NRF_RADIO->MODE 	    = ((RADIO_MODE_MODE_Ble_1Mbit << RADIO_MODE_MODE_Pos) & RADIO_MODE_MODE_Msk);
 
     NRF_RADIO->FREQUENCY 	    = 2;					// Frequency bin 2, 2402MHz, channel 37.
     NRF_RADIO->DATAWHITEIV      = 37;					// NOTE: This value needs to correspond to the frequency being used
 
 
     /* Configure Access Address  */
-    //0x8E89BED6
     NRF_RADIO->PREFIX0	    = ((access_address >> 24) & 0x000000FF);
-    NRF_RADIO->BASE0 		= (access_address & 0x00FFFFFF); 
+    NRF_RADIO->BASE0 		= ((access_address << 8) & 0xFFFFFF00); 
     NRF_RADIO->TXADDRESS    = 0x00;			    // Use logical address 0 (prefix0 + base0) = 0x8E89BED6 when transmitting
     NRF_RADIO->RXADDRESSES  = 0x01;				// Enable reception on logical address 0 (PREFIX0 + BASE0)
 
@@ -350,25 +386,27 @@ void radio_init(uint32_t access_address)
 
     /* Packet configuration */
     NRF_RADIO->PCNF1 =  (
-                          (((37UL)                      << RADIO_PCNF1_MAXLEN_Pos)  & RADIO_PCNF1_MAXLEN_Msk)   // maximum length of payload in bytes [0-255]
-                        | (((0UL)                       << RADIO_PCNF1_STATLEN_Pos) & RADIO_PCNF1_STATLEN_Msk)	// expand the payload with N bytes in addition to LENGTH [0-255]
-                        | (((3UL)                       << RADIO_PCNF1_BALEN_Pos)   & RADIO_PCNF1_BALEN_Msk)    // base address length in number of bytes.
-                        | (((RADIO_PCNF1_ENDIAN_Little) << RADIO_PCNF1_ENDIAN_Pos)  & RADIO_PCNF1_ENDIAN_Msk)   // endianess of the S0, LENGTH, S1 and PAYLOAD fields.
-                        | (((1UL)                       << RADIO_PCNF1_WHITEEN_Pos) & RADIO_PCNF1_WHITEEN_Msk)	// enable packet whitening
+                          (((37UL)                          << RADIO_PCNF1_MAXLEN_Pos)  & RADIO_PCNF1_MAXLEN_Msk)   // maximum length of payload in bytes [0-255]
+                        | (((0UL)                           << RADIO_PCNF1_STATLEN_Pos) & RADIO_PCNF1_STATLEN_Msk)	// expand the payload with N bytes in addition to LENGTH [0-255]
+                        | (((3UL)                           << RADIO_PCNF1_BALEN_Pos)   & RADIO_PCNF1_BALEN_Msk)    // base address length in number of bytes.
+                        | (((RADIO_PCNF1_ENDIAN_Little)     << RADIO_PCNF1_ENDIAN_Pos)  & RADIO_PCNF1_ENDIAN_Msk)   // endianess of the S0, LENGTH, S1 and PAYLOAD fields.
+                        | (((RADIO_PCNF1_WHITEEN_Enabled)   << RADIO_PCNF1_WHITEEN_Pos) & RADIO_PCNF1_WHITEEN_Msk)	// enable packet whitening
                       );
 
-    /* CRC config */
-    NRF_RADIO->CRCCNF  = (RADIO_CRCCNF_LEN_Three << RADIO_CRCCNF_LEN_Pos) | 
-                            (RADIO_CRCCNF_SKIPADDR_Skip << RADIO_CRCCNF_SKIPADDR_Pos); // Skip Address when computing crc     
-    NRF_RADIO->CRCINIT = 0x555555;    // Initial value of CRC
-    NRF_RADIO->CRCPOLY = 0x00065B;    // CRC polynomial function
- 
+	/* CRC config */
+    NRF_RADIO->CRCPOLY = ((0x00065B << RADIO_CRCPOLY_CRCPOLY_Pos) & RADIO_CRCPOLY_CRCPOLY_Msk);    // CRC polynomial function
+    NRF_RADIO->CRCCNF = (((RADIO_CRCCNF_SKIPADDR_Skip) << RADIO_CRCCNF_SKIPADDR_Pos) & RADIO_CRCCNF_SKIPADDR_Msk)
+                      | (((RADIO_CRCCNF_LEN_Three)      << RADIO_CRCCNF_LEN_Pos)       & RADIO_CRCCNF_LEN_Msk);
+  
+    NRF_RADIO->CRCINIT = ((0x555555 << RADIO_CRCINIT_CRCINIT_Pos) & RADIO_CRCINIT_CRCINIT_Msk);    // Initial value of CRC
     /* Lock interframe spacing, so that the radio won't send too soon / start RX too early */
     NRF_RADIO->TIFS = 148;
     
     rx_abort_timer_index = 0xFF;
     radio_state = RADIO_STATE_DISABLED;
     radio_fifo_flush();
+    NVIC_ClearPendingIRQ(RADIO_IRQn);
+    NVIC_EnableIRQ(RADIO_IRQn);
 }
 
 void radio_order(radio_event_t* radio_event)
@@ -379,6 +417,9 @@ void radio_order(radio_event_t* radio_event)
     {
         /* order radio right away */
         
+        radio_channel_set(radio_event->channel);
+        
+        NRF_RADIO->SHORTS = RADIO_SHORTS_END_DISABLE_Msk;
         
         if (radio_event->start_time > 0)
         {
@@ -392,8 +433,8 @@ void radio_order(radio_event_t* radio_event)
         
         if (radio_event->event_type == RADIO_EVENT_TYPE_RX)
         {
+            NRF_RADIO->PACKETPTR = (uint32_t) rx_data[current_rx_buf]; /* double pointer */
             NRF_RADIO->TASKS_RXEN = 1;
-            NRF_RADIO->PACKETPTR = (uint32_t) rx_data[current_rx_buf];
             
             /* if the event is not an "as soon as possible", we setup an RX timeout,
                 else the user must do it themselves */
@@ -407,21 +448,19 @@ void radio_order(radio_event_t* radio_event)
         }
         else
         {
-            NRF_RADIO->TASKS_TXEN = 1;
-            NRF_RADIO->PACKETPTR = (uint32_t) radio_event->packet_ptr;     
-            NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk;
+            NRF_RADIO->PACKETPTR = (uint32_t) &radio_event->packet_ptr[0]; 
+            NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk; 
+            NRF_RADIO->TASKS_TXEN = 1;   
             radio_state = RADIO_STATE_TX;
         }
         
         if (radio_event->start_time == 0)
         {
-            NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | 
-                            RADIO_SHORTS_END_DISABLE_Msk;
+            NRF_RADIO->SHORTS |= RADIO_SHORTS_READY_START_Msk;
         }
         else
         {
             timer_order_ppi(radio_event->start_time, (uint32_t*) &(NRF_RADIO->TASKS_START));
-            NRF_RADIO->SHORTS = RADIO_SHORTS_END_DISABLE_Msk;
         }
         
         NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
@@ -436,8 +475,10 @@ void radio_order(radio_event_t* radio_event)
         {
             uint8_t queue_length = radio_fifo_get_length();
             
-            if (queue_length == 2)
+            if (queue_length == 2) 
             {
+                /* this event will come straight after the current */
+                
                 /* get current event */
                 radio_event_t ev;
                 radio_fifo_peek(&ev);
@@ -479,6 +520,11 @@ void radio_disable(void)
 */
 void radio_event_handler(void)
 {
+    if (RADIO_EVENT(EVENTS_END))
+    {
+        NRF_RADIO->EVENTS_END = 0;
+        radio_transition_end(true);
+    }
     switch (radio_state)
     {
         case RADIO_STATE_RX:
@@ -488,11 +534,6 @@ void radio_event_handler(void)
             }
             
         case RADIO_STATE_TX:
-            if (RADIO_EVENT(EVENTS_END))
-            {
-                NRF_RADIO->EVENTS_END = 0;
-                radio_transition_end(true);
-            }
         
             
             break;
