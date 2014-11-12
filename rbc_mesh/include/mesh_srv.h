@@ -29,7 +29,7 @@ typedef struct
 {
     ble_gap_addr_t sender;
     uint8_t length;
-    uint8_t* data;
+    uint8_t data[MAX_VALUE_LENGTH + 3];
     uint32_t rx_crc;
 } packet_t;
 
