@@ -8,7 +8,6 @@
 
 #include <string.h>
 
-
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
@@ -24,9 +23,6 @@ static uint8_t g_adv_int_ms;
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
-
-
-
 
 
 /*****************************************************************************
@@ -170,25 +166,6 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
     return NRF_SUCCESS;
 }
 
-#if 0
-uint32_t rbc_mesh_adv_int_set(uint32_t adv_int_ms)
-{
-    if (!g_is_initialized)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-
-    if (adv_int_ms < RBC_ADV_INT_MIN ||
-            adv_int_ms > RBC_ADV_INT_MAX)
-    {
-        return NRF_ERROR_INVALID_PARAM;
-    }
-
-    g_adv_int_ms = adv_int_ms;
-
-    return NRF_SUCCESS;
-}
-#endif
 
 /***** event handler ******/
 

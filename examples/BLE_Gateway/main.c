@@ -112,6 +112,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
     switch (evt->event_type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+#if 0            
             /* use new value */
             APP_ERROR_CHECK(rbc_mesh_value_set(
                 evt->value_handle, 
@@ -119,6 +120,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
                 evt->data_len));
         
         /* intended fall through */
+#endif        
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
         
@@ -173,7 +175,7 @@ int main(void)
     error_code = rbc_mesh_init(0xA541A68F, 38, 2, 100);
     APP_ERROR_CHECK(error_code);
     
-#if 0
+#if 1
     /* request values for both LEDs on the mesh */
     error_code = rbc_mesh_value_req(0);
     APP_ERROR_CHECK(error_code);
