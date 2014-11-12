@@ -45,9 +45,9 @@
 
 
 static uint8_t tx_data[(PACKET_DATA_MAX_LEN + PACKET_DATA_POS) * PACKET_MAX_CHAIN_LEN];
-static uint8_t timer_index = 0xFF;
 static uint32_t global_time = 0;
 static uint32_t step_time = 0;
+static uint8_t step_timer_index = 0xFF;
 
 static void search_callback(uint8_t* data);
 static void trickle_step_callback(void);
@@ -68,7 +68,7 @@ static inline void packet_create_from_data(uint8_t* data, packet_t* packet)
 {
     /* advertisement package */
     packet->data = &data[PACKET_DATA_POS];
-    packet->length = (data[PACKET_LENGTH_POS] & PACKET_LENGTH_MASK);
+    packet->length = (data[PACKET_LENGTH_POS] & PACKET_LENGTH_MASK) - PACKET_ADDR_LEN;
     
     memcpy(packet->sender.addr, &data[PACKET_ADDR_POS], PACKET_ADDR_LEN);
     
@@ -108,40 +108,24 @@ static inline bool packet_is_data_packet(uint8_t* data)
 */
 static void search_callback(uint8_t* data)
 {
-    TICK_PIN(PIN_RX);
+    SET_PIN(PIN_RX);
     
     uint32_t checksum = (NRF_RADIO->RXCRC & 0x00FFFFFF);
     
     /* check if timeslot is about to end */
-    uint8_t dummy;
-    
-    /* Do the radio order in a critical section to keep the timeslot handler 
-    from ending the timeslot while we're working on the hardware, as it 
-    causes a hardfault */
-    sd_nvic_critical_region_enter(&dummy);
-    
     uint32_t radio_time_left = timeslot_get_remaining_time();
     
     if (radio_time_left > RADIO_SAFETY_TIMING_US)
     {
         /* setup next RX */
         order_search();
-        /* setup timer again, in case things have changed */    
-        TICK_PIN(PIN_RX);
-        uint32_t new_processing_timeout;
-        if (mesh_srv_get_next_processing_time(&new_processing_timeout) != NRF_SUCCESS)
-        {
-            timer_abort(timer_index);
-        }
     }
-    /* all hardware work done */
-    sd_nvic_critical_region_exit(dummy);
+    
+    CLEAR_PIN(PIN_RX);
     
     if (data == NULL || !packet_is_data_packet(data))
         return;
     
-    
-    TICK_PIN(1);
     
     packet_t packet;
     packet_create_from_data(data, &packet);
@@ -160,6 +144,7 @@ static void trickle_step_callback(void)
     if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_US)
         return;
     
+    step_time = global_time + timer_get_timestamp();
     trickle_time_update(step_time);
     
     uint8_t temp_data[PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN];
@@ -177,8 +162,6 @@ static void trickle_step_callback(void)
     {
         TICK_PIN(PIN_MESH_TX);
         radio_disable();
-        
-        
         
         uint8_t packet_and_addr_type = PACKET_TYPE_ADV_NONCONN |
             ((packet.sender.addr_type == BLE_GAP_ADDR_TYPE_PUBLIC)?
@@ -212,11 +195,6 @@ static void trickle_step_callback(void)
             tx_event.start_time = 0;
             tx_event.callback.tx = NULL;
             
-            /* testing CRC bug */
-            tx_data_ptr[min_len + PACKET_DATA_POS + 0] = 0x33;
-            tx_data_ptr[min_len + PACKET_DATA_POS + 1] = 0xcA;
-            tx_data_ptr[min_len + PACKET_DATA_POS + 2] = 0xB2;
-            
             radio_order(&tx_event);
             /*
             temp_data_ptr += min_len;
@@ -242,21 +220,34 @@ void ll_control_timeslot_begin(uint32_t global_timer_value)
     rbc_mesh_access_address_get(&aa);
     
     radio_init(aa);
-    //order_search();  
+    
+    step_timer_index = 0xFF;
     
     global_time = global_timer_value;
     
-    ll_control_step();
     order_search();
+    ll_control_step();
+    
 }
 
 void ll_control_step(void)
 {
-    step_time = global_time + timer_get_timestamp();
-    
-    async_event_t async_evt;
-    async_evt.callback.generic = trickle_step_callback;
-    async_evt.type = EVENT_TYPE_GENERIC;
-    timeslot_queue_async_event(&async_evt);
+    uint32_t next_time;
+    mesh_srv_get_next_processing_time(&next_time);
+    if (next_time < global_time)
+    {
+        async_event_t async_evt;
+        async_evt.callback.generic = trickle_step_callback;
+        async_evt.type = EVENT_TYPE_GENERIC;
+        timeslot_queue_async_event(&async_evt);
+    }
+    else 
+    {
+        if (next_time < global_time + timeslot_get_remaining_time())
+        {
+            timer_abort(step_timer_index);
+            step_timer_index = timer_order_cb(next_time - global_time, trickle_step_callback);
+        }
+    }
 }
 
