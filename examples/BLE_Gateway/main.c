@@ -170,10 +170,10 @@ int main(void)
     
     /* Enable mesh framework on channel 37, min adv interval at 100ms, 
         2 characteristics */
-    error_code = rbc_mesh_init(0x3414A68F, 37, 2, 100);
+    error_code = rbc_mesh_init(0xA541A68F, 38, 2, 100);
     APP_ERROR_CHECK(error_code);
     
-#if 1
+#if 0
     /* request values for both LEDs on the mesh */
     error_code = rbc_mesh_value_req(0);
     APP_ERROR_CHECK(error_code);
