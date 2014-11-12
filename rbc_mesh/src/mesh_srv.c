@@ -449,7 +449,7 @@ uint32_t mesh_srv_get_next_processing_time(uint32_t* time)
         return NRF_ERROR_INVALID_STATE;
     }
     bool anything_to_process = false;
-    *time = UINT32_MAX / 1000;
+    *time = UINT32_MAX;
     
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
     {
@@ -525,18 +525,14 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         /* Manually set originator address */
         memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
         
-        
-        /* Propagate to application space */
-        uint8_t data_copy[MAX_VALUE_LENGTH]; /* use heap instead? */
-        memcpy(data_copy, data, data_len);
-        
         rbc_mesh_event_t update_evt;
         update_evt.event_type = ((uninitialized)? 
             RBC_MESH_EVENT_TYPE_NEW_VAL :
             RBC_MESH_EVENT_TYPE_UPDATE_VAL);
-        update_evt.data = data_copy;
         update_evt.data_len = data_len;
         update_evt.value_handle = handle;
+        
+        update_evt.data = data;
         memcpy(&update_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
         
         rbc_mesh_event_handler(&update_evt);
@@ -565,17 +561,18 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
             conflicting = true;
         }
         
+        
         if (conflicting)
         {
             TICK_PIN(7);
             rbc_mesh_event_t conflicting_evt;
-            uint8_t data_copy[MAX_VALUE_LENGTH]; /* use heap instead? */
-            memcpy(data_copy, data, data_len);
             
             conflicting_evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
-            conflicting_evt.data = data_copy;
+            
             conflicting_evt.data_len = data_len;
             conflicting_evt.value_handle = handle;
+            
+            conflicting_evt.data = data;
             memcpy(&conflicting_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
             
             trickle_rx_inconsistent(&ch_md->trickle);
@@ -588,6 +585,9 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         }
         
     }
+    
+    
+    ch_md->crc = packet->rx_crc;
     
     return NRF_SUCCESS;
 }
@@ -690,10 +690,10 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
             update_evt.event_type = ((uninitialized)? 
                 RBC_MESH_EVENT_TYPE_NEW_VAL :
                 RBC_MESH_EVENT_TYPE_UPDATE_VAL);
-            update_evt.data = evt->data;
+           
             update_evt.data_len = evt->len;
             update_evt.value_handle = i;
-            
+            update_evt.data = evt->data;
             memcpy(&update_evt.originator_address, &my_addr, sizeof(ble_gap_addr_t));
             
             rbc_mesh_event_handler(&update_evt);

@@ -204,6 +204,8 @@ static void async_event_execute(async_event_t* evt)
         case EVENT_TYPE_GENERIC:
             (*evt->callback.generic)();
             break;
+        case EVENT_TYPE_PACKET:
+            mesh_srv_packet_process(&evt->callback.packet);
         default:
             break;
     }
@@ -334,7 +336,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             break;
             
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_SUCCEEDED:
-            TICK_PIN(1);
             g_timeslot_length += requested_extend_time;
             requested_extend_time = 0;
             ++successful_extensions;

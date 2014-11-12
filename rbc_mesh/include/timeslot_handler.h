@@ -14,7 +14,8 @@ typedef enum
     EVENT_TYPE_TIMER,
     EVENT_TYPE_RADIO_RX,
     EVENT_TYPE_RADIO_TX,
-    EVENT_TYPE_GENERIC
+    EVENT_TYPE_GENERIC,
+    EVENT_TYPE_PACKET
 } event_type_t;
 
 typedef void(*generic_cb)(void);
@@ -29,6 +30,7 @@ typedef struct
             radio_rx_cb function;
             uint8_t* data;
         }radio_rx;
+        packet_t packet;            
         radio_tx_cb radio_tx;/*void*/
         timer_callback timer;/*void*/
         generic_cb generic; /*void*/

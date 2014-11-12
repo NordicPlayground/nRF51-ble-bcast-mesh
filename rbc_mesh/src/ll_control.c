@@ -12,6 +12,7 @@
 #include "ble_gap.h"
 #include "nrf_soc.h"
 #include <string.h>
+#include <stdlib.h>
 
 /**@file
 * 
@@ -67,9 +68,9 @@ static void order_search(void)
 static inline void packet_create_from_data(uint8_t* data, packet_t* packet)
 {
     /* advertisement package */
-    packet->data = &data[PACKET_DATA_POS];
-    packet->length = (data[PACKET_LENGTH_POS] & PACKET_LENGTH_MASK) - PACKET_ADDR_LEN;
     
+    packet->length = (data[PACKET_LENGTH_POS] & PACKET_LENGTH_MASK) - PACKET_ADDR_LEN;
+    memcpy(packet->data, &data[PACKET_DATA_POS], packet->length);
     memcpy(packet->sender.addr, &data[PACKET_ADDR_POS], PACKET_ADDR_LEN);
     
     /* addr type */
@@ -127,10 +128,11 @@ static void search_callback(uint8_t* data)
         return;
     
     
-    packet_t packet;
-    packet_create_from_data(data, &packet);
-    packet.rx_crc = checksum;
-    mesh_srv_packet_process(&packet);
+    async_event_t async_evt;
+    async_evt.type = EVENT_TYPE_PACKET;
+    packet_create_from_data(data, &async_evt.callback.packet);
+    async_evt.callback.packet.rx_crc = checksum;
+    timeslot_queue_async_event(&async_evt);
     
     /** @TODO: add packet chain handling */
 }
@@ -144,15 +146,10 @@ static void trickle_step_callback(void)
     if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_US)
         return;
     
-    step_time = global_time + timer_get_timestamp();
-    trickle_time_update(step_time);
-    
-    uint8_t temp_data[PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN];
-    
-    //PIN_OUT(global_time, 32);
+    //step_time = global_time + timer_get_timestamp();
+    //trickle_time_update(step_time);
     
     packet_t packet;
-    packet.data = temp_data;
     bool has_anything_to_send = false;
     
     mesh_srv_packet_assemble(&packet, PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN, 
@@ -168,7 +165,7 @@ static void trickle_step_callback(void)
             0 :
             PACKET_ADDR_TYPE_MASK);
         
-        uint8_t* temp_data_ptr = &temp_data[0];
+        uint8_t* temp_data_ptr = &packet.data[0];
         uint8_t* tx_data_ptr = &tx_data[0];
         tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
         
@@ -233,8 +230,15 @@ void ll_control_timeslot_begin(uint32_t global_timer_value)
 void ll_control_step(void)
 {
     uint32_t next_time;
-    mesh_srv_get_next_processing_time(&next_time);
-    if (next_time < global_time)
+    uint32_t time_now = timer_get_timestamp() + global_time;
+    trickle_time_update(time_now);
+    uint32_t error_code = mesh_srv_get_next_processing_time(&next_time);
+    if (error_code != NRF_SUCCESS)
+    {
+        return;
+    }
+    
+    if (next_time < time_now)
     {
         async_event_t async_evt;
         async_evt.callback.generic = trickle_step_callback;
@@ -243,10 +247,10 @@ void ll_control_step(void)
     }
     else 
     {
-        if (next_time < global_time + timeslot_get_remaining_time())
+        if (next_time < time_now + timeslot_get_remaining_time())
         {
             timer_abort(step_timer_index);
-            step_timer_index = timer_order_cb(next_time - global_time, trickle_step_callback);
+            step_timer_index = timer_order_cb(next_time - time_now, trickle_step_callback);
         }
     }
 }
