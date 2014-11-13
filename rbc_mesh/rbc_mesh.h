@@ -190,21 +190,6 @@ uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms);
 */
 uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
 
-#if 0
-/* NOT IMPLEMENTED YET */
-/**
-* @brief Set the mesh minimum advertise interval in ms
-*
-* @param[in] adv_int_ms The wanted minimum adv interval in ms. Must be
-*    between 5 and 60000.
-*
-* @return NRF_SUCCESS successfully updated adv_int
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized
-* @return NRF_ERROR_INVALID_PARAM The adv int was outside the required range,
-*    and has not been set.
-*/
-uint32_t rbc_mesh_adv_int_set(uint32_t adv_int_ms);
-#endif 
 /**
 * @brief Softdevice interrupt handler, checking if there are any 
 *   incomming events related to the framework. 
