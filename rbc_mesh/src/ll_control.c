@@ -47,7 +47,6 @@
 
 static uint8_t tx_data[(PACKET_DATA_MAX_LEN + PACKET_DATA_POS) * PACKET_MAX_CHAIN_LEN];
 static uint32_t global_time = 0;
-static uint32_t step_time = 0;
 static uint8_t step_timer_index = 0xFF;
 
 static void search_callback(uint8_t* data);
