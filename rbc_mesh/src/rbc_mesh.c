@@ -136,6 +136,11 @@ uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms)
 
 uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
 {
+    if (evt->header.evt_id == BLE_GAP_EVT_CONNECTED)
+    {
+        mesh_srv_conn_handle_update(evt->evt.gap_evt.conn_handle);
+    }
+    
     if (!g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;

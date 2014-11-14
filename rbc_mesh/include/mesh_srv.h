@@ -66,6 +66,8 @@ uint32_t mesh_srv_get_next_processing_time(uint32_t* time);
 
 uint32_t mesh_srv_packet_process(packet_t* packet);
 
+uint32_t mesh_srv_conn_handle_update(uint16_t conn_handle);
+
 /**
 * @brief fills databuffer in the provided packet object with any mesh service 
 *    that is to be sent. Indicates sending with the anything_to_send flag

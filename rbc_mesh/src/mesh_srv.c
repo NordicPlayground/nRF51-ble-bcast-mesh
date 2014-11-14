@@ -19,6 +19,8 @@
 #define MESH_PACKET_HANDLE_OFFSET       (0)
 #define MESH_PACKET_VERSION_OFFSET      (MESH_PACKET_HANDLE_OFFSET + MESH_PACKET_HANDLE_LEN)
 #define MESH_PACKET_DATA_OFFSET         (MESH_PACKET_VERSION_OFFSET + MESH_PACKET_VERSION_LEN)
+
+#define CONN_HANDLE_INVALID             (0xFFFF)
 /*****************************************************************************
 * Local Type Definitions
 *****************************************************************************/
@@ -45,6 +47,8 @@ static const ble_uuid128_t mesh_base_uuid = {0x1E, 0xCD, 0x00, 0x00,
 static uint8_t mesh_base_uuid_type;
 
 static bool is_initialized = false;
+                                            
+static uint16_t g_active_conn_handle = CONN_HANDLE_INVALID;
 
 /*****************************************************************************
 * Static functions
@@ -333,6 +337,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
+    uint32_t error_code = 0;
     
     mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index];
     
@@ -355,9 +360,8 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
         trickle_rx_inconsistent(&ch_md->trickle);
     }
     
-    uint32_t error_code = sd_ble_gatts_value_set(
-        ch_md->char_value_handle, 
-        0, &len, data);
+    
+            
     
     if (update_sender || first_time)
     {
@@ -366,12 +370,37 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
         memcpy(&ch_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
         ch_md->flags |= (1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
     }
-    
-    if (error_code != NRF_SUCCESS)
+        
+    /* notify the connected central node, if any */
+    if (g_active_conn_handle != CONN_HANDLE_INVALID)
     {
+        ble_gatts_hvx_params_t notify_params;
+        notify_params.handle = ch_md->char_value_handle;
+        notify_params.offset = 0;
+        notify_params.p_data = data;
+        notify_params.p_len = &len;
+        notify_params.type = BLE_GATT_HVX_NOTIFICATION;
+        error_code = sd_ble_gatts_hvx(g_active_conn_handle, &notify_params);
+        if (error_code != NRF_SUCCESS)
+        {
+            if (error_code == BLE_ERROR_INVALID_CONN_HANDLE)
+            {
+                g_active_conn_handle = CONN_HANDLE_INVALID;
+            }
+            else
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+        }
+    }
+    else
+    {
+        error_code = sd_ble_gatts_value_set(
+            ch_md->char_value_handle, 
+            0, &len, data);
+        
         return error_code;
     }
-    
     
     return NRF_SUCCESS;
 }
@@ -592,6 +621,12 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     return NRF_SUCCESS;
 }
 
+uint32_t mesh_srv_conn_handle_update(uint16_t conn_handle)
+{
+    g_active_conn_handle = conn_handle;
+    
+    return NRF_SUCCESS;
+}
 
 uint32_t mesh_srv_packet_assemble(packet_t* packet, 
     uint16_t packet_max_len, 
