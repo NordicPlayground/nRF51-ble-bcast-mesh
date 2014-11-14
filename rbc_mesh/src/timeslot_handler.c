@@ -97,7 +97,7 @@ static bool g_is_in_callback = true;
 static uint32_t g_timeslot_length;      
 static uint32_t g_timeslot_end_timer;      
 static uint32_t g_next_timeslot_length;    
-static uint32_t g_total_time = 0;     
+static uint32_t g_start_time_ref = 0;     
 static uint32_t g_is_in_timeslot = false; 
 
 #if USE_SWI_FOR_PROCESSING
@@ -298,6 +298,8 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     static uint8_t noise_val = 0x5F;
     SET_PIN(PIN_SYNC_TIME);
     
+    uint64_t time_now = 0;
+    
     switch (sig)
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
@@ -317,9 +319,18 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 #if USE_SWI_FOR_PROCESSING
             NVIC_EnableIRQ(SWI0_IRQn);
             NVIC_SetPriority(SWI0_IRQn, 3);
-#endif
-
-            ll_control_timeslot_begin(g_total_time);
+#endif       
+        
+            /* sample RTC timer for trickle timing */
+            time_now = NRF_RTC0->COUNTER - g_start_time_ref;
+            
+            /* scale to become us */     
+            time_now = ((time_now << 15) / 1000);
+            
+            
+            PIN_OUT(time_now, 32);
+            
+            ll_control_timeslot_begin(time_now);
         
             break;
         
@@ -376,7 +387,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END)
     {
         CLEAR_PIN(2);
-        g_total_time += timer_get_timestamp();
         g_is_in_timeslot = false;
         event_fifo_flush();
     }
@@ -405,7 +415,7 @@ void timeslot_handler_init(void)
     
     error = sd_radio_session_open(&radio_signal_callback);
     APP_ERROR_CHECK(error);
-    g_total_time = 0;
+    g_start_time_ref = NRF_RTC0->COUNTER;
     
     timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
 }
