@@ -20,28 +20,13 @@
 #include <string.h>
 #include <stdio.h>
 
-#define USE_SWI_FOR_PROCESSING      (1)
+#define USE_SWI_FOR_PROCESSING          (1)
 
 
-#define PACKET_ADV_ADDR_INDEX       (3)
-#define PACKET_LENGTH_INDEX         (1)
-#define PACKET_TYPE_INDEX           (0)
-#define PACKET_ADV_DATA_INDEX       (9)
-#define PACKET_MAN_DATA_INDEX       (13)
-
-#define PACKET_TYPE                 (0x02)
-
-#define PACKET_ADV_DATA_MAN_TYPE    (0xFF)
-#define PACKET_ADV_DATA_MAN_COMPANY (0x0059) /* Nordic Semiconductor identifier */
-
-#define PACKET_PROPAGATION_TIME_US  (104)
-#define PACKET_PRECOMP_TIME_US      (70)
-#define PACKET_SAFETY_MARGIN_US     (80)
-#define PACKET_RAMP_UP_TIME_US      (140)
-
-#define TIMESLOT_END_SAFETY_MARGIN_US  (500)
-#define TIMESLOT_SLOT_LENGTH        (25000)
-#define TIMESLOT_MAX_EXTENDS        (40)
+#define TIMESLOT_END_SAFETY_MARGIN_US   (200)
+#define TIMESLOT_SLOT_LENGTH            (25000)
+#define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will probably fit between two conn events */
+#define TIMESLOT_MAX_EXTENDS            (40)
 
 #if USE_SWI_FOR_PROCESSING
 #define ASYNC_EVENT_FIFO_QUEUE_SIZE (8)
@@ -99,6 +84,7 @@ static uint32_t g_timeslot_end_timer;
 static uint32_t g_next_timeslot_length;    
 static uint32_t g_start_time_ref = 0;     
 static uint32_t g_is_in_timeslot = false; 
+static bool g_emergency_timeslot_mode = false;                
 
 #if USE_SWI_FOR_PROCESSING
 static uint8_t event_fifo_head = 0;
@@ -241,7 +227,11 @@ void ts_sd_event_handler(void)
                 break;
             
             case NRF_EVT_RADIO_BLOCKED:
-                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+                /* something in the softdevice is blocking our requests, 
+                go into emergency mode, where slots are short, in order to 
+                avoid complete lockout */
+                g_emergency_timeslot_mode = true;
+                timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
                 break;
             
             case NRF_EVT_RADIO_SIGNAL_CALLBACK_INVALID_RETURN:
@@ -262,7 +252,11 @@ static void end_timer_handler(void)
 {
     static uint8_t noise_val = 0xA7;
     noise_val ^= 0x55 + (noise_val >> 1);
-    timeslot_extend(TIMESLOT_SLOT_LENGTH + noise_val * 50);
+    
+    uint32_t extend_len = ((g_emergency_timeslot_mode)?
+                                TIMESLOT_SLOT_EMERGENCY_LENGTH : 
+                                TIMESLOT_SLOT_LENGTH + noise_val * 50);
+    timeslot_extend(extend_len);
 }
     
 
@@ -351,6 +345,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             requested_extend_time = 0;
             ++successful_extensions;
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
+            g_emergency_timeslot_mode = false;
         
             if (successful_extensions >= TIMESLOT_MAX_EXTENDS)
             {
@@ -370,8 +365,14 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:    
-            noise_val ^= 0xAA + (noise_val >> 1);
-            timeslot_order_earliest(TIMESLOT_SLOT_LENGTH + noise_val * 50, true);        
+            if (g_emergency_timeslot_mode)
+            {
+                timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
+            }
+            else
+            {
+                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH + noise_val * 50, true);        
+            }
             break;
         
         default:
