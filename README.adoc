@@ -13,10 +13,13 @@ messages that are transmitted within their range, and any node may update the
 mesh-global states. There is no hierarchy, and no directed data links. 
 
 The framework resides on top of the nRF51 Softdevice, utilizing the Timeslot
-API to allocate radio time. All nodes in the mesh share a set of dataslots,
-address by handles. These handle-value pairs are propagated through the mesh
-with version numbers, with the objective of synchronizing the same values
-across all nodes in the mesh. Each time a node overwrites a value, it
+API to allocate radio time. The framework will attempt to allocate as much time
+as possible, in order to listen for other nodes' messages.
+
+All nodes in the mesh share a set of dataslots, addressed by handles. 
+These handle-value pairs are propagated through the mesh
+with version numbers, with the objective of synchronizing the same version of
+the values across all nodes in the mesh. Each time a node overwrites a value, it
 increments the version number, and all nodes that receive a broadcast message
 with a version number that is higher than the one in its database, will adapt
 this new version of the value. 
@@ -254,6 +257,56 @@ LED config values as if they were regular characteristics.
 
 == How it works
 === GATT Service
+All values are stored as separate characteristics in the Softdevice GATT server. These
+characteristics are all contained within one "Mesh" GATT service, along with
+one metadata characteristic containing information about the state of the mesh.
+
+The GATT service and characteristics operate with their own 128 bit base UUID,
+with the same base.  
+
+.Assigned UUIDs
+|===
+|Value | UUID 
+
+|Mesh service | 0x2A1E0001-FD51-D882-8BA8-B98C0000CD1E
+|Mesh metadata characteristic | 0x2A1E0002-FD51-D882-8BA8-B98C0000CD1E
+|Mesh value characteristic | 0x2A1E0003-FD51-D882-8BA8-B98C0000CD1E
+|===
+
+==== Mesh values
+The Mesh value characteristics are the states that will be shared across the
+mesh. Each Mesh value may contain up to 27 bytes of data, and be updated from any
+node in the mesh. 
+
+There may be up to 155 "Mesh value" characteristics in the mesh service in each
+node, depending on configuration parameters provided to the `rbc_mesh_init()`
+function at runtime. Each mesh value will operate with their own instance of
+the Trickle algorithm, meaning that they will be rebroadcasted independently.
+The handles addressing the values are stored as standard Bluetooth SIG
+namespace descriptors, where the enumeration of each value is used as
+mesh-global handles for this value. This descriptor may be read by external
+nodes.
+
+==== Mesh metadata
+For ease of use, the service also provides a Metadata characteristic, providing
+configuration parameters for the mesh. This meatadata characteristic may be
+read by external nodes, and used for configuring new nodes that the user wishes
+to add to the mesh. The Metadata characteristic is structured as follows:
+
+[cols="3,1,1,6", options="Header"]
+.Metadata Characteristic Structure
+|===
+|Value | Position | Size | Description
+
+|Access Address | 0 | 4 bytes | The Access address the mesh operates on. 
+|Advertisement interval | 4 | 4 bytes | The minimum advertisement interval each value
+is broadcasted with in milliseconds.
+|Value count | 8 | 1 byte | The amount of available value slots on the node
+|Channel | 9 | 1 byte | The BLE channel the mesh operates on
+|===
+
+
+
 === Trickle Algorithm
 === Timeslots
 === Resource allocation
