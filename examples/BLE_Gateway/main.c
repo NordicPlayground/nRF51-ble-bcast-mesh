@@ -111,20 +111,11 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
     TICK_PIN(28);
     switch (evt->event_type)
     {
-        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
-#if 0            
-            /* use new value */
-            APP_ERROR_CHECK(rbc_mesh_value_set(
-                evt->value_handle, 
-                evt->data, 
-                evt->data_len));
-        
-        /* intended fall through */
-#endif        
+        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:   
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
         
-            if (evt->value_handle > 1)
+            if (evt->value_handle > 2)
                 break;
             
             led_config(evt->value_handle, evt->data[0]);
@@ -152,8 +143,8 @@ void gpio_init(void)
     nrf_gpio_range_cfg_output(0, 32);
 #endif    
 
-    led_config(0, 0);
     led_config(1, 0);
+    led_config(2, 0);
 }
 
 /** @brief main function */
@@ -177,9 +168,9 @@ int main(void)
     
 #if 1
     /* request values for both LEDs on the mesh */
-    error_code = rbc_mesh_value_req(0);
-    APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_req(1);
+    APP_ERROR_CHECK(error_code);
+    error_code = rbc_mesh_value_req(2);
     APP_ERROR_CHECK(error_code);
 #endif
     /* init leds and pins */

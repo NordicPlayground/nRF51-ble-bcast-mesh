@@ -171,7 +171,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
     ble_char_pf.name_space = BLE_GATT_CPF_NAMESPACE_BTSIG;
     ble_char_pf.exponent = 0;
     ble_char_pf.format = BLE_GATT_CPF_FORMAT_UINT8;
-    ble_char_pf.desc = index; /* identical to trickle instance id */
+    ble_char_pf.desc = index + 1; /* trickle instance id/handle */
     
     
     /* BLE GATT metadata */
@@ -328,7 +328,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
         return NRF_ERROR_INVALID_STATE;
     }
     
-    if (index >= g_mesh_service.value_count)
+    if (index > g_mesh_service.value_count || index == 0)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
@@ -339,7 +339,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     }
     uint32_t error_code = 0;
     
-    mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index];
+    mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index - 1];
     
     /* this is now a new version of this data, signal to the rest of the mesh */
     ++ch_md->version_number;
@@ -412,13 +412,13 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len)
         return NRF_ERROR_INVALID_STATE;
     }
     
-    if (index >= g_mesh_service.value_count)
+    if (index > g_mesh_service.value_count || index == 0)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
     
     uint32_t error_code = sd_ble_gatts_value_get(
-        g_mesh_service.char_metadata[index].char_value_handle, 
+        g_mesh_service.char_metadata[index - 1].char_value_handle, 
         0, len, data);
     
     if (error_code != NRF_SUCCESS)
@@ -520,13 +520,13 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         return NRF_ERROR_INVALID_LENGTH;
     }
     
-    if (handle >= g_mesh_service.value_count)
+    if (handle > g_mesh_service.value_count || handle == 0)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
     
     
-    mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[handle];
+    mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[handle - 1];
     
     bool uninitialized = !(ch_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS));
     
@@ -657,14 +657,14 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
             uint8_t data[MAX_VALUE_LENGTH];
             uint16_t len = MAX_VALUE_LENGTH;
 
-            error_code = mesh_srv_char_val_get(i, data, &len);
+            error_code = mesh_srv_char_val_get(i + 1, data, &len);
 
             if (error_code != NRF_SUCCESS)
             {
                 return error_code;
             }
 
-            packet->data[MESH_PACKET_HANDLE_OFFSET] = i;
+            packet->data[MESH_PACKET_HANDLE_OFFSET] = i + 1;
             packet->data[MESH_PACKET_VERSION_OFFSET] = 
                 (md_ch->version_number & 0xFF); 
             packet->data[MESH_PACKET_VERSION_OFFSET + 1] = 
@@ -727,7 +727,7 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
                 RBC_MESH_EVENT_TYPE_UPDATE_VAL);
            
             update_evt.data_len = evt->len;
-            update_evt.value_handle = i;
+            update_evt.value_handle = i + 1;
             update_evt.data = evt->data;
             memcpy(&update_evt.originator_address, &my_addr, sizeof(ble_gap_addr_t));
             
@@ -748,14 +748,14 @@ uint32_t mesh_srv_char_val_init(uint8_t index)
         return NRF_ERROR_INVALID_STATE;
     }
     
-    if (index >= g_mesh_service.value_count)
+    if (index > g_mesh_service.value_count || index == 0)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
     
-    trickle_init(&g_mesh_service.char_metadata[index].trickle);
+    trickle_init(&g_mesh_service.char_metadata[index - 1].trickle);
     
-    g_mesh_service.char_metadata[index].flags |= 
+    g_mesh_service.char_metadata[index - 1].flags |= 
         (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
         (1 << MESH_MD_FLAGS_USED_POS);
     

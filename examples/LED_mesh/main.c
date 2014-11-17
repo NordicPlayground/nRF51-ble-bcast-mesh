@@ -95,25 +95,13 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
     switch (evt->event_type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
-            APP_ERROR_CHECK(rbc_mesh_value_set(
-                evt->value_handle, 
-                evt->data, 
-                evt->data_len));
-        
-        /* intended fall through */
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
         
-            if (evt->value_handle > 1)
+            if (evt->value_handle > 2)
                 break;
             
             led_config(evt->value_handle, evt->data[0]);
-            
-            #ifdef BOARD_PCA10000
-                CLEAR_PIN(LED_RGB_BLUE);
-                nrf_delay_ms(20);
-                SET_PIN(LED_RGB_BLUE);
-            #endif
             break;
     }
 }
@@ -171,8 +159,8 @@ void test_app_init(void)
     gpiote_init();
 #endif    
 
-    led_config(0, 0);
     led_config(1, 0);
+    led_config(2, 0);
 }
 
 
@@ -190,9 +178,9 @@ int main(void)
     error_code = rbc_mesh_init(0x3414A68F, 37, 2, 100);
     APP_ERROR_CHECK(error_code);
     
-    error_code = rbc_mesh_value_req(0);
-    APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_req(1);
+    APP_ERROR_CHECK(error_code);
+    error_code = rbc_mesh_value_req(2);
     APP_ERROR_CHECK(error_code);
     
     test_app_init();
@@ -213,7 +201,7 @@ int main(void)
                 if (NRF_GPIOTE->EVENTS_IN[i])
                 {
                     NRF_GPIOTE->EVENTS_IN[i] = 0; 
-                    led_config(i, val[i]);
+                    led_config(i + 1, val[i]);
                     APP_ERROR_CHECK(rbc_mesh_value_set(i, &val[i], 1));
                 }
             }
