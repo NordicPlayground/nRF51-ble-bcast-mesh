@@ -1,4 +1,6 @@
 = BLE Gateway example 
+\- A basic Gateway implementation
+
 This example implements a basic gateway application for the rebroadcasting mesh
 by utilizing the S110 Softdevice. It allows external Bluetooth Low Energy
 enabled devices to access the mesh-global GATT service, by adding a softdevice
