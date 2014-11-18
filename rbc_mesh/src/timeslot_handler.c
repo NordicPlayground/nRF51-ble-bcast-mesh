@@ -330,13 +330,13 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
             /* send to radio control module */
-            DEBUG_PIN_TH(PIN_RADIO_SIGNAL);
+            TICK_PIN(PIN_RADIO_SIGNAL);
             radio_event_handler();
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_TIMER0:
             /* send to timer control module */
-            DEBUG_PIN_TH(PIN_TIMER_SIGNAL);
+            TICK_PIN(PIN_TIMER_SIGNAL);
             timer_event_handler();
             break;
             
