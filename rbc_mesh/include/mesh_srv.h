@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #define MAX_VALUE_COUNT                 (155)
-#define MAX_VALUE_LENGTH                (27)
+#define MAX_VALUE_LENGTH                (28)
 
 
 #define MESH_SRV_UUID                   (0x0001)

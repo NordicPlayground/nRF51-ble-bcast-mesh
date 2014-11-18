@@ -1,4 +1,4 @@
-#include "ll_control.h"
+#include "transport_control.h"
 
 #include "boards.h"
 #include "nrf_delay.h"
@@ -17,7 +17,7 @@
 /**@file
 * 
 * @brief Controller for radio_control, timer_control and timeslot_handler.
-*   Acts as an abstraction of the lower link layer to higher layer modules
+*   Acts as an abstraction of the lower transport to higher layer modules
 */
 
 #define PACKET_TYPE_LEN             (1)
@@ -210,7 +210,7 @@ static void trickle_step_callback(void)
     
 }
 
-void ll_control_timeslot_begin(uint32_t global_timer_value)
+void transport_control_timeslot_begin(uint32_t global_timer_value)
 {
     uint32_t aa;    
     rbc_mesh_access_address_get(&aa);
@@ -222,11 +222,11 @@ void ll_control_timeslot_begin(uint32_t global_timer_value)
     global_time = global_timer_value;
     
     order_search();
-    ll_control_step();
+    transport_control_step();
     
 }
 
-void ll_control_step(void)
+void transport_control_step(void)
 {
     uint32_t next_time;
     uint32_t time_now = timer_get_timestamp() + global_time;

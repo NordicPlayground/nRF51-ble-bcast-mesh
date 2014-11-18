@@ -5,7 +5,7 @@
 #include "rbc_mesh_common.h"
 #include "mesh_srv.h"
 #include "timer_control.h"
-#include "ll_control.h"
+#include "transport_control.h"
 
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -324,7 +324,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             
             PIN_OUT(time_now, 32);
             
-            ll_control_timeslot_begin(time_now);
+            transport_control_timeslot_begin(time_now);
         
             break;
         
@@ -359,7 +359,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
                     timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
                         end_timer_handler);
             
-                ll_control_step();
+                transport_control_step();
             }
         
             break;

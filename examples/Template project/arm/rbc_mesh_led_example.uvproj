@@ -420,11 +420,6 @@
           <GroupName>rbc_mesh</GroupName>
           <Files>
             <File>
-              <FileName>ll_control.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\ll_control.c</FilePath>
-            </File>
-            <File>
               <FileName>radio_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\radio_control.c</FilePath>
@@ -453,6 +448,11 @@
               <FileName>mesh_srv.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
+            </File>
+            <File>
+              <FileName>transport_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\transport_control.c</FilePath>
             </File>
           </Files>
         </Group>
