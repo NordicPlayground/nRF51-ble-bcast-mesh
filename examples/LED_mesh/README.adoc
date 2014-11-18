@@ -1,0 +1,13 @@
+= LED example 
+\- A basic mesh node application
+
+This example application displays a very basic mesh node implementation, where
+two value-handle pairs are used to control LEDs on the hardware board. The
+example reacts to GPIO button input as well as external commands sent through a board
+flashed with the BLE Gateway example.
+
+The example is made for nRF51x22 Evaluation and Development kits (PCA10000,
+PCA10001, PCA10003, both dongles and boards), and the two
+characteristics provided in the mesh Service represents LED 0 and LED 1 on the
+board, and RGB RED and GREEN on the dongles. 
+
