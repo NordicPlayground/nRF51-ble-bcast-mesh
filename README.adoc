@@ -40,7 +40,7 @@ classic BLE Softdevice connection, implemented in application space. The "BLE
 Gateway example" displays a way to achieve such behavior.
 
 == Usage
-In addition to the two provided examples, there is a template project under
+In addition to two provided examples, there is a template project under
 _examples/_. This may be used as a basis for your own applications, or you
 could choose to do it yourself from scratch. In theory, the framework should be
 compatible with most Softdevice based projects, but some restrictions to
@@ -129,7 +129,7 @@ Update the value represented by the given handle. This will bump the version
 number on the handle-value pair, and broadcast this new version to the rest of
 the nodes in the mesh. 
 
-The `data` array may at most be 27 bytes long, and an error will be returned if
+The `data` array may at most be 28 bytes long, and an error will be returned if
 the len parameter exceeds this limitation.
 
 '''
@@ -140,7 +140,7 @@ the len parameter exceeds this limitation.
 uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len);
 ----
 Returns the most recent value paired with this handle. The `data` buffer must
-be at least 27 bytes long in order to ensure memory safe behavior. The actual
+be at least 28 bytes long in order to ensure memory safe behavior. The actual
 length of the data is returned in the `length` parameter.
 
 '''
@@ -287,7 +287,7 @@ with the same base.
 
 ==== Mesh values
 The Mesh value characteristics are the states that will be shared across the
-mesh. Each Mesh value may contain up to 27 bytes of data, and be updated from any
+mesh. Each Mesh value may contain up to 28 bytes of data, and be updated from any
 node in the mesh. 
 
 There may be up to 155 "Mesh value" characteristics in the mesh service in each
@@ -380,7 +380,7 @@ packet chaining possibilities.
 
 Another weakness in the adaption is caused by the fact that the Softdevice Timeslot API
 won't let the framework get free access to the radio at all times, resulting in
-a significantly reduced on-air time for mesh related operations. When the
+a reduced on-air time for mesh related operations. When the
 Softdevice operates in an advertising state, this problem only has an impact of
 5-25% reduction in potential on-air time for mesh operations, but in a
 connected state with a short connection interval, the Softdevice may reduce
@@ -404,8 +404,49 @@ For details about the Softdevice Multiprotocol Timeslot API, plese refer to the
 Softdevice Specification, available on the Nordic Semiconductor homepage.
 
 === Air interface packets
+All Mesh-related packets are broadcasted as regular BLE Nonconnectable
+Advertisements, with a few differences: The Access address is set by the user,
+and does not have to match the Bluetooth Specification advertisement access
+address. In addition, the Advertisement Address (GAP address) field provided after
+the packet header, does not necessarily contain the Advertisement Address of
+the node broadcasting the message, but rather the address of the mesh node at
+which the indicated version of the value-handle pair first appeared. The
+payload of the advertisement is structured as follows:
+
+[cols="1,1,1,5", options="header"]
+.Air Interface Packets
+|===
+|Field | Offset | Length | Description
+|Handle | 0 | 1 bytes | Handle addressing the value
+|Version | 1 | 2 bytes | Version of the value
+|Data | 3 | 1-28 bytes | Data payload, length given by advertisement length
+field in packet header
+|===
+
 === Resource allocation
-Yip Yip
+The framework takes control over several hardware and software resources,
+making these unavailable to applications:
+* *Timeslot API* All callbacks for timeslot sessions are held by the framework,
+* *SWI0_IRQ* The Software interrupt is used for asynchronous packet processing 
+* *NRF_TIMER0* HF timer 0 is reset and started by the Timeslot API at the
+beginning of each timeslot, and all capture compare slots for this timer may be
+in use at any time
+* *NRF_RTC0* The Timeslot API uses RTC0 for timing, and manipulating this
+module will lead to undefined behavior or hardfaults in the Softdevice.
+* *NRF_PPI, channels 8-12* The framework uses PPI channel 8-12 for radio
+operation during timeslots, and the Softdevice may use channels 8+ outside them. Only
+channels 0-7 are safely available to the application (just as with regular
+ Softdevice applications).
+
+In addition, the Softdevice may block some hardware blocks not listed here.
+Please refer to the relevant Softdevice Specification for details (available at
+the Nordic Semiconductor homepage).
+
+==== Memory
+The framework allocates a metadata array on the heap, with 36bytes per
+handle-value pair. The rest of the program operates strictly on the stack, and
+compiled at Optimization level -O0, Keil reports a program size of approx.
+10kB, and stack size of 5.5kB for the Template project under `examples/`.
 
 == Forum
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
