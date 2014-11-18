@@ -426,13 +426,18 @@ field in packet header
 === Resource allocation
 The framework takes control over several hardware and software resources,
 making these unavailable to applications:
+
 * *Timeslot API* All callbacks for timeslot sessions are held by the framework,
+
 * *SWI0_IRQ* The Software interrupt is used for asynchronous packet processing 
+
 * *NRF_TIMER0* HF timer 0 is reset and started by the Timeslot API at the
 beginning of each timeslot, and all capture compare slots for this timer may be
 in use at any time
+
 * *NRF_RTC0* The Timeslot API uses RTC0 for timing, and manipulating this
 module will lead to undefined behavior or hardfaults in the Softdevice.
+
 * *NRF_PPI, channels 8-12* The framework uses PPI channel 8-12 for radio
 operation during timeslots, and the Softdevice may use channels 8+ outside them. Only
 channels 0-7 are safely available to the application (just as with regular
