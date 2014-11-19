@@ -321,9 +321,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             /* scale to become us */     
             time_now = ((time_now << 15) / 1000);
             
-            
-            PIN_OUT(time_now, 32);
-            
             transport_control_timeslot_begin(time_now);
         
             break;

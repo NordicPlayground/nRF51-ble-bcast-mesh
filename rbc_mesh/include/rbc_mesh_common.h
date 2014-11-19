@@ -2,6 +2,7 @@
 #define _RBC_MESH_COMMON_H__
 #include <stdint.h>
 
+#define RBC_MESH_DEBUG  (1)
 
 /******************************************************************************
 * Debug related defines
@@ -11,7 +12,7 @@
     #define SET_PIN(x) 
     #define CLEAR_PIN(x) 
 #else
-    #ifdef RBC_MESH_DEBUG
+    #if RBC_MESH_DEBUG
         #define TICK_PIN(x) NRF_GPIO->OUTSET = (1 << (x)); \
                                                         __nop();\
                                                         __nop();\
@@ -48,7 +49,7 @@
 #define PIN_BIT_H           (25)
 #define PIN_BIT_L           (28)
 
-#ifdef RBC_MESH_DEBUG
+#if RBC_MESH_DEBUG
     #define PIN_OUT(val,bitcount)      for (uint8_t i = 0; i < (bitcount); ++i){ if (((val) >> ((bitcount) - 1 - i) & 0x01)) { TICK_PIN(PIN_BIT_H); } else { TICK_PIN(PIN_BIT_L); } }
 #else
     #define PIN_OUT(val,bitcount)   
