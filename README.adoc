@@ -245,7 +245,7 @@ The project contains two simple examples and one template project. The two
 examples are designed to operate together, and show off an extremely simple
 example scenario where two handle-value pairs decides the state of the two LEDs
 on the nRF51 evkit (or red and green LED on the nRF51 dongle). The examples
-have been tested with boards PCA10000, PCA10001 and PCA10003.
+have been tested with boards PCA10000, PCA10001, PCA10031 and PCA10003.
 
 The template provides a basis for implementing your own applications with the
 framework, and addresses the different eventhandlers and initialization
@@ -255,9 +255,10 @@ functions, without any additional functionality.
 This example reads the buttons on the nRF51 evkit boards, and sets the LEDs
 accordingly. It also broadcasts the state of the LEDs to the other nodes in the
 same mesh, which will copy the state of the node that registered a button push.
-This example can also be flashed to the nRF51 dongles (PCA10000), even though
-these boards don't have any buttons. The dongle-nodes will act as slaves,
-copying and rebroadcasting the LED states of other nodes.
+This example can also be flashed to the nRF51 dongles (PCA10000 and PCA10031), 
+even though these boards don't have any GPIO actions enabled. The dongle-nodes 
+will act as active slaves, copying and rebroadcasting the LED states of other 
+nodes.
 
 ==== BLE Gateway example
 This example uses the same configuration for LEDs as the LED Mesh example, but
