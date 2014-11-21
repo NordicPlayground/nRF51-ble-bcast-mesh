@@ -743,8 +743,6 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
             
             rbc_mesh_event_handler(&update_evt);
             
-            PIN_OUT(evt->len, 32);
-            
             return NRF_SUCCESS;
         }
     }
