@@ -189,6 +189,9 @@ static void radio_transition_end(bool successful_transmission)
     
     current_rx_buf = !current_rx_buf;
     NRF_RADIO->SHORTS = 0;
+
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
     
     if (radio_fifo_empty())
     {
@@ -232,6 +235,7 @@ static void radio_transition_end(bool successful_transmission)
         /* setup buffers and addresses */
         if (evt.event_type == RADIO_EVENT_TYPE_RX)
         {
+            DEBUG_RADIO_SET_PIN(PIN_RADIO_STATE_RX);
             NRF_RADIO->RXADDRESSES = evt.access_address;
             radio_state = RADIO_STATE_RX;
             
@@ -253,6 +257,7 @@ static void radio_transition_end(bool successful_transmission)
         }
         else
         {
+            DEBUG_RADIO_SET_PIN(PIN_RADIO_STATE_TX);
             NRF_RADIO->TXADDRESS = evt.access_address;
             radio_state = RADIO_STATE_TX;
             NRF_RADIO->PACKETPTR = (uint32_t) &evt.packet_ptr[0];  
@@ -396,6 +401,8 @@ void radio_init(uint32_t access_address)
     radio_fifo_flush();
     NVIC_ClearPendingIRQ(RADIO_IRQn);
     NVIC_EnableIRQ(RADIO_IRQn);
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
 }
 
 void radio_order(radio_event_t* radio_event)
@@ -434,6 +441,7 @@ void radio_order(radio_event_t* radio_event)
             
             radio_state = RADIO_STATE_RX;
             NRF_RADIO->INTENSET = RADIO_INTENSET_ADDRESS_Msk;
+            DEBUG_RADIO_SET_PIN(PIN_RADIO_STATE_RX);
         }
         else
         {
@@ -441,6 +449,7 @@ void radio_order(radio_event_t* radio_event)
             NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk; 
             NRF_RADIO->TASKS_TXEN = 1;   
             radio_state = RADIO_STATE_TX;
+            DEBUG_RADIO_SET_PIN(PIN_RADIO_STATE_TX);
         }
         
         if (radio_event->start_time == 0)
@@ -488,13 +497,14 @@ void radio_order(radio_event_t* radio_event)
             }
         }   
     }
-            
 }
 
 
 
 void radio_disable(void)
 {
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
     radio_fifo_flush();
     NRF_RADIO->SHORTS = 0;
     NRF_RADIO->INTENCLR = 0xFFFFFFFF;

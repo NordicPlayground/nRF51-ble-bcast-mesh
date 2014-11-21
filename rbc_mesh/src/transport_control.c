@@ -58,7 +58,6 @@ static void trickle_step_callback(void);
 */
 static void order_search(void)
 {
-    SET_PIN(1);
     radio_event_t search_event;
     search_event.access_address = 1; /* RX: treat as bitfield */
     search_event.callback.rx = search_callback;
@@ -119,7 +118,6 @@ static inline bool packet_is_data_packet(uint8_t* data)
 */
 static void search_callback(uint8_t* data)
 {
-    CLEAR_PIN(1);
     SET_PIN(PIN_RX);
     
     uint32_t checksum = (NRF_RADIO->RXCRC & 0x00FFFFFF);

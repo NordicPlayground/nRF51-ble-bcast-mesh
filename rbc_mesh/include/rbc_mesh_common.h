@@ -46,6 +46,21 @@
 #define PIN_TIMER_SIGNAL    (4)
 #define PIN_IN_TIMESLOT     (6)
 
+#define DEBUG_RADIO         (0)
+
+#define PIN_RADIO_STATE_RX  (1)
+#define PIN_RADIO_STATE_TX  (2)
+#define PIN_RADIO_STATE_IDLE (3)
+
+#if DEBUG_RADIO
+    #define DEBUG_RADIO_SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
+    #define DEBUG_RADIO_CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
+#else
+    #define DEBUG_RADIO_SET_PIN(x)
+    #define DEBUG_RADIO_CLEAR_PIN(x)
+#endif
+
+
 #define PIN_BIT_H           (25)
 #define PIN_BIT_L           (28)
 
