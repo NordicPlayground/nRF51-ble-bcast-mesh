@@ -84,7 +84,7 @@ static uint32_t g_timeslot_end_timer;
 static uint32_t g_next_timeslot_length;    
 static uint32_t g_start_time_ref = 0;     
 static uint32_t g_is_in_timeslot = false; 
-static bool g_emergency_timeslot_mode = false;                
+static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
 
 #if USE_SWI_FOR_PROCESSING
 static uint8_t event_fifo_head = 0;
@@ -232,7 +232,6 @@ void ts_sd_event_handler(void)
                 /* something in the softdevice is blocking our requests, 
                 go into emergency mode, where slots are short, in order to 
                 avoid complete lockout */
-                g_emergency_timeslot_mode = true;
                 timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
                 break;
             
@@ -255,13 +254,13 @@ void ts_sd_event_handler(void)
 */
 static void end_timer_handler(void)
 {
-    static uint8_t noise_val = 0xA7;
+    /*static uint8_t noise_val = 0xA7;
     noise_val ^= 0x55 + (noise_val >> 1);
     
     uint32_t extend_len = ((g_emergency_timeslot_mode)?
                                 TIMESLOT_SLOT_EMERGENCY_LENGTH : 
-                                TIMESLOT_SLOT_LENGTH + noise_val * 50);
-    timeslot_extend(extend_len);
+                                TIMESLOT_SLOT_LENGTH + noise_val * 50);*/
+    timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
 }
     
 
@@ -310,11 +309,17 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             timer_init();
             SET_PIN(2);
             successful_extensions = 0;
+        
             g_timeslot_length = g_next_timeslot_length;
         
             g_timeslot_end_timer = 
                 timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
                     end_timer_handler);
+            
+            g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
+        
+            /* attempt to extend our time right away */
+            timeslot_extend(g_negotiate_timeslot_length);
             
 #if USE_SWI_FOR_PROCESSING
             NVIC_EnableIRQ(SWI0_IRQn);
@@ -348,33 +353,31 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             requested_extend_time = 0;
             ++successful_extensions;
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
-            g_emergency_timeslot_mode = false;
         
+            
             if (successful_extensions >= TIMESLOT_MAX_EXTENDS)
             {
                 timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
             }
             else
             {
+                timeslot_extend(g_negotiate_timeslot_length);   
                 timer_abort(g_timeslot_end_timer);
             
                 g_timeslot_end_timer = 
                     timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
                         end_timer_handler);
             
-                transport_control_step();
+                //transport_control_step();
             }
         
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:    
-            if (g_emergency_timeslot_mode)
+            g_negotiate_timeslot_length >>= 2;
+            if (g_negotiate_timeslot_length > 1000)
             {
-                timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
-            }
-            else
-            {
-                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH + noise_val * 50, true);        
+                timeslot_extend(g_negotiate_timeslot_length);        
             }
             break;
         
