@@ -54,6 +54,10 @@ static uint16_t g_active_conn_handle = CONN_HANDLE_INVALID;
 * Static functions
 *****************************************************************************/
 
+/**
+* @brief Add metadata GATT characteristic to the Mesh GATT service. Part of 
+*   the initialization procedure.
+*/                                            
 static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
 {    
     /**@TODO: put ranges in public #defines */
@@ -156,6 +160,10 @@ static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
     return NRF_SUCCESS;
 }
 
+/**
+* @brief Add a mesh value GATT characterisitic to the mesh GATT service.
+*   Part of the initialization procedure.
+*/
 static uint32_t mesh_value_char_add(uint8_t index)
 {
     if (index >= MAX_VALUE_COUNT)
@@ -360,9 +368,6 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
         trickle_rx_inconsistent(&ch_md->trickle);
     }
     
-    
-            
-    
     if (update_sender || first_time)
     {
         ble_gap_addr_t my_addr;
@@ -399,7 +404,10 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
             ch_md->char_value_handle, 
             0, &len, data);
         
-        return error_code;
+        if (error_code != NRF_SUCCESS)
+        {
+            return NRF_ERROR_INTERNAL;
+        }
     }
     
     return NRF_SUCCESS;
@@ -417,13 +425,15 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len)
         return NRF_ERROR_INVALID_ADDR;
     }
     
+    *len = MAX_VALUE_LENGTH;
+    
     uint32_t error_code = sd_ble_gatts_value_get(
         g_mesh_service.char_metadata[index - 1].char_value_handle, 
         0, len, data);
     
     if (error_code != NRF_SUCCESS)
     {
-        return error_code;
+        return NRF_ERROR_INTERNAL;
     }
     
     return NRF_SUCCESS;
@@ -444,7 +454,7 @@ uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata)
     
     if (error_code != NRF_SUCCESS)
     {
-        return error_code;
+        return NRF_ERROR_INTERNAL;
     }
     
     if (len != MESH_MD_CHAR_LEN)

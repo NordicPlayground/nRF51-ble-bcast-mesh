@@ -173,7 +173,9 @@ static void event_fifo_flush(void)
 }
 #endif
 
-
+/**
+* @brief execute asynchronous event, based on type
+*/
 static void async_event_execute(async_event_t* evt)
 {
     switch (evt->type)
@@ -203,9 +205,9 @@ static void async_event_execute(async_event_t* evt)
 *****************************************************************************/
 
 /**
-* Timeslot related events callback
-* Called whenever the softdevice tries to change the original course of actions 
-* related to the timeslots
+* @brief Timeslot related events callback
+*   Called whenever the softdevice tries to change the original course of actions 
+*   related to the timeslots
 */
 void ts_sd_event_handler(void)
 {
@@ -248,6 +250,9 @@ void ts_sd_event_handler(void)
     CLEAR_PIN(6);
 }
 
+/**
+* @brief Timeslot end guard timer callback. Attempts to extend the timeslot. 
+*/
 static void end_timer_handler(void)
 {
     static uint8_t noise_val = 0xA7;
@@ -281,7 +286,8 @@ void SWI0_IRQHandler(void)
 
 
 /**
-* Radio signal callback handler taking care of all signals in searching mode
+* @brief Radio signal callback handler taking care of all signals in searching 
+*   mode
 */
 static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t sig)
 {

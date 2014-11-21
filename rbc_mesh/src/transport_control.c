@@ -52,6 +52,10 @@ static uint8_t step_timer_index = 0xFF;
 static void search_callback(uint8_t* data);
 static void trickle_step_callback(void);
 
+/** 
+* @brief Order the radio_control module to do a RX, and report back to 
+*   search_callback().
+*/
 static void order_search(void)
 {
     radio_event_t search_event;
@@ -64,6 +68,10 @@ static void order_search(void)
     radio_order(&search_event);   
 }
 
+/**
+* @brief Convert a data array into a packet object. Pulls out address, payload,
+*   CRC and length.
+*/
 static inline void packet_create_from_data(uint8_t* data, packet_t* packet)
 {
     /* advertisement package */
@@ -96,7 +104,9 @@ static inline void packet_create_from_data(uint8_t* data, packet_t* packet)
     }
 }
 
-
+/**
+* @brief check whether a packet is a valid data packet, eligible for processing
+*/
 static inline bool packet_is_data_packet(uint8_t* data)
 {
     return ((data[PACKET_TYPE_POS] & PACKET_TYPE_MASK) 

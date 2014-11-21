@@ -8,10 +8,6 @@
 
 
 #define TRICKLE_RNG_POOL_SIZE   (64)
-#define APP_TIMER_PRESCALER 16
-
-#define RX_PROPAGATION_TIME         (377)
-
 
 #define TRICKLE_FLAGS_T_DONE_Pos    (0)
 #define TRICKLE_FLAGS_DISCARDED_Pos (1)
@@ -34,6 +30,10 @@ static uint8_t g_k;
 * Static Functions
 *****************************************************************************/
 
+/** 
+* @brief Do calculations for beginning of a trickle interval. Is called from 
+*   trickle_step function.
+*/
 static void trickle_interval_begin(trickle_t* trickle)
 {
     trickle->c = 0;

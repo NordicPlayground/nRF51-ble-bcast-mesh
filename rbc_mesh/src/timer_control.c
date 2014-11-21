@@ -33,6 +33,7 @@ static uint32_t reference_point = 0;
 * Static functions
 *****************************************************************************/
 
+/** @brief cycle through timer slots to find one that is available */
 static uint8_t get_available_timer(void)
 {    
     for (uint8_t i = 0; i < 4; ++i)
