@@ -87,7 +87,11 @@ capture allocations and callbacks. Tightly integrated with the radio module.
 
 The API is exclusively contained in the _rbc_mesh.h_ file in _rbc_mesh/_, and
 while the other framework files need to be included in the build process or
-Keil project, they should not be interfaced directly. 
+Keil project, they should not be interfaced directly. Note that all API
+functions except the getters for metadata calls Softdevice SVC functions, and
+consequently, all use of the API must happen in interrupt context APP_LOW or MAIN. 
+The framework event callback function runs in priority 3 (APP_LOW), and it is
+safe to use the API from this context.
 
 ==== The API provides the following functions to the user:
 
