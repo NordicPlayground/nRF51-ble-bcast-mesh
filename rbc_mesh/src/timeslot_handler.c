@@ -354,20 +354,16 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             ++successful_extensions;
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
         
+            timer_abort(g_timeslot_end_timer);
+        
+            g_timeslot_end_timer = 
+                timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
+                    end_timer_handler);
             
-            if (successful_extensions >= TIMESLOT_MAX_EXTENDS)
-            {
-                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
-            }
-            else
+            
+            if (successful_extensions < TIMESLOT_MAX_EXTENDS)
             {
                 timeslot_extend(g_negotiate_timeslot_length);   
-                timer_abort(g_timeslot_end_timer);
-            
-                g_timeslot_end_timer = 
-                    timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
-                        end_timer_handler);
-            
                 //transport_control_step();
             }
         
