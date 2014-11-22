@@ -15,13 +15,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#define ADDR_OFFSET             3
-#define LENGTH_OFFSET           1
-#define MESSAGE_TYPE_OFFSET     11
-#define TRICKLE_ID_OFFSET       12
-#define TRICKLE_VERSION_OFFSET  13
-#define LED_CONFIG_OFFSET       14
-
 /* Debug macros for debugging with logic analyzer */
 #define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
 #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
@@ -112,34 +105,46 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 /* configure button interrupt for evkits */
 static void gpiote_init(void)
 {
+    NRF_GPIO->PIN_CNF[BUTTON_0] = (GPIO_PIN_CNF_SENSE_Low << GPIO_PIN_CNF_SENSE_Pos)
+                                | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                | (BUTTON_PULL << GPIO_PIN_CNF_PULL_Pos)
+                                | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos)
+                                | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
     
-    NRF_GPIOTE->POWER = 0;
-    NRF_GPIOTE->POWER = 1;
+    NRF_GPIO->PIN_CNF[BUTTON_1] = (GPIO_PIN_CNF_SENSE_Low << GPIO_PIN_CNF_SENSE_Pos)
+                                | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                | (BUTTON_PULL << GPIO_PIN_CNF_PULL_Pos)
+                                | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos)
+                                | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
+    
 
+    /* GPIOTE interrupt handler normally runs in STACK_LOW priority, need to put it 
+    in APP_LOW in order to use the mesh API */
+    NVIC_SetPriority(GPIOTE_IRQn, 3);
     
-	NRF_GPIOTE->CONFIG[0] = 	GPIOTE_CONFIG_MODE_Event 		<< GPIOTE_CONFIG_MODE_Pos       |
-                                GPIOTE_CONFIG_POLARITY_HiToLo 	<< GPIOTE_CONFIG_POLARITY_Pos   |
-                                BUTTON_0						<< GPIOTE_CONFIG_PSEL_Pos;
-    
-	NRF_GPIOTE->CONFIG[1] = 	GPIOTE_CONFIG_MODE_Event 		<< GPIOTE_CONFIG_MODE_Pos       |
-                                GPIOTE_CONFIG_POLARITY_Toggle   << GPIOTE_CONFIG_POLARITY_Pos   |
-                                BUTTON_1						<< GPIOTE_CONFIG_PSEL_Pos;
-    
-    NRF_GPIOTE->INTENCLR = 0;
-    NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_IN0_Msk;
-    NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_IN1_Msk;
-    __NOP();
-    __NOP();
-    __NOP();
-    NRF_GPIOTE->EVENTS_IN[0] = 0;
-    NRF_GPIOTE->EVENTS_IN[1] = 0;
-    sd_nvic_ClearPendingIRQ(GPIOTE_IRQn);
-    sd_nvic_EnableIRQ(GPIOTE_IRQn);
+    NVIC_EnableIRQ(GPIOTE_IRQn);
+    NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_PORT_Msk;
 }
 
 #endif
 
+void GPIOTE_IRQHandler(void)
+{
+    NRF_GPIOTE->EVENTS_PORT = 0;
+    for (uint8_t i = 0; i < 2; ++i)
+    {
+        if (NRF_GPIO->IN & (1 << (BUTTON_0 + i)))
+        {
+            uint8_t val[28];
+            uint16_t len;
+            APP_ERROR_CHECK(rbc_mesh_value_get(i + 1, val, &len));
+            val[0] = !val[0];
+            led_config(i + 1, val[0]);
+            APP_ERROR_CHECK(rbc_mesh_value_set(i + 1, &val[0], 1));
+        }
+    }
 
+}
 
 void test_app_init(void)
 {   
@@ -169,13 +174,9 @@ int main(void)
     uint32_t error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
     
-    ble_enable_params_t ble_enable_params;
-    ble_enable_params.gatts_enable_params.service_changed = 0;
+    test_app_init();
     
-    error_code = sd_ble_enable(&ble_enable_params);
-    APP_ERROR_CHECK(error_code);
-    
-    error_code = rbc_mesh_init(0x3414A68F, 37, 2, 100);
+    error_code = rbc_mesh_init(0xA541A68F, 38, 2, 100);
     APP_ERROR_CHECK(error_code);
     
     error_code = rbc_mesh_value_req(1);
@@ -183,7 +184,6 @@ int main(void)
     error_code = rbc_mesh_value_req(2);
     APP_ERROR_CHECK(error_code);
     
-    test_app_init();
     
     sd_nvic_EnableIRQ(SD_EVT_IRQn);
     
@@ -191,22 +191,6 @@ int main(void)
     while (true)
     {
         sd_app_evt_wait();
-#ifdef BOARD_PCA10001        
-        if (NRF_GPIOTE->EVENTS_IN[0] || NRF_GPIOTE->EVENTS_IN[1])
-        {
-            sd_nvic_ClearPendingIRQ(GPIOTE_IRQn);
-            uint8_t val[] = {nrf_gpio_pin_read(BUTTON_0), nrf_gpio_pin_read(BUTTON_1)};
-            for (uint8_t i = 0; i < 2; ++i)
-            {
-                if (NRF_GPIOTE->EVENTS_IN[i])
-                {
-                    NRF_GPIOTE->EVENTS_IN[i] = 0; 
-                    led_config(i + 1, val[i]);
-                    APP_ERROR_CHECK(rbc_mesh_value_set(i, &val[i], 1));
-                }
-            }
-        }
-#endif
     }
     
 
