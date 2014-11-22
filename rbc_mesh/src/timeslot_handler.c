@@ -24,9 +24,9 @@
 
 
 #define TIMESLOT_END_SAFETY_MARGIN_US   (200)
-#define TIMESLOT_SLOT_LENGTH            (25000)
-#define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will probably fit between two conn events */
-#define TIMESLOT_MAX_EXTENDS            (40)
+#define TIMESLOT_SLOT_LENGTH            (100000)
+#define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
+#define TIMESLOT_MAX_LENGTH             (1000000) /* 1s */
 
 #if USE_SWI_FOR_PROCESSING
 #define ASYNC_EVENT_FIFO_QUEUE_SIZE (8)
@@ -68,7 +68,7 @@ static nrf_radio_request_t radio_request_earliest =
                         .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
                         .priority = NRF_RADIO_PRIORITY_NORMAL,
                         .length_us = TIMESLOT_SLOT_LENGTH,
-                        .timeout_us = 1000000 /* 1s */
+                        .timeout_us = 10000 /* 10ms */
                     }
                 };
                 
@@ -260,7 +260,7 @@ static void end_timer_handler(void)
     uint32_t extend_len = ((g_emergency_timeslot_mode)?
                                 TIMESLOT_SLOT_EMERGENCY_LENGTH : 
                                 TIMESLOT_SLOT_LENGTH + noise_val * 50);*/
-    timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
+    timeslot_order_earliest(((g_timeslot_length > 100000)? 100000 : g_timeslot_length), true);
 }
     
 
@@ -310,14 +310,15 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             SET_PIN(2);
             successful_extensions = 0;
         
+            g_negotiate_timeslot_length = g_timeslot_length;
+        
             g_timeslot_length = g_next_timeslot_length;
         
             g_timeslot_end_timer = 
                 timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
                     end_timer_handler);
             
-            g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
-        
+            
             /* attempt to extend our time right away */
             timeslot_extend(g_negotiate_timeslot_length);
             
@@ -360,20 +361,30 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
                 timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
                     end_timer_handler);
             
-            
-            if (successful_extensions < TIMESLOT_MAX_EXTENDS)
+            TICK_PIN(1);
+            if (g_timeslot_length + g_negotiate_timeslot_length < TIMESLOT_MAX_LENGTH)
             {
                 timeslot_extend(g_negotiate_timeslot_length);   
-                //transport_control_step();
+            }
+            else
+            {
+                /* done extending, check for new trickle event */
+                transport_control_step();
             }
         
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:    
             g_negotiate_timeslot_length >>= 2;
+            TICK_PIN(1);
             if (g_negotiate_timeslot_length > 1000)
             {
                 timeslot_extend(g_negotiate_timeslot_length);        
+            }
+            else
+            {
+                /* done extending, check for new trickle event */
+                transport_control_step();
             }
             break;
         
@@ -419,8 +430,8 @@ void timeslot_handler_init(void)
     error = sd_radio_session_open(&radio_signal_callback);
     APP_ERROR_CHECK(error);
     g_start_time_ref = NRF_RTC0->COUNTER;
-    
-    timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+    g_timeslot_length = TIMESLOT_SLOT_LENGTH;
+    timeslot_order_earliest(g_timeslot_length, true);
 }
 
 
@@ -482,6 +493,10 @@ void timeslot_extend(uint32_t extra_time_us)
 {
     if (g_is_in_callback)
     {
+        if (g_timeslot_length + extra_time_us > TIMESLOT_MAX_LENGTH)
+        {
+            extra_time_us = TIMESLOT_MAX_LENGTH - g_timeslot_length;
+        }
         g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND;
         g_ret_param.params.extend.length_us = extra_time_us;
     }
@@ -515,4 +530,14 @@ uint32_t timeslot_get_remaining_time(void)
     {
         return (g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US - timestamp);
     }
+}
+
+uint32_t timeslot_get_end_time(void)
+{
+    if (!g_is_in_timeslot)
+    {
+        return 0;
+    }
+    
+    return g_timeslot_length;
 }
