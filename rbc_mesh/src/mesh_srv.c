@@ -189,7 +189,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
     
     ble_char_md.p_char_pf = &ble_char_pf;
     ble_char_md.char_props.read = 1;
-    ble_char_md.char_props.write = 1;
+    ble_char_md.char_props.write_wo_resp = 1;
     ble_char_md.char_props.notify = 1;
     
     ble_char_md.p_cccd_md = NULL;
