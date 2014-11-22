@@ -273,6 +273,10 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     
     is_initialized = true;
     
+    ble_enable_params_t ble_enable_params;
+    ble_enable_params.gatts_enable_params.service_changed = 0;
+    
+    sd_ble_enable(&ble_enable_params);
     
     g_mesh_service.value_count = mesh_value_count;
     
