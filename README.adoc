@@ -420,7 +420,7 @@ the node broadcasting the message, but rather the address of the mesh node at
 which the indicated version of the value-handle pair first appeared. The
 packet structure is illustrated below.
 
-image::docs/packet_format[Packet format on air]
+image::docs/packet_format.png[Packet format on air]
 
 === Resource allocation
 The framework takes control over several hardware and software resources,
