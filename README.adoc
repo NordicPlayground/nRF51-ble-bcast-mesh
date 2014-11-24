@@ -75,7 +75,7 @@ runs in.
 * *trickle* Implementation of the IETF RFC6206 "Trickle" algorithm for
 mesh-global state propagation.
 
-* *ll_control* Lower level packet handler. Abstracts the radio interface and
+* *transport_control* Lower level packet handler. Abstracts the radio interface and
 packet format for the mesh_srv-module. 
 
 * *radio_control* Asynchronous radio abstraction. Offers a way for higher level
