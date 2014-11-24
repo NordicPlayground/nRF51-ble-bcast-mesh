@@ -15,5 +15,6 @@
 *.ini
 *.iex
 *.uvgui.*
+*.uvguix.*
 *.tmp
 **/arm/JLinkLog.txt
