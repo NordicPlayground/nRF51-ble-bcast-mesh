@@ -56,6 +56,8 @@ The project is split into two parts: _rbc_mesh/_ (the framework), and a folder w
 examples. The framework is interfaced through a set of API functions,
 exclusively contained in the _rbc_mesh.h_ file. 
 
+image::docs/architecture.png[Framework modules]
+
 === Framework Modules
 The framework is split into several separate modules, each of which is
 responsible for managing various aspects of the framework.
@@ -416,17 +418,9 @@ address. In addition, the Advertisement Address (GAP address) field provided aft
 the packet header, does not necessarily contain the Advertisement Address of
 the node broadcasting the message, but rather the address of the mesh node at
 which the indicated version of the value-handle pair first appeared. The
-payload of the advertisement is structured as follows:
+packet structure is illustrated below.
 
-[cols="1,1,1,5", options="header"]
-.Air Interface Packets
-|===
-|Field | Offset | Length | Description
-|Handle | 0 | 1 bytes | Handle addressing the value
-|Version | 1 | 2 bytes | Version of the value
-|Data | 3 | 1-28 bytes | Data payload, length given by advertisement length
-field in packet header
-|===
+image::docs/packet_format[Packet format on air]
 
 === Resource allocation
 The framework takes control over several hardware and software resources,
