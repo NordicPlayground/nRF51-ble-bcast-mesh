@@ -8,6 +8,7 @@
 #define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
 #define RBC_MESH_ADV_INT_MIN             (5)
 #define RBC_MESH_ADV_INT_MAX             (60000)
+#define RBC_MESH_VALUE_MAX_LEN           (28)
 /** 
 * @brief Rebroadcast value handle type 
 *
