@@ -151,12 +151,13 @@ static void search_callback(uint8_t* data)
 */
 static void trickle_step_callback(void)
 {
+    TICK_PIN(6);
     /* check if timeslot is about to end */
     if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_US)
         return;
     
-    //step_time = global_time + timer_get_timestamp();
-    //trickle_time_update(step_time);
+    uint32_t time_now = global_time + timer_get_timestamp();
+    trickle_time_update(time_now);
     
     packet_t packet;
     bool has_anything_to_send = false;
@@ -213,11 +214,17 @@ static void trickle_step_callback(void)
         
         order_search(); /* search for the rest of the timeslot */
     }
-    else
-    {
-        TICK_PIN(6);
-    }
     
+    /* order next processing */
+    uint32_t next_time;
+    uint32_t end_time = timeslot_get_end_time();
+    uint32_t error_code = mesh_srv_get_next_processing_time(&next_time);
+    
+    if (error_code == NRF_SUCCESS && next_time < global_time + end_time)
+    {
+        timer_abort(step_timer_index);
+        step_timer_index = timer_order_cb(next_time - global_time, trickle_step_callback);
+    }
 }
 
 void transport_control_timeslot_begin(uint32_t global_timer_value)
@@ -256,10 +263,10 @@ void transport_control_step(void)
     }
     else 
     {
-        if (next_time < time_now + timeslot_get_remaining_time())
+        if (next_time < global_time + timeslot_get_end_time())
         {
             timer_abort(step_timer_index);
-            step_timer_index = timer_order_cb(next_time - time_now, trickle_step_callback);
+            step_timer_index = timer_order_cb(next_time - global_time, trickle_step_callback);
         }
     }
 }

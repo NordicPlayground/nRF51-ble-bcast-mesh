@@ -189,7 +189,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
     
     ble_char_md.p_char_pf = &ble_char_pf;
     ble_char_md.char_props.read = 1;
-    ble_char_md.char_props.write = 1;
+    ble_char_md.char_props.write_wo_resp = 1;
     ble_char_md.char_props.notify = 1;
     
     ble_char_md.p_cccd_md = NULL;
@@ -273,6 +273,10 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     
     is_initialized = true;
     
+    ble_enable_params_t ble_enable_params;
+    ble_enable_params.gatts_enable_params.service_changed = 0;
+    
+    sd_ble_enable(&ble_enable_params);
     
     g_mesh_service.value_count = mesh_value_count;
     
