@@ -72,6 +72,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -141,7 +143,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>0</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -362,7 +363,7 @@
               <MiscControls></MiscControls>
               <Define>BOARD_PCA10000 NRF51</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\SDK\nrf51822\Include;..\..\..\..\..\SDK\nrf51822\Include\ble;..\..\..\..\..\SDK\nrf51822\Include\ble\ble_services;..\..\..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\..\..\SDK\nrf51822\Include\s110;..\..\..\..\..\SDK\nrf51822\Include\app_common</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\SDK\nrf51822\Include;..\..\..\..\..\SDK\nrf51822\Include\ble;..\..\..\..\..\SDK\nrf51822\Include\ble\ble_services;..\..\..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\..\..\SDK\nrf51822\Include\s110;..\..\..\..\..\SDK\nrf51822\Include\app_common;..\..\..\..\..\SDK\nrf51822\Include\gcc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
