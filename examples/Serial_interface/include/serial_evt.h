@@ -34,8 +34,8 @@ typedef __packed struct
 
 typedef __packed struct
 {
-    uint32_t adv_addr;
-} serial_evt_cmd_rsp_params_adv_addr_t;
+    uint32_t access_addr;
+} serial_evt_cmd_rsp_params_access_addr_t;
 
 typedef __packed struct
 {
@@ -74,7 +74,7 @@ typedef __packed struct
     __packed union
     {
         serial_evt_cmd_rsp_params_build_version_t build_version;
-        serial_evt_cmd_rsp_params_adv_addr_t adv_addr;
+        serial_evt_cmd_rsp_params_access_addr_t access_addr;
         serial_evt_cmd_rsp_params_channel_t channel;
         serial_evt_cmd_rsp_params_handle_count_t handle_count;
         serial_evt_cmd_rsp_params_adv_int_t adv_int;

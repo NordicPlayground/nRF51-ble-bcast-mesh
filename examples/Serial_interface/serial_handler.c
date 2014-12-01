@@ -148,7 +148,7 @@ void spi_event_handler(spi_slave_evt_t evt)
 * Interface functions
 *****************************************************************************/
 
-void serial_handler_init(serial_cmd_handler cmd_handler)
+void serial_handler_init(void)
 {
     serial_queue_init(&tx_q);
     serial_queue_init(&rx_q);

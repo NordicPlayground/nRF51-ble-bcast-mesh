@@ -1,6 +1,7 @@
 #include "mesh_aci.h"
 
 #include "serial_handler.h"
+#include "version.h"
 
 #include <string.h>
 
@@ -144,33 +145,136 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 			}
 			else
 			{
+                ble_gap_addr_t origin_addr;
                 uint32_t error_code = rbc_mesh_value_get(serial_cmd->params.value_get.handle, 
                                                             serial_evt.params.cmd_rsp.response.val_get.data,
-                                                            (uint16_t*) &serial_evt.length);
-                               
+                                                            (uint16_t*) &serial_evt.length,
+                                                            &origin_addr);
+                
                 serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
                 
-                serial_evt.length += 3 + 1 + 6;
+                memcpy(serial_evt.params.cmd_rsp.response.val_get.origin_addr, origin_addr.addr, BLE_GAP_ADDR_LEN);
+                serial_evt.params.cmd_rsp.response.val_get.addr_type = ADDR_TYPE_BLE_GAP_ADV_ADDR;
+                serial_evt.params.cmd_rsp.response.val_get.handle = serial_cmd->params.value_get.handle;
+                serial_evt.length += 3 + 1 + 1 + 6; /* opcode + command + status + handle + addr_type + addr */
             }
             
             serial_handler_event_send(&serial_evt);
 			break;
 			
 		case SERIAL_CMD_OPCODE_BUILD_VERSION_GET:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+            serial_evt.length = 6;
+                        
+			if (serial_cmd->length != 1)
+			{
+				serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+			}
+			else
+			{
+                serial_evt.params.cmd_rsp.response.build_version.major = VERSION_MAJOR;
+                serial_evt.params.cmd_rsp.response.build_version.minor_1 = VERSION_MINOR1;
+                serial_evt.params.cmd_rsp.response.build_version.minor_2 = VERSION_MINOR2;
+                serial_evt.params.cmd_rsp.status = ACI_STATUS_SUCCESS;
+            }
+            
+            serial_handler_event_send(&serial_evt);
 			break;
 			
 		case SERIAL_CMD_OPCODE_ADV_ADDR_GET:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+            serial_evt.length = 7;
+                        
+			if (serial_cmd->length != 1)
+			{
+				serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+			}
+			else
+			{
+                uint32_t access_addr;
+                
+                uint32_t error_code = rbc_mesh_access_address_get(
+                    &access_addr);
+                serial_evt.params.cmd_rsp.response.access_addr.access_addr = access_addr;
+                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+            }
+            
+            serial_handler_event_send(&serial_evt);
 			break;
 			
 		case SERIAL_CMD_OPCODE_CHANNEL_GET:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+            serial_evt.length = 4;
+                        
+			if (serial_cmd->length != 1)
+			{
+				serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+			}
+			else
+			{
+                uint8_t channel;
+                uint32_t error_code = rbc_mesh_channel_get(
+                    &channel);
+                serial_evt.params.cmd_rsp.response.channel.channel = channel;
+                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+            }
+            
+            serial_handler_event_send(&serial_evt);
+            
 			break;
 			
 		case SERIAL_CMD_OPCODE_HANDLE_COUNT_GET:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+            serial_evt.length = 4;
+                        
+			if (serial_cmd->length != 1)
+			{
+				serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+			}
+			else
+			{
+                uint8_t handle_count;
+                uint32_t error_code = rbc_mesh_handle_count_get(
+                    &handle_count);
+                serial_evt.params.cmd_rsp.response.handle_count.handle_count = handle_count;
+                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+            }
+            
+            serial_handler_event_send(&serial_evt);
 			break;
 			
 		case SERIAL_CMD_OPCODE_ADV_INT_GET:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+            serial_evt.length = 7;
+                        
+			if (serial_cmd->length != 1)
+			{
+				serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+			}
+			else
+			{
+                uint32_t adv_int;
+                uint32_t error_code = rbc_mesh_adv_int_get(
+                    &adv_int);
+                serial_evt.params.cmd_rsp.response.adv_int.adv_int = adv_int;
+                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+            }
+            
+            serial_handler_event_send(&serial_evt);
 			break;			
-	}
+            
+        default:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+            serial_evt.length = 3;
+            serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_CMD_UNKNOWN;
+            serial_handler_event_send(&serial_evt);
+	}    
 }
 
 
@@ -180,7 +284,22 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
 void mesh_aci_init(void)
 {
-	serial_handler_init(serial_command_handler);
+	serial_handler_init();
 }
 
+void mesh_aci_loop(void)
+{
+    serial_cmd_t serial_cmd;
+    while (true)
+    {
+        /* sleep until something happens */
+        __wfe();
+        
+        /* poll queue */
+        while (serial_handler_command_get(&serial_cmd))
+        {
+            serial_command_handler(&serial_cmd);
+        }
+    }
+}
 

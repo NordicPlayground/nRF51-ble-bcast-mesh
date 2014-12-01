@@ -17,14 +17,11 @@ typedef __packed struct
 } serial_data_t;
 
 
-
-typedef void (*serial_cmd_handler)(serial_cmd_t*);
-
-void serial_handler_init(serial_cmd_handler cmd_handler);
+void serial_handler_init(void);
 
 bool serial_handler_event_send(serial_evt_t* evt);
 
-bool serial_handler_event_get(serial_evt_t* evt);
+bool serial_handler_command_get(serial_cmd_t* evt);
 
 
 

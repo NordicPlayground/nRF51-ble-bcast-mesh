@@ -1,5 +1,7 @@
 #include "rbc_mesh.h"
 
+#include "mesh_aci.h"
+
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -81,11 +83,11 @@ int main(void)
     error_code = rbc_mesh_init(0xA541A68F, 38, 1, 100);
     APP_ERROR_CHECK(error_code);
     
+    mesh_aci_init();
     
-    /* sleep */
     while (true)
     {
-        sd_app_evt_wait();
+        mesh_aci_loop();
     }
 }
 
