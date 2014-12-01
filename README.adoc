@@ -5,6 +5,18 @@ Works with softdevices S110 v7.x and S130 with Timeslot API.
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
+== Usage
+In addition to two provided examples, there is a template project under
+_examples/_. This may be used as a basis for your own applications, or you
+could choose to do it yourself from scratch. In theory, the framework should be
+compatible with most Softdevice based projects, but some restrictions to
+hardware and software modules apply, see <<resource-allocation>> for details.
+The framework adds a Mesh GATT service to the Softdevice GATT server which
+contain all mesh-global states. This service may be accessed by external nodes,
+just as any other GATT service, through a connection established via the
+Softdevice. See section <<gatt-service>> for details about structure and
+access. 
+
 == Basic concepts
 
 The Rebroadcasting Mesh framework (hereby referred to as "the framework" or
@@ -38,18 +50,6 @@ structure to store the values. All values are stored as characteristics within
 one "Mesh"-GATT Service, which is accessible to external nodes through a
 classic BLE Softdevice connection, implemented in application space. The "BLE
 Gateway example" displays a way to achieve such behavior.
-
-== Usage
-In addition to two provided examples, there is a template project under
-_examples/_. This may be used as a basis for your own applications, or you
-could choose to do it yourself from scratch. In theory, the framework should be
-compatible with most Softdevice based projects, but some restrictions to
-hardware and software modules apply, see <<resource-allocation>> for details.
-The framework adds a Mesh GATT service to the Softdevice GATT server which
-contain all mesh-global states. This service may be accessed by external nodes,
-just as any other GATT service, through a connection established via the
-Softdevice. See section <<gatt-service>> for details about structure and
-access. 
 
 == Structure
 The project is split into two parts: _rbc_mesh/_ (the framework), and a folder with
@@ -113,16 +113,30 @@ address and channel, but handle_count and adv_int_ms may be different.
 
 '''
 
-*Request external value update*
+*Manually enable broadcasting of a given value*
 [source,c]
 ----
-uint32_t rbc_mesh_value_req(uint8_t handle);
+uint32_t rbc_mesh_value_enable(uint8_t handle);
 ----
-Request a state update from other nodes on the same mesh network on the given
-value-handle pair. Forces the node to broadcast an empty version 0-message to
+Start broadcasting the indicated value to other nodes, without updating the
+contents of the value. If the handle-value pair has never been used before, the
+framework forces the node to broadcast an empty version 0-message to
 other nodes, which, in turn will answer with their version of the
 handle-value-pair. This way, new nodes may get up to date with the rest of the
 nodes in the mesh.
+
+'''
+
+*Disable broadcasting of a given value*
+[source,c]
+----
+uint32_t rbc_mesh_value_disable(uint8_t handle);
+----
+Stop broadcasting the indicated handle-value pair. Note that the framework will
+keep updating the local version of the variable when external nodes write to
+it, and consequently notify the application about the update as usual. The
+framework will not, however, rebroadcast the value to other nodes, but rather
+take a passive role in the mesh for this handle-value pair.
 
 '''
 
@@ -143,11 +157,16 @@ the len parameter exceeds this limitation.
 *Get value*
 [source,c]
 ----
-uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len);
+uint32_t rbc_mesh_value_get(uint8_t handle, 
+    uint8_t* data, 
+    uint16_t* len,
+    ble_gap_addr_t* origin_addr);
 ----
 Returns the most recent value paired with this handle. The `data` buffer must
 be at least 28 bytes long in order to ensure memory safe behavior. The actual
-length of the data is returned in the `length` parameter.
+length of the data is returned in the `length` parameter. The `origin_addr`
+parameter returns the address of the node that first started broadcasting the
+current version of the message.
 
 '''
 
@@ -398,14 +417,14 @@ node.
 === Timeslots
 The framework does all mesh-related transmissions in timeslots granted by the
 Softdevice Multiprotocol Timeslot API, operating directly on the radio hardware
-module. Timeslots are ordered and extended in chunks of 25ms, and the framework
-will attempt to seize the radio for as much as the Softdevice will allow.
-At the beginning of each timeslot, the framework samples the RTC0 Low Frequency
-Timer, and checks whether any timers related to the Trickle Algorithm have
-expired since the end of the previous timeslot. If this is the case, the
-framework does all pending operations immediately. After this initial "catch
-up" operation, the framework handles all operations as they appear for the
-remainder of the timeslot.
+module. Timeslots are primarily allocated by extending, short timeslots into
+timeslots of upto 1 second, and the framework will attempt to seize the radio 
+for as much as the Softdevice will allow. At the beginning of each timeslot, 
+the framework samples the RTC0 Low Frequency Timer, and checks whether any 
+timers related to the Trickle Algorithm have expired since the end of the 
+previous timeslot. If this is the case, the framework does all pending 
+operations immediately. After this initial "catch up" operation, the framework 
+handles all operations as they appear for the remainder of the timeslot.
 
 For details about the Softdevice Multiprotocol Timeslot API, plese refer to the
 Softdevice Specification, available on the Nordic Semiconductor homepage.
