@@ -140,6 +140,7 @@ void spi_event_handler(spi_slave_evt_t evt)
         
         default:
             /* no implementation necessary */
+            break;
     }
 }
 
