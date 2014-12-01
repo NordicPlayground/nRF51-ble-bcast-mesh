@@ -423,6 +423,11 @@
               <FileType>1</FileType>
               <FilePath>..\serial_queue.c</FilePath>
             </File>
+            <File>
+              <FileName>mesh_aci.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\mesh_aci.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
