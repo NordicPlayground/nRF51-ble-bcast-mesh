@@ -1,6 +1,7 @@
 #include "rbc_mesh.h"
 
 #include "mesh_aci.h"
+#include "serial_handler.h"
 
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
@@ -59,13 +60,32 @@ void SD_EVT_IRQHandler(void)
 */
 void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
+    serial_evt_t serial_evt;
     switch (evt->event_type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_CONFLICTING;
+            break;
+        
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_NEW;
+            break;
+        
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_UPDATE;
             break;
     }
+    
+    /* opcode + handle + addr type + addr = 9 */
+    serial_evt.length = 9 + evt->data_len;
+    
+    /* all event parameter types are the same, just use event_update for all */
+    serial_evt.params.event_update.addr_type = ADDR_TYPE_BLE_GAP_ADV_ADDR;
+    memcpy(serial_evt.params.event_update.origin_addr, evt->originator_address.addr, BLE_GAP_ADDR_LEN);
+    serial_evt.params.event_update.handle = evt->value_handle;
+    memcpy(serial_evt.params.event_update.data, evt->data, evt->data_len);
+    
+    serial_handler_event_send(&serial_evt);
 }
 
 
