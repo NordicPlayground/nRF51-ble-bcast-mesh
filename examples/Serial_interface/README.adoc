@@ -16,7 +16,7 @@ still not implemented.
 
 == Protocol
 The interface works over the SPI as a slave, with an additional SLAVE READY
-wire. Packets follow the structure displayed in link:doc/serial_interface.xlsx.
+wire. Packets follow the structure displayed in /doc/serial_interface.xlsx.
 Note that packets from the slave to the master begin with a one byte debug
 code before the rest of the packet.
 
