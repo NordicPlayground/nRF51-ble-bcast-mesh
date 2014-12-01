@@ -141,7 +141,8 @@ uint32_t rbc_mesh_value_disable(uint8_t handle);
 *    RBC_VALUE_MAX_LEN long
 * @param[out] len Length of the copied data. Will not exceed RBC_VALUE_MAX_LEN.
 * @param[out] origin_addr BLE GAP address of the node that first broadcasted 
-*   the current version of this value.
+*   the current version of this value. Set to NULL if the address is not of 
+*   interest.
 * 
 * @return NRF_SUCCESS the value has been successfully fetched.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.

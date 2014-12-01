@@ -440,9 +440,12 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len, ble_
         return NRF_ERROR_INTERNAL;
     }
     
-    memcpy(origin_addr, 
-        &g_mesh_service.char_metadata[index - 1].last_sender_addr, 
-        sizeof(ble_gap_addr_t));
+    if (origin_addr != NULL)
+    {
+        memcpy(origin_addr, 
+            &g_mesh_service.char_metadata[index - 1].last_sender_addr, 
+            sizeof(ble_gap_addr_t));
+    }
     
     return NRF_SUCCESS;
 }
@@ -588,8 +591,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         /* check for conflicting data */
         uint16_t old_len = MAX_VALUE_LENGTH;
         
-        
-        error_code = mesh_srv_char_val_get(handle, NULL, &old_len);
+        error_code = mesh_srv_char_val_get(handle, NULL, &old_len, NULL);
         if (error_code != NRF_SUCCESS)
         {
             return error_code;
@@ -674,7 +676,7 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
             uint8_t data[MAX_VALUE_LENGTH];
             uint16_t len = MAX_VALUE_LENGTH;
 
-            error_code = mesh_srv_char_val_get(i + 1, data, &len);
+            error_code = mesh_srv_char_val_get(i + 1, data, &len, NULL);
 
             if (error_code != NRF_SUCCESS)
             {
