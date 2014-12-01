@@ -69,10 +69,16 @@ uint32_t rbc_mesh_init(uint32_t access_addr,
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_value_req(uint8_t handle)
+uint32_t rbc_mesh_value_enable(uint8_t handle)
 {
-    return mesh_srv_char_val_init(handle);
+    return mesh_srv_char_val_enable(handle);
 }
+
+uint32_t rbc_mesh_value_disable(uint8_t handle)
+{
+    return mesh_srv_char_val_disable(handle);
+}
+
 
 /****** Getters and setters ******/
 
@@ -81,9 +87,9 @@ uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
     return mesh_srv_char_val_set(handle, data, len, true);
 }
 
-uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
+uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len, ble_gap_addr_t* origin_addr)
 {
-    return mesh_srv_char_val_get(handle, data, len);
+    return mesh_srv_char_val_get(handle, data, len, origin_addr);
 }
 
 uint32_t rbc_mesh_access_address_get(uint32_t* access_address)
