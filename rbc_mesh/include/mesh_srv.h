@@ -113,13 +113,15 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
 * @param[out] data, buffer to copy value contents to. Must be at least 
 *   MAX_VALUE_LENGTH long to ensure safe operation.
 * @param[out] len Returns the length of the copied data
+* @param[out] origin_addr Returns the BLE GAP address at which the current 
+*   version of this handle was first broadcasted.
 *
 * @return NRF_SUCCESS The value was successfully read
 * @return NRF_ERROR_INVALID_STATE The mesh service has not been initialized.
 * @return NRF_ERROR_INVALID_ADDR The given index is not in the range of handles
 *   given in the initialization.
 */
-uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len);
+uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len, ble_gap_addr_t* origin_addr);
 
 /**
 * @brief Get contents of mesh metadata characteristic
@@ -215,7 +217,19 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt);
 * @return NRF_ERROR_INVALID_ADDR The indicated index is outside the range 
 *   specified in the init function call.
 */
-uint32_t mesh_srv_char_val_init(uint8_t index);
+uint32_t mesh_srv_char_val_enable(uint8_t index);
+
+/**
+* @brief Flag the value as disabled. It will no longer be rebroadcasted.
+* 
+* @param[in] index The index of the value to be disabled.
+* 
+* @return NRF_SUCCESS The value was successfully disabled.
+* @return NRF_ERROR_INVALID_STATE The mesh service has not been initialized.
+* @return NRF_ERROR_INVALID_ADDR The indicated index is outside the range 
+*   specified in the init function call.
+*/
+uint32_t mesh_srv_char_val_disable(uint8_t index);
 
 
 #endif /* _MESH_SRV_H__ */

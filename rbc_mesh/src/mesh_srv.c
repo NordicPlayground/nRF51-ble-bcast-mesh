@@ -417,7 +417,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     return NRF_SUCCESS;
 }
 
-uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len)
+uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len, ble_gap_addr_t* origin_addr)
 {
     if (!is_initialized)
     {
@@ -438,6 +438,13 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len)
     if (error_code != NRF_SUCCESS)
     {
         return NRF_ERROR_INTERNAL;
+    }
+    
+    if (origin_addr != NULL)
+    {
+        memcpy(origin_addr, 
+            &g_mesh_service.char_metadata[index - 1].last_sender_addr, 
+            sizeof(ble_gap_addr_t));
     }
     
     return NRF_SUCCESS;
@@ -560,8 +567,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     {
         /* update value */
         mesh_srv_char_val_set(handle, data, data_len, false);
-        ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
-                        (1 << MESH_MD_FLAGS_USED_POS);
+        ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
         ch_md->flags &= ~(1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
         ch_md->version_number = version;
         
@@ -585,8 +591,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         /* check for conflicting data */
         uint16_t old_len = MAX_VALUE_LENGTH;
         
-        
-        error_code = mesh_srv_char_val_get(handle, NULL, &old_len);
+        error_code = mesh_srv_char_val_get(handle, NULL, &old_len, NULL);
         if (error_code != NRF_SUCCESS)
         {
             return error_code;
@@ -671,7 +676,7 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
             uint8_t data[MAX_VALUE_LENGTH];
             uint16_t len = MAX_VALUE_LENGTH;
 
-            error_code = mesh_srv_char_val_get(i + 1, data, &len);
+            error_code = mesh_srv_char_val_get(i + 1, data, &len, NULL);
 
             if (error_code != NRF_SUCCESS)
             {
@@ -753,7 +758,7 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
     return NRF_ERROR_INVALID_ADDR;
 }
 
-uint32_t mesh_srv_char_val_init(uint8_t index)
+uint32_t mesh_srv_char_val_enable(uint8_t index)
 {
     if (!is_initialized)
     {
@@ -771,6 +776,24 @@ uint32_t mesh_srv_char_val_init(uint8_t index)
         (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
         (1 << MESH_MD_FLAGS_USED_POS);
     
+    
+    return NRF_SUCCESS;
+}
+
+uint32_t mesh_srv_char_val_disable(uint8_t index)
+{
+    if (!is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    if (index > g_mesh_service.value_count || index == 0)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
+    
+    g_mesh_service.char_metadata[index - 1].flags &=
+        ~(1 << MESH_MD_FLAGS_USED_POS);
     
     return NRF_SUCCESS;
 }

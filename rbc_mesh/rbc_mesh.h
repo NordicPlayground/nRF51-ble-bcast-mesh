@@ -81,24 +81,10 @@ uint32_t rbc_mesh_init(
     uint8_t adv_int_ms);
 
 /**
-* @brief Broadcast a request for an update on the value connected to the 
-*   handle indicated.
-*
-* @note The value request is sent asynchronously to the function call, and 
-*   a response is likely to be received after several milliseconds (depending
-*   on the adv_int_ms value set in @ref rbc_mesh_init
-*
-* @param[in] handle Handle to request a value for 
-*
-* @return NRF_SUCCESS A request was successfully scheduled for broadcast
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
-*   in @ref rbc_mesh_init.
-* @return NRF_ERROR_INVALID_STATE The framework has not been initiated
-*/
-uint32_t rbc_mesh_value_req(uint8_t handle);
-
-/**
 * @brief Set the contents of the data array pointed to by the provided handle
+* 
+* @note If the indicated handle-value pair is in a disabled state, it will 
+*   automatically be enabled.
 *
 * @param[in] handle The handle of the value we want to update. Is mesh-global.
 * @param[in] data Databuffer to be copied into the value slot
@@ -113,19 +99,60 @@ uint32_t rbc_mesh_value_req(uint8_t handle);
 uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
 
 /**
+* @brief Start broadcasting the handle-value pair. If the handle has not been 
+*   assigned a value yet, it will start broadcasting a version 0 value, so 
+*   that adjacent nodes may push an updated version of the handle-value pair.
+*
+* @note The value broadcast is sent asynchronously to the function call, and 
+*   a response is likely to be received after several milliseconds (depending
+*   on the adv_int_ms value set in @ref rbc_mesh_init
+*
+* @param[in] handle Handle to request a value for 
+*
+* @return NRF_SUCCESS A request was successfully scheduled for broadcast
+* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
+*   in @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initiated
+*/
+uint32_t rbc_mesh_value_enable(uint8_t handle);
+
+/**
+* @brief Stop rebroadcasting the indicated handle-value pair. 
+*
+* @note This will not stop the framework from updating the value in its local 
+*   database upon external updates (and consequently give the application 
+*   update events), but values will not be propagated to other nodes through 
+*   this node before they are either written to or re-enabled.
+* 
+* @param[in] handle Handle to stop broadcasting
+* 
+* @return NRF_SUCCESS The handle was successfully taken off the broadcast list
+* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
+*   @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initialized.
+*/
+uint32_t rbc_mesh_value_disable(uint8_t handle);
+
+/**
  * @brief Get the contents of the data array pointed to by the provided handle
 *
 * @param[in] handle The handle of the value we want to update. Is mesh-global.
 * @param[out] data Databuffer to be copied into the value slot. Must be at least
 *    RBC_VALUE_MAX_LEN long
 * @param[out] len Length of the copied data. Will not exceed RBC_VALUE_MAX_LEN.
+* @param[out] origin_addr BLE GAP address of the node that first broadcasted 
+*   the current version of this value. Set to NULL if the address is not of 
+*   interest.
 * 
 * @return NRF_SUCCESS the value has been successfully fetched.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 * @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
 *    in @ref rbc_mesh_init.
 */
-uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len);
+uint32_t rbc_mesh_value_get(uint8_t handle, 
+    uint8_t* data, 
+    uint16_t* len, 
+    ble_gap_addr_t* origin_addr);
 
 /**
 * @brief Get current mesh access address
