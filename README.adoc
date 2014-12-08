@@ -108,16 +108,18 @@ safe to use the API from this context.
 *Initialize framework*
 [source,c]
 ----
-uint32_t rbc_mesh_init(uint32_t access_addr, 
-        uint8_t channel, 
-        uint8_t handle_count, 
-        uint8_t adv_int_ms); 
+uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
+        
 ----
 This function must be called before any other framework function, and sets up
 the Mesh GATT service and enables listening for incoming mesh messages.
 
+The parameters to this function are collected in a struct defined in
+_rbc_mesh.h_.
+
 All nodes within the same mesh network must be set up with the same access
-address and channel, but handle_count and adv_int_ms may be different. 
+address, channel, radio mode and packet configuration, but handle_count and 
+adv_int_ms may be different. 
 
 '''
 
