@@ -1,7 +1,7 @@
 = nRF51-ble-broadcast-mesh
 
 Bluetooth Low Energy based Rebroadcasting mesh implementation on the nRF51.
-Works with softdevices S110 v7.x and S130 with Timeslot API.
+Works with Softdevice S110 v7.x with Timeslot API.
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
@@ -19,6 +19,15 @@ access.
 
 == Basic concepts
 
+A rebroadcasting mesh network works by flooding all messages to all nodes 
+in the network through broadcasts. Each time a device receives a broadcast
+message from some other device in the mesh, it repeats the message, or 
+_rebroadcasts_ it, letting its neighbors hear the new message. 
+The neighbors rebroadcast the message to their neighbors, and the process
+is repeated until all devices in the mesh have received the message. This 
+lets wireless devices talk to eachother without being within direct radio 
+range, as devices between them help relaying the messages.
+
 The Rebroadcasting Mesh framework (hereby referred to as "the framework" or
 rbc_mesh) provides a connection-less, rebroadcasting infrastructure for
 synchronizing states across a set of BLE enabled nodes. All nodes receive all
@@ -29,13 +38,12 @@ The framework resides on top of the nRF51 Softdevice, utilizing the Timeslot
 API to allocate radio time. The framework will attempt to allocate as much time
 as possible, in order to listen for other nodes' messages.
 
-All nodes in the mesh share a set of dataslots, addressed by handles. 
-These handle-value pairs are propagated through the mesh
-with version numbers, with the objective of synchronizing the same version of
-the values across all nodes in the mesh. Each time a node overwrites a value, it
-increments the version number, and all nodes that receive a broadcast message
-with a version number that is higher than the one in its database, will adapt
-this new version of the value. 
+All nodes in the mesh share a set of indexed dataslots. The data contained at each
+index is propagated through the mesh with version numbers, with the objective of 
+synchronizing the same version of the data across all nodes in the mesh. Each 
+time a node overwrites a value, it increments the version number, and all nodes 
+that receive a broadcast message with a version number that is higher than the 
+one in its database, will adapt this new version of the value. 
 
 The value propagation is controlled by an implementation of the IETF RFC6206
 "Trickle", a flood control algorithm for lossy, low power networks. The Trickle
@@ -470,6 +478,10 @@ The framework allocates a metadata array on the heap, with 36bytes per
 handle-value pair. The rest of the program operates strictly on the stack, and
 compiled at Optimization level -O0, Keil reports a program size of approx.
 10kB, and stack size of 5.5kB for the Template project under `examples/`.
+
+== Why this was made
+This project is created in collaboration with The Norwegian University of 
+Science and Technology (NTNU), as part of a master thesis. 
 
 == Forum
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
