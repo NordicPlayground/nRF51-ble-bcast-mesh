@@ -481,7 +481,7 @@ compiled at Optimization level -O0, Keil reports a program size of approx.
 
 == Why this was made
 This project is created in collaboration with The Norwegian University of 
-Science and Technology (NTNU), as part of a master thesis pre-study. 
+Science and Technology (NTNU), as part of a master thesis. 
 
 == Forum
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
