@@ -29,10 +29,7 @@ static uint8_t g_adv_int_ms;
 * Interface Functions
 *****************************************************************************/
 
-uint32_t rbc_mesh_init(uint32_t access_addr, 
-        uint8_t channel, 
-        uint8_t handle_count, 
-        uint8_t adv_int_ms)
+uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
 {
     uint8_t sd_is_enabled = 0;
     sd_softdevice_is_enabled(&sd_is_enabled);
@@ -50,7 +47,10 @@ uint32_t rbc_mesh_init(uint32_t access_addr,
 
     uint32_t error_code;
     
-    error_code = mesh_srv_init(handle_count, access_addr, channel, adv_int_ms);
+    error_code = mesh_srv_init(init_params.handle_count, 
+                                init_params.access_addr, 
+                                init_params.channel, 
+                                init_params.adv_int_ms);
 
     if (error_code != NRF_SUCCESS)
     {
@@ -59,10 +59,10 @@ uint32_t rbc_mesh_init(uint32_t access_addr,
 
     timeslot_handler_init();
     
-    g_access_addr = access_addr;
-    g_channel = channel;
-    g_handle_count = handle_count;
-    g_adv_int_ms = adv_int_ms;
+    g_access_addr = init_params.access_addr;
+    g_channel = init_params.channel;
+    g_handle_count = init_params.handle_count;
+    g_adv_int_ms = init_params.adv_int_ms;
 
     g_is_initialized = true;
     

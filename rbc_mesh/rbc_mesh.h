@@ -39,6 +39,69 @@ typedef struct
 } rbc_mesh_event_t;
 
 
+/** 
+* @brief Enum for radio mode used in initialization. See nRF51 Series 
+*   documentation for details on the various modes. Note that 
+*   the BLE_1MBIT mode is required to let the mesh packetsbe on-air compatible
+*   with other devices (The regular gateway interface will be compatible 
+*   regardless).
+*/
+typedef enum
+{
+    RBC_MESH_RADIO_MODE_1MBIT,
+    RBC_MESH_RADIO_MODE_2MBIT,
+    RBC_MESH_RADIO_MODE_250KBIT,
+    RBC_MESH_RADIO_MODE_BLE_1MBIT
+} rbc_mesh_radio_mode_t;
+
+/**
+* @brief Enum for on-air packet interface format. The original packet interface
+*   provide the original max packet length of 28 bytes, but is not compatible
+*   with external devices on-air, as the payload of the advertisements does not
+*   adhere to the specification. To be able to inject packets into the mesh 
+*   without using a gateway interface, the adv_compatible version must be used. 
+*   Note that this reduces the max packet length to 26 bytes.
+*/
+typedef enum
+{
+    RBC_MESH_PACKET_FORMAT_ORIGINAL,
+    RBC_MESH_PACKET_FORMAT_ADV_COMPATIBLE
+} rbc_mesh_packet_format_t;
+
+/**
+* @brief Initialization parameter struct for the rbc_mesh_init() function.
+*
+* @param access_addr The access address the mesh will work on. This must be the 
+*    same for all nodes in the mesh. RBC_MESH_ACCESS_ADDRESS_BLE_ADV gives the mesh
+*    the same access address as regular BLE advertisements, which makes the
+*    traffic visible to external BLE devices (Note that other access addresses 
+*    does not provide any data security, the traffic is merely ignored by 
+*    regular BLE radios). Multiple meshes may in theory work concurrently in 
+*    the same area with different access addresses, but will be prone to 
+*    on-air collisions, and it is recommended to use separate channels for this
+* @param channel The BLE channel the mesh works on. It is strongly recommended 
+*    to use one of the three adv channels 37, 38 or 39, as others may be prone
+*    to on-air collisions with WiFi channels. Separate meshes may work 
+*    concurrently without packet collision if they are assigned to different 
+*    channels. Must be between 1 and 39.
+* @param handle_count The maximum number of handle-value pairs available to the
+*    application. May not be higher than 155 due to BLE namespace requirements
+* @param adv_int_ms The minimum adv_interval for nodes in the network in 
+*    millis. Must be between 5 and 60000.
+* @param radio_mode The radio mode the mesh shall operate on. Must be the same
+*    across all nodes in the mesh. NOT YET IMPLEMENTED
+* @param packet_format The format the packets should follow. NOT YET IMPLEMENTED
+*/
+typedef struct
+{
+    uint32_t access_addr;
+    uint8_t channel;
+    uint8_t handle_count;
+    uint8_t adv_int_ms;
+    rbc_mesh_radio_mode_t radio_mode;
+    rbc_mesh_packet_format_t packet_format;
+} rbc_mesh_init_params_t;
+
 /*****************************************************************************
      Interface Functions 
 *****************************************************************************/
@@ -51,34 +114,12 @@ typedef struct
 *    the mesh framework intialization is called, otherwise, the function will
 *    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED.
 * 
-* @param[in] access_addr The access address the mesh will work on. This must be the 
-*    same for all nodes in the mesh. RBC_MESH_ACCESS_ADDRESS_BLE_ADV gives the mesh
-*    the same access address as regular BLE advertisements, which makes the
-*    traffic visible to external BLE devices (Note that other access addresses 
-*    does not provide any data security, the traffic is merely ignored by 
-*    regular BLE radios). Multiple meshes may in theory work concurrently in 
-*    the same area with different access addresses, but will be prone to 
-*    on-air collisions, and it is recommended to use separate channels for this
-* @param[in] channel The BLE channel the mesh works on. It is strongly recommended 
-*    to use one of the three adv channels 37, 38 or 39, as others may be prone
-*    to on-air collisions with WiFi channels. Separate meshes may work 
-*    concurrently without packet collision if they are assigned to different 
-*    channels. Must be between 1 and 39.
-* @param[in] handle_count The maximum number of handle-value pairs available to the
-*    application. May not be higher than 155 due to BLE namespace requirements
-* @param[in] adv_int_ms The minimum adv_interval for nodes in the network in 
-*    millis. Must be between 5 and 60000.
-* 
 * @return NRF_SUCCESS the initialization is successful 
 * @return NRF_ERROR_INVALID_PARAM a parameter does not meet its requiremented range.
 * @return NRF_ERROR_INVALID_STATE the framework has already been initialized.
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
-uint32_t rbc_mesh_init(
-    uint32_t access_addr, 
-    uint8_t channel, 
-    uint8_t handle_count, 
-    uint8_t adv_int_ms);
+uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
 
 /**
 * @brief Set the contents of the data array pointed to by the provided handle
