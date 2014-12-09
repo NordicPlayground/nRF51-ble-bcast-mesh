@@ -112,8 +112,17 @@ int main(void)
     
     error_code = sd_ble_enable(&ble_enable_params);
     APP_ERROR_CHECK(error_code);
+   
+    rbc_mesh_init_params_t init_params;
     
-    error_code = rbc_mesh_init(0x3414A68F, 37, 1, 100);
+    init_params.access_addr = 0xA541A68F;
+    init_params.adv_int_ms = 100;
+    init_params.channel = 38;
+    init_params.handle_count = 1;
+    init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
+    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
+    
+    error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
     
