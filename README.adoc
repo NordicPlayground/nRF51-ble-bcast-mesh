@@ -481,9 +481,11 @@ handle-value pair. The rest of the program operates strictly on the stack, and
 compiled at Optimization level -O0, Keil reports a program size of approx.
 10kB, and stack size of 5.5kB for the Template project under `examples/`.
 
-== Why this was made
-This project is created in collaboration with The Norwegian University of 
-Science and Technology (NTNU), as part of a master thesis. 
+== About
+This project was created in collaboration with The Norwegian University of 
+Science and Technology (NTNU), as part of a master thesis. The project is not
+part of the official Nordic Semiconductor SDK. Developers are welcome to contribute
+and provide feedback.
 
 == Forum
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
