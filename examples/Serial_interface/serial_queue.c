@@ -37,7 +37,14 @@ bool serial_queue_dequeue(serial_queue_t *queue, serial_data_t *p_data)
 
 bool serial_queue_enqueue(serial_queue_t *queue, serial_data_t *p_data)
 {
-	const uint8_t length = p_data->buffer[0];
+	uint8_t length = p_data->buffer[0];
+    
+    /* secure that buffer length isn't violated */
+    if (length > SERIAL_DATA_MAX_LEN + 2)
+    {
+        length = SERIAL_DATA_MAX_LEN + 2;
+    }
+    
 
 	APP_ERROR_CHECK_BOOL(NULL != queue);
 	APP_ERROR_CHECK_BOOL(NULL != p_data);

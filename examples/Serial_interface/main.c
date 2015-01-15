@@ -5,6 +5,7 @@
 
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
+#include "nrf_gpio.h"
 #include "app_error.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -21,7 +22,9 @@
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    NVIC_SystemReset();
+    nrf_gpio_cfg_output(1);
+    nrf_gpio_pin_set(1);
+    //NVIC_SystemReset();
 }
 
 /**
@@ -33,7 +36,9 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    NVIC_SystemReset();
+    nrf_gpio_cfg_output(1);
+    nrf_gpio_pin_set(1);
+    //NVIC_SystemReset();
 }
 
 /**
@@ -41,7 +46,9 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 */
 void HardFault_Handler(void)
 {
-    NVIC_SystemReset();
+    nrf_gpio_cfg_output(1);
+    nrf_gpio_pin_set(1);
+    //NVIC_SystemReset();
 }
 
 /**
@@ -100,8 +107,6 @@ int main(void)
     error_code = sd_ble_enable(&ble_enable_params);
     APP_ERROR_CHECK(error_code);
     
-    error_code = rbc_mesh_init(0xA541A68F, 38, 1, 100);
-    APP_ERROR_CHECK(error_code);
     
     mesh_aci_init();
     

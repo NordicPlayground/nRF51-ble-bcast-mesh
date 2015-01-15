@@ -5,7 +5,7 @@
 #include "rbc_mesh.h"
 #include <stdint.h>
 
-typedef enum
+typedef __packed enum
 {
     SERIAL_CMD_OPCODE_ECHO                  = 0x02,
     SERIAL_CMD_OPCODE_INIT                  = 0x70,
