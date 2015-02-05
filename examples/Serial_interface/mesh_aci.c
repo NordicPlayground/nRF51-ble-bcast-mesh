@@ -158,6 +158,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
                 serial_evt.params.cmd_rsp.response.val_get.handle = serial_cmd->params.value_get.handle;
                 serial_evt.length += 3 + 1 + 1 + 6; /* opcode + command + status + handle + addr_type + addr */
             }
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
             
             serial_handler_event_send(&serial_evt);
 			break;
