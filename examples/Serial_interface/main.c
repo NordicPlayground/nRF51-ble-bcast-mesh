@@ -7,14 +7,38 @@
 #include "nrf_sdm.h"
 #include "nrf_gpio.h"
 #include "app_error.h"
+#include "nrf_delay.h"
+#include "boards.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
   
+/* Debug macros for debugging with logic analyzer */
+#define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
+#define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
+#define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
+
 
 /**
-* @brief Softdevice crash handler, resets chip
+* @brief General error handler. Sets the LEDs to blink forever
+*/
+static void error_loop(void)
+{
+    SET_PIN(7);
+    while (true)
+    {
+        nrf_delay_ms(500);
+        SET_PIN(LED_0);
+        CLEAR_PIN(LED_1);
+        nrf_delay_ms(500);
+        CLEAR_PIN(LED_0);
+        SET_PIN(LED_1);
+    }
+}    
+
+/**
+* @brief Softdevice crash handler, never returns
 * 
 * @param[in] pc Program counter at which the assert failed
 * @param[in] line_num Line where the error check failed 
@@ -22,13 +46,12 @@
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    nrf_gpio_cfg_output(1);
-    nrf_gpio_pin_set(1);
-    //NVIC_SystemReset();
+    error_loop();
 }
 
 /**
 * @brief App error handle callback. Called whenever an APP_ERROR_CHECK() fails.
+*   Never returns.
 * 
 * @param[in] error_code The error code sent to APP_ERROR_CHECK()
 * @param[in] line_num Line where the error check failed 
@@ -36,19 +59,12 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    nrf_gpio_cfg_output(1);
-    nrf_gpio_pin_set(1);
-    //NVIC_SystemReset();
+    error_loop();
 }
 
-/**
-* @brief Hardfault handler, resets chip
-*/
 void HardFault_Handler(void)
 {
-    nrf_gpio_cfg_output(1);
-    nrf_gpio_pin_set(1);
-    //NVIC_SystemReset();
+    error_loop();
 }
 
 /**
@@ -107,6 +123,7 @@ int main(void)
     error_code = sd_ble_enable(&ble_enable_params);
     APP_ERROR_CHECK(error_code);
     
+    nrf_gpio_cfg_output(LED_0);
     
     mesh_aci_init();
     
