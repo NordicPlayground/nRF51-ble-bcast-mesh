@@ -47,7 +47,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\</OutputDirectory>
-          <OutputName>rbc_mesh_led_pca10001</OutputName>
+          <OutputName>rbc_mesh_led</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -363,7 +363,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>BOARD_PCA10001 NRF51</Define>
+              <Define>BOARD_PCA10000 NRF51</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\SDK\nrf51822\Include;..\..\..\..\..\SDK\nrf51822\Include\ble;..\..\..\..\..\SDK\nrf51822\Include\ble\ble_services;..\..\..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\..\..\SDK\nrf51822\Include\s110;..\..\..\..\..\SDK\nrf51822\Include\app_common;..\..\..\..\..\SDK\nrf51822\Include\gcc</IncludePath>
             </VariousControls>
@@ -487,6 +487,11 @@
               <FileName>nrf_delay.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\SDK\nrf51822\Source\nrf_delay\nrf_delay.c</FilePath>
+            </File>
+            <File>
+              <FileName>simple_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
             </File>
           </Files>
         </Group>

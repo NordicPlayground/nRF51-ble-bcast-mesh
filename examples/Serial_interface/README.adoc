@@ -1,0 +1,41 @@
+= Serial Interface
+This application is an experimental implementation of an asynchrounous serial
+interface for the mesh. The interface enables the nRF51 to act as a slave
+device, being controlled by other microcontrollers (e.g. Arduinos, Spark.io
+controllers or regular MCUs). The Interface shares a lot of properties with the
+serial interface used on the nRF8001, both in transport protocol and
+event/command packet structure. The interface is accessed via SPI with an
+additional slave ready wire, allowing the slave to request communication when
+it receives events from other nodes, in the same manner as the nRF8001. 
+
+== Usage
+The application is meant to be used with a host side library similar to that of
+https://github.com/NordicSemiconductor/ble-sdk-arduino[ble-sdk-arduino], the
+Arduino host SDK for nRF8001. A mesh interfacing version of this library is 
+still not implemented. 
+
+== Protocol
+The interface works over the SPI as a slave, with an additional SLAVE READY
+wire. Packets follow the structure displayed in /doc/serial_interface.xlsx.
+Note that packets from the slave to the master begin with a one byte debug
+code before the rest of the packet.
+
+== Pin configuration
+The interface may be programmed to use any set of pins on the controller, but
+by default, this is the setup:
+
+.Pin Configuration
+|===
+| Interface | Pin | Description 
+
+| MISO      | 12  | SPI master in, slave out
+| MOSI      | 13  | SPI master out, slave in
+| SCK       | 14  | SPI clock
+| CSN       | 15  | SPI chip select
+| RDYN      | 16  | Slave ready to send
+|===
+
+== Future development
+The serial interface is meant to get a host side implementation on both the
+Arduino platform and the Spark.io. These implementations build upon the
+hal_aci_tl module in the BLE SDK Arduino, and will provide a similar interface.

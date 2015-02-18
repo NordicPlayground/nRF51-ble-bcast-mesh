@@ -59,17 +59,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
 * @brief General error handler. Sets the LEDs to blink forever
 */
-static void error_loop(void)
+static void error_loop(char* message)
 {
     SET_PIN(7);
     while (true)
     {
+        simple_uart_putstring((uint8_t*) message);
         nrf_delay_ms(500);
         SET_PIN(LED_0);
         CLEAR_PIN(LED_1);
         nrf_delay_ms(500);
-        SET_PIN(LED_1);
         CLEAR_PIN(LED_0);
+        SET_PIN(LED_1);
     }
 }    
 
@@ -82,7 +83,13 @@ static void error_loop(void)
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    error_loop();
+    char str[256];
+    sprintf(str, "SD ERROR: PC: %d, LINE: %d, FILE: %s\n", 
+        pc, 
+        line_num, 
+        p_file_name);
+    
+    error_loop(str);
 }
 
 /**
@@ -95,20 +102,20 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    error_loop();
+    SET_PIN(7);
+    
+    char str[256];
+    sprintf(str, "APP ERROR: CODE: %d, LINE: %d, FILE: %s\n", 
+        error_code, 
+        line_num, 
+        p_file_name);
+    
+    error_loop(str);
 }
 
 void HardFault_Handler(void)
 {
-    NVIC_SystemReset();
-}
-
-/**
-* @brief Softdevice event handler 
-*/
-void SD_EVT_IRQHandler(void)
-{
-    rbc_mesh_sd_irq_handler();
+    error_loop("HARDFAULT\n");
 }
 
 /**
@@ -130,6 +137,9 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
                 break;
             
             led_config(evt->value_handle, evt->data[0]);
+            //char str[128];
+            //sprintf(str, "Handle %d: new value: %d\n", evt->value_handle, evt->data[0]);
+            //simple_uart_putstring((uint8_t*) str);
             break;
     }
 }
@@ -163,6 +173,7 @@ static void gpiote_init(void)
 
 #endif
 
+#ifdef BOARD_PCA10001
 void GPIOTE_IRQHandler(void)
 {
     NRF_GPIOTE->EVENTS_PORT = 0;
@@ -180,6 +191,7 @@ void GPIOTE_IRQHandler(void)
     }
 
 }
+#endif
 
 void test_app_init(void)
 {   
@@ -206,6 +218,8 @@ void test_app_init(void)
 
 int main(void)
 {
+    simple_uart_config(RTS_PIN_NUMBER, TX_PIN_NUMBER, CTS_PIN_NUMBER, RX_PIN_NUMBER, true);
+
     uint32_t error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
     

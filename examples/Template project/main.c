@@ -38,14 +38,45 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
 #include "app_error.h"
+#include "simple_uart.h"
+#include "nrf_delay.h"
+#include "boards.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
   
+/* Debug macros for debugging with logic analyzer */
+#define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
+#define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
+#define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
+
+/* Aliases for LEDs */
+#ifdef BOARD_PCA10000
+    #define LED_0 LED_RGB_RED
+    #define LED_1 LED_RGB_GREEN
+#endif
 
 /**
-* @brief Softdevice crash handler, resets chip
+* @brief General error handler. Sets the LEDs to blink forever
+*/
+static void error_loop(char* message)
+{
+    SET_PIN(7);
+    while (true)
+    {
+        simple_uart_putstring((uint8_t*) message);
+        nrf_delay_ms(500);
+        SET_PIN(LED_0);
+        CLEAR_PIN(LED_1);
+        nrf_delay_ms(500);
+        CLEAR_PIN(LED_0);
+        SET_PIN(LED_1);
+    }
+}    
+
+/**
+* @brief Softdevice crash handler, never returns
 * 
 * @param[in] pc Program counter at which the assert failed
 * @param[in] line_num Line where the error check failed 
@@ -53,11 +84,35 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    NVIC_SystemReset();
+    char str[256];
+    sprintf(str, "SD ERROR: PC: %d, LINE: %d, FILE: %s\n", 
+        pc, 
+        line_num, 
+        p_file_name);
+    
+    error_loop(str);
+}
+
+/**
+* 
+* @param[in] pc Program counter at which the assert failed
+* @param[in] line_num Line where the error check failed 
+* @param[in] p_file_name File where the error check failed
+*/
+void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
+{
+    char str[256];
+    sprintf(str, "SD ERROR: PC: %d, LINE: %d, FILE: %s\n", 
+        pc, 
+        line_num, 
+        p_file_name);
+    
+    error_loop(str);
 }
 
 /**
 * @brief App error handle callback. Called whenever an APP_ERROR_CHECK() fails.
+*   Never returns.
 * 
 * @param[in] error_code The error code sent to APP_ERROR_CHECK()
 * @param[in] line_num Line where the error check failed 
@@ -65,23 +120,20 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    NVIC_SystemReset();
+    SET_PIN(7);
+    
+    char str[256];
+    sprintf(str, "APP ERROR: CODE: %d, LINE: %d, FILE: %s\n", 
+        error_code, 
+        line_num, 
+        p_file_name);
+    
+    error_loop(str);
 }
 
-/**
-* @brief Hardfault handler, resets chip
-*/
 void HardFault_Handler(void)
 {
-    NVIC_SystemReset();
-}
-
-/**
-* @brief Softdevice event handler, forwards SD events to rbc_mesh framework 
-*/
-void SD_EVT_IRQHandler(void)
-{
-    rbc_mesh_sd_irq_handler();
+    error_loop("HARDFAULT\n");
 }
 
 /**
@@ -104,6 +156,8 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 
 int main(void)
 {
+    simple_uart_config(RTS_PIN_NUMBER, TX_PIN_NUMBER, CTS_PIN_NUMBER, RX_PIN_NUMBER, true);
+	
     uint32_t error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
     
@@ -112,17 +166,8 @@ int main(void)
     
     error_code = sd_ble_enable(&ble_enable_params);
     APP_ERROR_CHECK(error_code);
-   
-    rbc_mesh_init_params_t init_params;
     
-    init_params.access_addr = 0xA541A68F;
-    init_params.adv_int_ms = 100;
-    init_params.channel = 38;
-    init_params.handle_count = 1;
-    init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
-    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
-    
-    error_code = rbc_mesh_init(init_params);
+    error_code = rbc_mesh_init(0xA541A68F, 38, 1, 100);
     APP_ERROR_CHECK(error_code);
     
     
