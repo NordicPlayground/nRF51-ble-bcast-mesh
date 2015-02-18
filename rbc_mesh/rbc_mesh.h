@@ -58,6 +58,7 @@ typedef enum
     RBC_MESH_EVENT_TYPE_UPDATE_VAL,      /** Another node has updated the value */
     RBC_MESH_EVENT_TYPE_CONFLICTING_VAL, /** Another node has a conflicting version of the value */
     RBC_MESH_EVENT_TYPE_NEW_VAL,         /** A previously unallocated value has been received and allocated */
+    RBC_MESH_EVENT_TYPE_INITIALIZED      /** The framework has been initialized internally (most likely via serial interface) */
 } rbc_mesh_event_type_t;
 
 /** 
@@ -160,33 +161,6 @@ typedef struct
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
 uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
-
-/**
-* @brief Set the contents of the data array pointed to by the provided handle
-* 
-* @note If the indicated handle-value pair is in a disabled state, it will 
-*   automatically be enabled.
-*
-* @param[in] handle The handle of the value we want to update. Is mesh-global.
-* @param[in] data Databuffer to be copied into the value slot
-* @param[in] len Length of the provided data. Must not exceed RBC_VALUE_MAX_LEN.
-* 
-* @return NRF_SUCCESS if the value has been successfully updated.
-* @return NRF_ERROR_INVALID_STATE if the framework has not been initialized.
-* @return NRF_ERROR_INVALID_ADDR if the handle is outside the range provided
-*    in @ref rbc_mesh_init.
-* @return NRF_ERROR_INVALID_LENGTH if len exceeds RBC_VALUE_MAX_LEN.
-*/
-uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
-
-/**
-* @brief Start broadcasting the handle-value pair. If the handle has not been 
-*   assigned a value yet, it will start broadcasting a version 0 value, so 
-*   that adjacent nodes may push an updated version of the handle-value pair.
-*
-* @note The value broadcast is sent asynchronously to the function call, and 
-*   a response is likely to be received after several milliseconds (depending
-*   on the adv_int_ms value set in @ref rbc_mesh_init
 
 /**
 * @brief Set the contents of the data array pointed to by the provided handle

@@ -38,6 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "timeslot_handler.h"
 #include "trickle.h"
 #include "rbc_mesh_common.h"
+#include "mesh_aci.h"
 
 #include "nrf_soc.h"
 #include "nrf_error.h"
@@ -620,6 +621,9 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         memcpy(&update_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
         
         rbc_mesh_event_handler(&update_evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&update_evt);
+#endif
     }
     else if (version == ch_md->version_number)
     {
@@ -661,6 +665,9 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
             trickle_rx_inconsistent(&ch_md->trickle);
             
             rbc_mesh_event_handler(&conflicting_evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&conflicting_evt);
+#endif
         }
         else
         { 
@@ -786,6 +793,9 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
             memcpy(&update_evt.originator_address, &my_addr, sizeof(ble_gap_addr_t));
             
             rbc_mesh_event_handler(&update_evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&update_evt);
+#endif
             
             return NRF_SUCCESS;
         }
