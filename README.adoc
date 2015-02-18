@@ -24,7 +24,7 @@ just as any other GATT service, through a connection established via the
 Softdevice. See section <<gatt-service>> for details about structure and
 access. 
 
-The framework also has support for external control via SPI. The serial interface is based on the nRF8001 SPI interface, with different opcodes. A host side implementation for Arduino will be released on the [Arduino SDK](https://github.com/NordicSemiconductor/ble-sdk-arduino) soon. This allows you to operate an Arduino along with an nRF51 dev kit in the mesh, making it easier to create mesh applications. Each example project has a separate target (named "nRF51822 xxAA serial") that incorporates the serial interface with the rest of the project.
+The framework also has support for external control via SPI. The serial interface is based on the nRF8001 SPI interface, with different opcodes. A host side implementation for Arduino will be released on the https://github.com/NordicSemiconductor/ble-sdk-arduino[Arduino SDK] soon. This allows you to operate an Arduino along with an nRF51 dev kit in the mesh, making it easier to create mesh applications. Each example project has a separate target (named "nRF51822 xxAA serial") that incorporates the serial interface with the rest of the project.
 
 == Basic concepts
 
