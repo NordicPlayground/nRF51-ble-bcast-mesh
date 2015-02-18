@@ -138,6 +138,7 @@ static void gpiote_init(void)
 
 #endif
 
+#ifdef BOARD_PCA10001
 void GPIOTE_IRQHandler(void)
 {
     NRF_GPIOTE->EVENTS_PORT = 0;
@@ -155,6 +156,7 @@ void GPIOTE_IRQHandler(void)
     }
 
 }
+#endif
 
 void test_app_init(void)
 {   
@@ -191,9 +193,9 @@ int main(void)
     error_code = rbc_mesh_init(0xA541A68F, 38, 2, 100);
     APP_ERROR_CHECK(error_code);
     
-    error_code = rbc_mesh_value_req(1);
+    error_code = rbc_mesh_value_enable(1);
     APP_ERROR_CHECK(error_code);
-    error_code = rbc_mesh_value_req(2);
+    error_code = rbc_mesh_value_enable(2);
     APP_ERROR_CHECK(error_code);
     
     

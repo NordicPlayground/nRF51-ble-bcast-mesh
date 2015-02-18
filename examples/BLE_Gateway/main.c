@@ -168,9 +168,9 @@ int main(void)
     
 #if 1
     /* request values for both LEDs on the mesh */
-    error_code = rbc_mesh_value_req(1);
+    error_code = rbc_mesh_value_enable(1);
     APP_ERROR_CHECK(error_code);
-    error_code = rbc_mesh_value_req(2);
+    error_code = rbc_mesh_value_enable(2);
     APP_ERROR_CHECK(error_code);
 #endif
     /* init leds and pins */
