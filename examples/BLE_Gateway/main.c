@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_adv_conn.h"
 #include "led_config.h"
 #include "timeslot_handler.h"
+#include "mesh_aci.h"
 
 #include "nrf_soc.h"
 #include "nrf_assert.h"
@@ -155,6 +156,10 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
             
             led_config(evt->value_handle, evt->data[0]);
             break;
+        case RBC_MESH_EVENT_TYPE_INITIALIZED:
+            /* init BLE gateway softdevice application: */
+            nrf_adv_conn_init();
+            break;  
     }
 }
 
@@ -189,6 +194,7 @@ int main(void)
     /* Enable Softdevice (including sd_ble before framework */
     uint32_t error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
+    APP_ERROR_CHECK(error_code);
     
     ble_enable_params_t ble_enable_params;
     ble_enable_params.gatts_enable_params.service_changed = 0;
@@ -196,6 +202,15 @@ int main(void)
     error_code = sd_ble_enable(&ble_enable_params);
     APP_ERROR_CHECK(error_code);
     
+    /* init leds and pins */
+    gpio_init();
+    
+#ifdef RBC_MESH_SERIAL
+    
+    /* only want to enable serial interface, and let external host setup the framework */
+    mesh_aci_init();
+
+#else    
     /* Enable mesh framework on channel 37, min adv interval at 100ms, 
         2 characteristics */
     rbc_mesh_init_params_t init_params;
@@ -210,21 +225,21 @@ int main(void)
     error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
-#if 1
     /* request values for both LEDs on the mesh */
     error_code = rbc_mesh_value_enable(1);
     APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_enable(2);
     APP_ERROR_CHECK(error_code);
+    
+    
+    /* init BLE gateway softdevice application: */
+    nrf_adv_conn_init();
+    
 #endif
-    /* init leds and pins */
-    gpio_init();
     
     /* enable softdevice IRQ */
     sd_nvic_EnableIRQ(SD_EVT_IRQn);
     
-    /* init BLE gateway softdevice application: */
-    nrf_adv_conn_init();
     
     /* sleep */
     while (true)

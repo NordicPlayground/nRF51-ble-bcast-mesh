@@ -171,20 +171,21 @@ void nrf_adv_conn_init(void)
 
 void nrf_adv_conn_evt_handler(ble_evt_t* evt)
 {
-    /* pass the event to the mesh framework as well */
-    APP_ERROR_CHECK(rbc_mesh_ble_evt_handler(evt));
-    
-    switch (evt->header.evt_id & 0xF0)
+    if (rbc_mesh_ble_evt_handler(evt) == NRF_SUCCESS)
     {
-    case BLE_GAP_EVT_BASE:
-        ble_gap_event_handler(evt);
-        break;
+        
+        switch (evt->header.evt_id & 0xF0)
+        {
+        case BLE_GAP_EVT_BASE:
+            ble_gap_event_handler(evt);
+            break;
 
-    case BLE_GATTS_EVT_BASE:
-        ble_gatts_event_handler(evt);
-        break;
+        case BLE_GATTS_EVT_BASE:
+            ble_gatts_event_handler(evt);
+            break;
 
-    default:
-        break;
+        default:
+            break;
+        }
     }
 }
