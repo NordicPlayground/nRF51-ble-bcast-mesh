@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 
 #include "led_config.h"
+#include "mesh_aci.h"
 
 #include "nrf_soc.h"
 #include "nrf_assert.h"
@@ -225,6 +226,10 @@ int main(void)
     
     test_app_init();
     
+#ifdef RBC_MESH_SERIAL
+    mesh_aci_init();
+#else    
+    
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr = 0xA541A68F;
@@ -241,7 +246,7 @@ int main(void)
     APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_enable(2);
     APP_ERROR_CHECK(error_code);
-    
+#endif    
     
     sd_nvic_EnableIRQ(SD_EVT_IRQn);
     

@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "rbc_mesh.h"
+#include "mesh_aci.h"
 
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
@@ -77,23 +78,6 @@ static void error_loop(char* message)
 
 /**
 * @brief Softdevice crash handler, never returns
-* 
-* @param[in] pc Program counter at which the assert failed
-* @param[in] line_num Line where the error check failed 
-* @param[in] p_file_name File where the error check failed
-*/
-void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
-{
-    char str[256];
-    sprintf(str, "SD ERROR: PC: %d, LINE: %d, FILE: %s\n", 
-        pc, 
-        line_num, 
-        p_file_name);
-    
-    error_loop(str);
-}
-
-/**
 * 
 * @param[in] pc Program counter at which the assert failed
 * @param[in] line_num Line where the error check failed 
@@ -167,9 +151,27 @@ int main(void)
     error_code = sd_ble_enable(&ble_enable_params);
     APP_ERROR_CHECK(error_code);
     
-    error_code = rbc_mesh_init(0xA541A68F, 38, 1, 100);
+#ifdef RBC_MESH_SERIAL
+    
+    /* only want to enable serial interface, and let external host setup the framework */
+    mesh_aci_init();
+
+#else    
+    /* Enable mesh framework on channel 37, min adv interval at 100ms, 
+        2 characteristics */
+    rbc_mesh_init_params_t init_params;
+
+    init_params.access_addr = 0xA541A68F;
+    init_params.adv_int_ms = 100;
+    init_params.channel = 38;
+    init_params.handle_count = 1;
+    init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
+    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
+    
+    error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
+#endif
     
     /* sleep */
     while (true)
