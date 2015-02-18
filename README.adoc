@@ -1,9 +1,16 @@
 = nRF51-ble-broadcast-mesh
 
 Bluetooth Low Energy based Rebroadcasting mesh implementation on the nRF51.
-Works with Softdevice S110 v7.x with Timeslot API.
+Works with Softdevice S110 v7.x with Timeslot API (tested), likely to work with
+S120 and S130 softdevices (not tested).
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
+
+== About
+This project was created in collaboration with The Norwegian University of 
+Science and Technology (NTNU), as part of a master thesis. The project is not
+part of the official Nordic Semiconductor SDK. Developers are welcome to contribute
+and provide feedback.
 
 == Usage
 In addition to two provided examples, there is a template project under
@@ -481,9 +488,6 @@ handle-value pair. The rest of the program operates strictly on the stack, and
 compiled at Optimization level -O0, Keil reports a program size of approx.
 10kB, and stack size of 5.5kB for the Template project under `examples/`.
 
-== Why this was made
-This project is created in collaboration with The Norwegian University of 
-Science and Technology (NTNU), as part of a master thesis. 
 
 == Forum
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
