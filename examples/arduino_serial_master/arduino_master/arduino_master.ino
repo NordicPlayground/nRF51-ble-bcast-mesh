@@ -1,3 +1,38 @@
+/***********************************************************************************
+Copyright (c) Nordic Semiconductor ASA
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright notice, this
+  list of conditions and the following disclaimer in the documentation and/or
+  other materials provided with the distribution.
+
+  3. Neither the name of Nordic Semiconductor ASA nor the names of other
+  contributors to this software may be used to endorse or promote products
+  derived from this software without specific prior written permission.
+
+  4. This software must only be used in a processor manufactured by Nordic
+  Semiconductor ASA, or in a processor manufactured by a third party that
+  is used in combination with a processor manufactured by Nordic Semiconductor.
+
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+************************************************************************************/
+
 #include <SPI.h>
 #include "lib_aci.h"
 
@@ -9,6 +44,11 @@ static aci_pins_t pins;
 static uint8_t         uart_buffer[20];
 static uint8_t         uart_buffer_len = 0;
 static uint8_t         dummychar = 0;
+
+void print(char* str){
+	Serial.println(str);
+
+}
 
 void __ble_assert(const char *file, uint16_t line)
 {
@@ -121,16 +161,29 @@ void loop() {
      else{
        Serial.println(F("get 2 done"));
      }
+	mesh_interface_wait_for_answer(0x00, 0x00);
     }//*/
     if(num > 3){
       uint8_t on = (num/2) % 2;
       uint8_t handle = (num % 2) + 1;
-      if(!mesh_interface_send_value_set(handle, &on, (uint8_t) 1)){
-       Serial.println(F("set dropped"));
-     }
-     else{
-       Serial.println(F("set done"));
-     }
+      if(handle == 1) {
+		mesh_interface_send_value_set((uint8_t)2, &on, (uint8_t) 1);
+       		Serial.println(F("set done"));
+	}
+      if(handle == 2){
+		mesh_interface_send_value_get((uint8_t) 2);
+       		Serial.println(F("get done"));
+		uint8_t value = 7;
+    		mesh_interface_wait_for_answer(&value, sizeof(uint8_t));
+       		Serial.print("answer = ");
+       		Serial.println(value);
+	}
+      //if(!mesh_interface_send_value_set(handle, &on, (uint8_t) 1)){
+       //Serial.println(F("set dropped"));
+     //}
+     //else{
+       //Serial.println(F("set done"));
+     //}
     }
 
     // clear the uart_buffer:
