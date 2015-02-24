@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "radio_control.h"
 #include "timer_control.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 /**
 * @file Module responsible for providing a safe interface to Softdevice 

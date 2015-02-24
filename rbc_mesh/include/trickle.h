@@ -35,9 +35,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _TRICKLE_H__
 #define _TRICKLE_H__
-#include <stdint.h>
 #include "nrf51.h"
-#include "app_timer.h"
+#include <stdint.h>
+#include <stdbool.h>
 /**
 * @file Implementation of Trickle algorithm described in IETF RFC6206
 *   http://tools.ietf.org/html/rfc6206

@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "trickle.h"
 #include "ble.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 /**
 * @file Module handling all data storage related functionality.
