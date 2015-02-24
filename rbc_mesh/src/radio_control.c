@@ -40,6 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "trickle.h"
 #include "nrf.h"
 #include "nrf_sdm.h"
+#include "app_error.h"
 
 #include <stdbool.h>
 #include <string.h>

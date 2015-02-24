@@ -40,7 +40,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_gpio.h"
 #include "app_error.h"
 #include "app_util_platform.h"
-#include "boards.h"
 #include <string.h>
 /** @brief Pin configuration for the application */
 #define PIN_MISO            (12)

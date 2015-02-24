@@ -35,9 +35,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "transport_control.h"
 
-#include "boards.h"
-#include "nrf_delay.h"
-
 #include "radio_control.h"
 #include "timer_control.h"
 #include "mesh_srv.h"

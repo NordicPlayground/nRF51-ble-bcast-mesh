@@ -45,11 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_sdm.h"
 #include "app_error.h"
 #include "nrf_assert.h"
-#include "nrf_delay.h"
-#include "nrf_gpio.h"
 #include "nrf_soc.h"
-#include "boards.h"
-#include "simple_uart.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
