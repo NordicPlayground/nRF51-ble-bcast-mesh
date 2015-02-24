@@ -623,11 +623,6 @@
           <GroupName>lib</GroupName>
           <Files>
             <File>
-              <FileName>ble_advdata.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
-            </File>
-            <File>
               <FileName>nrf_delay.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\SDK\nrf51822\Source\nrf_delay\nrf_delay.c</FilePath>
@@ -1176,11 +1171,6 @@
         <Group>
           <GroupName>lib</GroupName>
           <Files>
-            <File>
-              <FileName>ble_advdata.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
-            </File>
             <File>
               <FileName>nrf_delay.c</FileName>
               <FileType>1</FileType>

@@ -613,14 +613,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf51.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\templates\system_nrf51.c</FilePath>
-            </File>
-            <File>
               <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\templates\arm\arm_startup_nrf51.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
+            </File>
+            <File>
+              <FileName>system_nrf51.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -657,16 +657,16 @@
       <ToolsetName>ARM-ADS</ToolsetName>
       <TargetOption>
         <TargetCommonOption>
-          <Device>nRF51822_xxAB</Device>
+          <Device>nRF51822_xxAA</Device>
           <Vendor>Nordic Semiconductor</Vendor>
           <PackID>NordicSemiconductor.nRF_DeviceFamilyPack.1.1.4</PackID>
           <PackURL>http://developer.nordicsemi.com/nRF51_SDK/pieces/nRF_DeviceFamilyPack/</PackURL>
-          <Cpu>IROM(0x00000000,0x20000) IRAM(0x20000000,0x4000) CPUTYPE("Cortex-M0") CLOCK(12000000) ELITTLE</Cpu>
+          <Cpu>IROM(0x00000000,0x40000) IRAM(0x20000000,0x4000) CPUTYPE("Cortex-M0") CLOCK(12000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile></StartupFile>
-          <FlashDriverDll>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0nrf51xxx -FS00 -FL0200000 -FP0($$Device:nRF51822_xxAB$Flash\nrf51xxx.flm))</FlashDriverDll>
+          <FlashDriverDll>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0nrf51xxx -FS00 -FL0200000 -FP0($$Device:nRF51822_xxAA$Flash\nrf51xxx.flm))</FlashDriverDll>
           <DeviceId>0</DeviceId>
-          <RegisterFile>$$Device:nRF51822_xxAB$Device\Include\nrf.h</RegisterFile>
+          <RegisterFile>$$Device:nRF51822_xxAA$Device\Include\nrf.h</RegisterFile>
           <MemoryEnv></MemoryEnv>
           <Cmp></Cmp>
           <Asm></Asm>
@@ -676,7 +676,7 @@
           <SLE66CMisc></SLE66CMisc>
           <SLE66AMisc></SLE66AMisc>
           <SLE66LinkerMisc></SLE66LinkerMisc>
-          <SFDFile>$$Device:nRF51822_xxAB$SVD\nrf51.xml</SFDFile>
+          <SFDFile>$$Device:nRF51822_xxAA$SVD\nrf51.xml</SFDFile>
           <bCustSvd>0</bCustSvd>
           <UseEnv>0</UseEnv>
           <BinPath></BinPath>
@@ -792,7 +792,7 @@
             <RestoreSysVw>1</RestoreSysVw>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
-          <TargetSelection>6</TargetSelection>
+          <TargetSelection>1</TargetSelection>
           <SimDlls>
             <CpuDll></CpuDll>
             <CpuDllArguments></CpuDllArguments>
@@ -806,7 +806,7 @@
             <PeripheralDll></PeripheralDll>
             <PeripheralDllArguments></PeripheralDllArguments>
             <InitializationFile></InitializationFile>
-            <Driver>Segger\JL2CM3.dll</Driver>
+            <Driver>BIN\UL2CM3.DLL</Driver>
           </TargetDlls>
         </DebugOption>
         <Utilities>
@@ -820,7 +820,7 @@
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3>"" ()</Flash3>
+          <Flash3></Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -930,7 +930,7 @@
               <IROM>
                 <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
-                <Size>0x20000</Size>
+                <Size>0x40000</Size>
               </IROM>
               <XRAM>
                 <Type>0</Type>
@@ -1129,14 +1129,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf51.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\templates\system_nrf51.c</FilePath>
-            </File>
-            <File>
               <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\templates\arm\arm_startup_nrf51.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
+            </File>
+            <File>
+              <FileName>system_nrf51.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
           </Files>
         </Group>
