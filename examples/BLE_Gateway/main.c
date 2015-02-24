@@ -43,10 +43,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_assert.h"
 #include "nrf_sdm.h"
 #include "app_error.h"
-#include "nrf_delay.h"
 #include "nrf_gpio.h"
 #include "boards.h"
-#include "simple_uart.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -60,20 +58,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 /**
-* @brief General error handler. Sets the LEDs to blink forever
+* @brief General error handler.
 */
-static void error_loop(char* message)
+static void error_loop(void)
 {
     SET_PIN(7);
     while (true)
     {
-        simple_uart_putstring((uint8_t*) message);
-        nrf_delay_ms(500);
-        SET_PIN(LED_0);
-        CLEAR_PIN(LED_1);
-        nrf_delay_ms(500);
-        CLEAR_PIN(LED_0);
-        SET_PIN(LED_1);
+        __WFE();
     }
 }    
 
@@ -86,13 +78,7 @@ static void error_loop(char* message)
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    char str[256];
-    sprintf(str, "SD ERROR: PC: %d, LINE: %d, FILE: %s\n", 
-        pc, 
-        line_num, 
-        p_file_name);
-    
-    error_loop(str);
+    error_loop();
 }
 
 /**
@@ -105,20 +91,12 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    SET_PIN(7);
-    
-    char str[256];
-    sprintf(str, "APP ERROR: CODE: %d, LINE: %d, FILE: %s\n", 
-        error_code, 
-        line_num, 
-        p_file_name);
-    
-    error_loop(str);
+    error_loop();
 }
 
 void HardFault_Handler(void)
 {
-    error_loop("HARDFAULT\n");
+    error_loop();
 }
 
 /**
@@ -190,7 +168,6 @@ void gpio_init(void)
 /** @brief main function */
 int main(void)
 {
-    simple_uart_config(RTS_PIN_NUMBER, TX_PIN_NUMBER, CTS_PIN_NUMBER, RX_PIN_NUMBER, true);
     /* Enable Softdevice (including sd_ble before framework */
     uint32_t error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
