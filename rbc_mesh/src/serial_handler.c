@@ -42,11 +42,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_util_platform.h"
 #include <string.h>
 /** @brief Pin configuration for the application */
-#define PIN_MISO            (12)
-#define PIN_MOSI            (13)
-#define PIN_SCK             (14)
-#define PIN_CSN             (15)
-#define PIN_RDYN            (16)
+#define PIN_MISO            (28)
+#define PIN_MOSI            (25)
+#define PIN_SCK             (29)
+#define PIN_CSN             (24)
+#define PIN_RDYN            (20)
 
 #define SERIAL_LENGTH_POS   (0)
 #define SERIAL_OPCODE_POS   (1)
