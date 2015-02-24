@@ -432,6 +432,10 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
             {
                 g_active_conn_handle = CONN_HANDLE_INVALID;
             }
+            else if (error_code == BLE_GATTS_EVT_SYS_ATTR_MISSING)
+            {
+                sd_ble_gatts_sys_attr_set(g_active_conn_handle, NULL, 0);
+            }
             else
             {
                 return NRF_ERROR_INTERNAL;
