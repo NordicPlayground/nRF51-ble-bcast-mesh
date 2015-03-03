@@ -86,9 +86,9 @@ classic BLE Softdevice connection, implemented in application space. The "BLE
 Gateway example" displays a way to achieve such behavior.
 
 == Further reading
-Link:docs/structure.adoc[Structure of the repository]
+link:docs/structure.adoc[Structure of the repository]
 
-Link:docs/how_it_works.adoc[How the mesh works]
+link:docs/how_it_works.adoc[How the mesh works]
 
 == Forum
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
