@@ -1,4 +1,5 @@
 = How it works
+
 == GATT Service
 All values are stored as separate characteristics in the Softdevice GATT server. These
 characteristics are all contained within one "Mesh" GATT service, along with
