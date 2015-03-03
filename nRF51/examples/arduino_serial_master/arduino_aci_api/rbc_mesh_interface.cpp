@@ -42,11 +42,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "boards.h"
 
-#include "mesh_interface.h"
+#include "rbc_mesh.h"
 
 hal_aci_data_t  msg_for_mesh;
 
-bool mesh_interface_send_echo(uint8_t* buffer, int len){
+bool rbc_mesh_echo(uint8_t* buffer, int len){
 	if (len > HAL_ACI_MAX_LENGTH - 1 || len < 0)
 		return false;
 
@@ -61,7 +61,7 @@ bool mesh_interface_send_echo(uint8_t* buffer, int len){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool mesh_interface_send_init(
+bool rbc_mesh_init(
 	uint8_t* access_addr,
 	uint8_t chanNr,
 	uint8_t handleCount){
@@ -88,7 +88,7 @@ bool mesh_interface_send_init(
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool mesh_interface_send_value_set(uint8_t handle, uint8_t* buffer, int len){
+bool rbc_mesh_value_set(uint8_t handle, uint8_t* buffer, int len){
 
 	if (len > HAL_ACI_MAX_LENGTH - 1 || len < 1)
 		return false;
@@ -106,7 +106,7 @@ bool mesh_interface_send_value_set(uint8_t handle, uint8_t* buffer, int len){
 }
 
 
-bool mesh_interface_send_value_enable(uint8_t handle){
+bool rbc_mesh_value_enable(uint8_t handle){
 
 	msg_for_mesh.buffer[0] = 2;		// size
 	msg_for_mesh.buffer[1] = 0x72;		// cmd opcode
@@ -116,7 +116,7 @@ bool mesh_interface_send_value_enable(uint8_t handle){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool mesh_interface_send_value_disable(uint8_t handle){
+bool rbc_mesh_value_disable(uint8_t handle){
 
 	msg_for_mesh.buffer[0] = 2;		// size
 	msg_for_mesh.buffer[1] = 0x73;		// cmd opcode
@@ -126,7 +126,7 @@ bool mesh_interface_send_value_disable(uint8_t handle){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool mesh_interface_send_value_get(uint8_t handle){
+bool rbc_mesh_value_get(uint8_t handle){
 
 	msg_for_mesh.buffer[0] = 2;		// size
 	msg_for_mesh.buffer[1] = 0x7A;		// cmd opcode
@@ -137,7 +137,7 @@ bool mesh_interface_send_value_get(uint8_t handle){
 }
 
 
-bool mesh_interface_send_build_version_get(){
+bool rbc_mesh_build_version_get(){
 
 	msg_for_mesh.buffer[0] = 1;		// size
 	msg_for_mesh.buffer[1] = 0x7B;		// cmd opcode
@@ -146,7 +146,7 @@ bool mesh_interface_send_build_version_get(){
 }
 
 
-bool mesh_interface_send_adv_addr_get(){
+bool rbc_mesh_adv_addr_get(){
 
 	msg_for_mesh.buffer[0] = 1;		// size
 	msg_for_mesh.buffer[1] = 0x7C;		// cmd opcode
@@ -154,7 +154,7 @@ bool mesh_interface_send_adv_addr_get(){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool mesh_interface_send_channel_get(){
+bool rbc_mesh_channel_get(){
 
 	msg_for_mesh.buffer[0] = 1;		// size
 	msg_for_mesh.buffer[1] = 0x7D;		// cmd opcode
@@ -162,7 +162,7 @@ bool mesh_interface_send_channel_get(){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool mesh_interface_send_handle_count_get(){
+bool rbc_mesh_handle_count_get(){
 
 	msg_for_mesh.buffer[0] = 1;		// size
 	msg_for_mesh.buffer[1] = 0x7E;		// cmd opcode
@@ -170,7 +170,7 @@ bool mesh_interface_send_handle_count_get(){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool mesh_interface_send_adv_int_get(){
+bool rbc_mesh_adv_int_get(){
 
 	msg_for_mesh.buffer[0] = 1;		// size
 	msg_for_mesh.buffer[1] = 0x7F;		// cmd opcode
@@ -178,12 +178,12 @@ bool mesh_interface_send_adv_int_get(){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-void mesh_interface_loop(){
+void rbc_mesh_loop(){
 	hal_aci_data_t data;
 	hal_aci_tl_event_get(&data);
 }
 
-void mesh_interface_wait_for_answer(uint8_t* buf, int len){
+void rbc_mesh_wait_for_answer(uint8_t* buf, int len){
 	hal_aci_data_t data;
 	
 	while(!hal_aci_tl_event_get(&data));
@@ -196,7 +196,7 @@ void mesh_interface_wait_for_answer(uint8_t* buf, int len){
 	}
 }
 
-void mesh_interface_hw_init(aci_pins_t* pins){
+void rbc_mesh_hw_init(aci_pins_t* pins){
 	
   	hal_aci_tl_init(pins, false);
 }

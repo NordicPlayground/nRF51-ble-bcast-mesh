@@ -75,14 +75,13 @@ void setup(void)
   #endif
   
   pins.board_name = BOARD_DEFAULT; //See board.h for details REDBEARLAB_SHIELD_V1_1 or BOARD_DEFAULT
-  pins.reqn_pin   = SS; //SS for Nordic board, 9 for REDBEARLAB_SHIELD_V1_1
-  pins.rdyn_pin   = 8; //3 for Nordic board, 8 for REDBEARLAB_SHIELD_V1_1
+  pins.reqn_pin   = 9; 
+  pins.rdyn_pin   = 8; 
   pins.mosi_pin   = MOSI;
   pins.miso_pin   = MISO;
   pins.sck_pin    = SCK;
 
-  pins.spi_clock_divider      = SPI_CLOCK_DIV64; //SPI_CLOCK_DIV8  = 2MHz SPI speed
-                                                 //SPI_CLOCK_DIV16 = 1MHz SPI speed
+  pins.spi_clock_divider      = SPI_CLOCK_DIV64; //The nRF51 has some trouble keeping up with high transmission speeds
   
   pins.reset_pin              = 4; //4 for Nordic board, UNUSED for REDBEARLAB_SHIELD_V1_1
   pins.active_pin             = UNUSED;
@@ -114,7 +113,7 @@ uint8_t accAddr[4] = {0x8f, 0xa6, 0x41,0xa5 };
 void loop() {
 
   //Process any ACI commands or events
-  mesh_interface_loop();
+  rbc_mesh_loop();
 
   if (stringComplete) 
   {
@@ -122,7 +121,7 @@ void loop() {
     num++;
     
     if(num == 0){
-       if (!mesh_interface_send_echo(uart_buffer, uart_buffer_len)){
+       if (!rbc_mesh_echo(uart_buffer, uart_buffer_len)){
         Serial.println(F("Serial input dropped"));
       }
       else{
@@ -130,7 +129,7 @@ void loop() {
      }
     }
     if(num == 1){
-      if(!mesh_interface_send_init(accAddr, (uint8_t) 38, (uint8_t) 2)){
+      if(!rbc_mesh_init(accAddr, (uint8_t) 38, (uint8_t) 2)){
        Serial.println(F("init dropped"));
      }
      else{
@@ -138,7 +137,7 @@ void loop() {
      }
     }
     if(num == 2){
-      if(!mesh_interface_send_value_enable((uint8_t) 1)){
+      if(!rbc_mesh_enable((uint8_t) 1)){
        Serial.println(F("enalbe 1 dropped"));
      }
      else{
@@ -153,16 +152,6 @@ void loop() {
        Serial.println(F("enable 2 done"));
      }
     }
-    /*
-    if(num == 4){
-      if(!mesh_interface_send_value_get((uint8_t) 2)){
-       Serial.println(F("get 2 dropped"));
-     }
-     else{
-       Serial.println(F("get 2 done"));
-     }
-	mesh_interface_wait_for_answer(0x00, 0x00);
-    }//*/
     if(num > 3){
       uint8_t on = (num/2) % 2;
       uint8_t handle = (num % 2) + 1;
@@ -178,12 +167,7 @@ void loop() {
        		Serial.print("answer = ");
        		Serial.println(value);
 	}
-      //if(!mesh_interface_send_value_set(handle, &on, (uint8_t) 1)){
-       //Serial.println(F("set dropped"));
-     //}
-     //else{
-       //Serial.println(F("set done"));
-     //}
+
     }
 
     // clear the uart_buffer:

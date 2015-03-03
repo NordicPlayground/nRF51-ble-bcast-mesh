@@ -44,7 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_echo(uint8_t* buffer, int len);
+bool rbc_mesh_echo(uint8_t* buffer, int len);
 
 /** @brief initialization of rcb_mesh
  *  @details
@@ -56,7 +56,7 @@ bool mesh_interface_send_echo(uint8_t* buffer, int len);
  *  false if there is no more space to store messages to send.
  *  or if chanNr is incorrect
  */
-bool mesh_interface_send_init(
+bool rbc_mesh_init(
 	uint8_t* access_addr,
 	uint8_t chanNr,
 	uint8_t handleCount);
@@ -70,7 +70,7 @@ bool mesh_interface_send_init(
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_value_set(uint8_t handle, uint8_t* buffer, int len);
+bool rbc_mesh_value_set(uint8_t handle, uint8_t* buffer, int len);
 
 /** @brief read value of a handle
  *  @details
@@ -79,7 +79,7 @@ bool mesh_interface_send_value_set(uint8_t handle, uint8_t* buffer, int len);
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_value_get(uint8_t handle);
+bool rbc_mesh_value_get(uint8_t handle);
 
 /** @brief start broadcasting value of a handle
  *  @details
@@ -88,7 +88,7 @@ bool mesh_interface_send_value_get(uint8_t handle);
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_value_enable(uint8_t handle);
+bool rbc_mesh_value_enable(uint8_t handle);
 
 /** @brief stop broadcasting value of a handle
  *  @details
@@ -97,7 +97,7 @@ bool mesh_interface_send_value_enable(uint8_t handle);
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_value_disable(uint8_t handle);
+bool rbc_mesh_value_disable(uint8_t handle);
 
 /** @brief read the build_version
  *  @details
@@ -105,7 +105,7 @@ bool mesh_interface_send_value_disable(uint8_t handle);
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_build_version_get();
+bool rbc_mesh_build_version_get();
 
 /** @brief read the advertising address
  *  @details
@@ -113,7 +113,7 @@ bool mesh_interface_send_build_version_get();
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_adv_addr_get();
+bool rbc_mesh_adv_addr_get();
 
 /** @brief read the operational channel
  *  @details
@@ -121,7 +121,7 @@ bool mesh_interface_send_adv_addr_get();
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_channel_get();
+bool rbc_mesh_channel_get();
 
 /** @brief read the amount of handles
  *  @details
@@ -129,7 +129,7 @@ bool mesh_interface_send_channel_get();
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_handle_count_get();
+bool rbc_mesh_handle_count_get();
 
 /** @brief read the advertising intervall
  *  @details
@@ -138,7 +138,7 @@ bool mesh_interface_send_handle_count_get();
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool mesh_interface_send_adv_int_get();
+bool rbc_mesh_adv_int_get();
 
 /** @brief checkes if new events arrived
  *  @details
@@ -147,22 +147,22 @@ bool mesh_interface_send_adv_int_get();
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-void mesh_interface_loop();
+void rbc_mesh_loop();
 
-/** @brief waits for answers after mesh_interface_get_*
+/** @brief waits for answers after rbc_mesh_get_*
  *  @details
  *  waits for the next event and parses the content as answer into the given buffer
- *  needs to be called after a mesh_interface_get call
+ *  needs to be called after a rbc_mesh_get call
  *  @param buf pointing to the area where to store the result
  *  @param len amount of bytes to be read into buf.
  */
-void mesh_interface_wait_for_answer(uint8_t* buf, int len);
+void rbc_mesh_wait_for_answer(uint8_t* buf, int len);
 
 /** @brief initialisation of local hardware
  *  @details
  *  Sets the SPI-pins
  *  @param pins struct containing pin configuration
  */
-void mesh_interface_hw_init(aci_pins_t* pins);
+void rbc_mesh_hw_init(aci_pins_t* pins);
 
 #endif //MESH_INTERFACE_H__
