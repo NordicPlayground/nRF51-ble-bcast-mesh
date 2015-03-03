@@ -17,11 +17,11 @@ In addition to two provided examples, there is a template project under
 _nRF51/examples/_. This may be used as a basis for your own applications, or you
 could choose to do it yourself from scratch. In theory, the framework should be
 compatible with most Softdevice based projects, but some restrictions to
-hardware and software modules apply, see <<resource-allocation>> for details.
+hardware and software modules apply, see link:docs/how_it_works.adoc#resource-allocation[Resource allocation]  for details.
 The framework adds a Mesh GATT service to the Softdevice GATT server which
 contain all mesh-global states. This service may be accessed by external nodes,
 just as any other GATT service, through a connection established via the
-Softdevice. See section <<gatt-service>> for details about structure and
+Softdevice. See section link:docs/how_it_works.adoc#gatt-service[GATT service] for details about structure and
 access. 
 
 === Serial interface
