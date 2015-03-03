@@ -33,62 +33,58 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-/* Must predefine the max length, at is larger than the one used for nRF8001 */
-#define HAL_ACI_MAX_LENGTH (37)
-
  /** @file
   *  @brief parsing a subset of the mesh_rbc commands into spi messages 
   *  and enqueues them to be sent.
   */
 #include "hal_aci_tl.h"
 #include "lib_aci.h"
-#include "serial_evt.h"
-#include "serial_command.h"
 
 #include "boards.h"
 
 #include "rbc_mesh_interface.h"
 
-static void unaligned_memcpy(uint8_t* p_dst, uint8_t const* p_src, uint8_t len){
-  while(len--)
-  {
-    *p_dst++ = *p_src++;
-  }
-}
+hal_aci_data_t  msg_for_mesh;
 
 bool rbc_mesh_echo(uint8_t* buffer, int len){
 	if (len > HAL_ACI_MAX_LENGTH - 1 || len < 0)
 		return false;
-    
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
 
-    p_cmd->length = len + 1; // account for opcode
-    p_cmd->opcode = SERIAL_CMD_OPCODE_ECHO;
-    memcpy(p_cmd->params.echo.data, buffer, len);
+	msg_for_mesh.buffer[0] = len + 1;	// size
+	msg_for_mesh.buffer[1] = 0x02;		// cmd opcode
 
+	int i;
+	for( i = 0; i < len; i++){
+		msg_for_mesh.buffer[i+2] = buffer[i];
+	}
+	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
 bool rbc_mesh_init(
-	uint32_t accessAddr,
+	uint8_t* access_addr,
 	uint8_t chanNr,
-	uint8_t handleCount,
-    uint32_t advInt_ms){
+	uint8_t handleCount){
 	
 	if(chanNr != 37 && chanNr != 38 && chanNr != 39)
 		return false;
 	
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 11;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_INIT;
-    p_cmd->params.init.access_addr = accessAddr;
-    p_cmd->params.init.channel = chanNr;
-    p_cmd->params.init.handle_count = handleCount;
-    p_cmd->params.init.adv_int_min = advInt_ms;
-
+	msg_for_mesh.buffer[0] = 11;		// size
+	msg_for_mesh.buffer[1] = 0x70;		// cmd opcode
+	
+	msg_for_mesh.buffer[2] = access_addr[0];	//access address of network
+	msg_for_mesh.buffer[3] = access_addr[1];
+	msg_for_mesh.buffer[4] = access_addr[2];
+	msg_for_mesh.buffer[5] = access_addr[3];
+	
+	msg_for_mesh.buffer[6] = chanNr;	// channel nr
+	msg_for_mesh.buffer[7] = handleCount;	// amount of handles
+	
+	msg_for_mesh.buffer[8]  = 100;	//advertising intervall in ms, little endian
+	msg_for_mesh.buffer[9]  = 0;
+	msg_for_mesh.buffer[10] = 0;
+	msg_for_mesh.buffer[11] = 0;
+	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
@@ -97,50 +93,45 @@ bool rbc_mesh_value_set(uint8_t handle, uint8_t* buffer, int len){
 	if (len > HAL_ACI_MAX_LENGTH - 1 || len < 1)
 		return false;
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
+	msg_for_mesh.buffer[0] = len + 2;	// size
+	msg_for_mesh.buffer[1] = 0x71;		// cmd opcode
+	msg_for_mesh.buffer[2] = handle; 	// handle id
 
-    p_cmd->length = len + 2; // account for opcode and handle 
-    p_cmd->opcode = SERIAL_CMD_OPCODE_VALUE_SET;
-    p_cmd->params.value_set.handle = handle;
-    memcpy(p_cmd->params.value_set.value, buffer, len);
-
+	int i;
+	for( i = 0; i < len; i++){
+		msg_for_mesh.buffer[i+3] = buffer[i];
+	}
+	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
 
 bool rbc_mesh_value_enable(uint8_t handle){
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 2;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_VALUE_ENABLE;
-    p_cmd->params.value_enable.handle = handle;
+	msg_for_mesh.buffer[0] = 2;		// size
+	msg_for_mesh.buffer[1] = 0x72;		// cmd opcode
+	
+	msg_for_mesh.buffer[2] = handle;	// handle id
 
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
 bool rbc_mesh_value_disable(uint8_t handle){
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 2;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_VALUE_DISABLE;
-    p_cmd->params.value_enable.handle = handle;
+	msg_for_mesh.buffer[0] = 2;		// size
+	msg_for_mesh.buffer[1] = 0x73;		// cmd opcode
+	
+	msg_for_mesh.buffer[2] = handle;	// handle id
 
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
 bool rbc_mesh_value_get(uint8_t handle){
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 2;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_VALUE_GET;
-    p_cmd->params.value_enable.handle = handle;
+	msg_for_mesh.buffer[0] = 2;		// size
+	msg_for_mesh.buffer[1] = 0x7A;		// cmd opcode
+	
+	msg_for_mesh.buffer[2] = handle;	// handle id
 
 	return hal_aci_tl_send(&msg_for_mesh);
 }
@@ -148,71 +139,63 @@ bool rbc_mesh_value_get(uint8_t handle){
 
 bool rbc_mesh_build_version_get(){
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 1;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_BUILD_VERSION_GET;
+	msg_for_mesh.buffer[0] = 1;		// size
+	msg_for_mesh.buffer[1] = 0x7B;		// cmd opcode
 	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
 
-bool rbc_mesh_access_addr_get(){
+bool rbc_mesh_adv_addr_get(){
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 1;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_ACCESS_ADDR_GET;
+	msg_for_mesh.buffer[0] = 1;		// size
+	msg_for_mesh.buffer[1] = 0x7C;		// cmd opcode
 	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
 bool rbc_mesh_channel_get(){
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 1;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_CHANNEL_GET;
+	msg_for_mesh.buffer[0] = 1;		// size
+	msg_for_mesh.buffer[1] = 0x7D;		// cmd opcode
 	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
 bool rbc_mesh_handle_count_get(){
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 1;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_HANDLE_COUNT_GET;
-    
+	msg_for_mesh.buffer[0] = 1;		// size
+	msg_for_mesh.buffer[1] = 0x7E;		// cmd opcode
+	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
 bool rbc_mesh_adv_int_get(){
 
-    hal_aci_data_t msg_for_mesh;
-    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
-
-    p_cmd->length = 1;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_ADV_INT_GET;
+	msg_for_mesh.buffer[0] = 1;		// size
+	msg_for_mesh.buffer[1] = 0x7F;		// cmd opcode
 	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool rbc_mesh_evt_get(serial_evt_t* p_evt){
-    hal_aci_data_t msg;
-    bool status = hal_aci_tl_event_get(&msg);
-    if (status)
-        memcpy((uint8_t*) p_evt, msg.buffer, sizeof(serial_evt_t));
+bool rbc_mesh_evt_get(hal_aci_data_t* p_data){
+	return hal_aci_tl_event_get(p_data);
+}
 
-    return status;
+void rbc_mesh_wait_for_answer(uint8_t* buf, int len){
+	hal_aci_data_t data;
+	
+	while(!hal_aci_tl_event_get(&data));
+
+	// get the x last bytes of the answer
+	// (handle data comes in standart sizes, we eventually need less)
+	for(int i = 0; i < len; i++){
+		int offset = data.buffer[0] - len + 1;
+		buf[i] = data.buffer[i+offset];
+	}
 }
 
 void rbc_mesh_hw_init(aci_pins_t* pins){
 	
   	hal_aci_tl_init(pins, false);
 }
-

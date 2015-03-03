@@ -36,7 +36,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef MESH_INTERFACE_H__
 #define MESH_INTERFACE_H__
 
-#include "serial_evt.h"
 
 /** @brief executes an echo-test
  *  @details
@@ -54,16 +53,14 @@ bool rbc_mesh_echo(uint8_t* buffer, int len);
  *  @param accessAddr pointer to 4 bytes containing the address
  *  @param chan Bluetooth channel to use. Must be 37, 38 or 39
  *  @param handleCount amount of handles in the system
- *  @param advInt_ms the lowest possible transmission interval
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  *  or if chanNr is incorrect
  */
 bool rbc_mesh_init(
-	uint32_t accessAddr,
+	uint8_t* accessAddr,
 	uint8_t chanNr,
-	uint8_t handleCount,
-    uint32_t advInt_ms);
+	uint8_t handleCount);
 
 /** @brief alter value of a handle
  *  @details
@@ -150,7 +147,7 @@ bool rbc_mesh_adv_int_get();
  *  needs to be called in the main loop
  *  @return True if there is an event
  */
-bool rbc_mesh_evt_get(serial_evt_t* p_evt);
+bool rbc_mesh_evt_get(hal_aci_data_t* p_evt);
 
 /** @brief initialisation of local hardware
  *  @details

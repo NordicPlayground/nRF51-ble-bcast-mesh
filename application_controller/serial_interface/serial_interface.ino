@@ -40,7 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_interface.h"
 
 #define MESH_ADV_INT  (100)
-
+#define LENGTH_OFFSET (0)
 static aci_pins_t pins;
 
 static uint8_t         uart_buffer[20];
@@ -48,7 +48,7 @@ static uint8_t         uart_buffer_len = 0;
 static uint8_t         dummychar = 0;
 
 // access address in our example mesh application
-uint32_t accAddr = 0xA541A68F;
+uint8_t accAddr[] = {0xA5, 0x41, 0xA6, 0x8F};
 
 void print(char* str){
 	Serial.println(str);
@@ -98,7 +98,7 @@ void setup(void)
   // initialize mesh_interface
   rbc_mesh_hw_init(&pins);
   
-  rbc_mesh_init(accAddr, (uint8_t) 38, (uint8_t) 2, MESH_ADV_INT);
+  rbc_mesh_init(accAddr, (uint8_t) 38, (uint8_t) 2);
 
   Serial.println("Arduino setup done");
   return;
@@ -180,55 +180,18 @@ void actions_loop() {
 void loop() {
 
   //Process any ACI commands or events
-  serial_evt_t evt;
-  bool evt_status = rbc_mesh_evt_get(&evt);
+  hal_aci_data_t data;
+  bool evt_status = rbc_mesh_evt_get(&data);
   
   if (evt_status){
 #if 1
-    uint8_t* p_evt = (uint8_t*) &evt;
-    for (int i = 0; i < evt.length + 1; i++)
+    uint8_t* p_evt = data.buffer;
+    for (int i = 0; i < p_evt[LENGTH_OFFSET] + 1; i++)
     {
       Serial.print((uint32_t) p_evt[i], HEX);
       Serial.print(" ");
     }
     Serial.println("");
-#else
-    switch (evt.opcode){
-      case SERIAL_EVT_OPCODE_ECHO_RSP:
-        Serial.print("Echo evt: ");
-        for (int i = 0; i < evt.length - 1; ++i){
-          Serial.print((int) evt.params.event_update.data[i], HEX);
-          Serial.print(" ");
-        }
-        Serial.println("");
-        break;
-      case SERIAL_EVT_OPCODE_CMD_RSP:
-        Serial.print("CMD rsp: OPCODE: ");
-        Serial.print((int) evt.params.cmd_rsp.command_opcode & 0xFF, HEX);
-        Serial.print(" Status: ");
-        Serial.print((int)evt.params.cmd_rsp.status, HEX);
-        Serial.print(" Response: ");
-        for (int i = 0; i < evt.length - 3; ++i){
-          Serial.print((int) evt.params.event_update.data[i], HEX);
-          Serial.print(" ");
-        }
-        Serial.println("");
-        break;
-      case SERIAL_EVT_OPCODE_EVENT_NEW:
-      case SERIAL_EVT_OPCODE_EVENT_UPDATE:
-      case SERIAL_EVT_OPCODE_EVENT_CONFLICTING:
-        Serial.print("EVENT: Handle: ");
-        Serial.print(evt.params.event_update.handle);
-        Serial.print(" Data: ");
-        for (int i = 0; i < evt.length - 9; ++i){
-          Serial.print((int) evt.params.event_update.data[i], HEX);
-          Serial.print(" ");
-        }
-        Serial.println("");
-      default:
-        Serial.print("Unknown event: ");
-        Serial.println(evt.opcode);
-    }
 #endif    
   }
   
