@@ -1,0 +1,86 @@
+= Integrating the framework with existing Softdevice Applications
+The framework is built to work with as many existing Softdevice applications as possible, but since a few nRF51 SDK modules share interrupt handlers and hardware resources with the rbc_mesh framework, some minor alterations must be made.
+
+This file will go through the needed changes by using the BLE_app_proximity example in the nRF51 SDK as a starting point. The Proximity example utilizes the App timer, which uses SWI0 for processing, just like the rbc_mesh framework.
+
+== Integrating rbc_mesh with ble_app_proximity
+The Proximity example is included as part of the nRF51 SDK (both version 6.x.x and 7.x.x), and uses both the pstorage and app_timer modules. It also distributes Softdevice events with the Softdevice-handler. We will go through the process of including the rbc_mesh as part of this example, setting the stage for mesh-functionality with the Proximity example.
+
+=== Step 1: importing the framework
+First off, we need to move the rbc_mesh framework into the Proximity example project environment. The easiest way to do this is by moving the entire folder _/nRF51/rbc_mesh/_ into a top level _/rbc_mesh/_ folder in the Proximity example, and add an rbc_mesh-source-group to the project in Keil uVision, where you add all the source files in _/nRF51/rbc_mesh/src/_ (right click target in the Project explorer, press "Add Group...". Right click the new group and press "Add existing files to..."). Also remember to add an include-statement to your target for both _/rbc_mesh/_ and _/rbc_mesh/include/_ (_Target options -> C/C++ -> Include paths..._). The rbc_mesh is now part of your project.
+
+=== Step 2: a common SWI0
+As mentioned previously, both the app_timer module in the nRF51 SDK and the rbc_mesh uses the SWI0-interrupt for processing. The rbc_mesh gets all its hardware interrupts from the Softdevice, through the Timeslot API. The Timeslot API provides these interrupts in the STACK_LOW interrupt context, which is of the highest priority on the chip. In order to be able to call Softdevice functions that are SVC enabled (a LOT of them are), the framework must do its processing in context APP_LOW. This is done via the SWI0 and a FIFO queue of events, connecting the two contexts.
+
+When using the Softdevice, SWI0 is the only available SWI for the application, and the rbc_mesh will have to share it with app_timer. In order to do this, we need to do some changes both in app_timer and rbc_mesh. 
+
+As you may have noticed if you tried to build the project after Step 1, there are now two implementations of the function `SWI0_IRQHandler(void)`, one in _/rbc_mesh/src/timeslot_handler.c_ and one in _app_timer.c_.This must be addressed by removing at least one of them. We suggest that you rename the one in _timeslot_handler.c_ to `rbc_mesh_SWI0_IRQHandler(void)`, and expose it in the _/rbc_mesh/include/timeslot_handler.h_ header. You can then include this header in _app_timer.c_ and call the new rbc_mesh-version of it from the existing app-timer SWI0-handler:
+
+[source,c]
+.app_timer.c:L933
+----
+void app_timer_SWI0_IRQHandler(void)
+{
+    rbc_mesh_SWI0_IRQHandler();
+    timer_list_handler();
+}
+----
+
+This ensures that when the interrupt occurs, both frameworks handle their stuff properly. Often during runtime, only one of the functions will have any effect, but since both have guard checks to see if they have any events to be processed, this will not be a problem.
+
+Note that this step alteres your global version of the nRF51 SDK, and we recommend that you either do this in a separate copy of the SDK, or include some preprocessor-magic to leave the change out of other projects' builds.
+
+=== Step 3: Softdevice event handler
+The rbc_mesh has to check for Softdevice events related to the Timeslot API in order to function. In the original framework, this is conducted in the function `ts_sd_event_handler(void)` in _timeslot_handler.c_. This function is not very considerate of other Softdevice related activities on the chip, however, and consumes the SD_events as they come. In order to overcome this, we can replace it with a more cooperative version. Delete the `ts_sd_event_handler(void)` function and all its references, and insert this function instead: 
+[source,c]
+.timeslot_handler.c:L246
+----
+void rbc_mesh_sys_evt_handler(uint32_t evt)
+{
+    switch (evt)
+    {
+        case NRF_EVT_RADIO_SESSION_IDLE:
+            timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+            break;
+        
+        case NRF_EVT_RADIO_BLOCKED:
+            timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
+            break;
+        
+        case NRF_EVT_RADIO_CANCELED:
+            timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+            break;
+
+        default:
+            break;
+    }
+}
+----
+
+Then expose the function in the _timeslot_handler.h_ header. This function should be called from the `static void sys_evt_dispatch(uint32_t sys_evt)` function in _main.c_ (around L885), with sys_evt as parameter. This leaves the consumation of the event to the softdevice-handler, and other modules, such as pstorage won't miss out on incoming system events.
+
+=== Step 4: Picking up BLE events
+The next step is also exhibited in the BLE_Gateway example in the framework: we need to get the BLE events from the Softdevice. This is necessary if we want the mesh to react to changes made to the Softdevice GATT server by external devices through a regular Softdevice connection, as the framework is unable to pull these events directly from the Softdevice without a little help. 
+
+All that is required for this step is to add this line to the end of `static void ble_evt_dispatch(ble_evt_t * p_ble_evt)` in _main.c_ (around L865):
+
+[source,c]
+.main.c:L874
+----
+rbc_mesh_ble_evt_handler(p_ble_evt);
+----
+
+This passes the incoming BLE event to the framework, just as the example does with the other modules in the system.
+
+=== Step 5: receiving framework events
+In order to get feedback from the rbc_mesh, the application must implement `void rbc_mesh_event_handler(rbc_mesh_event_t* evt)` somewhere in the application space. See the examples under _/nRF51/examples/_ for implementations of this function.
+
+=== Step 6: initialization
+The final step is to initialize the rbc_mesh framework. First off, the framework calls `sd_ble_enable()` in _mesh_srv.c_, L315. This is already done as part of the initialization in the Proximity example, and can be left out of the _mesh_srv.c_ code. Remove the line calling the Softdevice function.
+
+Finally, we must initialize the framework from the application. This is also displayed in the examples under _/nRF51/examples/_, but note that `uint32_t rbc_mesh_init(rbc_mesh_init_params_t)` must be called after `ble_stack_init()` in the application in order to secure correct behavior (more specifically, after `sd_ble_enable()`). We also recommend that you initialize the framework before you start advertising, to ensure that the application includes the mesh service in its GATT server for external devices.
+
+The framework should now be completely integrated, and it should be possible to see the Mesh service with its characteristics along with the proximity services when you connect to the nRF51 with an external BLE device. Note that this approach is applicable for many other SDK examples as well, but that we can't guarantee proper operation in all integration scenarios.
+
+
+
