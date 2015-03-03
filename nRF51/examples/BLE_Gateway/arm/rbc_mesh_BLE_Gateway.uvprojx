@@ -365,7 +365,7 @@
               <MiscControls></MiscControls>
               <Define>BOARD_PCA10001 NRF51</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\SDK\nrf51822\Include;..\..\..\..\..\SDK\nrf51822\Include\ble;..\..\..\..\..\SDK\nrf51822\Include\ble\ble_services;..\..\..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\..\..\SDK\nrf51822\Include\s110;..\..\..\..\..\SDK\nrf51822\Include\app_common;..\..\..\..\..\SDK\nrf51822\Include\gcc</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\..\Include;..\..\..\..\..\..\..\..\Include\ble;..\..\..\..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\..\..\..\Include\sd_common;..\..\..\..\..\..\..\..\Include\s110;..\..\..\..\..\..\..\..\Include\app_common;..\..\..\..\..\..\..\..\Include\gcc;..\..\..\..\..\..\..\..\Include\spi_slave</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -630,22 +630,12 @@
             <File>
               <FileName>ble_advdata.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_delay.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\nrf_delay\nrf_delay.c</FilePath>
-            </File>
-            <File>
-              <FileName>simple_uart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
+              <FilePath>..\..\..\..\..\..\..\..\Source\ble\ble_advdata.c</FilePath>
             </File>
             <File>
               <FileName>spi_slave.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\spi_slave\spi_slave.c</FilePath>
+              <FilePath>..\..\..\..\..\..\..\..\Source\spi_slave\spi_slave.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1010,7 +1000,7 @@
               <MiscControls></MiscControls>
               <Define>BOARD_PCA10001 NRF51 RBC_MESH_SERIAL</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\SDK\nrf51822\Include;..\..\..\..\..\SDK\nrf51822\Include\ble;..\..\..\..\..\SDK\nrf51822\Include\ble\ble_services;..\..\..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\..\..\SDK\nrf51822\Include\s110;..\..\..\..\..\SDK\nrf51822\Include\app_common;..\..\..\..\..\SDK\nrf51822\Include\gcc;..\..\..\..\..\SDK\nrf51822\Include\spi_slave</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\..\Include;..\..\..\..\..\..\..\..\Include\ble;..\..\..\..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\..\..\..\Include\sd_common;..\..\..\..\..\..\..\..\Include\s110;..\..\..\..\..\..\..\..\Include\app_common;..\..\..\..\..\..\..\..\Include\gcc;..\..\..\..\..\..\..\..\Include\spi_slave</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1146,22 +1136,12 @@
             <File>
               <FileName>ble_advdata.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\ble\ble_advdata.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_delay.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\nrf_delay\nrf_delay.c</FilePath>
-            </File>
-            <File>
-              <FileName>simple_uart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\simple_uart\simple_uart.c</FilePath>
+              <FilePath>..\..\..\..\..\..\..\..\Source\ble\ble_advdata.c</FilePath>
             </File>
             <File>
               <FileName>spi_slave.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\spi_slave\spi_slave.c</FilePath>
+              <FilePath>..\..\..\..\..\..\..\..\Source\spi_slave\spi_slave.c</FilePath>
             </File>
           </Files>
         </Group>

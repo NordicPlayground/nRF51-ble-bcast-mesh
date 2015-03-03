@@ -365,7 +365,7 @@
               <MiscControls></MiscControls>
               <Define>BOARD_PCA10000 NRF51</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\Include;..\..\..\..\..\..\..\Include\ble;..\..\..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\..\..\Include\sd_common;..\..\..\..\..\..\..\Include\s110;..\..\..\..\..\..\..\Include\app_common;..\..\..\..\..\..\..\Include\gcc</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\..\Include;..\..\..\..\..\..\..\..\Include\ble;..\..\..\..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\..\..\..\Include\sd_common;..\..\..\..\..\..\..\..\Include\s110;..\..\..\..\..\..\..\..\Include\app_common;..\..\..\..\..\..\..\..\Include\gcc;..\..\..\..\..\..\..\..\Include\spi_slave</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -610,12 +610,12 @@
             <File>
               <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\templates\system_nrf51.c</FilePath>
+              <FilePath>system_nrf51.c</FilePath>
             </File>
             <File>
               <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\templates\arm\arm_startup_nrf51.s</FilePath>
+              <FilePath>arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -623,19 +623,9 @@
           <GroupName>lib</GroupName>
           <Files>
             <File>
-              <FileName>nrf_delay.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\Source\nrf_delay\nrf_delay.c</FilePath>
-            </File>
-            <File>
-              <FileName>simple_uart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\Source\simple_uart\simple_uart.c</FilePath>
-            </File>
-            <File>
               <FileName>spi_slave.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\spi_slave\spi_slave.c</FilePath>
+              <FilePath>..\..\..\..\..\..\..\..\Source\spi_slave\spi_slave.c</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -1043,7 +1033,7 @@
               <MiscControls></MiscControls>
               <Define>BOARD_PCA10000 NRF51 RBC_MESH_SERIAL</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\SDK\nrf51822\Include;..\..\..\..\..\SDK\nrf51822\Include\ble;..\..\..\..\..\SDK\nrf51822\Include\ble\ble_services;..\..\..\..\..\SDK\nrf51822\Include\sd_common;..\..\..\..\..\SDK\nrf51822\Include\s110;..\..\..\..\..\SDK\nrf51822\Include\app_common;..\..\..\..\..\SDK\nrf51822\Include\gcc;..\..\..\..\..\SDK\nrf51822\Include\spi_slave</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\..\Include;..\..\..\..\..\..\..\..\Include\ble;..\..\..\..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\..\..\..\Include\sd_common;..\..\..\..\..\..\..\..\Include\s110;..\..\..\..\..\..\..\..\Include\app_common;..\..\..\..\..\..\..\..\Include\gcc;..\..\..\..\..\..\..\..\Include\spi_slave</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1159,12 +1149,12 @@
             <File>
               <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\templates\system_nrf51.c</FilePath>
+              <FilePath>system_nrf51.c</FilePath>
             </File>
             <File>
               <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\templates\arm\arm_startup_nrf51.s</FilePath>
+              <FilePath>arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -1172,19 +1162,9 @@
           <GroupName>lib</GroupName>
           <Files>
             <File>
-              <FileName>nrf_delay.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\Source\nrf_delay\nrf_delay.c</FilePath>
-            </File>
-            <File>
-              <FileName>simple_uart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\Source\simple_uart\simple_uart.c</FilePath>
-            </File>
-            <File>
               <FileName>spi_slave.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\SDK\nrf51822\Source\spi_slave\spi_slave.c</FilePath>
+              <FilePath>..\..\..\..\..\..\..\..\Source\spi_slave\spi_slave.c</FilePath>
             </File>
           </Files>
         </Group>
