@@ -2,7 +2,7 @@
 
 Bluetooth Low Energy based Rebroadcasting mesh implementation on the nRF51.
 Works with Softdevice S110 v7.x with Timeslot API (tested), likely to work with
-S120 and S130 softdevices (not tested).
+S120 and S130 softdevices (not tested). Support for both SDK6.x.x and SDK7.x.x as of release v0.6.1.
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
@@ -14,7 +14,7 @@ and provide feedback.
 
 == Usage
 In addition to two provided examples, there is a template project under
-_examples/_. This may be used as a basis for your own applications, or you
+_nRF51/examples/_. This may be used as a basis for your own applications, or you
 could choose to do it yourself from scratch. In theory, the framework should be
 compatible with most Softdevice based projects, but some restrictions to
 hardware and software modules apply, see <<resource-allocation>> for details.
@@ -24,7 +24,19 @@ just as any other GATT service, through a connection established via the
 Softdevice. See section <<gatt-service>> for details about structure and
 access. 
 
-The framework also has support for external control via SPI. The serial interface is based on the nRF8001 SPI interface, with different opcodes. A host side implementation for Arduino will be released on the https://github.com/NordicSemiconductor/ble-sdk-arduino[Arduino SDK] soon. This allows you to operate an Arduino along with an nRF51 dev kit in the mesh, making it easier to create mesh applications. Each example project has a separate target (named "nRF51822 xxAA serial") that incorporates the serial interface with the rest of the project.
+=== Serial interface
+
+The framework also has support for external control via SPI. The serial interface is based on the nRF8001 SPI interface, with different opcodes. An application controller framework is avilable under _application_controller_, with an Arduino example to get you started. Note that the application controller requires the https://github.com/NordicSemiconductor/ble-sdk-arduino[ble-sdk-arduino] framework. This allows you to operate an Arduino along with an nRF51 dev kit in the mesh, making it easier to create mesh applications. Each nRF51 example project has a separate target (named "nRF51822 xxAA serial") that incorporates the serial interface with the rest of the project.
+
+=== Getting started
+
+The framework supports both nRF51 SDK 6.x.x and nRF51 SDK 7.x.x. Since the structure of the SDK changed between these versions, you have to clone the repo differently based on which version you utilize.
+
+If you're using 6.x.x, clone the repository into _<SDK6-folder>/nRF51822/boards/PCA10001/S110/<Project-folder>_. 
+
+The SDK 7.x.x projects utilizes the *non-pack* version of the SDK, available at http://developer.nordicsemi.com/[Nordic Semiconductor's developer portal]. Clone this repo into _<SDK7-folder>/examples/<Project-folder>_. 
+
+This will ensure that all references to the SDK are correctly placed, so that you don't have to change all references to the SDK in the project files. If you still want to clone the repo into a different folder than suggested, you need to change the location of all the files under the _Lib_ group in Keil uVision, in addition to the include paths under the menu _Target options -> C/C++ -> Include Paths_.
 
 == Basic concepts
 
