@@ -1,0 +1,74 @@
+= Serial interface to the mesh
+
+This example demonstrates external mesh control via SPI. The serial interface is based on the nRF8001 SPI interface, with new mesh opcodes.  This allows you to operate an Arduino or other IC along with an nRF51 dev kit in the mesh, making it easier to create mesh applications. This can also allow combining the mesh with an Internet gateway node or other applications.
+
+== About
+The example allows the use of an Arduino board as a ble-bcast-mesh node. The Arduino board can be used to inject messages into the mesh. This example uses an Arduino or Arduino clone board and the nRF51-DK board as a shield.
+
+The nRF51-DK board is converted to an Arduino shield. The nRF51-DK board is then plugged into the Arduino board as a shield.
+
+The nRF51-DK is converted to a shield by mounting the Surface Mounted headers on P7, P8, P9, P10, P11 and P12. The example has been tested on an Arduino UNO clone running at 3.3v .
+
+== Usage
+The nRF51-DK board uses the ACI protocol to communicate to the Arduino.
+See section 7.2 of the nRF8001 Product Specifications for details.
+
+The ACI protocol is an SPI interface with an additional handshake line.
+The Arduino pins that are used for this example are 
+
+[cols="1"]
+.Pins used
+|===
+|Digital 9(REQN) 
+|MISO 
+|MOSI 
+|SCK  
+|Digital pin 8(RDYN) 
+|===
+
+Flash the 'gateway serial.hex' file to the nRF51-DK board. The hex file is attached to the release of the nRF51-bcast-mesh 
+
+== Mesh commands, events and functional interfaces 
+
+[cols="3,1,1,6", options="Header"]
+.Bcast mesh commands
+|===
+|Command | Opcode | Parameters | Description
+
+|echo | 0x02 | variable(1..250 bytes) | Bytes to be echoed back for verification 
+|init | 0x70 | 12 bytes | Access Address (4 bytes), Channel( 1 byte), Number of Instances (1 byte), Advertising interval (4 bytes) 
+|enable | 0x72 | Instance id (1 byte) | Enable the specific instance.
+|disable | 0x73 | Instance id (1 byte) | Disable the specific instance.
+|Get value | 0x7A | Instance id (1 byte) | Value of the specific instance.
+|Get build version | 0x7B | none | Build version of the mesh node.
+|Get access address | 0x7C | none | Access address of the mesh node.
+|Get channel used | 0x7D | none | Build version of the mesh node.
+|Get count of Trickle Instances(count of handles)  | 0x7E | none | Number of Trickle instances available in the mesh |Get Advertising interval used on the mesh | 0x7F | none | Advertising interval used on the mesh node to communicate to the mesh.
+|===
+
+All commands generate a Command Response Event with the status and the data associated with the response.
+
+[cols="3,1,1,6", options="Header"]
+.Bcast mesh events
+|===
+|Event | Opcode | Parameters | Description
+
+|Command Response Event | 0x84 | variable | Status code (1 byte), data (variable)
+|Echo Event | 0x82 | variable | data echoed back (variable)
+|===
+
+
+
+=== API
+
+The API for the serial interface is present in 
+'mesh interface.h'
+
+
+== How it works
+
+All the API calls for the serial interface to the mesh build the mesh command and place it in the ACI command queue.
+When an mesh event arrives the event is place in the event queue. The 
+mesh\_interface\_event\_get function retrieves the event from the event queue.
+
+
