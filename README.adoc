@@ -85,7 +85,7 @@ one "Mesh"-GATT Service, which is accessible to external nodes through a
 classic BLE Softdevice connection, implemented in application space. The "BLE
 Gateway example" displays a way to achieve such behavior.
 
-== Further reading
+== Architecture details
 link:docs/structure.adoc[Structure of the repository]
 
 link:docs/how_it_works.adoc[How the mesh works]
