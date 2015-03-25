@@ -138,7 +138,7 @@ typedef struct
     uint32_t access_addr;
     uint8_t channel;
     uint8_t handle_count;
-    uint8_t adv_int_ms;
+    uint32_t adv_int_ms;
     rbc_mesh_radio_mode_t radio_mode;
     rbc_mesh_packet_format_t packet_format;
 } rbc_mesh_init_params_t;

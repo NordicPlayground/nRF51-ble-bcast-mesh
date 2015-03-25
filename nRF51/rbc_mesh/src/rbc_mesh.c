@@ -52,7 +52,7 @@ static bool g_is_initialized = false;
 static uint32_t g_access_addr;
 static uint8_t g_channel;
 static uint8_t g_handle_count;
-static uint8_t g_adv_int_ms;
+static uint32_t g_adv_int_ms;
 
 
 /*****************************************************************************
