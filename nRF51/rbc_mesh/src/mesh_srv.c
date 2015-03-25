@@ -57,6 +57,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_PACKET_DATA_OFFSET         (MESH_PACKET_VERSION_OFFSET + MESH_PACKET_VERSION_LEN)
 
 #define CONN_HANDLE_INVALID             (0xFFFF)
+
+#define MESH_VALUE_LOLLIPOP_LIMIT       (200)
 /*****************************************************************************
 * Local Type Definitions
 *****************************************************************************/
@@ -601,9 +603,14 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         trickle_rx_inconsistent(&ch_md->trickle);
     }
     
-    /* new version */
-    /**@TODO: Handle version overflow */
-    if (version > ch_md->version_number || uninitialized)
+    /* new version */  
+    uint16_t separation = (version >= ch_md->version_number)?
+        (version - ch_md->version_number) : 
+        (-(ch_md->version_number - MESH_VALUE_LOLLIPOP_LIMIT) + (version - MESH_VALUE_LOLLIPOP_LIMIT) - MESH_VALUE_LOLLIPOP_LIMIT);
+
+    if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version >= ch_md->version_number) || 
+        (ch_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2) || 
+        uninitialized)
     {
         /* update value */
         mesh_srv_char_val_set(handle, data, data_len, false);
