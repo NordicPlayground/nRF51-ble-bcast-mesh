@@ -108,19 +108,22 @@ void setup(void)
 bool stringComplete = false;  // whether the string is complete
 uint8_t stringIndex = 0;      //Initialize the index to store incoming chars
 
-int num = -1;
+int state = -1;
 
 
 
 // Application specific example code. Arduino version of the LED example project for nRF51
+// state machine to write commands in order and with delay, triggered by serial input
 void actions_loop() {
-  
-  if (stringComplete) 
+  // executed after line is read through serial input (hit enter to increment state)
+  if (stringComplete)
   {
     uart_buffer_len = stringIndex + 1; 
-    num++;
+    state++;
     
-    if(num == 0){
+    
+    // echo to test spi-connection
+    if(state == 0){
        if (!rbc_mesh_echo(uart_buffer, uart_buffer_len)){
         Serial.println(F("Serial input dropped"));
       }
@@ -128,7 +131,9 @@ void actions_loop() {
        Serial.println(F("echo done"));
      }
     }
-    if(num == 1){
+    
+    // initialization: enable the handles
+    if(state == 1){
       if(!rbc_mesh_value_enable((uint8_t) 1)){
        Serial.println(F("enable 1 dropped"));
      }
@@ -136,7 +141,7 @@ void actions_loop() {
        Serial.println(F("enable 1 done"));
      }
     }
-    if(num == 2){
+    if(state == 2){
       if(!rbc_mesh_value_enable((uint8_t) 2)){
        Serial.println(F("enable 2 dropped"));
      }
@@ -144,18 +149,17 @@ void actions_loop() {
        Serial.println(F("enable 2 done"));
      }
     }
-    if(num > 2){
-      uint8_t on = (num/2) % 2;
-      uint8_t handle = (num % 2) + 1;
-      if(handle == 1) {
-		rbc_mesh_value_set((uint8_t)2, &on, (uint8_t) 1);
-       		Serial.println(F("set done"));
-	}
-      if(handle == 2){
-		rbc_mesh_value_get((uint8_t) 2);
-       		Serial.println(F("get done"));
-	}
-
+    
+    // toogle state of one handle after every state change
+    if(state > 2){
+      uint8_t value = (state/2) % 2;
+      uint8_t handle = (state % 2) + 1;
+      if(!rbc_mesh_value_set(handle, &value, (uint8_t) 1)){
+        Serial.println(F("set dropped"));
+      }
+      else{
+        Serial.println(F("set done"));
+      }
     }
 
     // clear the uart_buffer:
