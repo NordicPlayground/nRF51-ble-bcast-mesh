@@ -1,8 +1,8 @@
 = nRF51-ble-broadcast-mesh
 
-Bluetooth Low Energy based Rebroadcasting mesh implementation on the nRF51.
-Works with Softdevice S110 v7.x with Timeslot API (tested), likely to work with
-S120 and S130 softdevices (not tested). Support for both SDK6.x.x and SDK7.x.x as of release v0.6.1.
+Bluetooth Low Energy based rebroadcasting mesh implementation on the nRF51.
+Works with SoftDevice S110 v7.x with Timeslot API (tested), likely to work with
+S120 and S130 SoftDevices (not tested). Support for both SDK6.x.x and SDK7.x.x as of release v0.6.1.
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
@@ -16,17 +16,17 @@ and provide feedback.
 In addition to two provided examples, there is a template project under
 _nRF51/examples/_. This may be used as a basis for your own applications, or you
 could choose to do it yourself from scratch. In theory, the framework should be
-compatible with most Softdevice based projects, but some restrictions to
+compatible with most SoftDevice based projects, but some restrictions to
 hardware and software modules apply, see link:docs/how_it_works.adoc#resource-allocation[Resource allocation]  for details.
-The framework adds a Mesh GATT service to the Softdevice GATT server which
+The framework adds a Mesh GATT service to the SoftDevice GATT server which
 contain all mesh-global states. This service may be accessed by external nodes,
 just as any other GATT service, through a connection established via the
-Softdevice. See section link:docs/how_it_works.adoc#gatt-service[GATT service] for details about structure and
+SoftDevice. See section link:docs/how_it_works.adoc#gatt-service[GATT service] for details about structure and
 access. 
 
 === Serial interface
 
-The framework also has support for external control via SPI. The serial interface is based on the nRF8001 SPI interface, with different opcodes. An application controller framework is avilable under _application_controller_, with an Arduino example to get you started. Note that the application controller requires the https://github.com/NordicSemiconductor/ble-sdk-arduino[ble-sdk-arduino] framework. This allows you to operate an Arduino along with an nRF51 dev kit in the mesh, making it easier to create mesh applications. Each nRF51 example project has a separate target (named "nRF51822 xxAA serial") that incorporates the serial interface with the rest of the project.
+The framework also has support for external control via SPI. The serial interface is based on the nRF8001 SPI interface, with different opcodes. An application controller framework is available under _application_controller_, with an Arduino example to get you started. Note that the application controller requires the https://github.com/NordicSemiconductor/ble-sdk-arduino[ble-sdk-arduino] framework. This allows you to operate an Arduino along with an nRF51 dev kit in the mesh, making it easier to create mesh applications. Each nRF51 example project has a separate target (named "nRF51822 xxAA serial") that incorporates the serial interface with the rest of the project.
 
 === Getting started
 
@@ -51,7 +51,7 @@ message from some other device in the mesh, it repeats the message, or
 _rebroadcasts_ it, letting its neighbors hear the new message. 
 The neighbors rebroadcast the message to their neighbors, and the process
 is repeated until all devices in the mesh have received the message. This 
-lets wireless devices talk to eachother without being within direct radio 
+lets wireless devices talk to each other without being within direct radio 
 range, as devices between them help relaying the messages.
 
 The Rebroadcasting Mesh framework (hereby referred to as "the framework" or
@@ -60,11 +60,11 @@ synchronizing states across a set of BLE enabled nodes. All nodes receive all
 messages that are transmitted within their range, and any node may update the
 mesh-global states. There is no hierarchy, and no directed data links. 
 
-The framework resides on top of the nRF51 Softdevice, utilizing the Timeslot
+The framework resides on top of the nRF51 SoftDevice, utilizing the Timeslot
 API to allocate radio time. The framework will attempt to allocate as much time
 as possible, in order to listen for other nodes' messages.
 
-All nodes in the mesh share a set of indexed dataslots. The data contained at each
+All nodes in the mesh share a set of indexed data slots. The data contained at each
 index is propagated through the mesh with version numbers, with the objective of 
 synchronizing the same version of the data across all nodes in the mesh. Each 
 time a node overwrites a value, it increments the version number, and all nodes 
@@ -73,16 +73,16 @@ one in its database, will adapt this new version of the value.
 
 The value propagation is controlled by an implementation of the IETF RFC6206
 "Trickle", a flood control algorithm for lossy, low power networks. The Trickle
-algorithm dynamically decides intervals at which a value will be broadcasted by
+algorithm dynamically decides intervals at which a value will be broadcast by
 a node, based on how many consistent messages the node picks up, and when the last
 update to the state it manages was. The Trickle algorithm dynamically adapts to
 node density and value update frequency.
 
 The framework provides each handle-value pair with one Trickle-instance (an
-isolated version of the algorithm), and utilizes the Softdevice GATT server
+isolated version of the algorithm), and utilizes the SoftDevice GATT server
 structure to store the values. All values are stored as characteristics within
 one "Mesh"-GATT Service, which is accessible to external nodes through a
-classic BLE Softdevice connection, implemented in application space. The "BLE
+classic BLE SoftDevice connection, implemented in application space. The "BLE
 Gateway example" displays a way to achieve such behavior.
 
 == Architecture details
