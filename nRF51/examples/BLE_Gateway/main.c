@@ -147,7 +147,12 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 */
 void gpio_init(void)
 {   
+
+#ifdef BOARD_PCA10028
+    nrf_gpio_cfg_output(LED_2);
+#else
     nrf_gpio_cfg_output(LED_0);
+#endif
     nrf_gpio_cfg_output(LED_1);  
     
 #ifdef BOARD_PCA10000
