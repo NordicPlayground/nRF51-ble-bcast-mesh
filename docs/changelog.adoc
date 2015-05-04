@@ -3,9 +3,13 @@
 == 0.6.3 Bugfix-release May 4
 
 Fixed issues: 
+
 #15 - uint32_t variables assigned to false in timeslot_handler by @AlexDM0
+
 #17 - Mesh Metadata Characteristic data length by @eggerdo
+
 #7 - Global time overflow by @victorpasse
+
 Repeating version bug from 0.6.2, reported by @olskyy
 
 Big thanks to @victorpasse for providing a solution to #7. The issue at both 9.1 minutes and 71 minutes should be fixed, but the mesh will require a reinitiation in around 10 million years distant future end-users beware!)
@@ -13,7 +17,9 @@ Big thanks to @victorpasse for providing a solution to #7. The issue at both 9.1
 == 0.6.2 Bugfix-release - Mar 25
 
 Fixed issues:
+
 #8 - version overflow by @victorpasse
+
 #11 - adv_int_ms as uint8_t Typo? by @olskyy
 
 Merged pullreq #9
