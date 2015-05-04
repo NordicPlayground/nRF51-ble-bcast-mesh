@@ -114,8 +114,8 @@ static uint32_t g_timeslot_length;
 static uint32_t g_timeslot_end_timer;      
 static uint32_t g_next_timeslot_length;    
 static uint32_t g_start_time_ref = 0;     
-static uint32_t g_is_in_timeslot = false; 
-static uint32_t g_framework_initialized = false;                
+static bool g_is_in_timeslot = false; 
+static bool g_framework_initialized = false;                
 static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
 
 #if USE_SWI_FOR_PROCESSING
