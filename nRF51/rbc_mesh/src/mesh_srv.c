@@ -608,7 +608,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         (version - ch_md->version_number) : 
         (-(ch_md->version_number - MESH_VALUE_LOLLIPOP_LIMIT) + (version - MESH_VALUE_LOLLIPOP_LIMIT) - MESH_VALUE_LOLLIPOP_LIMIT);
 
-    if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version >= ch_md->version_number) || 
+    if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version > ch_md->version_number) || 
         (ch_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2) || 
         uninitialized)
     {
