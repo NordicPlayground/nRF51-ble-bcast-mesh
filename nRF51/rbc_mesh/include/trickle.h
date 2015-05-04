@@ -49,9 +49,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 typedef struct
 {
-    uint32_t        t;              /* Absolute value of t. Equals g_trickle_time (at set time) + t_relative */
-    uint32_t        volatile i;              /* Absolute value of i. Equals g_trickle_time (at set time) + i_relative */
-    uint32_t        volatile i_relative;     /* Relative value of i. Represents the actual i value in IETF RFC6206 */
+    uint64_t        t;              /* Absolute value of t. Equals g_trickle_time (at set time) + t_relative */
+    uint64_t        volatile i;              /* Absolute value of i. Equals g_trickle_time (at set time) + i_relative */
+    uint64_t        volatile i_relative;     /* Relative value of i. Represents the actual i value in IETF RFC6206 */
     uint8_t         c;              /* Consistent messages counter */
     uint8_t         trickle_flags;  /* Bitfield for various flags used for housekeeping */
 } trickle_t;
@@ -71,7 +71,7 @@ void trickle_time_increment(void);
 /**
 * @brief set absolute value of global trickle timestamp
 */
-void trickle_time_update(uint32_t time);
+void trickle_time_update(uint64_t time);
 
 /**
 * @brief initialize a trickle algorithm instance. Prepares all flags and 
@@ -113,11 +113,11 @@ void trickle_step(trickle_t* trickle, bool* out_do_tx);
 /**
 * @brief get current global trickle timestamp
 */
-uint32_t trickle_timestamp_get(void);
+uint64_t trickle_timestamp_get(void);
 
 /**
 * @brief get the next time the indicated trickle instance is required to do some processing
 */
-uint32_t trickle_next_processing_get(trickle_t* trickle);
+uint64_t trickle_next_processing_get(trickle_t* trickle);
 
 #endif /* _TRICKLE_H__ */

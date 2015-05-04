@@ -534,21 +534,21 @@ uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata)
     return NRF_SUCCESS;
 }
 
-uint32_t mesh_srv_get_next_processing_time(uint32_t* time)
+uint32_t mesh_srv_get_next_processing_time(uint64_t* time)
 {
     if (!is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
     bool anything_to_process = false;
-    *time = UINT32_MAX;
+    *time = UINT64_MAX;
     
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
     {
         if ((g_mesh_service.char_metadata[i].flags & (1 << MESH_MD_FLAGS_USED_POS)) == 0)
             continue;
             
-        uint32_t temp_time = trickle_next_processing_get(&g_mesh_service.char_metadata[i].trickle);
+        uint64_t temp_time = trickle_next_processing_get(&g_mesh_service.char_metadata[i].trickle);
         
         if (temp_time < *time)
         {

@@ -182,7 +182,7 @@ uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata);
 * @return NRF_ERROR_NOT_FOUND The mesh service has nothing to process. May 
 *   indicate that there are no active mesh values.
 */
-uint32_t mesh_srv_get_next_processing_time(uint32_t* time);
+uint32_t mesh_srv_get_next_processing_time(uint64_t* time);
 
 /**
 * @brief Process the payload of a received packet. 

@@ -78,7 +78,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 static uint8_t tx_data[(PACKET_DATA_MAX_LEN + PACKET_DATA_POS) * PACKET_MAX_CHAIN_LEN];
-static uint32_t global_time = 0;
+static uint64_t global_time = 0;
 static uint8_t step_timer_index = 0xFF;
 
 static void search_callback(uint8_t* data);
@@ -155,7 +155,7 @@ static void search_callback(uint8_t* data)
     uint32_t checksum = (NRF_RADIO->RXCRC & 0x00FFFFFF);
     
     /* check if timeslot is about to end */
-    uint32_t radio_time_left = timeslot_get_remaining_time();
+    uint64_t radio_time_left = timeslot_get_remaining_time();
     
     if (radio_time_left > RADIO_SAFETY_TIMING_US)
     {
@@ -188,7 +188,7 @@ static void trickle_step_callback(void)
     if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_US)
         return;
     
-    uint32_t time_now = global_time + timer_get_timestamp();
+    uint64_t time_now = global_time + timer_get_timestamp();
     trickle_time_update(time_now);
     
     packet_t packet;
@@ -248,8 +248,8 @@ static void trickle_step_callback(void)
     }
     
     /* order next processing */
-    uint32_t next_time;
-    uint32_t end_time = timeslot_get_end_time();
+    uint64_t next_time;
+    uint64_t end_time = timeslot_get_end_time();
     uint32_t error_code = mesh_srv_get_next_processing_time(&next_time);
     
     if (error_code == NRF_SUCCESS && next_time < global_time + end_time)
@@ -259,7 +259,7 @@ static void trickle_step_callback(void)
     }
 }
 
-void transport_control_timeslot_begin(uint32_t global_timer_value)
+void transport_control_timeslot_begin(uint64_t global_timer_value)
 {
     uint32_t aa;    
     rbc_mesh_access_address_get(&aa);
@@ -277,8 +277,8 @@ void transport_control_timeslot_begin(uint32_t global_timer_value)
 
 void transport_control_step(void)
 {
-    uint32_t next_time;
-    uint32_t time_now = timer_get_timestamp() + global_time;
+    uint64_t next_time;
+    uint64_t time_now = timer_get_timestamp() + global_time;
     trickle_time_update(time_now);
     uint32_t error_code = mesh_srv_get_next_processing_time(&next_time);
     if (error_code != NRF_SUCCESS)

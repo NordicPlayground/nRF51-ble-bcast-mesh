@@ -110,10 +110,10 @@ static nrf_radio_signal_callback_return_param_t g_ret_param;
 
 static bool g_is_in_callback = true;
                 
-static uint32_t g_timeslot_length;      
+static uint64_t g_timeslot_length;      
 static uint32_t g_timeslot_end_timer;      
-static uint32_t g_next_timeslot_length;    
-static uint32_t g_start_time_ref = 0;     
+static uint64_t g_next_timeslot_length;    
+static uint64_t g_start_time_ref = 0;     
 static bool g_is_in_timeslot = false; 
 static bool g_framework_initialized = false;                
 static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
@@ -287,12 +287,6 @@ void ts_sd_event_handler(void)
 */
 static void end_timer_handler(void)
 {
-    /*static uint8_t noise_val = 0xA7;
-    noise_val ^= 0x55 + (noise_val >> 1);
-    
-    uint32_t extend_len = ((g_emergency_timeslot_mode)?
-                                TIMESLOT_SLOT_EMERGENCY_LENGTH : 
-                                TIMESLOT_SLOT_LENGTH + noise_val * 50);*/
     timeslot_order_earliest(((g_timeslot_length > 100000)? 100000 : g_timeslot_length), true);
 }
     
@@ -327,14 +321,16 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     g_is_in_callback = true;
     static uint32_t requested_extend_time = 0;
     static uint32_t successful_extensions = 0;  
+    static uint64_t last_rtc_value = 0;
     static uint8_t noise_val = 0x5F;
     SET_PIN(PIN_SYNC_TIME);
     
-    uint64_t time_now = 0;
+    static uint64_t time_now = 0;
     
     switch (sig)
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
+        {
             NVIC_ClearPendingIRQ(SWI0_IRQn);
             g_is_in_timeslot = true;
             
@@ -361,15 +357,34 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 #endif       
         
             /* sample RTC timer for trickle timing */
-            time_now = NRF_RTC0->COUNTER - g_start_time_ref;
-            
-            /* scale to become us */     
-            time_now = ((time_now << 15) / 1000);
-            
-            transport_control_timeslot_begin(time_now);
-        
+            uint32_t rtc_time = NRF_RTC0->COUNTER;
+
+            /*First time the offset should be added*/
+            if(last_rtc_value == 0)
+            {
+                last_rtc_value = g_start_time_ref;
+            }
+
+            /* Calculate delta rtc time */
+            uint64_t delta_rtc_time;
+            if(last_rtc_value > rtc_time)
+            {
+                delta_rtc_time = 0xFFFFFF - last_rtc_value + rtc_time;
+            }
+            else
+            {
+                delta_rtc_time = rtc_time - last_rtc_value;
+            }
+            /* Store last rtc time */
+            last_rtc_value = rtc_time;
+
+
+            /* scale to become us */
+            time_now += ((delta_rtc_time << 15) / 1000);
+
+            transport_control_timeslot_begin(time_now);       
             break;
-        
+        }
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
             /* send to radio control module */
             TICK_PIN(PIN_RADIO_SIGNAL);
@@ -568,7 +583,7 @@ uint32_t timeslot_get_remaining_time(void)
     }
 }
 
-uint32_t timeslot_get_end_time(void)
+uint64_t timeslot_get_end_time(void)
 {
     if (!g_is_in_timeslot)
     {
