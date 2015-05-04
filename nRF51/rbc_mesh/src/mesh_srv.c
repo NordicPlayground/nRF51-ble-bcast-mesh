@@ -174,9 +174,9 @@ static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
     
     memset(&ble_attr, 0, sizeof(ble_attr));
     
-    ble_attr.init_len = 9;
+    ble_attr.init_len = MESH_MD_CHAR_LEN;
     ble_attr.init_offs = 0;
-    ble_attr.max_len = 9;
+    ble_attr.max_len = MESH_MD_CHAR_LEN;
     ble_attr.p_uuid = &ble_uuid;
     ble_attr.p_value = value_array;
     ble_attr.p_attr_md = &ble_attr_md;
