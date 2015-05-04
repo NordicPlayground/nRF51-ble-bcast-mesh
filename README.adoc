@@ -98,3 +98,5 @@ http://www.nordicsemi.com[Nordic Semiconductor Homepage]
 
 http://tools.ietf.org/html/rfc6206[Trickle Algorithm Specification]
 
+link:docs/changelog.adoc[Changelog]
+

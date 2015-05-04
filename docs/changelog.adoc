@@ -1,0 +1,46 @@
+= Changelog
+
+== 0.6.3 Bugfix-release May 4
+
+Fixed issues: 
+#15 - uint32_t variables assigned to false in timeslot_handler by @AlexDM0
+#17 - Mesh Metadata Characteristic data length by @eggerdo
+#7 - Global time overflow by @victorpasse
+Repeating version bug from 0.6.2, reported by @olskyy
+
+Big thanks to @victorpasse for providing a solution to #7. The issue at both 9.1 minutes and 71 minutes should be fixed, but the mesh will require a reinitiation in around 10 million years distant future end-users beware!)
+
+== 0.6.2 Bugfix-release - Mar 25
+
+Fixed issues:
+#8 - version overflow by @victorpasse
+#11 - adv_int_ms as uint8_t Typo? by @olskyy
+
+Merged pullreq #9
+Cleanup in arduino example
+
+== 0.6.1 Project structure update - Mar 3
+
+This release brings some major restructuring of both the example applications and the repo itself. The previous top level folder is now moved into /nRF51/, which contains all nRF51 code.
+
+The serial interface released in v0.6.0 has been integrated into the framework, rather than as a separate example.
+
+Both example projects and the Template project now contains both UV4 and UV5 versions of the projects, in addition to an UV5 project for SDK7.x.x support.
+
+The projects now reference SDK modules from a different location, as described in the README.
+
+A new /application_controller/ folder has been added, and now contains the "other side" of the serial interface, the external controller. The application controller is mainly targeted towards Arduino and Arduino-clone platforms, but is portable.
+
+The application controller framework depends on the ble-sdk-arduino, which must be downloaded and added as a library in your Arduino IDE, or referenced directly if you want to execute it on other platforms.
+
+An Arduino example has been included to get you started with the application controller.
+
+The framework now has a guide for including mesh-functionality into your existing Softdevice applications. It addresses some of the collisions in resource usage between the rbc_mesh and some SDK modules.
+
+The README has been split into three files to avoid the wall-of-text feeling in the original version.
+
+== 0.6.0 Serial interface update - Feb 18
+
+For this release, we've added a new serial interface for the mesh, based on the nRF8001 SPI interface. This interface will allow you to externally control a mesh-enabled nRF51 device from an external host. An Arduino implementation of a host side controller will soon be released. It will feature an API that mirrors the original "on-chip" API for the framework, so that you easily can start developing mesh applications on the Arduino without changing the nRF51 code at all!
+
+
