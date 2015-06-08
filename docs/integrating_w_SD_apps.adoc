@@ -77,6 +77,8 @@ In order to get feedback from the rbc_mesh, the application must implement `void
 
 === Step 6: initialization
 The final step is to initialize the rbc_mesh framework. First off, the framework calls `sd_ble_enable()` in _mesh_srv.c_. This is already done as part of the initialization in the Proximity example, and can be left out of the _mesh_srv.c_ code. Remove the line calling the Softdevice function.
+ 
+Due to restrictions in the timeslot API, you will need to set the advertising interval in your application (normally define "APP_ADV_INTERVAL_FAST") equal or greater to the timeslot period used by rbc-mesh library. The timeslot period is now set to 100 ms, which means that the fastest advertising in your application shall be >= 100 ms.
 
 Finally, we must initialize the framework from the application. This is also displayed in the examples under _/nRF51/examples/_, but note that `uint32_t rbc_mesh_init(rbc_mesh_init_params_t)` must be called after `ble_stack_init()` in the application in order to secure correct behavior (more specifically, after `sd_ble_enable()`). We also recommend that you initialize the framework before you start advertising, to ensure that the application includes the mesh service in its GATT server for external devices.
 
