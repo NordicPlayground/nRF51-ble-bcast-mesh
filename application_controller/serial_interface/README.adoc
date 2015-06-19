@@ -62,7 +62,7 @@ All commands generate a Command Response Event with the status and the data asso
 === API
 
 The API for the serial interface is present in 
-'mesh interface.h'
+'rbc_mesh_interface.h'
 
 
 == How it works
