@@ -39,21 +39,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rbc_mesh_interface.h"
 
-#define MESH_ADV_INT  (100)
-#define LENGTH_OFFSET (0)
 static aci_pins_t pins;
 
 static uint8_t         uart_buffer[20];
-static uint8_t         uart_buffer_len = 0;
 static uint8_t         dummychar = 0;
 
 // access address in our example mesh application
-uint8_t accAddr[] = {0xA5, 0x41, 0xA6, 0x8F};
-
-void print(char* str){
-	Serial.println(str);
-
-}
+//uint32_t accAddr = 0x8FA641A5;
+uint32_t accAddr = 0xA541A68F;
 
 void __ble_assert(const char *file, uint16_t line)
 {
@@ -80,15 +73,14 @@ void setup(void)
   #endif
   
   pins.board_name = BOARD_DEFAULT; //See board.h for details REDBEARLAB_SHIELD_V1_1 or BOARD_DEFAULT
-  pins.reqn_pin   = 9; 
+  pins.reqn_pin   = SS; 
   pins.rdyn_pin   = 8; 
   pins.mosi_pin   = MOSI;
   pins.miso_pin   = MISO;
   pins.sck_pin    = SCK;
 
-  pins.spi_clock_divider      = SPI_CLOCK_DIV64; //The nRF51 has some trouble keeping up with high transmission speeds
-  
-  pins.reset_pin              = 4; //4 for Nordic board, UNUSED for REDBEARLAB_SHIELD_V1_1
+  pins.spi_clock_divider      = SPI_CLOCK_DIV8;
+  pins.reset_pin              = UNUSED; //4 for Nordic board, UNUSED for REDBEARLAB_SHIELD_V1_1
   pins.active_pin             = UNUSED;
   pins.optional_chip_sel_pin  = UNUSED;
 
@@ -97,10 +89,9 @@ void setup(void)
 
   // initialize mesh_interface
   rbc_mesh_hw_init(&pins);
-  
-  rbc_mesh_init(accAddr, (uint8_t) 38, (uint8_t) 2);
 
-  Serial.println("Arduino setup done");
+  Serial.println("Local setup done");
+  Serial.println("Starting connection setup");
   return;
 
 }
@@ -108,97 +99,98 @@ void setup(void)
 bool stringComplete = false;  // whether the string is complete
 uint8_t stringIndex = 0;      //Initialize the index to store incoming chars
 
-int state = -1;
+enum state_t{
+    starting,
+    ready,
+    waitingForEvent
+};
+
+int state = starting;
 
 
+int initState = 0;
+bool newMessage = false;
 
-// Application specific example code. Arduino version of the LED example project for nRF51
-// state machine to write commands in order and with delay, triggered by serial input
+void initConnectionSlowly(){
+    switch(initState) {
+        case 0:
+            Serial.print(".");
+            rbc_mesh_init(accAddr, (uint8_t) 38, (uint8_t) 2, (uint32_t) 100);
+            initState++;
+            break;
+        case 1:
+            if(newMessage){
+                Serial.print(".");
+                rbc_mesh_value_enable((uint8_t) 1);
+                initState++;
+            }
+            break;
+        case 2:
+            if(newMessage){
+                Serial.println(".");
+                rbc_mesh_value_enable((uint8_t) 2);
+                initState++;
+            }
+            break;
+        case 3:
+            if(newMessage){
+                state = ready;
+                Serial.println("connection setup done");
+                Serial.println("possible commands are");
+                Serial.println(" 0 - red off");
+                Serial.println(" 1 - red on");
+                Serial.println(" 2 - green off");
+                Serial.println(" 3 - green on");
+            }
+    }
+}
+
 void actions_loop() {
-  // executed after line is read through serial input (hit enter to increment state)
-  if (stringComplete)
-  {
-    uart_buffer_len = stringIndex + 1; 
-    state++;
-    
-    
-    // echo to test spi-connection
-    if(state == 0){
-       if (!rbc_mesh_echo(uart_buffer, uart_buffer_len)){
-        Serial.println(F("Serial input dropped"));
-      }
-      else{
-       Serial.println(F("echo done"));
-     }
+  if (stringComplete){
+    uint8_t handle = 1;
+    uint8_t value = 1;
+    if(uart_buffer[0] == '0'){
+      handle = 1;
+      value = 0;
     }
-    
-    // initialization: enable the handles
-    if(state == 1){
-      if(!rbc_mesh_value_enable((uint8_t) 1)){
-       Serial.println(F("enable 1 dropped"));
-     }
-     else{
-       Serial.println(F("enable 1 done"));
-     }
+    if(uart_buffer[0] == '1'){
+      handle = 1;
+      value = 1;
     }
-    if(state == 2){
-      if(!rbc_mesh_value_enable((uint8_t) 2)){
-       Serial.println(F("enable 2 dropped"));
-     }
-     else{
-       Serial.println(F("enable 2 done"));
-     }
+    if(uart_buffer[0] == '2'){
+      handle = 2;
+      value = 0;
     }
-    
-    // toogle state of one handle after every state change
-    if(state > 2){
-      uint8_t value = (state/2) % 2;
-      uint8_t handle = (state % 2) + 1;
-      if(!rbc_mesh_value_set(handle, &value, (uint8_t) 1)){
-        Serial.println(F("set dropped"));
-      }
-      else{
-        Serial.println(F("set done"));
-      }
+    if(uart_buffer[0] == '3'){
+      handle = 2;
+      value = 1;
     }
-
-    // clear the uart_buffer:
-    for (stringIndex = 0; stringIndex < 20; stringIndex++)
-    {
-      uart_buffer[stringIndex] = ' ';
-    }
-
-    // reset the flag and the index in order to receive more data
-    stringIndex    = 0;
+    if(state == ready){
+      Serial.println("sending");
+      state = waitingForEvent;
+      rbc_mesh_value_set(handle, &value, (uint8_t) 1);
+    }  
+    stringIndex = 0;
     stringComplete = false;
   }
-  //For ChipKit you have to call the function that reads from Serial
-  #if 1
-    if (Serial.available())
-    {
+  if (Serial.available()) {
       serialEvent();
-    }
-  #endif
+  }
 }
 
 void loop() {
-
-  //Process any ACI commands or events
-  hal_aci_data_t data;
-  bool evt_status = rbc_mesh_evt_get(&data);
   
-  if (evt_status){
-#if 1
-    uint8_t* p_evt = data.buffer;
-    for (int i = 0; i < p_evt[LENGTH_OFFSET] + 1; i++)
-    {
-      Serial.print((uint32_t) p_evt[i], HEX);
-      Serial.print(" ");
+    if(state == starting){
+        initConnectionSlowly();
     }
-    Serial.println("");
-#endif    
-  }
-  
+    //Process any ACI commands or events
+    serial_evt_t evnt;
+    newMessage = rbc_mesh_evt_get(&evnt);
+
+    if(state == waitingForEvent && newMessage){
+        state = ready;
+    } 
+    
   // react to command line interaction
   actions_loop();
 
@@ -216,6 +208,7 @@ void serialEvent() {
       {
         // if the incoming character is a newline, set a flag
         // so the main loop can do something about it
+        uart_buffer[stringIndex] = 0;
         stringIndex--;
         stringComplete = true;
       }
