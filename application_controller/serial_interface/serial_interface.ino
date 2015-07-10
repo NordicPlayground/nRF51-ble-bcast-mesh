@@ -137,36 +137,44 @@ void initConnectionSlowly(){
                 state = ready;
                 Serial.println("connection setup done");
                 Serial.println("possible commands are");
-                Serial.println(" 0 - red off");
-                Serial.println(" 1 - red on");
-                Serial.println(" 2 - green off");
-                Serial.println(" 3 - green on");
+                Serial.println(" 1 - red off");
+                Serial.println(" 2 - red on");
+                Serial.println(" 3 - green off");
+                Serial.println(" 4 - green on");
             }
     }
 }
 
 void actions_loop() {
   if (stringComplete){
+    Serial.print("");
+    Serial.print("running, state is ");
+    Serial.println(state);
+      
     uint8_t handle = 1;
     uint8_t value = 1;
-    if(uart_buffer[0] == '0'){
+    if(uart_buffer[0] == '1'){
+      Serial.println("got 1: red off");
       handle = 1;
       value = 0;
     }
-    if(uart_buffer[0] == '1'){
+    if(uart_buffer[0] == '2'){
+      Serial.println("got 2: red on");
       handle = 1;
       value = 1;
     }
-    if(uart_buffer[0] == '2'){
+    if(uart_buffer[0] == '3'){
+      Serial.println("got 3: green off");
       handle = 2;
       value = 0;
     }
-    if(uart_buffer[0] == '3'){
+    if(uart_buffer[0] == '4'){
+      Serial.println("got 4: green on");
       handle = 2;
       value = 1;
     }
     if(state == ready){
-      Serial.println("sending");
+      Serial.println("sending now");
       state = waitingForEvent;
       rbc_mesh_value_set(handle, &value, (uint8_t) 1);
     }  
@@ -202,31 +210,26 @@ void serialEvent() {
   while(Serial.available() > 0){
     // get the new byte:
     dummychar = (uint8_t)Serial.read();
-    if(!stringComplete)
-    {
-      if (dummychar == '\n')
-      {
-        // if the incoming character is a newline, set a flag
-        // so the main loop can do something about it
-        uart_buffer[stringIndex] = 0;
-        stringIndex--;
-        stringComplete = true;
-      }
-      else
-      {
-        if(stringIndex > 19)
-        {
-          Serial.println("Serial input truncated");
-          stringIndex--;
-          stringComplete = true;
-        }
-        else
-        {
-          // add it to the uart_buffer
-          uart_buffer[stringIndex] = dummychar;
-          stringIndex++;
-        }
-      }
+    if(stringComplete){
+      continue;
     }
+    if (dummychar == '\n'){
+      // if the incoming character is a newline, set a flag
+      // so the main loop can do something about it
+      uart_buffer[stringIndex] = 0;
+      stringIndex--;
+      stringComplete = true;
+      continue;
+    }
+      
+    if(stringIndex > 19){
+      Serial.println("Serial input truncated");
+      stringIndex--;
+      stringComplete = true;
+      return;
+    }
+    // add it to the uart_buffer
+    uart_buffer[stringIndex] = dummychar;
+    stringIndex++;
   }
 }
