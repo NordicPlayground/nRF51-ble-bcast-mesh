@@ -78,9 +78,6 @@ static void error_loop(void)
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-		uint32_t x = pc;
-		uint16_t y = line_num;
-		uint8_t* z = (uint8_t*) p_file_name;
     error_loop();
 }
 
@@ -149,24 +146,26 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 * @brief Initialize GPIO pins, for LEDs and debugging
 */
 void gpio_init(void)
-{   
-
+{
 #ifdef BOARD_PCA10028
-    nrf_gpio_cfg_output(LED_2);
-#else
-    //nrf_gpio_cfg_output(LED_0);
+		nrf_gpio_cfg_output(LED_1);
+		nrf_gpio_cfg_output(LED_2);
 #endif
-    //nrf_gpio_cfg_output(LED_1); 
-
 #ifdef BOARD_PCA10031	
 	  nrf_gpio_cfg_output(LED_RGB_RED);
     nrf_gpio_cfg_output(LED_RGB_GREEN);
+		nrf_gpio_cfg_output(LED_RGB_BLUE);
+
     nrf_gpio_pin_set(LED_RGB_RED);
     nrf_gpio_pin_set(LED_RGB_GREEN);
+    nrf_gpio_pin_set(LED_RGB_BLUE);
 #endif
 	
 #ifdef BOARD_PCA10000
-    nrf_gpio_cfg_output(LED_RGB_BLUE);  
+	  nrf_gpio_cfg_output(LED_RGB_RED);
+    nrf_gpio_cfg_output(LED_RGB_GREEN);
+    nrf_gpio_cfg_output(LED_RGB_BLUE); 
+
     nrf_gpio_pin_set(LED_RGB_RED);
     nrf_gpio_pin_set(LED_RGB_GREEN);
     nrf_gpio_pin_set(LED_RGB_BLUE);
@@ -193,9 +192,7 @@ int main(void)
 		ble_enable_params.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     
     error_code = sd_ble_enable(&ble_enable_params);
-	
-		uint32_t x = error_code;
-	
+
     APP_ERROR_CHECK(error_code);
     
     /* init leds and pins */
@@ -232,15 +229,10 @@ int main(void)
     nrf_adv_conn_init();
     
 #endif
-
-		x = error_code;
-
     
     /* enable softdevice IRQ */
     error_code = sd_nvic_EnableIRQ(SD_EVT_IRQn);
-    
-		x = error_code;
-    
+
     /* sleep */
     while (true)
     {
