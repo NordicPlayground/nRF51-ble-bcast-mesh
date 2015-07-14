@@ -50,6 +50,17 @@ void led_config(uint8_t led, uint8_t conf)
     NRF_GPIO->OUTCLR = (1 << (led - 1 + LED_0));
   }
 #endif
+#ifdef BOARD_PCA10031  
+  if (!conf)
+  {
+    NRF_GPIO->OUTSET = (1 << (led - 1 + LED_RGB_RED));
+  }
+  else
+  {
+    NRF_GPIO->OUTCLR = (1 << (led - 1 + LED_RGB_RED
+		));
+  }
+#endif
 #ifdef BOARD_PCA10001
   if (conf)
   {

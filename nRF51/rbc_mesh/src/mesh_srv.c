@@ -436,7 +436,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
             }
             else if (error_code == BLE_GATTS_EVT_SYS_ATTR_MISSING)
             {
-                sd_ble_gatts_sys_attr_set(g_active_conn_handle, NULL, 0);
+                sd_ble_gatts_sys_attr_set(g_active_conn_handle, NULL, 0, BLE_GATTS_SYS_ATTR_FLAG_USR_SRVCS);
             }
             else
             {
@@ -446,9 +446,14 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     }
     else
     {
+        ble_gatts_value_t gatts_value_set;
+        gatts_value_set.len = len;
+        gatts_value_set.offset = 0;
+        gatts_value_set.p_value = data;
         error_code = sd_ble_gatts_value_set(
+						BLE_CONN_HANDLE_INVALID,
             ch_md->char_value_handle, 
-            0, &len, data);
+            &gatts_value_set);
         
         if (error_code != NRF_SUCCESS)
         {
@@ -472,10 +477,16 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len, ble_
     }
     
     *len = MAX_VALUE_LENGTH;
-    
+    ble_gatts_value_t ble_gatts_value_get;
+    ble_gatts_value_get.len = *(uint16_t*)len;
+    ble_gatts_value_get.offset = 0;
+    ble_gatts_value_get.p_value = data;
     uint32_t error_code = sd_ble_gatts_value_get(
+				BLE_CONN_HANDLE_INVALID,
         g_mesh_service.char_metadata[index - 1].char_value_handle, 
-        0, len, data);
+        &ble_gatts_value_get);
+		
+		*len = ble_gatts_value_get.len;
     
     if (error_code != NRF_SUCCESS)
     {
@@ -501,9 +512,17 @@ uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata)
     
     uint8_t data_array[MESH_MD_CHAR_LEN];
     uint16_t len = MESH_MD_CHAR_LEN;
+    ble_gatts_value_t ble_gatts_value_get;
+    ble_gatts_value_get.len = len;
+    ble_gatts_value_get.offset = 0;
+    ble_gatts_value_get.p_value = data_array;
     
     uint32_t error_code = sd_ble_gatts_value_get(
-        g_mesh_service.ble_md_char_handles.value_handle, 0, &len, data_array);
+        BLE_CONN_HANDLE_INVALID,
+				g_mesh_service.ble_md_char_handles.value_handle,
+				&ble_gatts_value_get);
+		
+		len = ble_gatts_value_get.len;
     
     if (error_code != NRF_SUCCESS)
     {

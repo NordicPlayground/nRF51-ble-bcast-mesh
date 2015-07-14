@@ -146,17 +146,26 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 * @brief Initialize GPIO pins, for LEDs and debugging
 */
 void gpio_init(void)
-{   
-
+{
 #ifdef BOARD_PCA10028
-    nrf_gpio_cfg_output(LED_2);
-#else
-    nrf_gpio_cfg_output(LED_0);
+		nrf_gpio_cfg_output(LED_1);
+		nrf_gpio_cfg_output(LED_2);
 #endif
-    nrf_gpio_cfg_output(LED_1);  
-    
+#ifdef BOARD_PCA10031	
+	  nrf_gpio_cfg_output(LED_RGB_RED);
+    nrf_gpio_cfg_output(LED_RGB_GREEN);
+		nrf_gpio_cfg_output(LED_RGB_BLUE);
+
+    nrf_gpio_pin_set(LED_RGB_RED);
+    nrf_gpio_pin_set(LED_RGB_GREEN);
+    nrf_gpio_pin_set(LED_RGB_BLUE);
+#endif
+	
 #ifdef BOARD_PCA10000
-    nrf_gpio_cfg_output(LED_RGB_BLUE);  
+	  nrf_gpio_cfg_output(LED_RGB_RED);
+    nrf_gpio_cfg_output(LED_RGB_GREEN);
+    nrf_gpio_cfg_output(LED_RGB_BLUE); 
+
     nrf_gpio_pin_set(LED_RGB_RED);
     nrf_gpio_pin_set(LED_RGB_GREEN);
     nrf_gpio_pin_set(LED_RGB_BLUE);
@@ -180,8 +189,10 @@ int main(void)
     
     ble_enable_params_t ble_enable_params;
     ble_enable_params.gatts_enable_params.service_changed = 0;
+		ble_enable_params.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     
     error_code = sd_ble_enable(&ble_enable_params);
+
     APP_ERROR_CHECK(error_code);
     
     /* init leds and pins */
@@ -220,13 +231,12 @@ int main(void)
 #endif
     
     /* enable softdevice IRQ */
-    sd_nvic_EnableIRQ(SD_EVT_IRQn);
-    
-    
+    error_code = sd_nvic_EnableIRQ(SD_EVT_IRQn);
+
     /* sleep */
     while (true)
     {
-        sd_app_evt_wait();
+      sd_app_evt_wait();
     }
     
 

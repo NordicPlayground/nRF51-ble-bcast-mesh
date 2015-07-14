@@ -8,7 +8,7 @@ application to the basic application in the LED mesh example. Each node in the
 mesh will be able to act as an access point for external BLE devices. 
 
 The example is made for nRF51x22 Evaluation and Development kits (PCA10000,
-PCA10001, PCA10003, both dongles and boards), and the two
+PCA10001, PCA10003 PCA10028, PCA 10031, both dongles and boards), and the two
 characteristics provided in the mesh Service represents LED 0 and LED 1 on the
 board, and RGB RED and GREEN on the dongles. 
 

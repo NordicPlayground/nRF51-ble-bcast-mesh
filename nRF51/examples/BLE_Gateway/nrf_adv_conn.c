@@ -49,6 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
                             
 #define BLE_ADV_INTERVAL_750MS (800)
+#define BLE_ADV_INTERVAL_200MS (320)
 
 /*****************************************************************************
 * Static Globals
@@ -63,13 +64,16 @@ static ble_gap_adv_params_t ble_adv_params = {
     NULL,                      /* Not used for this type of advertisement */
     BLE_GAP_ADV_FP_ANY,        /* Don't filter */
     NULL,                      /* Whitelist not in use */
-    BLE_ADV_INTERVAL_750MS,       /* Advertising interval set to intentionally disrupt the timeslot example */
-    0                          /* Timeout in seconds */
+    BLE_ADV_INTERVAL_200MS,       /* Advertising interval set to intentionally disrupt the timeslot example */
+    0,                          /* Timeout in seconds */
+		{
+			0, 0, 0
+		}
 };
 
 static ble_advdata_t ble_adv_data;
 static ble_gap_sec_params_t ble_gap_bond_params = {
-    .timeout = 30,                     /* Timeout in seconds */
+//    .timeout = 30,                     /* Timeout in seconds */
     .bond = 0,                      /* Don't perform bonding */
     .mitm = 0,                      /* Man-in-the-middle protection not required */
     .io_caps = BLE_GAP_IO_CAPS_NONE,   /* No I/O capabilities */
@@ -90,7 +94,7 @@ static void ble_gatts_event_handler(ble_evt_t* evt)
         break;
 
     case BLE_GATTS_EVT_SYS_ATTR_MISSING:
-        sd_ble_gatts_sys_attr_set(evt->evt.gatts_evt.conn_handle, NULL, 0);
+        sd_ble_gatts_sys_attr_set(evt->evt.gatts_evt.conn_handle, NULL, 0, 0);
         break;
 
     case BLE_GATTS_EVT_WRITE:
@@ -114,7 +118,7 @@ static void ble_gap_event_handler(ble_evt_t* evt)
 
     case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
           APP_ERROR_CHECK(sd_ble_gap_sec_params_reply(evt->evt.gap_evt.conn_handle,
-            BLE_GAP_SEC_STATUS_SUCCESS, &ble_gap_bond_params));
+            BLE_GAP_SEC_STATUS_SUCCESS, &ble_gap_bond_params, NULL));
           break;
 
     case BLE_GAP_EVT_CONN_SEC_UPDATE:
@@ -141,8 +145,7 @@ void nrf_adv_conn_init(void)
 
     memset(&ble_adv_data, 0, sizeof(ble_adv_data));
 
-    ble_adv_data.flags.size = 1;
-    ble_adv_data.flags.p_data = &flags;
+    ble_adv_data.flags = flags;
     ble_adv_data.name_type    = BLE_ADVDATA_FULL_NAME;
     //ble_adv_data.p_manuf_specific_data = &man_data;
 
