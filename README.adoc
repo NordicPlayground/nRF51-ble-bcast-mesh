@@ -30,13 +30,13 @@ The framework also has support for external control via SPI. The serial interfac
 
 === Getting started
 
-The framework supports both nRF51 SDK 6.x.x and nRF51 SDK 7.x.x. Since the structure of the SDK changed between these versions, you have to clone the repo differently based on which version you utilize.
+The framework supports both nRF51 SDK 6.x.x, 7.x.x and 8.x.x. Since the structure of the SDK changed between SDK 6 and SDK 7, you have to clone the repo differently based on which version you utilize.
 
-If you're using 6.x.x, clone the repository into _<SDK6-folder>/nRF51822/boards/PCA10001/S110/<Project-folder>_. 
-
-The SDK 7.x.x projects utilizes the *non-pack* version of the SDK, available at http://developer.nordicsemi.com/[Nordic Semiconductor's developer portal]. Clone this repo into _<SDK7-folder>/examples/<Project-folder>_. 
+This branch supports the SDK 8.x.x, which also needs the Softdevice Version 8. Clone the repo into _<SKD8-Folder>/examples/<Project-folder>_.
 
 This will ensure that all references to the SDK are correctly placed, so that you don't have to change all references to the SDK in the project files. If you still want to clone the repo into a different folder than suggested, you need to change the location of all the files under the _Lib_ group in Keil uVision, in addition to the include paths under the menu _Target options -> C/C++ -> Include Paths_.
+
+After flushing your software onto the boards powercycle them to start them.
 
 === Integrating with existing applications
 The framework is built to be compatible with most existing SDK example projects, and we've written a short guide to include it in existing projects with as few changes to existing code as possible. The guide uses the ble_app_proximity example from the SDK as reference, and shows a step by step approach to overcoming typical problems with integration:
