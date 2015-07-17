@@ -150,8 +150,15 @@ void gpio_init(void)
 #ifdef BOARD_PCA10028
 		nrf_gpio_cfg_output(LED_1);
 		nrf_gpio_cfg_output(LED_2);
+	
+    #ifdef BUTTONS
+        nrf_gpio_cfg_input(BUTTON_1, NRF_GPIO_PIN_PULLUP);
+        nrf_gpio_cfg_input(BUTTON_2, NRF_GPIO_PIN_PULLUP);
+        nrf_gpio_cfg_input(BUTTON_3, NRF_GPIO_PIN_PULLUP);
+        nrf_gpio_cfg_input(BUTTON_4, NRF_GPIO_PIN_PULLUP);
+    #endif
 #endif
-#ifdef BOARD_PCA10031	
+#ifdef BOARD_PCA10031
 	  nrf_gpio_cfg_output(LED_RGB_RED);
     nrf_gpio_cfg_output(LED_RGB_GREEN);
 		nrf_gpio_cfg_output(LED_RGB_BLUE);
@@ -233,12 +240,49 @@ int main(void)
     /* enable softdevice IRQ */
     error_code = sd_nvic_EnableIRQ(SD_EVT_IRQn);
 
+
+#ifndef BUTTONS
     /* sleep */
     while (true)
     {
-      sd_app_evt_wait();
+        sd_app_evt_wait();
     }
     
+    
+#else
+    uint8_t mesh_data[16] = {0,0};
+    while (true)
+    {
+        // red off
+        if(nrf_gpio_pin_read(BUTTON_1) == 0)
+        {
+            while(nrf_gpio_pin_read(BUTTON_1) == 0);
+            mesh_data[0] = 0;
+            rbc_mesh_value_set(1, mesh_data, 1);
+        }
+        // red on
+        if(nrf_gpio_pin_read(BUTTON_2) == 0)
+        {
+            while(nrf_gpio_pin_read(BUTTON_2) == 0);
+            mesh_data[0] = 1;
+            rbc_mesh_value_set(1, mesh_data, 1);
+        }
+        // green off 
+        if(nrf_gpio_pin_read(BUTTON_3) == 0)
+        {
+            while(nrf_gpio_pin_read(BUTTON_3) == 0);
+            mesh_data[0] = 0;
+            rbc_mesh_value_set(2, mesh_data, 1);
+        }
+        // green on
+         if(nrf_gpio_pin_read(BUTTON_4) == 0)
+        {
+            while(nrf_gpio_pin_read(BUTTON_4) == 0);
+            mesh_data[0] = 1;
+            rbc_mesh_value_set(2, mesh_data, 1);
+        }
+    }   
+#endif    
 
 }
 
