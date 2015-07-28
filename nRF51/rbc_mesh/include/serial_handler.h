@@ -43,12 +43,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
+// for GCC
+#define __packed   __attribute__((__packed__))
 
-typedef __packed struct 
+typedef struct 
 {
-	uint8_t status_byte;
-	uint8_t buffer[SERIAL_DATA_MAX_LEN + 2];
-} serial_data_t;
+  uint8_t status_byte;
+  uint8_t buffer[SERIAL_DATA_MAX_LEN + 2];
+} __packed serial_data_t;
 
 
 void serial_handler_init(void);

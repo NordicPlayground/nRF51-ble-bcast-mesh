@@ -76,10 +76,10 @@ static aci_status_code_t error_code_translate(uint32_t nrf_error_code)
 */
 static void serial_command_handler(serial_cmd_t* serial_cmd)
 {
-	serial_evt_t serial_evt;
+    serial_evt_t serial_evt;
     rbc_mesh_event_t app_evt;
-	switch (serial_cmd->opcode)
-	{
+    switch (serial_cmd->opcode)
+    {
     case SERIAL_CMD_OPCODE_ECHO:
         serial_evt.opcode = SERIAL_EVT_OPCODE_ECHO_RSP;
         serial_evt.length = serial_cmd->length;
@@ -324,7 +324,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         }
       
         serial_handler_event_send(&serial_evt);
-        break;			
+        break;          
             
     default:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
@@ -332,7 +332,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         serial_evt.length = 3;
         serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_CMD_UNKNOWN;
         serial_handler_event_send(&serial_evt);
-	}    
+    }    
 }
 
 
@@ -342,7 +342,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
 void mesh_aci_init(void)
 {
-	serial_handler_init();
+    serial_handler_init();
 }
 
 void mesh_aci_command_check(void)
@@ -372,6 +372,9 @@ void mesh_aci_rbc_event_handler(rbc_mesh_event_t* evt)
         
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
             serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_UPDATE;
+            break;
+
+        default:
             break;
     }
     
