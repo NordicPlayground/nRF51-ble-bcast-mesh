@@ -44,7 +44,7 @@
             <NotGenerated>0</NotGenerated>
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
-          <OutputDirectory>.\</OutputDirectory>
+          <OutputDirectory>.\_build\</OutputDirectory>
           <OutputName>rbc_mesh_template</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
@@ -141,7 +141,7 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>0</UsePdscDebugDescription>
+            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -306,8 +306,8 @@
               </OCR_RVCT3>
               <OCR_RVCT4>
                 <Type>1</Type>
-                <StartAddress>0x16000</StartAddress>
-                <Size>0x2a000</Size>
+                <StartAddress>0x18000</StartAddress>
+                <Size>0x28000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -332,7 +332,7 @@
               <OCR_RVCT9>
                 <Type>0</Type>
                 <StartAddress>0x20002000</StartAddress>
-                <Size>0x2000</Size>
+                <Size>0x6000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
@@ -360,9 +360,9 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>BOARD_PCA10001 NRF51</Define>
+              <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10031 SOFTDEVICE_PRESENT NRF51 __WEAK=__weak</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\..\Include;..\..\..\..\..\..\..\..\Include\ble;..\..\..\..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\..\..\..\Include\sd_common;..\..\..\..\..\..\..\..\Include\s110;..\..\..\..\..\..\..\..\Include\app_common;..\..\..\..\..\..\..\..\Include\gcc;..\..\..\..\..\..\..\..\Include\spi_slave</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -617,7 +617,7 @@
             <File>
               <FileName>spi_slave.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\..\Source\spi_slave\spi_slave.c</FilePath>
+              <FilePath>..\..\..\..\..\..\components\drivers_nrf\spi_slave\spi_slave.c</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -661,6 +661,11 @@
                   </Cads>
                 </FileArmAds>
               </FileOption>
+            </File>
+            <File>
+              <FileName>softdevice_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\softdevice\common\softdevice_handler\softdevice_handler.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -704,7 +709,7 @@
             <NotGenerated>0</NotGenerated>
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
-          <OutputDirectory>.\</OutputDirectory>
+          <OutputDirectory>.\_build\</OutputDirectory>
           <OutputName>rbc_mesh_template</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
@@ -801,7 +806,7 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>0</UsePdscDebugDescription>
+            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -966,8 +971,8 @@
               </OCR_RVCT3>
               <OCR_RVCT4>
                 <Type>1</Type>
-                <StartAddress>0x16000</StartAddress>
-                <Size>0x2a000</Size>
+                <StartAddress>0x18000</StartAddress>
+                <Size>0x28000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -992,7 +997,7 @@
               <OCR_RVCT9>
                 <Type>0</Type>
                 <StartAddress>0x20002000</StartAddress>
-                <Size>0x2000</Size>
+                <Size>0x6000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
@@ -1020,9 +1025,9 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>BOARD_PCA10001 NRF51 RBC_MESH_SERIAL</Define>
+              <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10031 SOFTDEVICE_PRESENT NRF51 __WEAK=__weak RBC_MESH_SERIAL</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\..\Include;..\..\..\..\..\..\..\..\Include\ble;..\..\..\..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\..\..\..\Include\sd_common;..\..\..\..\..\..\..\..\Include\s110;..\..\..\..\..\..\..\..\Include\app_common;..\..\..\..\..\..\..\..\Include\gcc;..\..\..\..\..\..\..\..\Include\spi_slave</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1148,7 +1153,12 @@
             <File>
               <FileName>spi_slave.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\..\Source\spi_slave\spi_slave.c</FilePath>
+              <FilePath>..\..\..\..\..\..\components\drivers_nrf\spi_slave\spi_slave.c</FilePath>
+            </File>
+            <File>
+              <FileName>softdevice_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\softdevice\common\softdevice_handler\softdevice_handler.c</FilePath>
             </File>
           </Files>
         </Group>
