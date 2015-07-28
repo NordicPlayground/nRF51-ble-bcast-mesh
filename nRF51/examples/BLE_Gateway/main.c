@@ -39,9 +39,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "timeslot_handler.h"
 #include "mesh_aci.h"
 
-#include "nrf_soc.h"
-#include "nrf_assert.h"
-#include "nrf_sdm.h"
+#include "softdevice_handler.h"
+//#include "nrf_soc.h"
+//#include "nrf_assert.h"
+//#include "nrf_sdm.h"
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "boards.h"
@@ -89,7 +90,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 * @param[in] line_num Line where the error check failed 
 * @param[in] p_file_name File where the error check failed
 */
-void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+void app_error_handler(volatile uint32_t error_code, volatile uint32_t line_num, volatile const uint8_t * p_file_name)
 {
     error_loop();
 }
@@ -102,7 +103,8 @@ void HardFault_Handler(void)
 /**
 * @brief Softdevice event handler 
 */
-void SD_EVT_IRQHandler(void)
+#if 1
+uint32_t sd_evt_handler(void)
 {
     rbc_mesh_sd_irq_handler();
     
@@ -112,7 +114,9 @@ void SD_EVT_IRQHandler(void)
     {
         nrf_adv_conn_evt_handler(&ble_evt);
     }
+    return NRF_SUCCESS;
 }
+#endif
 
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
@@ -190,17 +194,7 @@ void gpio_init(void)
 int main(void)
 {
     /* Enable Softdevice (including sd_ble before framework */
-    uint32_t error_code = 
-        sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
-    APP_ERROR_CHECK(error_code);
-    
-    ble_enable_params_t ble_enable_params;
-    ble_enable_params.gatts_enable_params.service_changed = 0;
-		ble_enable_params.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
-    
-    error_code = sd_ble_enable(&ble_enable_params);
-
-    APP_ERROR_CHECK(error_code);
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
     
     /* init leds and pins */
     gpio_init();
@@ -222,6 +216,7 @@ int main(void)
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
+    uint32_t error_code;
     error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     

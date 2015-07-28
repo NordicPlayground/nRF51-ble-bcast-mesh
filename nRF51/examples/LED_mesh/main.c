@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_aci.h"
 
 #include "nrf_soc.h"
+#include "softdevice_handler.h"
 #include "nrf_assert.h"
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -60,6 +61,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 static void error_loop(void)
 {
+    NRF_GPIO->OUTSET = (1 << (LED_START + 0));
+    NRF_GPIO->OUTSET = (1 << (LED_START + 1));
+    NRF_GPIO->OUTCLR = (1 << (LED_START + 2));
     SET_PIN(7);
     while (true)
     {
@@ -87,7 +91,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 * @param[in] line_num Line where the error check failed 
 * @param[in] p_file_name File where the error check failed
 */
-void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+void app_error_handler(volatile uint32_t error_code, volatile uint32_t line_num, volatile const uint8_t * p_file_name)
 {
     error_loop();
 }
@@ -96,7 +100,10 @@ void HardFault_Handler(void)
 {
     error_loop();
 }
-
+void assert_nrf_callback(uint16_t line_num, const uint8_t *file_name)
+{
+    error_loop();
+}
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
 *   events coming from the mesh. Sets LEDs according to data
@@ -122,17 +129,17 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 
 
 
-#ifdef BOARD_PCA10001
+#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
 /* configure button interrupt for evkits */
 static void gpiote_init(void)
 {
-    NRF_GPIO->PIN_CNF[BUTTON_0] = (GPIO_PIN_CNF_SENSE_Low << GPIO_PIN_CNF_SENSE_Pos)
+    NRF_GPIO->PIN_CNF[BUTTON_START] = (GPIO_PIN_CNF_SENSE_Low << GPIO_PIN_CNF_SENSE_Pos)
                                 | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
                                 | (BUTTON_PULL << GPIO_PIN_CNF_PULL_Pos)
                                 | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos)
                                 | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
     
-    NRF_GPIO->PIN_CNF[BUTTON_1] = (GPIO_PIN_CNF_SENSE_Low << GPIO_PIN_CNF_SENSE_Pos)
+    NRF_GPIO->PIN_CNF[BUTTON_START + 1] = (GPIO_PIN_CNF_SENSE_Low << GPIO_PIN_CNF_SENSE_Pos)
                                 | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
                                 | (BUTTON_PULL << GPIO_PIN_CNF_PULL_Pos)
                                 | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos)
@@ -149,14 +156,14 @@ static void gpiote_init(void)
 
 #endif
 
-#ifdef BOARD_PCA10001
+#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
 #ifndef RBC_MESH_SERIAL
 void GPIOTE_IRQHandler(void)
 {
     NRF_GPIOTE->EVENTS_PORT = 0;
     for (uint8_t i = 0; i < 2; ++i)
     {
-        if (NRF_GPIO->IN & (1 << (BUTTON_0 + i)))
+        if (NRF_GPIO->IN & (1 << (BUTTON_START + i)))
         {
             uint8_t val[28];
             uint16_t len;
@@ -173,22 +180,20 @@ void GPIOTE_IRQHandler(void)
 
 void test_app_init(void)
 {   
-    nrf_gpio_cfg_output(LED_0);
-    nrf_gpio_cfg_output(LED_1);  
+    nrf_gpio_range_cfg_output(LED_START, LED_STOP);
     
-#ifdef BOARD_PCA10000
-    nrf_gpio_pin_clear(LED_RGB_RED);
-    nrf_gpio_pin_clear(LED_RGB_GREEN);
-    nrf_gpio_pin_clear(LED_RGB_BLUE);
-#endif
-
-#ifdef BOARD_PCA10001 
+    for (uint32_t i = 0; i < LEDS_NUMBER; ++i)
+    {
+        nrf_gpio_pin_set(LED_START + i);
+    }
     nrf_gpio_range_cfg_output(0, 32);
-    nrf_gpio_cfg_input(BUTTON_0, BUTTON_PULL);
-    nrf_gpio_cfg_input(BUTTON_1, BUTTON_PULL);  
+#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
+    
+    nrf_gpio_range_cfg_input(BUTTON_START, BUTTON_STOP, BUTTON_PULL);
     gpiote_init();
 #endif    
 
+    led_config(0, 0);
     led_config(1, 0);
     led_config(2, 0);
 }
@@ -196,9 +201,8 @@ void test_app_init(void)
 
 int main(void)
 {
-    uint32_t error_code = 
-        sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
-    
+    uint32_t error_code;
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, NULL);
     test_app_init();
     
 #ifdef RBC_MESH_SERIAL
@@ -228,7 +232,8 @@ int main(void)
     /* sleep */
     while (true)
     {
-        sd_app_evt_wait();
+      __WFE();
+        //sd_app_evt_wait();
     }
     
 
