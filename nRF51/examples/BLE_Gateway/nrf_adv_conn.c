@@ -64,22 +64,21 @@ static ble_gap_adv_params_t ble_adv_params = {
     NULL,                      /* Not used for this type of advertisement */
     BLE_GAP_ADV_FP_ANY,        /* Don't filter */
     NULL,                      /* Whitelist not in use */
-    BLE_ADV_INTERVAL_200MS,       /* Advertising interval set to intentionally disrupt the timeslot example */
-    0,                          /* Timeout in seconds */
-		{
-			0, 0, 0
-		}
+    BLE_ADV_INTERVAL_200MS,    /* Advertising interval set to intentionally disrupt the timeslot example */
+    0,                         /* Timeout in seconds */
+        {
+            0, 0, 0
+        }
 };
 
 static ble_advdata_t ble_adv_data;
 static ble_gap_sec_params_t ble_gap_bond_params = {
-//    .timeout = 30,                     /* Timeout in seconds */
-    .bond = 0,                      /* Don't perform bonding */
-    .mitm = 0,                      /* Man-in-the-middle protection not required */
+    .bond = 0,                         /* Don't perform bonding */
+    .mitm = 0,                         /* Man-in-the-middle protection not required */
     .io_caps = BLE_GAP_IO_CAPS_NONE,   /* No I/O capabilities */
-    .oob = 0,                      /* Out-of-band data not available */
-    .min_key_size = 7,                      /* Minimum encryption key size */
-    .max_key_size = 16                      /* Maximum encryption key size */
+    .oob = 0,                          /* Out-of-band data not available */
+    .min_key_size = 7,                 /* Minimum encryption key size */
+    .max_key_size = 16                 /* Maximum encryption key size */
 };
 
 /*****************************************************************************
@@ -113,8 +112,8 @@ static void ble_gap_event_handler(ble_evt_t* evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
-          sd_ble_gap_adv_start(&ble_adv_params);
-          break;
+        sd_ble_gap_adv_start(&ble_adv_params);
+        break;
 
     case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
           APP_ERROR_CHECK(sd_ble_gap_sec_params_reply(evt->evt.gap_evt.conn_handle,

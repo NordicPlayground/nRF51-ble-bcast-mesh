@@ -49,8 +49,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
+#include "dbglog.h"
+#include "uart.h"
+
 /* Debug macros for debugging with logic analyzer */
-#define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
+#define SET_PIN(x)   NRF_GPIO->OUTSET = (1 << (x))
 #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
 #define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
 
@@ -60,12 +63,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 static void error_loop(void)
 {
+    __BKPT();
+
     SET_PIN(7);
     while (true)
     {
         __WFE();
     }
-}    
+}
 
 /**
 * @brief Softdevice crash handler, never returns
@@ -111,11 +116,13 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-        
+
             if (evt->value_handle > 2)
                 break;
-            
+
             led_config(evt->value_handle, evt->data[0]);
+            break;
+        default:
             break;
     }
 }
@@ -137,12 +144,12 @@ static void gpiote_init(void)
                                 | (BUTTON_PULL << GPIO_PIN_CNF_PULL_Pos)
                                 | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos)
                                 | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
-    
+
 
     /* GPIOTE interrupt handler normally runs in STACK_LOW priority, need to put it 
     in APP_LOW in order to use the mesh API */
     NVIC_SetPriority(GPIOTE_IRQn, 3);
-    
+
     NVIC_EnableIRQ(GPIOTE_IRQn);
     NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_PORT_Msk;
 }
@@ -172,22 +179,22 @@ void GPIOTE_IRQHandler(void)
 #endif
 
 void test_app_init(void)
-{   
+{
     nrf_gpio_cfg_output(LED_0);
-    nrf_gpio_cfg_output(LED_1);  
-    
+    nrf_gpio_cfg_output(LED_1);
+
 #ifdef BOARD_PCA10000
     nrf_gpio_pin_clear(LED_RGB_RED);
     nrf_gpio_pin_clear(LED_RGB_GREEN);
     nrf_gpio_pin_clear(LED_RGB_BLUE);
 #endif
 
-#ifdef BOARD_PCA10001 
+#ifdef BOARD_PCA10001
     nrf_gpio_range_cfg_output(0, 32);
     nrf_gpio_cfg_input(BUTTON_0, BUTTON_PULL);
-    nrf_gpio_cfg_input(BUTTON_1, BUTTON_PULL);  
+    nrf_gpio_cfg_input(BUTTON_1, BUTTON_PULL);
     gpiote_init();
-#endif    
+#endif
 
     led_config(1, 0);
     led_config(2, 0);
@@ -196,15 +203,24 @@ void test_app_init(void)
 
 int main(void)
 {
-    uint32_t error_code = 
+    uint32_t error_code;
+
+    uart_init();
+
+    PUTS("LED Mesh initializing");
+
+    error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
     
     test_app_init();
-    
+
+
 #ifdef RBC_MESH_SERIAL
     mesh_aci_init();
-#else    
-    
+#else
+
+    PUTS("mesh service init");
+
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr = 0xA541A68F;
@@ -213,24 +229,23 @@ int main(void)
     init_params.handle_count = 2;
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
-    
+
     error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
-    
+
     error_code = rbc_mesh_value_enable(1);
     APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_enable(2);
     APP_ERROR_CHECK(error_code);
-#endif    
-    
+#endif
+
     sd_nvic_EnableIRQ(SD_EVT_IRQn);
-    
+
     /* sleep */
     while (true)
     {
         sd_app_evt_wait();
     }
-    
 
 }
 

@@ -50,6 +50,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
+#include "dbglog.h"
+#include "uart.h"
+
 
 /* Debug macros for debugging with logic analyzer */
 #define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
@@ -67,7 +70,7 @@ static void error_loop(void)
     {
         __WFE();
     }
-}    
+}
 
 /**
 * @brief Softdevice crash handler, never returns
@@ -125,19 +128,19 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
     TICK_PIN(28);
     switch (evt->event_type)
     {
-        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:   
+        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
         
             if (evt->value_handle > 2)
                 break;
-            
+
             led_config(evt->value_handle, evt->data[0]);
             break;
         case RBC_MESH_EVENT_TYPE_INITIALIZED:
             /* init BLE gateway softdevice application: */
             nrf_adv_conn_init();
-            break;  
+            break;
     }
 }
 
@@ -148,30 +151,30 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 void gpio_init(void)
 {
 #ifdef BOARD_PCA10028
-		nrf_gpio_cfg_output(LED_1);
-		nrf_gpio_cfg_output(LED_2);
-	
-    #ifdef BUTTONS
-        nrf_gpio_cfg_input(BUTTON_1, NRF_GPIO_PIN_PULLUP);
-        nrf_gpio_cfg_input(BUTTON_2, NRF_GPIO_PIN_PULLUP);
-        nrf_gpio_cfg_input(BUTTON_3, NRF_GPIO_PIN_PULLUP);
-        nrf_gpio_cfg_input(BUTTON_4, NRF_GPIO_PIN_PULLUP);
-    #endif
+    nrf_gpio_cfg_output(LED_1);
+    nrf_gpio_cfg_output(LED_2);
+
+  #ifdef BUTTONS
+    nrf_gpio_cfg_input(BUTTON_1, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_input(BUTTON_2, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_input(BUTTON_3, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_input(BUTTON_4, NRF_GPIO_PIN_PULLUP);
+  #endif
 #endif
 #ifdef BOARD_PCA10031
-	  nrf_gpio_cfg_output(LED_RGB_RED);
+    nrf_gpio_cfg_output(LED_RGB_RED);
     nrf_gpio_cfg_output(LED_RGB_GREEN);
-		nrf_gpio_cfg_output(LED_RGB_BLUE);
+    nrf_gpio_cfg_output(LED_RGB_BLUE);
 
     nrf_gpio_pin_set(LED_RGB_RED);
     nrf_gpio_pin_set(LED_RGB_GREEN);
     nrf_gpio_pin_set(LED_RGB_BLUE);
 #endif
-	
+
 #ifdef BOARD_PCA10000
-	  nrf_gpio_cfg_output(LED_RGB_RED);
+    nrf_gpio_cfg_output(LED_RGB_RED);
     nrf_gpio_cfg_output(LED_RGB_GREEN);
-    nrf_gpio_cfg_output(LED_RGB_BLUE); 
+    nrf_gpio_cfg_output(LED_RGB_BLUE);
 
     nrf_gpio_pin_set(LED_RGB_RED);
     nrf_gpio_pin_set(LED_RGB_GREEN);
@@ -180,7 +183,7 @@ void gpio_init(void)
 
 #ifdef BOARD_PCA10001 
     nrf_gpio_range_cfg_output(0, 32);
-#endif    
+#endif
 
     led_config(1, 0);
     led_config(2, 0);
@@ -189,28 +192,33 @@ void gpio_init(void)
 /** @brief main function */
 int main(void)
 {
+    uart_init();
+
+    PUTS("LED Mesh initializing");
+
     /* Enable Softdevice (including sd_ble before framework */
     uint32_t error_code = 
         sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
     APP_ERROR_CHECK(error_code);
     
     ble_enable_params_t ble_enable_params;
-    ble_enable_params.gatts_enable_params.service_changed = 0;
-		ble_enable_params.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
-    
-    error_code = sd_ble_enable(&ble_enable_params);
+    memset(&ble_enable_params, 0, sizeof(ble_enable_params));
 
+    ble_enable_params.gatts_enable_params.service_changed = 0;
+    ble_enable_params.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
+
+    error_code = sd_ble_enable(&ble_enable_params);
     APP_ERROR_CHECK(error_code);
-    
+
     /* init leds and pins */
     gpio_init();
-    
+
 #ifdef RBC_MESH_SERIAL
-    
+
     /* only want to enable serial interface, and let external host setup the framework */
     mesh_aci_init();
 
-#else    
+#else
     /* Enable mesh framework on channel 37, min adv interval at 100ms, 
         2 characteristics */
     rbc_mesh_init_params_t init_params;
@@ -221,22 +229,22 @@ int main(void)
     init_params.handle_count = 2;
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
-    
+
     error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
-    
+
     /* request values for both LEDs on the mesh */
     error_code = rbc_mesh_value_enable(1);
     APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_enable(2);
     APP_ERROR_CHECK(error_code);
-    
-    
+
+
     /* init BLE gateway softdevice application: */
     nrf_adv_conn_init();
-    
+
 #endif
-    
+
     /* enable softdevice IRQ */
     error_code = sd_nvic_EnableIRQ(SD_EVT_IRQn);
 
@@ -247,8 +255,8 @@ int main(void)
     {
         sd_app_evt_wait();
     }
-    
-    
+
+
 #else
     uint8_t mesh_data[16] = {0,0};
     while (true)
@@ -256,6 +264,7 @@ int main(void)
         // red off
         if(nrf_gpio_pin_read(BUTTON_1) == 0)
         {
+            PUTS("BUTTON_1 pressed");
             while(nrf_gpio_pin_read(BUTTON_1) == 0);
             mesh_data[0] = 0;
             rbc_mesh_value_set(1, mesh_data, 1);
@@ -263,6 +272,7 @@ int main(void)
         // red on
         if(nrf_gpio_pin_read(BUTTON_2) == 0)
         {
+            PUTS("BUTTON_1 pressed");
             while(nrf_gpio_pin_read(BUTTON_2) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(1, mesh_data, 1);
@@ -270,6 +280,7 @@ int main(void)
         // green off 
         if(nrf_gpio_pin_read(BUTTON_3) == 0)
         {
+            PUTS("BUTTON_3 pressed");
             while(nrf_gpio_pin_read(BUTTON_3) == 0);
             mesh_data[0] = 0;
             rbc_mesh_value_set(2, mesh_data, 1);
@@ -277,12 +288,13 @@ int main(void)
         // green on
          if(nrf_gpio_pin_read(BUTTON_4) == 0)
         {
+            PUTS("BUTTON_4 pressed");
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(2, mesh_data, 1);
         }
-    }   
-#endif    
+    }
+#endif
 
 }
 

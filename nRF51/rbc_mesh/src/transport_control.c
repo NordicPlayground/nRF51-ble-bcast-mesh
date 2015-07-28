@@ -164,7 +164,7 @@ static void search_callback(uint8_t* data)
     }
     
     CLEAR_PIN(PIN_RX);
-    
+
     if (data == NULL || !packet_is_data_packet(data))
         return;
     
