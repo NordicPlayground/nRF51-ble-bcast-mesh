@@ -201,7 +201,6 @@ void test_app_init(void)
 
 int main(void)
 {
-    uint32_t error_code;
     SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, NULL);
     test_app_init();
     
@@ -218,7 +217,7 @@ int main(void)
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
-    error_code = rbc_mesh_init(init_params);
+    uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
     error_code = rbc_mesh_value_enable(1);

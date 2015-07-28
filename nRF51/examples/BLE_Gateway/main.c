@@ -40,9 +40,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_aci.h"
 
 #include "softdevice_handler.h"
-//#include "nrf_soc.h"
-//#include "nrf_assert.h"
-//#include "nrf_sdm.h"
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "boards.h"
@@ -231,10 +228,6 @@ int main(void)
     nrf_adv_conn_init();
     
 #endif
-    
-    /* enable softdevice IRQ */
-    error_code = sd_nvic_EnableIRQ(SD_EVT_IRQn);
-
 
 #ifndef BUTTONS
     /* sleep */

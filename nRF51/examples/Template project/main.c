@@ -38,9 +38,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_aci.h"
 
 #include "softdevice_handler.h"
-//#include "nrf_soc.h"
-//#include "nrf_assert.h"
-//#include "nrf_sdm.h"
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "boards.h"
