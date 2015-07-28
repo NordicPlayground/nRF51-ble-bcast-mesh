@@ -140,7 +140,8 @@ void nrf_adv_conn_init(void)
     uint32_t error_code;
     
     /* Fill advertisement data struct: */
-    uint8_t flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
+    uint8_t flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED |
+                    BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
 
     memset(&ble_adv_data, 0, sizeof(ble_adv_data));
 
