@@ -54,7 +54,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define USE_SWI_FOR_PROCESSING          (1)
 
 
-#define TIMESLOT_END_SAFETY_MARGIN_US   (200)
+#define TIMESLOT_END_SAFETY_MARGIN_US   (500)
 #define TIMESLOT_SLOT_LENGTH            (100000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
 #define TIMESLOT_MAX_LENGTH             (1000000) /* 1s */
@@ -497,7 +497,8 @@ void timeslot_order_earliest(uint32_t length_us, bool immediately)
         
         if (!g_is_in_callback)
         {
-            sd_radio_request(&radio_request_earliest);
+            uint32_t error_code = sd_radio_request(&radio_request_earliest);
+            APP_ERROR_CHECK(error_code);
         }
     }
     else

@@ -312,9 +312,14 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     is_initialized = true;
     
     ble_enable_params_t ble_enable_params;
+    ble_enable_params.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     ble_enable_params.gatts_enable_params.service_changed = 0;
     
-    sd_ble_enable(&ble_enable_params);
+    uint32_t error_code = sd_ble_enable(&ble_enable_params);
+    if (error_code != NRF_SUCCESS)
+    {
+        return NRF_ERROR_INTERNAL;
+    }
     
     g_mesh_service.value_count = mesh_value_count;
     
@@ -322,7 +327,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     
     /* add the mesh base UUID */
     
-    uint32_t error_code = sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
+    error_code = sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
     if (error_code != NRF_SUCCESS)
     {
         return NRF_ERROR_INTERNAL;
@@ -346,7 +351,11 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     mesh_metadata.mesh_channel = channel;
     mesh_metadata.mesh_value_count = mesh_value_count;
     
-    mesh_md_char_add(&mesh_metadata);
+    error_code = mesh_md_char_add(&mesh_metadata);
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
     
     uint32_t md_len = sizeof(mesh_char_metadata_t) * g_mesh_service.value_count;
     
