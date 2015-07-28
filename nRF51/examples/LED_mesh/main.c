@@ -204,6 +204,7 @@ void test_app_init(void)
 int main(void)
 {
     uint32_t error_code;
+    (void) error_code;
 
     uart_init();
 
