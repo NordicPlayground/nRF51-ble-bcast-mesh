@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "timer_control.h"
+#include "rbc_mesh_common.h"
 
 #include "timeslot_handler.h"
 
@@ -114,6 +115,9 @@ void timer_event_handler(void)
             timer_callback cb = callbacks[i];
             active_callbacks &= ~(1 << i);
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
+            
+            
+            CHECK_FP(cb);
             
             if (sync_exec_bitmap & (1 << i))
             {

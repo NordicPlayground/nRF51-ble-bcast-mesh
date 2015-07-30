@@ -41,6 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 #include "timeslot_handler.h"
 #include "rbc_mesh_common.h"
+#include "app_error.h"
 #include "ble_gap.h"
 #include "nrf_soc.h"
 #include <string.h>
@@ -166,14 +167,16 @@ static void search_callback(uint8_t* data)
     CLEAR_PIN(PIN_RX);
     
     if (data == NULL || !packet_is_data_packet(data))
+    {
         return;
-    
+    }
     
     async_event_t async_evt;
     async_evt.type = EVENT_TYPE_PACKET;
     packet_create_from_data(data, &async_evt.callback.packet);
     async_evt.callback.packet.rx_crc = checksum;
     timeslot_queue_async_event(&async_evt);
+
     
     /** @TODO: add packet chain handling */
 }
@@ -235,13 +238,7 @@ static void trickle_step_callback(void)
             tx_event.callback.tx = NULL;
             
             radio_order(&tx_event);
-            /*
-            temp_data_ptr += min_len;
-            tx_data_ptr += min_len + PACKET_DATA_POS;
-            packet.length -= min_len;
-            
-            tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
-            */
+            TICK_PIN(0);
         } while (0);
         
         order_search(); /* search for the rest of the timeslot */
@@ -262,7 +259,8 @@ static void trickle_step_callback(void)
 void transport_control_timeslot_begin(uint64_t global_timer_value)
 {
     uint32_t aa;    
-    rbc_mesh_access_address_get(&aa);
+    uint32_t error_code = rbc_mesh_access_address_get(&aa);
+    APP_ERROR_CHECK(error_code);
     
     radio_init(aa);
     
