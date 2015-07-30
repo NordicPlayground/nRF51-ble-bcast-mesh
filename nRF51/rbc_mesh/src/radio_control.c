@@ -347,31 +347,29 @@ static void radio_transition_end(bool successful_transmission)
     }
     
     /* send to super space */
-    if (prev_evt.event_type == RADIO_EVENT_TYPE_RX)
+    
+    if (prev_evt.callback.tx != NULL)
     {
-        if (successful_transmission && crc_status)
+        CHECK_FP(prev_evt.callback.rx);
+        if (prev_evt.event_type == RADIO_EVENT_TYPE_RX)
         {
-            if (prev_evt.callback.rx != NULL)
+            if (successful_transmission && crc_status)
             {
+                SET_PIN(15);
                 (*prev_evt.callback.rx)(rx_data[!current_rx_buf]);
+                NRF_RADIO->EVENTS_END = 0;
             }
-        }
-        else
-        {
-            if (prev_evt.callback.rx != NULL)
+            else
             {
                 (*prev_evt.callback.rx)(NULL);
             }
         }
-    }
-    else
-    {
-        if (prev_evt.callback.tx != NULL)
+        else
         {
             (*prev_evt.callback.tx)();
         }
     }
-    
+        
 }
 
 static void rx_abort_cb(void)
