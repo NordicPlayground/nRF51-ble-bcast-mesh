@@ -150,6 +150,10 @@ void gpio_init(void)
         nrf_gpio_pin_set(LED_START + i);
     }
     
+#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
+    nrf_gpio_range_cfg_output(0, 32);
+#endif    
+    
 #ifdef BOARD_PCA10028
     #ifdef BUTTONS
         nrf_gpio_cfg_input(BUTTON_1, NRF_GPIO_PIN_PULLUP);
@@ -159,9 +163,6 @@ void gpio_init(void)
     #endif
 #endif
     
-#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
-    nrf_gpio_range_cfg_output(0, 32);
-#endif    
 }
 
 /** @brief main function */
