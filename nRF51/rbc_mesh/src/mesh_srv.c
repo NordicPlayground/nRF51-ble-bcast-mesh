@@ -43,7 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_soc.h"
 #include "nrf_error.h"
 #include "ble.h"
-
+#include "led_config.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -59,6 +59,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CONN_HANDLE_INVALID             (0xFFFF)
 
 #define MESH_VALUE_LOLLIPOP_LIMIT       (200)
+
+#define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x800)
 /*****************************************************************************
 * Local Type Definitions
 *****************************************************************************/
@@ -312,7 +314,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     is_initialized = true;
     
     ble_enable_params_t ble_enable_params;
-    ble_enable_params.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
+    ble_enable_params.gatts_enable_params.attr_tab_size = RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT;
     ble_enable_params.gatts_enable_params.service_changed = 0;
     
     uint32_t error_code = sd_ble_enable(&ble_enable_params);
@@ -324,7 +326,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     g_mesh_service.value_count = mesh_value_count;
     
     ble_uuid_t ble_srv_uuid;
-    
+    mesh_base_uuid_type = BLE_UUID_TYPE_UNKNOWN;
     /* add the mesh base UUID */
     
     error_code = sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
@@ -631,6 +633,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         trickle_rx_inconsistent(&ch_md->trickle);
     }
     
+#if 1    
     /* new version */  
     uint16_t separation = (version >= ch_md->version_number)?
         (version - ch_md->version_number) : 
@@ -639,6 +642,9 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
     if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version > ch_md->version_number) || 
         (ch_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2) || 
         uninitialized)
+#else
+    if (ch_md->version_number < version)
+#endif
     {
         /* update value */
         mesh_srv_char_val_set(handle, data, data_len, false);
