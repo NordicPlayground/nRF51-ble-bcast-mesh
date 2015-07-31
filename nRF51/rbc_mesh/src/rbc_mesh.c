@@ -215,8 +215,10 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
 
 /***** event handler ******/
 
-void rbc_mesh_sd_irq_handler(void)
+uint32_t rbc_mesh_sd_irq_handler(void)
 {
     /* call lower layer event handler */
     ts_sd_event_handler();
+    
+    return NRF_SUCCESS;
 }
