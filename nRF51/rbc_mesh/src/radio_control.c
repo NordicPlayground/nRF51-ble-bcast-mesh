@@ -38,6 +38,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "timeslot_handler.h"
 #include "rbc_mesh_common.h"
 #include "trickle.h"
+#include "fifo.h"
+#include "led_config.h"
 #include "nrf.h"
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -46,14 +48,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 
 #define RADIO_FIFO_QUEUE_SIZE 8 /* must be power of two */
-#define RADIO_FIFO_QUEUE_MASK (RADIO_FIFO_QUEUE_SIZE - 1)
 
 #define RADIO_RX_TIMEOUT                (15080)
 
-
 #define RADIO_EVENT(evt)  (NRF_RADIO->evt == 1)
-
-
 
 /** 
 * Internal enum denoting radio state. 
@@ -83,10 +81,8 @@ static uint8_t rx_data_buf[512];
 static uint8_t* rx_data[2] = {&rx_data_buf[0], &rx_data_buf[256]};
 static uint8_t current_rx_buf = 0;
 
+static fifo_t radio_fifo;
 static radio_event_t radio_fifo_queue[RADIO_FIFO_QUEUE_SIZE];
-
-static uint8_t radio_fifo_head;
-static uint8_t radio_fifo_tail;
 
 static uint8_t rx_abort_timer_index;
 
@@ -96,79 +92,6 @@ static uint8_t rx_abort_timer_index;
 *****************************************************************************/
 
 static void rx_abort_cb(void);
-
-static bool radio_fifo_full(void)
-{
-    return ((radio_fifo_tail + RADIO_FIFO_QUEUE_SIZE) == radio_fifo_head);
-}
-
-static bool radio_fifo_empty(void)
-{
-    return (radio_fifo_head == radio_fifo_tail);
-}
-
-static uint8_t radio_fifo_get_length(void)
-{
-    return (radio_fifo_head - radio_fifo_tail) & 0xFF;
-}
-
-static uint8_t radio_fifo_put(radio_event_t* evt)
-{
-    if (radio_fifo_full())
-    {
-        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
-    }
-    
-    radio_event_t* head = &radio_fifo_queue[radio_fifo_head & RADIO_FIFO_QUEUE_MASK];
-    
-    memcpy(head, evt, sizeof(radio_event_t));
-    
-    return ((radio_fifo_head++) & RADIO_FIFO_QUEUE_MASK);
-}
-
-static uint32_t radio_fifo_get(radio_event_t* evt)
-{
-    if (radio_fifo_empty())
-    {
-        return NRF_ERROR_NULL;
-    }
-    
-    radio_event_t* tail = &radio_fifo_queue[radio_fifo_tail & RADIO_FIFO_QUEUE_MASK];
-    
-    memcpy(evt, tail, sizeof(radio_event_t));
-    
-    ++radio_fifo_tail;
-    
-    return NRF_SUCCESS;
-}
-
-
-static uint32_t radio_fifo_peek_at(radio_event_t* evt, uint8_t offset)
-{
-    if (radio_fifo_get_length() < offset)
-    {
-        return NRF_ERROR_NULL;
-    }
-    
-    radio_event_t* tail = &radio_fifo_queue[(radio_fifo_tail + offset) & RADIO_FIFO_QUEUE_MASK];
-    
-    memcpy(evt, tail, sizeof(radio_event_t));
-    
-    return NRF_SUCCESS;
-}
-
-static uint32_t radio_fifo_peek(radio_event_t* evt)
-{
-    return radio_fifo_peek_at(evt, 0);
-}
-
-static void radio_fifo_flush(void)
-{
-    radio_fifo_tail = radio_fifo_head;
-}
-
-
-
 
 static void radio_channel_set(uint8_t ch)
 {
@@ -193,10 +116,10 @@ static void radio_channel_set(uint8_t ch)
 static bool radio_will_go_to_disabled_state(void)
 {
     radio_event_t current_evt, next_evt;
-    radio_fifo_peek_at(&current_evt, 0);
-    radio_fifo_peek_at(&next_evt, 1);
+    fifo_peek(&radio_fifo, &current_evt);
+    fifo_peek_at(&radio_fifo, &next_evt, 1);
     
-    return ((radio_fifo_get_length() == 2 && 
+    return ((fifo_get_len(&radio_fifo) == 2 && 
         (NRF_RADIO->EVENTS_READY) && !(NRF_RADIO->EVENTS_END)) || 
         (current_evt.channel != next_evt.channel));
 }
@@ -219,7 +142,9 @@ static void radio_transition_end(bool successful_transmission)
     
     /* pop the event that just finished */
     radio_event_t prev_evt;
-    radio_fifo_get(&prev_evt);
+    uint32_t error_code = fifo_pop(&radio_fifo, &prev_evt);
+    APP_ERROR_CHECK(error_code);
+    
     bool fly_through_disable = ((NRF_RADIO->SHORTS & 
         (RADIO_SHORTS_DISABLED_RXEN_Msk | RADIO_SHORTS_DISABLED_TXEN_Msk)) > 0);    
     
@@ -229,7 +154,8 @@ static void radio_transition_end(bool successful_transmission)
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
     
-    if (radio_fifo_empty())
+    
+    if (fifo_is_empty(&radio_fifo))
     {
         radio_state = RADIO_STATE_DISABLED;
     }
@@ -240,7 +166,7 @@ static void radio_transition_end(bool successful_transmission)
         
         bool start_manually = false;
         radio_event_t evt;
-        radio_fifo_peek(&evt);
+        fifo_peek(&radio_fifo, &evt);
         
         if (evt.start_time > 0)
         {
@@ -298,7 +224,7 @@ static void radio_transition_end(bool successful_transmission)
             radio_state = RADIO_STATE_TX;
             NRF_RADIO->PACKETPTR = (uint32_t) &evt.packet_ptr[0];  
             NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk;
-            
+            TICK_PIN(7);
             
             /* manually begin ramp up */
             if (!fly_through_disable)
@@ -316,7 +242,7 @@ static void radio_transition_end(bool successful_transmission)
             
         
         /* prepare shortcuts for next transmission */
-        if (radio_fifo_get_length() == 1)
+        if (fifo_get_len(&radio_fifo) == 1)
         {
             NRF_RADIO->SHORTS |= RADIO_SHORTS_END_DISABLE_Msk;
         }
@@ -324,7 +250,7 @@ static void radio_transition_end(bool successful_transmission)
         {
             /* More events after the upcoming one */
             radio_event_t next_evt;
-            radio_fifo_peek_at(&next_evt, 1);
+            fifo_peek_at(&radio_fifo, &next_evt, 1);
             
             if (next_evt.event_type != evt.event_type || 
                 next_evt.channel != evt.channel)
@@ -353,9 +279,10 @@ static void radio_transition_end(bool successful_transmission)
         CHECK_FP(prev_evt.callback.rx);
         if (prev_evt.event_type == RADIO_EVENT_TYPE_RX)
         {
+            
             if (successful_transmission && crc_status)
             {
-                SET_PIN(15);
+                TICK_PIN(5);
                 (*prev_evt.callback.rx)(rx_data[!current_rx_buf]);
                 NRF_RADIO->EVENTS_END = 0;
             }
@@ -430,9 +357,16 @@ void radio_init(uint32_t access_address)
     /* Lock interframe spacing, so that the radio won't send too soon / start RX too early */
     NRF_RADIO->TIFS = 148;
     
+    /* init radio packet fifo */
+    radio_fifo.array_len = RADIO_FIFO_QUEUE_SIZE;
+    radio_fifo.elem_array = radio_fifo_queue;
+    radio_fifo.elem_size = sizeof(radio_event_t);
+    radio_fifo.memcpy_fptr = NULL;
+    fifo_init(&radio_fifo);
+    
     rx_abort_timer_index = 0xFF;
     radio_state = RADIO_STATE_DISABLED;
-    radio_fifo_flush();
+    fifo_flush(&radio_fifo);
     NVIC_ClearPendingIRQ(RADIO_IRQn);
     NVIC_EnableIRQ(RADIO_IRQn);
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
@@ -441,7 +375,7 @@ void radio_init(uint32_t access_address)
 
 void radio_order(radio_event_t* radio_event)
 {
-    radio_fifo_put(radio_event);
+    fifo_push(&radio_fifo, radio_event);
     
     if (radio_state == RADIO_STATE_DISABLED)
     {
@@ -505,7 +439,7 @@ void radio_order(radio_event_t* radio_event)
         
         if (!radio_will_go_to_disabled_state())
         {
-            uint8_t queue_length = radio_fifo_get_length();
+            uint8_t queue_length = fifo_get_len(&radio_fifo);
             
             if (queue_length == 2) 
             {
@@ -513,7 +447,7 @@ void radio_order(radio_event_t* radio_event)
                 
                 /* get current event */
                 radio_event_t ev;
-                radio_fifo_peek(&ev);
+                fifo_peek(&radio_fifo, &ev);
                 
                 /* setup shorts */
                 if (ev.event_type == radio_event->event_type)
@@ -539,7 +473,7 @@ void radio_disable(void)
 {
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
-    radio_fifo_flush();
+    //fifo_flush(&radio_fifo);
     NRF_RADIO->SHORTS = 0;
     NRF_RADIO->INTENCLR = 0xFFFFFFFF;
     NRF_RADIO->TASKS_DISABLE = 1;

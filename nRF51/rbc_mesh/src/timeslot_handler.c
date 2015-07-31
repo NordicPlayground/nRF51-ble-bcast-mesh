@@ -46,6 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "nrf_assert.h"
 #include "nrf_soc.h"
+#include "fifo.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -118,95 +119,15 @@ static bool g_is_in_timeslot = false;
 static bool g_framework_initialized = false;   
 static bool g_end_timer_triggered = false;                
 static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
-
-#if USE_SWI_FOR_PROCESSING
-static uint8_t event_fifo_head = 0;
-static uint8_t event_fifo_tail = 0;       
-static async_event_t async_event_fifo_queue[ASYNC_EVENT_FIFO_QUEUE_SIZE];
-
-static async_event_t evt;                
-#endif                
+                
+static fifo_t g_async_evt_fifo;
+static async_event_t g_async_evt_fifo_buffer[ASYNC_EVENT_FIFO_QUEUE_SIZE];
+                
+static volatile uint32_t ts_count = 0;
                 
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
-
-/***** ASYNC EVENT QUEUE *****/
-/**@TODO: add generic implementation shared with radio fifo */
-
-#pragma diag_suppress 177 /* silence "not used" warnings */
-#if USE_SWI_FOR_PROCESSING
-static bool event_fifo_full(void)
-{
-    return ((event_fifo_tail + ASYNC_EVENT_FIFO_QUEUE_SIZE) == event_fifo_head);
-}
-
-static bool event_fifo_empty(void)
-{
-    return (event_fifo_head == event_fifo_tail);
-}
-
-static uint8_t event_fifo_get_length(void)
-{
-    return (event_fifo_head - event_fifo_tail) & 0xFF;
-}
-
-static uint8_t event_fifo_put(async_event_t* evt)
-{
-    if (event_fifo_full())
-    {
-        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
-    }
-    
-    async_event_t* head = &async_event_fifo_queue[event_fifo_head & ASYNC_EVENT_FIFO_QUEUE_MASK];
-    
-    memcpy(head, evt, sizeof(async_event_t));
-    
-    return ((event_fifo_head++) & ASYNC_EVENT_FIFO_QUEUE_MASK);
-}
-
-static uint32_t event_fifo_get(async_event_t* evt)
-{
-    if (event_fifo_empty())
-    {
-        return NRF_ERROR_NULL;
-    }
-    if (evt != NULL)
-    {
-        async_event_t* tail = &async_event_fifo_queue[event_fifo_tail & ASYNC_EVENT_FIFO_QUEUE_MASK];
-        
-        memcpy(evt, tail, sizeof(async_event_t));
-    }    
-    ++event_fifo_tail;
-    return NRF_SUCCESS;
-}
-
-
-static uint32_t event_fifo_peek_at(async_event_t* evt, uint8_t offset)
-{
-    if (event_fifo_get_length() < offset)
-    {
-        return NRF_ERROR_NULL;
-    }
-    
-    async_event_t* tail = &async_event_fifo_queue[(event_fifo_tail + offset) & ASYNC_EVENT_FIFO_QUEUE_MASK];
-    
-    memcpy(evt, tail, sizeof(async_event_t));
-    
-    return NRF_SUCCESS;
-}
-
-static uint32_t event_fifo_peek(async_event_t* evt)
-{
-    return event_fifo_peek_at(evt, 0);
-}
-
-static void event_fifo_flush(void)
-{
-    event_fifo_tail = event_fifo_head;
-}
-#endif
-
 /**
 * @brief execute asynchronous event, based on type
 */
@@ -298,20 +219,18 @@ static void end_timer_handler(void)
 }
     
 
-
-#if USE_SWI_FOR_PROCESSING
-
 /**
 * @brief Async event dispatcher, works in APP LOW
 */
 void SWI0_IRQHandler(void)
 {
+    TICK_PIN(4);
+    async_event_t evt;
     while (g_is_in_timeslot || !g_framework_initialized)
     {
-        uint32_t error_code = event_fifo_get(&evt);
+        uint32_t error_code = fifo_pop(&g_async_evt_fifo, &evt);
         if (error_code == NRF_SUCCESS)
         {
-            /**event_fifo_get(NULL); @NOTE: REALLY? */
             async_event_execute(&evt);
         }
         else
@@ -320,8 +239,6 @@ void SWI0_IRQHandler(void)
         }
     }
 }
-#endif
-
 
 /**
 * @brief Radio signal callback handler taking care of all signals in searching 
@@ -348,7 +265,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             g_end_timer_triggered = false;
             successful_extensions = 0;
             
-            event_fifo_flush();
             timer_init();
         
             g_negotiate_timeslot_length = g_timeslot_length;
@@ -387,7 +303,12 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             /* scale to become us */
             time_now += ((delta_rtc_time << 15) / 1000);
 
-            transport_control_timeslot_begin(time_now);       
+            transport_control_timeslot_begin(time_now);
+            if (!fifo_is_empty(&g_async_evt_fifo))
+            {
+                NVIC_SetPendingIRQ(SWI0_IRQn);
+            }
+                
             break;
         }
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
@@ -457,12 +378,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     {
         requested_extend_time = g_ret_param.params.extend.length_us;
     }
-    else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_REQUEST_AND_END)
-    {
-        CLEAR_PIN(2);
-        g_is_in_timeslot = false;
-        event_fifo_flush();
-    }
     else
     {
         requested_extend_time = 0;
@@ -484,6 +399,13 @@ void timeslot_handler_init(void)
     
     g_is_in_callback = false;
     g_framework_initialized = true;
+    
+    /* init event queue */
+    g_async_evt_fifo.array_len = ASYNC_EVENT_FIFO_QUEUE_SIZE;
+    g_async_evt_fifo.elem_array = g_async_evt_fifo_buffer;
+    g_async_evt_fifo.elem_size = sizeof(async_event_t);
+    g_async_evt_fifo.memcpy_fptr = NULL;
+    fifo_init(&g_async_evt_fifo);
     
     error = sd_nvic_EnableIRQ(SD_EVT_IRQn);
     APP_ERROR_CHECK(error);
@@ -565,17 +487,13 @@ void timeslot_extend(uint32_t extra_time_us)
 
 void timeslot_queue_async_event(async_event_t* evt)
 {
-#if USE_SWI_FOR_PROCESSING
-    event_fifo_put(evt);
-    
+    /**@NOTE: This might drop events... */
+    fifo_push(&g_async_evt_fifo, evt);
+        
     if (NVIC_GetPendingIRQ(SWI0_IRQn) == 0)
     {
         NVIC_SetPendingIRQ(SWI0_IRQn);
     }
-#else
-    /* execute immediately */
-    async_event_execute(evt);
-#endif
 }
 
 uint32_t timeslot_get_remaining_time(void)
