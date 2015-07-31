@@ -39,7 +39,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 #include "trickle.h"
 #include "fifo.h"
-#include "led_config.h"
 #include "nrf.h"
 #include "nrf_sdm.h"
 #include "app_error.h"

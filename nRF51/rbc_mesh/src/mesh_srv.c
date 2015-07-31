@@ -43,7 +43,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_soc.h"
 #include "nrf_error.h"
 #include "ble.h"
-#include "led_config.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>

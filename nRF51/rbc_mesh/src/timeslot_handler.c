@@ -41,7 +41,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_srv.h"
 #include "timer_control.h"
 #include "transport_control.h"
-#include "led_config.h"
 
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -255,7 +254,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
         {
             SET_PIN(2);
-            led_config(3, 0);
 
             g_is_in_timeslot = true;
             g_end_timer_triggered = false;
@@ -371,7 +369,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         g_is_in_timeslot = false;
         g_end_timer_triggered = false;
         CLEAR_PIN(2);
-        led_config(3, 1);
     }
     else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND)
     {
