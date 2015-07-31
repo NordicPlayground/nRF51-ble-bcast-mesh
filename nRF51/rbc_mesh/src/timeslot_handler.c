@@ -41,6 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_srv.h"
 #include "timer_control.h"
 #include "transport_control.h"
+#include "led_config.h"
 
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -52,18 +53,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-#define USE_SWI_FOR_PROCESSING          (1)
-
-
-#define TIMESLOT_END_SAFETY_MARGIN_US   (1000)
-#define TIMESLOT_SLOT_LENGTH            (100000)
+#define TIMESLOT_END_SAFETY_MARGIN_US   (500)
+#define TIMESLOT_SLOT_LENGTH            (10000)
+#define TIMESLOT_SLOT_EXTEND_LENGTH     (50000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
-#define TIMESLOT_MAX_LENGTH             (1000000) /* 1s */
+#define TIMESLOT_MAX_LENGTH             (20000000UL) /* 20s */
 
-#if USE_SWI_FOR_PROCESSING
 #define ASYNC_EVENT_FIFO_QUEUE_SIZE (16)
-#define ASYNC_EVENT_FIFO_QUEUE_MASK (ASYNC_EVENT_FIFO_QUEUE_SIZE - 1)      
-#endif
 
 /*****************************************************************************
 * Local type definitions
@@ -100,7 +96,7 @@ static nrf_radio_request_t radio_request_earliest =
                         .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
                         .priority = NRF_RADIO_PRIORITY_NORMAL,
                         .length_us = TIMESLOT_SLOT_LENGTH,
-                        .timeout_us = 10000 /* 10ms */
+                        .timeout_us = 50000 /* 10ms */
                     }
                 };
                 
@@ -173,14 +169,13 @@ static void async_event_execute(async_event_t* evt)
 void ts_sd_event_handler(void)
 {
     uint32_t evt;
-    SET_PIN(6);
+    SET_PIN(4);
     while (sd_evt_get(&evt) == NRF_SUCCESS)
     {
         PIN_OUT(evt, 32);
         switch (evt)
         {
             case NRF_EVT_RADIO_SESSION_IDLE:
-                
                 timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
                 break;
             
@@ -207,7 +202,7 @@ void ts_sd_event_handler(void)
                 APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
         }
     }
-    CLEAR_PIN(6);
+    CLEAR_PIN(4);
 }
 
 /**
@@ -246,28 +241,29 @@ void SWI0_IRQHandler(void)
 */
 static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t sig)
 {
-    g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
-    g_is_in_callback = true;
     static uint32_t requested_extend_time = 0;
     static uint32_t successful_extensions = 0;  
     static uint64_t last_rtc_value = 0;
-    static uint8_t noise_val = 0x5F;
-    
     static uint64_t time_now = 0;
+    g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
+    g_is_in_callback = true;
     
-    
+    SET_PIN(3);
+        
     switch (sig)
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
         {
-            //NVIC_ClearPendingIRQ(SWI0_IRQn);
+            SET_PIN(2);
+            led_config(3, 0);
+
             g_is_in_timeslot = true;
             g_end_timer_triggered = false;
             successful_extensions = 0;
             
             timer_init();
         
-            g_negotiate_timeslot_length = g_timeslot_length;
+            g_negotiate_timeslot_length = TIMESLOT_SLOT_EXTEND_LENGTH;//g_timeslot_length;
             g_timeslot_length = g_next_timeslot_length;
         
             g_timeslot_end_timer = 
@@ -327,13 +323,14 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             g_timeslot_length += requested_extend_time;
             requested_extend_time = 0;
             ++successful_extensions;
-            g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
         
             timer_abort(g_timeslot_end_timer);
         
             g_timeslot_end_timer = 
                 timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US, 
                     end_timer_handler);
+            g_end_timer_triggered = false;
+            g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
             
             TICK_PIN(1);
             if (g_timeslot_length + g_negotiate_timeslot_length < TIMESLOT_MAX_LENGTH)
@@ -349,7 +346,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             break;
         
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_EXTEND_FAILED:    
-            g_negotiate_timeslot_length >>= 2;
+            g_negotiate_timeslot_length >>= 1;
             TICK_PIN(1);
             if (g_negotiate_timeslot_length > 1000)
             {
@@ -370,9 +367,11 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     
     if (g_end_timer_triggered)
     {
-        timeslot_order_earliest(((g_timeslot_length > 100000)? 100000 : g_timeslot_length), true);
+        timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
         g_is_in_timeslot = false;
         g_end_timer_triggered = false;
+        CLEAR_PIN(2);
+        led_config(3, 1);
     }
     else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND)
     {
@@ -384,7 +383,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     }
     g_is_in_callback = false;
     
-    
+    CLEAR_PIN(3);
     return &g_ret_param;
 }
 
