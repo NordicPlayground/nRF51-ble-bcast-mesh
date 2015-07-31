@@ -60,10 +60,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 static void error_loop(void)
 {
-    SET_PIN(7);
+    led_config(3, 1);
     while (true)
     {
-        __WFE();
     }
 }    
 
@@ -100,7 +99,6 @@ void HardFault_Handler(void)
 /**
 * @brief Softdevice event handler 
 */
-#if 1
 uint32_t sd_evt_handler(void)
 {
     rbc_mesh_sd_irq_handler();
@@ -113,8 +111,6 @@ uint32_t sd_evt_handler(void)
     }
     return NRF_SUCCESS;
 }
-#endif
-
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
 *   events coming from the mesh. Sets LEDs according to data
@@ -129,7 +125,6 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:   
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-        
             if (evt->value_handle > 2)
                 break;
             
@@ -148,10 +143,14 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 */
 void gpio_init(void)
 {
+    nrf_gpio_range_cfg_output(LED_START, LED_STOP);
+    
+    for (uint32_t i = 0; i < LEDS_NUMBER; ++i)
+    {
+        nrf_gpio_pin_set(LED_START + i);
+    }
+    
 #ifdef BOARD_PCA10028
-		nrf_gpio_cfg_output(LED_1);
-		nrf_gpio_cfg_output(LED_2);
-	
     #ifdef BUTTONS
         nrf_gpio_cfg_input(BUTTON_1, NRF_GPIO_PIN_PULLUP);
         nrf_gpio_cfg_input(BUTTON_2, NRF_GPIO_PIN_PULLUP);
@@ -159,32 +158,10 @@ void gpio_init(void)
         nrf_gpio_cfg_input(BUTTON_4, NRF_GPIO_PIN_PULLUP);
     #endif
 #endif
-#ifdef BOARD_PCA10031
-	  nrf_gpio_cfg_output(LED_RGB_RED);
-    nrf_gpio_cfg_output(LED_RGB_GREEN);
-		nrf_gpio_cfg_output(LED_RGB_BLUE);
-
-    nrf_gpio_pin_set(LED_RGB_RED);
-    nrf_gpio_pin_set(LED_RGB_GREEN);
-    nrf_gpio_pin_set(LED_RGB_BLUE);
-#endif
-	
-#ifdef BOARD_PCA10000
-	  nrf_gpio_cfg_output(LED_RGB_RED);
-    nrf_gpio_cfg_output(LED_RGB_GREEN);
-    nrf_gpio_cfg_output(LED_RGB_BLUE); 
-
-    nrf_gpio_pin_set(LED_RGB_RED);
-    nrf_gpio_pin_set(LED_RGB_GREEN);
-    nrf_gpio_pin_set(LED_RGB_BLUE);
-#endif
-
-#ifdef BOARD_PCA10001 
+    
+#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
     nrf_gpio_range_cfg_output(0, 32);
 #endif    
-
-    led_config(1, 0);
-    led_config(2, 0);
 }
 
 /** @brief main function */
@@ -236,7 +213,6 @@ int main(void)
         sd_app_evt_wait();
     }
     
-    
 #else
     uint8_t mesh_data[16] = {0,0};
     while (true)
@@ -247,6 +223,7 @@ int main(void)
             while(nrf_gpio_pin_read(BUTTON_1) == 0);
             mesh_data[0] = 0;
             rbc_mesh_value_set(1, mesh_data, 1);
+            led_config(1, 0);
         }
         // red on
         if(nrf_gpio_pin_read(BUTTON_2) == 0)
@@ -254,6 +231,7 @@ int main(void)
             while(nrf_gpio_pin_read(BUTTON_2) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(1, mesh_data, 1);
+            led_config(1, 1);
         }
         // green off 
         if(nrf_gpio_pin_read(BUTTON_3) == 0)
@@ -261,6 +239,7 @@ int main(void)
             while(nrf_gpio_pin_read(BUTTON_3) == 0);
             mesh_data[0] = 0;
             rbc_mesh_value_set(2, mesh_data, 1);
+            led_config(2, 0);
         }
         // green on
          if(nrf_gpio_pin_read(BUTTON_4) == 0)
@@ -268,6 +247,7 @@ int main(void)
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(2, mesh_data, 1);
+            led_config(2, 1);
         }
     }   
 #endif    

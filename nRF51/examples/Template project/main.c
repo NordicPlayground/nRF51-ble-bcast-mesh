@@ -94,15 +94,6 @@ void HardFault_Handler(void)
 }
 
 /**
-* @brief Softdevice event handler 
-*/
-uint32_t sd_evt_handler(void)
-{
-    return NRF_SUCCESS;
-}
-
-
-/**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
 *   events coming from the mesh.
 *
@@ -125,7 +116,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 int main(void)
 {
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, rbc_mesh_sd_irq_handler);
     
 #ifdef RBC_MESH_SERIAL
     

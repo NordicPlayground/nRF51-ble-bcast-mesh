@@ -61,13 +61,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 static void error_loop(void)
 {
-    NRF_GPIO->OUTSET = (1 << (LED_START + 0));
-    NRF_GPIO->OUTSET = (1 << (LED_START + 1));
-    NRF_GPIO->OUTCLR = (1 << (LED_START + 2));
-    SET_PIN(7);
+    led_config(3, 1);
     while (true)
     {
-        __WFE();
     }
 }    
 
@@ -112,17 +108,18 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t *file_name)
 */
 void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
-    TICK_PIN(28);
+    TICK_PIN(18);
+    CLEAR_PIN(15);
     switch (evt->event_type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-        
             if (evt->value_handle > 2)
                 break;
-            
             led_config(evt->value_handle, evt->data[0]);
+            break;
+        case RBC_MESH_EVENT_TYPE_INITIALIZED:
             break;
     }
 }
@@ -201,7 +198,7 @@ void test_app_init(void)
 
 int main(void)
 {
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, NULL);
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, rbc_mesh_sd_irq_handler);
     test_app_init();
     
 #ifdef RBC_MESH_SERIAL
@@ -217,7 +214,7 @@ int main(void)
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
-    uint32_t error_code = rbc_mesh_init(init_params);
+    volatile uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
     error_code = rbc_mesh_value_enable(1);
@@ -231,8 +228,7 @@ int main(void)
     /* sleep */
     while (true)
     {
-      __WFE();
-        //sd_app_evt_wait();
+        sd_app_evt_wait();
     }
     
 
