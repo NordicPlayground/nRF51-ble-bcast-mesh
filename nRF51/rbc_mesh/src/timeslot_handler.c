@@ -52,7 +52,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-#define TIMESLOT_END_SAFETY_MARGIN_US   (1000)
+#define TIMESLOT_END_SAFETY_MARGIN_US   (2000)
 #define TIMESLOT_SLOT_LENGTH            (10000)
 #define TIMESLOT_SLOT_EXTEND_LENGTH     (50000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
@@ -246,12 +246,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     static uint64_t time_now = 0;
     g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
     g_is_in_callback = true;
-    if (sig != NRF_RADIO_CALLBACK_SIGNAL_TYPE_START && NRF_TIMER0->EVENTS_COMPARE[g_timeslot_end_timer])
-    {
-        timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
-        return &g_ret_param;
-    }
-
+    
     SET_PIN(3);
 
     switch (sig)
