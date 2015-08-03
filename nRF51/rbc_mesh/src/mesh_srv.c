@@ -406,7 +406,14 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index - 1];
 
     /* this is now a new version of this data, signal to the rest of the mesh */
-    ++ch_md->version_number;
+    if (ch_md->version_number == UINT16_MAX)
+    {
+        ch_md->version_number = MESH_VALUE_LOLLIPOP_LIMIT;
+    }
+    else
+    {
+        ++ch_md->version_number;
+    }
 
     bool first_time =
         (ch_md->flags &
