@@ -57,7 +57,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define CONN_HANDLE_INVALID             (0xFFFF)
 
-#define MESH_VALUE_LOLLIPOP_LIMIT       (200)
+#define MESH_VERSION_SCHEME_LOLLIPOP    (1)
+
+#if MESH_VERSION_SCHEME_LOLLIPOP
+    #define MESH_VALUE_LOLLIPOP_LIMIT       (200)
+#endif    
 
 #define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x800)
 /*****************************************************************************
@@ -632,44 +636,14 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         trickle_rx_inconsistent(&ch_md->trickle);
     }
 
-#if 1
+#if MESH_VERSION_SCHEME_LOLLIPOP    
     /* new version */
     uint16_t separation = (version >= ch_md->version_number)?
         (version - ch_md->version_number) :
-        (-(ch_md->version_number - MESH_VALUE_LOLLIPOP_LIMIT) + (version - MESH_VALUE_LOLLIPOP_LIMIT) - MESH_VALUE_LOLLIPOP_LIMIT);
-
-    if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version > ch_md->version_number) ||
-        (ch_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2) ||
-        uninitialized)
-#else
-    if (ch_md->version_number < version)
+        ((version - MESH_VALUE_LOLLIPOP_LIMIT) - (ch_md->version_number - MESH_VALUE_LOLLIPOP_LIMIT) - MESH_VALUE_LOLLIPOP_LIMIT);
 #endif
-    {
-        /* update value */
-        mesh_srv_char_val_set(handle, data, data_len, false);
-        ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
-        ch_md->flags &= ~(1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
-        ch_md->version_number = version;
-
-        /* Manually set originator address */
-        memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
-
-        rbc_mesh_event_t update_evt;
-        update_evt.event_type = ((uninitialized)?
-            RBC_MESH_EVENT_TYPE_NEW_VAL :
-            RBC_MESH_EVENT_TYPE_UPDATE_VAL);
-        update_evt.data_len = data_len;
-        update_evt.value_handle = handle;
-
-        update_evt.data = data;
-        memcpy(&update_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
-
-        rbc_mesh_event_handler(&update_evt);
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&update_evt);
-#endif
-    }
-    else if (version == ch_md->version_number)
+    
+    if (version == ch_md->version_number)
     {
         /* check for conflicting data */
         uint16_t old_len = MAX_VALUE_LENGTH;
@@ -718,6 +692,38 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
             trickle_rx_consistent(&ch_md->trickle);
         }
 
+    }
+#if MESH_VERSION_SCHEME_LOLLIPOP
+    else if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version > ch_md->version_number) ||
+        (ch_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && version >= MESH_VALUE_LOLLIPOP_LIMIT && separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2) ||
+        uninitialized)
+#else
+    else if (ch_md->version_number < version)
+#endif
+    {
+        /* update value */
+        mesh_srv_char_val_set(handle, data, data_len, false);
+        ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
+        ch_md->flags &= ~(1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
+        ch_md->version_number = version;
+
+        /* Manually set originator address */
+        memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
+
+        rbc_mesh_event_t update_evt;
+        update_evt.event_type = ((uninitialized)?
+            RBC_MESH_EVENT_TYPE_NEW_VAL :
+            RBC_MESH_EVENT_TYPE_UPDATE_VAL);
+        update_evt.data_len = data_len;
+        update_evt.value_handle = handle;
+
+        update_evt.data = data;
+        memcpy(&update_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
+
+        rbc_mesh_event_handler(&update_evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&update_evt);
+#endif
     }
 
 
