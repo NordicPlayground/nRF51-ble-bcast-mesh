@@ -171,7 +171,7 @@ static void search_callback(uint8_t* data)
         return;
     }
 
-    
+
     async_event_t async_evt;
     async_evt.type = EVENT_TYPE_PACKET;
     packet_create_from_data(data, &async_evt.callback.packet);

@@ -109,7 +109,7 @@ uint32_t fifo_peek_at(fifo_t* p_fifo, void* p_elem, uint32_t elem)
     p_fifo->memcpy_fptr(p_elem, p_src);
   else
     memcpy(p_elem, p_src, p_fifo->elem_size);
-  
+
   return NRF_SUCCESS;
 }
 

@@ -95,9 +95,9 @@ static void enable_pin_listener(bool enable)
 static void prepare_rx(void)
 {
     uint32_t error_code;
-    error_code = spi_slave_buffers_set(&dummy_data, 
-                                      rx_buffer.buffer, 
-                                      1, 
+    error_code = spi_slave_buffers_set(&dummy_data,
+                                      rx_buffer.buffer,
+                                      1,
                                       SERIAL_DATA_MAX_LEN - 2);
     APP_ERROR_CHECK(error_code);
     has_pending_tx = false;
@@ -111,15 +111,15 @@ static void do_transmit(void)
     uint8_t* tx_ptr = &dummy_data;
     uint8_t tx_len = 0;
     uint32_t error_code;
-    
+
     serial_state = SERIAL_STATE_TRANSMIT;
-    
-    /* don't want GPIOTE to interrupt again before after packet is 
+
+    /* don't want GPIOTE to interrupt again before after packet is
     successfully transmitted. */
     enable_pin_listener(false);
-    
+
     bool ordered_buffer = false;
-    
+
     if (!serial_queue_is_empty(&tx_q))
     {
         if (serial_queue_dequeue(&tx_q, &tx_buffer))
@@ -128,8 +128,8 @@ static void do_transmit(void)
             tx_ptr = (uint8_t*) &tx_buffer;
             memset(rx_buffer.buffer, 0, SERIAL_DATA_MAX_LEN);
             error_code = spi_slave_buffers_set(tx_ptr,
-                                              rx_buffer.buffer, 
-                                              tx_len, 
+                                              rx_buffer.buffer,
+                                              tx_len,
                                               sizeof(rx_buffer));
             APP_ERROR_CHECK(error_code);
             ordered_buffer = true;
@@ -141,11 +141,11 @@ static void do_transmit(void)
         /* don't need to wait for SPIS mutex */
         NRF_GPIO->OUTCLR = (1 << PIN_RDYN);
     }
-        
-    
+
+
     nrf_gpio_pin_set(0);
     nrf_gpio_pin_clear(0);
-    
+
     /* wait for SPI driver to finish buffer set operation */
 }
 
@@ -156,18 +156,18 @@ static void gpiote_init(void)
                                | (GPIO_PIN_CNF_PULL_Disabled    << GPIO_PIN_CNF_PULL_Pos)
                                | (GPIO_PIN_CNF_INPUT_Connect    << GPIO_PIN_CNF_INPUT_Pos)
                                | (GPIO_PIN_CNF_DIR_Input        << GPIO_PIN_CNF_DIR_Pos);
-   
+
 #if 0
     nrf_gpio_cfg_input(PIN_CSN, NRF_GPIO_PIN_PULLUP);
-    
-    
-    NRF_GPIOTE->CONFIG[0] = GPIOTE_CONFIG_MODE_Event 		<< GPIOTE_CONFIG_MODE_Pos 
-                          | GPIOTE_CONFIG_POLARITY_HiToLo 	<< GPIOTE_CONFIG_POLARITY_Pos 
+
+
+    NRF_GPIOTE->CONFIG[0] = GPIOTE_CONFIG_MODE_Event 		<< GPIOTE_CONFIG_MODE_Pos
+                          | GPIOTE_CONFIG_POLARITY_HiToLo 	<< GPIOTE_CONFIG_POLARITY_Pos
                           | PIN_CSN                         << GPIOTE_CONFIG_PSEL_Pos;
-    
+
     //NRF_GPIOTE->EVENTS_IN[0] = 0;
     NRF_GPIOTE->INTENSET  = GPIOTE_INTENSET_IN0_Set << GPIOTE_INTENSET_IN0_Pos;,
-#endif  
+#endif
     nrf_gpio_cfg_output(0);
     nrf_gpio_cfg_output(1);
     NVIC_SetPriority(GPIOTE_IRQn, APP_IRQ_PRIORITY_LOW);
@@ -188,7 +188,7 @@ static void gpiote_init(void)
 *   start sending before we lower the RDYN pin.
 */
 void GPIOTE_IRQHandler(void)
-{    
+{
     nrf_gpio_pin_set(0);
     nrf_gpio_pin_clear(0);
     if (NRF_GPIOTE->EVENTS_PORT)//(true || serial_state == SERIAL_STATE_IDLE)
@@ -210,7 +210,7 @@ void GPIOTE_IRQHandler(void)
 }
 
 /**
-* @brief SPI event handler, from SPI driver 
+* @brief SPI event handler, from SPI driver
 */
 void spi_event_handler(spi_slave_evt_t evt)
 {
@@ -223,7 +223,7 @@ void spi_event_handler(spi_slave_evt_t evt)
             }
             has_pending_tx = false;
             break;
-        
+
         case SPI_SLAVE_XFER_DONE:
             NRF_GPIO->OUTSET = (1 << PIN_RDYN);
             nrf_gpio_pin_set(1);
@@ -232,14 +232,14 @@ void spi_event_handler(spi_slave_evt_t evt)
             if (rx_buffer.buffer[SERIAL_LENGTH_POS] > 0)
             {
                 serial_queue_enqueue(&rx_q, &rx_buffer);
-                
+
                 /* notify ACI handler */
                 async_event_t async_evt;
                 async_evt.callback.generic = mesh_aci_command_check;
                 async_evt.type = EVENT_TYPE_GENERIC;
                 timeslot_queue_async_event(&async_evt);
             }
-            
+
             if (serial_queue_is_empty(&tx_q))
             {
                 serial_state = SERIAL_STATE_IDLE;
@@ -255,9 +255,9 @@ void spi_event_handler(spi_slave_evt_t evt)
             {
                 do_transmit();
             }
-            
+
             break;
-        
+
         default:
             /* no implementation necessary */
             break;
@@ -272,11 +272,11 @@ void serial_handler_init(void)
 {
     serial_queue_init(&tx_q);
     serial_queue_init(&rx_q);
-    
-    nrf_gpio_cfg_output(PIN_RDYN);  
+
+    nrf_gpio_cfg_output(PIN_RDYN);
     nrf_gpio_pin_set(PIN_RDYN);
     serial_state = SERIAL_STATE_IDLE;
-    
+
     spi_slave_config_t spi_config;
     spi_config.bit_order = SPIM_LSB_FIRST;
     spi_config.mode = SPI_MODE_0;
@@ -286,14 +286,14 @@ void serial_handler_init(void)
     spi_config.pin_miso = PIN_MISO;
     spi_config.pin_mosi = PIN_MOSI;
     spi_config.pin_sck = PIN_SCK;
-    
-    
-    
+
+
+
     APP_ERROR_CHECK(spi_slave_init(&spi_config));
     APP_ERROR_CHECK(spi_slave_evt_handler_register(spi_event_handler));
 
     gpiote_init();
-    
+
     /* set initial buffers, dummy in tx */
     has_pending_tx = false;
     prepare_rx();
@@ -305,16 +305,16 @@ bool serial_handler_event_send(serial_evt_t* evt)
     {
         return false;
     }
-    
+
     enable_pin_listener(false);
     NVIC_DisableIRQ(SPI1_TWI1_IRQn); /* critical section */
-    
+
     serial_data_t raw_data;
     raw_data.status_byte = 0;
     memcpy(raw_data.buffer, evt, evt->length + 1);
     serial_queue_enqueue(&tx_q, &raw_data);
-    
-    if (serial_queue_is_full(&rx_q)) 
+
+    if (serial_queue_is_full(&rx_q))
     {
         enable_pin_listener(true);
         serial_state = SERIAL_STATE_WAIT_FOR_QUEUE;
@@ -323,7 +323,7 @@ bool serial_handler_event_send(serial_evt_t* evt)
     {
         do_transmit();
     }
-    
+
     NVIC_EnableIRQ(SPI1_TWI1_IRQn); /* critical section complete */
     return true;
 }
@@ -346,7 +346,7 @@ bool serial_handler_command_get(serial_cmd_t* cmd)
         memcpy(cmd, temp.buffer, temp.buffer[0] + 1);
     }
 
-    
+
     /* just made room in the queue */
     if (serial_state == SERIAL_STATE_WAIT_FOR_QUEUE)
     {
@@ -358,7 +358,7 @@ bool serial_handler_command_get(serial_cmd_t* cmd)
         /* only want GPIOTE IRQ in IDLE */
         enable_pin_listener(true);
     }
-    
+
     NVIC_EnableIRQ(SPI1_TWI1_IRQn);
     return true;
 }
