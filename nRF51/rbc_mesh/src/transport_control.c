@@ -85,6 +85,10 @@ static uint8_t step_timer_index = 0xFF;
 static void search_callback(uint8_t* data);
 static void trickle_step_callback(void);
 
+/*****************************************************************************
+* Static functions
+*****************************************************************************/
+
 /**
 * @brief Order the radio_control module to do a RX, and report back to
 *   search_callback().
@@ -256,6 +260,10 @@ static void trickle_step_callback(void)
         step_timer_index = timer_order_cb(next_time - global_time, trickle_step_callback);
     }
 }
+
+/*****************************************************************************
+* Interface functions
+*****************************************************************************/
 
 void transport_control_timeslot_begin(uint64_t global_timer_value)
 {
