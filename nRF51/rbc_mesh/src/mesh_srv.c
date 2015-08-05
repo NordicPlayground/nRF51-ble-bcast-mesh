@@ -96,7 +96,23 @@ static uint16_t g_active_conn_handle = CONN_HANDLE_INVALID;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-
+static void version_increase(uint16_t* version)
+{
+#if MESH_VERSION_SCHEME_LOLLIPOP    
+    if (*version == UINT16_MAX)
+    {
+        *version = MESH_VALUE_LOLLIPOP_LIMIT;
+    }
+    else
+    {
+        (*version)++;
+    }
+#else
+    (*version)++;
+#endif    
+}
+                                            
+                                            
 /**
 * @brief Add metadata GATT characteristic to the Mesh GATT service. Part of
 *   the initialization procedure.
@@ -304,7 +320,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
 uint32_t mesh_srv_init(uint8_t mesh_value_count,
     uint32_t access_address, uint8_t channel, uint32_t adv_int_ms)
 {
-    if (mesh_value_count > MAX_VALUE_COUNT)
+    if (mesh_value_count > MAX_VALUE_COUNT || mesh_value_count == 0)
     {
         return NRF_ERROR_INVALID_PARAM;
     }
@@ -406,14 +422,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index - 1];
 
     /* this is now a new version of this data, signal to the rest of the mesh */
-    if (ch_md->version_number == UINT16_MAX)
-    {
-        ch_md->version_number = MESH_VALUE_LOLLIPOP_LIMIT;
-    }
-    else
-    {
-        ++ch_md->version_number;
-    }
+    version_increase(&ch_md->version_number);
 
     bool first_time =
         (ch_md->flags &
@@ -833,7 +842,8 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
                 (1 << MESH_MD_FLAGS_USED_POS) |
                 (1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
 
-            ++ch_md->version_number;
+            version_increase(&ch_md->version_number);
+            
             trickle_rx_inconsistent(&ch_md->trickle);
             ble_gap_addr_t my_addr;
             sd_ble_gap_address_get(&my_addr);
@@ -853,7 +863,6 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&update_evt);
 #endif
-
             return NRF_SUCCESS;
         }
     }
