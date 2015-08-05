@@ -79,6 +79,7 @@ static aci_status_code_t error_code_translate(uint32_t nrf_error_code)
 static void serial_command_handler(serial_cmd_t* serial_cmd)
 {
 	serial_evt_t serial_evt;
+    uint32_t error_code;
     rbc_mesh_event_t app_evt;
 	switch (serial_cmd->opcode)
 	{
@@ -107,6 +108,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         if (serial_cmd->length != sizeof(serial_cmd_params_init_t) + 1)
         {
             serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+            error_code = NRF_ERROR_INVALID_LENGTH;
         }
         else
         {
@@ -118,19 +120,21 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
             init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
 
-            uint32_t error_code = rbc_mesh_init(init_params);
-
+            error_code = rbc_mesh_init(init_params);
+            
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 
         serial_handler_event_send(&serial_evt);
-
-        /* notify application */
-        memset(&app_evt, 0, sizeof(app_evt));
-        app_evt.event_type = RBC_MESH_EVENT_TYPE_INITIALIZED;
-
-        rbc_mesh_event_handler(&app_evt);
-
+        
+        if (error_code == NRF_SUCCESS)
+        {            
+            /* notify application */
+            memset(&app_evt, 0, sizeof(app_evt));
+            app_evt.event_type = RBC_MESH_EVENT_TYPE_INITIALIZED;
+        
+            rbc_mesh_event_handler(&app_evt);
+        }
         break;
 
     case SERIAL_CMD_OPCODE_VALUE_SET:
