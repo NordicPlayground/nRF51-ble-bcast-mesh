@@ -9,12 +9,13 @@
 
 typedef enum
 {
+    SERIAL_EVT_OPCODE_DEVICE_STARTED        = 0x81,
     SERIAL_EVT_OPCODE_ECHO_RSP              = 0x82,
     SERIAL_EVT_OPCODE_CMD_RSP               = 0x84,
-    SERIAL_EVT_OPCODE_EVENT_NEW             = 0XB3,
-    SERIAL_EVT_OPCODE_EVENT_UPDATE          = 0XB4,
-    SERIAL_EVT_OPCODE_EVENT_CONFLICTING     = 0XB5
-} serial_evt_opcode_t;
+    SERIAL_EVT_OPCODE_EVENT_NEW             = 0xB3,
+    SERIAL_EVT_OPCODE_EVENT_UPDATE          = 0xB4,
+    SERIAL_EVT_OPCODE_EVENT_CONFLICTING     = 0xB5
+} __packed serial_evt_opcode_t;
 
 
 typedef enum
@@ -22,6 +23,13 @@ typedef enum
     ADDR_TYPE_BLE_GAP_ADV_ADDR,
     ADDR_TYPE_6LOWPAN
 } __packed addr_type_t;
+
+typedef enum
+{
+    OPERATING_MODE_TEST,
+    OPERATING_MODE_SETUP,
+    OPERATING_MODE_STANDBY
+} __packed operating_mode_t;
 
 
 /****** CMD RSP EVT PARAMS ******/
@@ -106,6 +114,12 @@ typedef __packed struct
     uint8_t data[SERIAL_DATA_MAX_LEN];
 } serial_evt_params_event_conflicting_t;
 
+typedef __packed struct
+{
+    operating_mode_t operating_mode;
+    uint8_t hw_error;
+    uint8_t data_credit_available;
+} serial_evt_params_event_device_started_t;
 
 typedef __packed struct
 {
@@ -118,6 +132,7 @@ typedef __packed struct
         serial_evt_params_event_new_t event_new;
         serial_evt_params_event_update_t event_update;
         serial_evt_params_event_conflicting_t event_conflicting;
+        serial_evt_params_event_device_started_t device_started;
 	} params;
 } serial_evt_t;
 

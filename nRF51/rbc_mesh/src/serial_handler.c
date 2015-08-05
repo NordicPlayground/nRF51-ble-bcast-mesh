@@ -295,8 +295,23 @@ void serial_handler_init(void)
     gpiote_init();
 
     /* set initial buffers, dummy in tx */
-    has_pending_tx = false;
-    prepare_rx();
+    //prepare_rx();
+#if 1 
+    /* notify application controller of the restart */ 
+    serial_evt_t started_event;
+    started_event.length = 4;
+    started_event.opcode = SERIAL_EVT_OPCODE_DEVICE_STARTED;
+    started_event.params.device_started.operating_mode = OPERATING_MODE_STANDBY;
+    uint32_t reset_reason;
+    sd_power_reset_reason_get(&reset_reason);
+    started_event.params.device_started.hw_error = !!(reset_reason & (1 << 3));
+    started_event.params.device_started.data_credit_available = SERIAL_QUEUE_SIZE;
+    
+    if (!serial_handler_event_send(&started_event))
+    {
+        APP_ERROR_CHECK(NRF_ERROR_INTERNAL);
+    }
+#endif
 }
 
 bool serial_handler_event_send(serial_evt_t* evt)
