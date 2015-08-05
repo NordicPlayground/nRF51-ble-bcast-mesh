@@ -83,7 +83,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 * @param[in] line_num Line where the error check failed 
 * @param[in] p_file_name File where the error check failed
 */
-void app_error_handler(volatile uint32_t error_code, volatile uint32_t line_num, volatile const uint8_t * p_file_name)
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     error_loop();
 }

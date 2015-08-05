@@ -187,7 +187,7 @@ int main(void)
     init_params.access_addr = 0xA541A68F;
     init_params.adv_int_ms = 100;
     init_params.channel = 38;
-    init_params.handle_count = 20;
+    init_params.handle_count = 2;
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
