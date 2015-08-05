@@ -33,23 +33,29 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 #include "serial_handler.h"
-#include "serial_queue.h"
+//#include "serial_queue.h"
 #include "spi_slave.h"
-#include "timeslot_handler.h"
+#include "event_handler.h"
+#include "fifo.h"
 
 #include "nrf_gpio.h"
 #include "app_error.h"
 #include "app_util_platform.h"
 #include <string.h>
 /** @brief Pin configuration for the application */
-#define PIN_MISO            (28)
-#define PIN_MOSI            (25)
-#define PIN_SCK             (29)
-#define PIN_CSN             (24)
-#define PIN_RDYN            (20)
+#define PIN_MISO                (28)
+#define PIN_MOSI                (25)
+#define PIN_SCK                 (29)
+#define PIN_CSN                 (24)
+#define PIN_RDYN                (20)
 
-#define SERIAL_LENGTH_POS   (0)
-#define SERIAL_OPCODE_POS   (1)
+
+#define SERIAL_LENGTH_POS       (0)
+#define SERIAL_OPCODE_POS       (1)
+
+#define SERIAL_QUEUE_SIZE       (4)
+
+#define SERIAL_REQN_GPIOTE_CH   (0)
 
 /*****************************************************************************
 * Static types
@@ -66,8 +72,11 @@ typedef enum
 * Static globals
 *****************************************************************************/
 
-static serial_queue_t rx_q;
-static serial_queue_t tx_q;
+static fifo_t rx_fifo;
+static fifo_t tx_fifo;
+static serial_data_t rx_fifo_buffer[SERIAL_QUEUE_SIZE];
+static serial_data_t tx_fifo_buffer[SERIAL_QUEUE_SIZE];
+
 
 static uint8_t dummy_data = 0;
 static serial_data_t rx_buffer;
@@ -84,11 +93,12 @@ static void enable_pin_listener(bool enable)
 {
     if (enable)
     {
-        NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_PORT_Msk;
+        NRF_GPIOTE->EVENTS_IN[SERIAL_REQN_GPIOTE_CH] = 0;
+        NRF_GPIOTE->INTENSET = (1 << SERIAL_REQN_GPIOTE_CH);
     }
     else
     {
-        NRF_GPIOTE->INTENCLR = GPIOTE_INTENCLR_PORT_Msk;
+        NRF_GPIOTE->INTENCLR = (1 << SERIAL_REQN_GPIOTE_CH);
     }
 }
 
@@ -120,9 +130,9 @@ static void do_transmit(void)
 
     bool ordered_buffer = false;
 
-    if (!serial_queue_is_empty(&tx_q))
+    if (!fifo_is_empty(&tx_fifo))
     {
-        if (serial_queue_dequeue(&tx_q, &tx_buffer))
+        if (fifo_pop(&tx_fifo, &tx_buffer) == NRF_SUCCESS)
         {
             tx_len = tx_buffer.buffer[0] + 2;
             tx_ptr = (uint8_t*) &tx_buffer;
@@ -142,7 +152,6 @@ static void do_transmit(void)
         NRF_GPIO->OUTCLR = (1 << PIN_RDYN);
     }
 
-
     nrf_gpio_pin_set(0);
     nrf_gpio_pin_clear(0);
 
@@ -151,29 +160,23 @@ static void do_transmit(void)
 
 static void gpiote_init(void)
 {
-    NRF_GPIO->PIN_CNF[PIN_CSN] = (GPIO_PIN_CNF_SENSE_Low        << GPIO_PIN_CNF_SENSE_Pos)
+    NRF_GPIO->PIN_CNF[PIN_CSN] = (GPIO_PIN_CNF_SENSE_Disabled   << GPIO_PIN_CNF_SENSE_Pos)
                                | (GPIO_PIN_CNF_DRIVE_S0S1       << GPIO_PIN_CNF_DRIVE_Pos)
-                               | (GPIO_PIN_CNF_PULL_Disabled    << GPIO_PIN_CNF_PULL_Pos)
+                               | (GPIO_PIN_CNF_PULL_Pulldown    << GPIO_PIN_CNF_PULL_Pos)
                                | (GPIO_PIN_CNF_INPUT_Connect    << GPIO_PIN_CNF_INPUT_Pos)
                                | (GPIO_PIN_CNF_DIR_Input        << GPIO_PIN_CNF_DIR_Pos);
+    
+    NRF_GPIOTE->CONFIG[SERIAL_REQN_GPIOTE_CH] = (PIN_CSN << GPIOTE_CONFIG_PSEL_Pos)
+                                              | (GPIOTE_CONFIG_POLARITY_HiToLo << GPIOTE_CONFIG_POLARITY_Pos)
+                                              | (GPIOTE_CONFIG_MODE_Event << GPIOTE_CONFIG_MODE_Pos);
+                                              
 
-#if 0
-    nrf_gpio_cfg_input(PIN_CSN, NRF_GPIO_PIN_PULLUP);
-
-
-    NRF_GPIOTE->CONFIG[0] = GPIOTE_CONFIG_MODE_Event 		<< GPIOTE_CONFIG_MODE_Pos
-                          | GPIOTE_CONFIG_POLARITY_HiToLo 	<< GPIOTE_CONFIG_POLARITY_Pos
-                          | PIN_CSN                         << GPIOTE_CONFIG_PSEL_Pos;
-
-    //NRF_GPIOTE->EVENTS_IN[0] = 0;
-    NRF_GPIOTE->INTENSET  = GPIOTE_INTENSET_IN0_Set << GPIOTE_INTENSET_IN0_Pos;,
-#endif
     nrf_gpio_cfg_output(0);
     nrf_gpio_cfg_output(1);
+    NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_IN0_Msk;
     NVIC_SetPriority(GPIOTE_IRQn, APP_IRQ_PRIORITY_LOW);
+    NVIC_ClearPendingIRQ(GPIOTE_IRQn);
     NVIC_EnableIRQ(GPIOTE_IRQn);
-    NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_PORT_Msk;
-    //nrf_gpio_cfg_sense_input(PIN_CSN, NRF_GPIO_PIN_PULLDOWN, NRF_GPIO_PIN_SENSE_LOW);
     enable_pin_listener(true);
 }
 
@@ -189,24 +192,24 @@ static void gpiote_init(void)
 */
 void GPIOTE_IRQHandler(void)
 {
-    nrf_gpio_pin_set(0);
-    nrf_gpio_pin_clear(0);
-    if (NRF_GPIOTE->EVENTS_PORT)//(true || serial_state == SERIAL_STATE_IDLE)
+    NRF_GPIO->OUTSET = (1 << 2);
+    if (NRF_GPIOTE->EVENTS_IN[SERIAL_REQN_GPIOTE_CH] && serial_state == SERIAL_STATE_IDLE)
     {
-        NRF_GPIOTE->EVENTS_PORT = 0;
-        if ((NRF_GPIO->IN & (1 << PIN_CSN)) == 0 && serial_state == SERIAL_STATE_IDLE)
+        
+        NRF_GPIO->OUTSET = (1 << 3);
+        if (fifo_is_full(&rx_fifo))
         {
-            if (serial_queue_is_full(&rx_q))
-            {
-                /* wait until the application pops an event off the rx queue */
-                serial_state = SERIAL_STATE_WAIT_FOR_QUEUE;
-            }
-            else
-            {
-                do_transmit();
-            }
+            /* wait until the application pops an event off the rx queue */
+            serial_state = SERIAL_STATE_WAIT_FOR_QUEUE;
         }
+        else
+        {
+            do_transmit();
+        }
+        NRF_GPIO->OUTCLR = (1 << 3);
     }
+    NRF_GPIOTE->EVENTS_IN[SERIAL_REQN_GPIOTE_CH] = 0;
+    NRF_GPIO->OUTCLR = (1 << 2);
 }
 
 /**
@@ -231,22 +234,28 @@ void spi_event_handler(spi_slave_evt_t evt)
             /* handle incoming */
             if (rx_buffer.buffer[SERIAL_LENGTH_POS] > 0)
             {
-                serial_queue_enqueue(&rx_q, &rx_buffer);
+                if (fifo_push(&rx_fifo, &rx_buffer) == NRF_SUCCESS)
+                {
 
-                /* notify ACI handler */
-                async_event_t async_evt;
-                async_evt.callback.generic = mesh_aci_command_check;
-                async_evt.type = EVENT_TYPE_GENERIC;
-                timeslot_queue_async_event(&async_evt);
+                    /* notify ACI handler */
+                    async_event_t async_evt;
+                    async_evt.callback.generic = mesh_aci_command_check;
+                    async_evt.type = EVENT_TYPE_GENERIC;
+                    event_handler_push(&async_evt);
+                }
+                else
+                {
+                    APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
+                }
             }
 
-            if (serial_queue_is_empty(&tx_q))
+            if (fifo_is_empty(&tx_fifo))
             {
                 serial_state = SERIAL_STATE_IDLE;
                 prepare_rx();
                 enable_pin_listener(true);
             }
-            else if (serial_queue_is_full(&rx_q))
+            else if (fifo_is_full(&rx_fifo))
             {
                 prepare_rx();
                 serial_state = SERIAL_STATE_WAIT_FOR_QUEUE;
@@ -270,8 +279,18 @@ void spi_event_handler(spi_slave_evt_t evt)
 
 void serial_handler_init(void)
 {
-    serial_queue_init(&tx_q);
-    serial_queue_init(&rx_q);
+    has_pending_tx = false;
+    /* init packet queues */
+    tx_fifo.array_len = SERIAL_QUEUE_SIZE;
+    tx_fifo.elem_array = tx_fifo_buffer;
+    tx_fifo.elem_size = sizeof(serial_data_t);
+    tx_fifo.memcpy_fptr = NULL;
+    fifo_init(&tx_fifo);
+    rx_fifo.array_len = SERIAL_QUEUE_SIZE;
+    rx_fifo.elem_array = rx_fifo_buffer;
+    rx_fifo.elem_size = sizeof(serial_data_t);
+    rx_fifo.memcpy_fptr = NULL;
+    fifo_init(&rx_fifo);
 
     nrf_gpio_cfg_output(PIN_RDYN);
     nrf_gpio_pin_set(PIN_RDYN);
@@ -316,7 +335,7 @@ void serial_handler_init(void)
 
 bool serial_handler_event_send(serial_evt_t* evt)
 {
-    if (serial_queue_is_full(&tx_q))
+    if (fifo_is_full(&tx_fifo))
     {
         return false;
     }
@@ -327,9 +346,9 @@ bool serial_handler_event_send(serial_evt_t* evt)
     serial_data_t raw_data;
     raw_data.status_byte = 0;
     memcpy(raw_data.buffer, evt, evt->length + 1);
-    serial_queue_enqueue(&tx_q, &raw_data);
+    fifo_push(&tx_fifo, &raw_data);
 
-    if (serial_queue_is_full(&rx_q))
+    if (fifo_is_full(&rx_fifo))
     {
         enable_pin_listener(true);
         serial_state = SERIAL_STATE_WAIT_FOR_QUEUE;
@@ -350,15 +369,15 @@ bool serial_handler_command_get(serial_cmd_t* cmd)
     NVIC_DisableIRQ(SPI1_TWI1_IRQn);
     enable_pin_listener(false);
     serial_data_t temp;
-    if (!serial_queue_dequeue(&rx_q, &temp))
+    if (fifo_pop(&rx_fifo, &temp) != NRF_SUCCESS)
     {
         enable_pin_listener(true);
         NVIC_EnableIRQ(SPI1_TWI1_IRQn);
         return false;
     }
-    if (temp.buffer[0] > 0)
+    if (temp.buffer[SERIAL_LENGTH_POS] > 0)
     {
-        memcpy(cmd, temp.buffer, temp.buffer[0] + 1);
+        memcpy(cmd, temp.buffer, temp.buffer[SERIAL_LENGTH_POS] + 1);
     }
 
 

@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _RBC_MESH_COMMON_H__
 #include <stdint.h>
 
-#define RBC_MESH_DEBUG  (1)
+#define RBC_MESH_DEBUG  (0)
 
 /******************************************************************************
 * Debug related defines
