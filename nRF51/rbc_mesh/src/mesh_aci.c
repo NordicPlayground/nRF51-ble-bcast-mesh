@@ -92,9 +92,14 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         serial_handler_event_send(&serial_evt);
         break;
+    case SERIAL_CMD_OPCODE_RADIO_RESET:
+        /* brute force kill :) */
+        NVIC_SystemReset();
+        break;
 
     case SERIAL_CMD_OPCODE_INIT:
         TICK_PIN(4);
+        
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
         serial_evt.length = 3;
