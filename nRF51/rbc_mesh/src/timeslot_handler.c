@@ -41,6 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_srv.h"
 #include "timer_control.h"
 #include "transport_control.h"
+#include "event_handler.h"
 
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -52,13 +53,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-#define TIMESLOT_END_SAFETY_MARGIN_US   (2000)
+#define TIMESLOT_END_SAFETY_MARGIN_US   (100)
 #define TIMESLOT_SLOT_LENGTH            (10000)
 #define TIMESLOT_SLOT_EXTEND_LENGTH     (50000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
 #define TIMESLOT_MAX_LENGTH             (20000000UL) /* 20s */
 
-#define ASYNC_EVENT_FIFO_QUEUE_SIZE (16)
 
 /*****************************************************************************
 * Local type definitions
@@ -115,45 +115,13 @@ static bool g_framework_initialized = false;
 static bool g_end_timer_triggered = false;
 static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
 
-static fifo_t g_async_evt_fifo;
-static async_event_t g_async_evt_fifo_buffer[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 
 static volatile uint32_t ts_count = 0;
 
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
-/**
-* @brief execute asynchronous event, based on type
-*/
-static void async_event_execute(async_event_t* evt)
-{
 
-    switch (evt->type)
-    {
-        case EVENT_TYPE_RADIO_RX:
-            CHECK_FP(evt->callback.radio_rx.function);
-            (*evt->callback.radio_rx.function)(evt->callback.radio_rx.data);
-            break;
-        case EVENT_TYPE_RADIO_TX:
-            CHECK_FP(evt->callback.radio_tx);
-            (*evt->callback.radio_tx)();
-            break;
-        case EVENT_TYPE_TIMER:
-            CHECK_FP(evt->callback.timer);
-            (*evt->callback.timer)();
-            break;
-        case EVENT_TYPE_GENERIC:
-            CHECK_FP(evt->callback.generic);
-            (*evt->callback.generic)();
-            break;
-        case EVENT_TYPE_PACKET:
-            TICK_PIN(19);
-            mesh_srv_packet_process(&evt->callback.packet);
-        default:
-            break;
-    }
-}
 
 
 /*****************************************************************************
@@ -212,27 +180,6 @@ static void end_timer_handler(void)
     g_end_timer_triggered = true;
 }
 
-
-/**
-* @brief Async event dispatcher, works in APP LOW
-*/
-void SWI0_IRQHandler(void)
-{
-    TICK_PIN(4);
-    async_event_t evt;
-    while (g_is_in_timeslot || !g_framework_initialized)
-    {
-        uint32_t error_code = fifo_pop(&g_async_evt_fifo, &evt);
-        if (error_code == NRF_SUCCESS)
-        {
-            async_event_execute(&evt);
-        }
-        else
-        {
-            break;
-        }
-    }
-}
 
 /**
 * @brief Radio signal callback handler taking care of all signals in searching
@@ -298,10 +245,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             time_now += ((delta_rtc_time << 15) / 1000);
 
             transport_control_timeslot_begin(time_now);
-            if (!fifo_is_empty(&g_async_evt_fifo))
-            {
-                NVIC_SetPendingIRQ(SWI0_IRQn);
-            }
+
 
             break;
         }
@@ -391,17 +335,16 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 
 void timeslot_handler_init(void)
 {
+    if (g_framework_initialized)
+    {
+        /* may happen with serial interface, can safely skip redundant inits */
+        return;
+    }
     uint32_t error;
 
     g_is_in_callback = false;
     g_framework_initialized = true;
 
-    /* init event queue */
-    g_async_evt_fifo.array_len = ASYNC_EVENT_FIFO_QUEUE_SIZE;
-    g_async_evt_fifo.elem_array = g_async_evt_fifo_buffer;
-    g_async_evt_fifo.elem_size = sizeof(async_event_t);
-    g_async_evt_fifo.memcpy_fptr = NULL;
-    fifo_init(&g_async_evt_fifo);
 
     error = sd_nvic_EnableIRQ(SD_EVT_IRQn);
     APP_ERROR_CHECK(error);
@@ -411,8 +354,6 @@ void timeslot_handler_init(void)
     g_start_time_ref = NRF_RTC0->COUNTER;
     g_timeslot_length = TIMESLOT_SLOT_LENGTH;
     timeslot_order_earliest(g_timeslot_length, true);
-    NVIC_EnableIRQ(SWI0_IRQn);
-    NVIC_SetPriority(SWI0_IRQn, 3);
 }
 
 
@@ -480,17 +421,6 @@ void timeslot_extend(uint32_t extra_time_us)
     }
 }
 
-
-void timeslot_queue_async_event(async_event_t* evt)
-{
-    /**@NOTE: This might drop events... */
-    fifo_push(&g_async_evt_fifo, evt);
-
-    if (NVIC_GetPendingIRQ(SWI0_IRQn) == 0)
-    {
-        NVIC_SetPendingIRQ(SWI0_IRQn);
-    }
-}
 
 uint32_t timeslot_get_remaining_time(void)
 {

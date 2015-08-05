@@ -36,6 +36,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 
 #include "serial_handler.h"
+#include "event_handler.h"
+#include "timeslot_handler.h"
 #include "version.h"
 
 #include <string.h>
@@ -342,6 +344,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
 void mesh_aci_init(void)
 {
+    event_handler_init();
 	serial_handler_init();
 }
 

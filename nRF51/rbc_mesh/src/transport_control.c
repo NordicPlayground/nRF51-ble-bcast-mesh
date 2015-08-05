@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "timer_control.h"
 #include "mesh_srv.h"
 #include "rbc_mesh.h"
+#include "event_handler.h"
 #include "timeslot_handler.h"
 #include "rbc_mesh_common.h"
 #include "app_error.h"
@@ -180,7 +181,7 @@ static void search_callback(uint8_t* data)
     async_evt.type = EVENT_TYPE_PACKET;
     packet_create_from_data(data, &async_evt.callback.packet);
     async_evt.callback.packet.rx_crc = checksum;
-    timeslot_queue_async_event(&async_evt);
+    event_handler_push(&async_evt);
 
 
     /** @TODO: add packet chain handling */
@@ -298,7 +299,7 @@ void transport_control_step(void)
         async_event_t async_evt;
         async_evt.callback.generic = trickle_step_callback;
         async_evt.type = EVENT_TYPE_GENERIC;
-        timeslot_queue_async_event(&async_evt);
+        event_handler_push(&async_evt);
     }
     else
     {

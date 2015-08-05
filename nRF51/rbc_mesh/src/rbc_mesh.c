@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 #include "mesh_srv.h"
 #include "timeslot_handler.h"
+#include "event_handler.h"
 
 #include "nrf_error.h"
 #include "nrf_sdm.h"
@@ -92,6 +93,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return error_code;
     }
 
+    event_handler_init();
     timeslot_handler_init();
 
     g_access_addr = init_params.access_addr;

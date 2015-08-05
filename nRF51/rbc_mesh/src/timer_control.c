@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 
 #include "timeslot_handler.h"
+#include "event_handler.h"
 
 #include "app_error.h"
 #include "nrf_soc.h"
@@ -130,7 +131,7 @@ void timer_event_handler(void)
                 async_event_t evt;
                 evt.type = EVENT_TYPE_TIMER;
                 evt.callback.timer = cb;
-                timeslot_queue_async_event(&evt);
+                event_handler_push(&evt);
             }
         }
     }
