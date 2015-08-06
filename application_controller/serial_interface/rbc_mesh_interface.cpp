@@ -202,3 +202,8 @@ void rbc_mesh_hw_init(aci_pins_t* pins){
   	hal_aci_tl_init(pins, false);
 }
 
+void rbc_mesh_radio_reset()
+{
+    lib_aci_radio_reset();
+}
+
