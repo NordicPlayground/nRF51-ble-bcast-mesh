@@ -53,7 +53,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-#define TIMESLOT_END_SAFETY_MARGIN_US   (100)
+#define TIMESLOT_END_SAFETY_MARGIN_US   (2000)
 #define TIMESLOT_SLOT_LENGTH            (10000)
 #define TIMESLOT_SLOT_EXTEND_LENGTH     (50000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
