@@ -86,7 +86,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 * @param[in] line_num Line where the error check failed 
 * @param[in] p_file_name File where the error check failed
 */
-void app_error_handler(volatile uint32_t error_code, volatile uint32_t line_num, volatile const uint8_t * p_file_name)
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     error_loop();
 }
@@ -167,12 +167,14 @@ void gpio_init(void)
 
 /** @brief main function */
 int main(void)
-{
-    /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
+{   
     
+    NRF_POWER->RESET = 1;
     /* init leds and pins */
     gpio_init();
+    NRF_GPIO->OUTSET = (1 << 4);
+    /* Enable Softdevice (including sd_ble before framework */
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
     
 #ifdef RBC_MESH_SERIAL
     
@@ -206,6 +208,7 @@ int main(void)
     nrf_adv_conn_init();
     
 #endif
+    NRF_GPIO->OUTCLR = (1 << 4);
 
 #ifndef BUTTONS
     /* sleep */

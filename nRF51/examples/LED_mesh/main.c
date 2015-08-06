@@ -198,6 +198,7 @@ void test_app_init(void)
 
 int main(void)
 {
+    NRF_POWER->RESET = 1;
     SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, rbc_mesh_sd_irq_handler);
     test_app_init();
     
