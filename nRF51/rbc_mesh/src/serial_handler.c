@@ -84,6 +84,7 @@ static serial_data_t tx_buffer;
 
 static serial_state_t serial_state;
 static bool has_pending_tx = false;
+static bool doing_tx = false;
 
 /*****************************************************************************
 * Static functions
@@ -130,21 +131,19 @@ static void do_transmit(void)
 
     bool ordered_buffer = false;
 
-    if (!fifo_is_empty(&tx_fifo))
+    if (fifo_pop(&tx_fifo, &tx_buffer) == NRF_SUCCESS)
     {
-        if (fifo_pop(&tx_fifo, &tx_buffer) == NRF_SUCCESS)
-        {
-            tx_len = tx_buffer.buffer[0] + 2;
-            tx_ptr = (uint8_t*) &tx_buffer;
-            memset(rx_buffer.buffer, 0, SERIAL_DATA_MAX_LEN);
-            error_code = spi_slave_buffers_set(tx_ptr,
-                                              rx_buffer.buffer,
-                                              tx_len,
-                                              sizeof(rx_buffer));
-            APP_ERROR_CHECK(error_code);
-            ordered_buffer = true;
-            has_pending_tx = true;
-        }
+        tx_len = tx_buffer.buffer[SERIAL_LENGTH_POS] + 2;
+        tx_ptr = (uint8_t*) &tx_buffer;
+        memset(rx_buffer.buffer, 0, SERIAL_DATA_MAX_LEN);
+        error_code = spi_slave_buffers_set(tx_ptr,
+                                          rx_buffer.buffer,
+                                          tx_len,
+                                          sizeof(rx_buffer));
+        APP_ERROR_CHECK(error_code);
+        ordered_buffer = true;
+        has_pending_tx = true;
+        doing_tx = true;
     }
     if (!ordered_buffer)
     {
@@ -231,6 +230,15 @@ void spi_event_handler(spi_slave_evt_t evt)
             NRF_GPIO->OUTSET = (1 << PIN_RDYN);
             nrf_gpio_pin_set(1);
             nrf_gpio_pin_clear(1);
+            if (doing_tx)
+            {
+                doing_tx = false;
+                if (evt.tx_amount < tx_buffer.buffer[SERIAL_LENGTH_POS] + 2)
+                {
+                    /* master failed to receive our event. Re-send it. */
+                    serial_handler_event_send((serial_evt_t*)tx_buffer.buffer);
+                }
+            }
             /* handle incoming */
             if (rx_buffer.buffer[SERIAL_LENGTH_POS] > 0)
             {
@@ -305,8 +313,6 @@ void serial_handler_init(void)
     spi_config.pin_miso = PIN_MISO;
     spi_config.pin_mosi = PIN_MOSI;
     spi_config.pin_sck = PIN_SCK;
-
-
 
     APP_ERROR_CHECK(spi_slave_init(&spi_config));
     APP_ERROR_CHECK(spi_slave_evt_handler_register(spi_event_handler));
