@@ -32,32 +32,60 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef _SERIAL_QUEUE_H__
-#define _SERIAL_QUEUE_H__
-
-#include "serial_handler.h"
+#ifndef _EVENT_HANDLER_H__
+#define _EVENT_HANDLER_H__
+#include "mesh_srv.h"
+#include "radio_control.h"
+#include "timer_control.h"
 #include <stdint.h>
 #include <stdbool.h>
 
-#define SERIAL_QUEUE_SIZE 4
+/**
+* @brief Asynchronous event definitions
+*/
+typedef enum
+{
+    EVENT_TYPE_TIMER,
+    EVENT_TYPE_RADIO_RX,
+    EVENT_TYPE_RADIO_TX,
+    EVENT_TYPE_GENERIC,
+    EVENT_TYPE_PACKET
+} event_type_t;
 
+/** @brief callback type for generic asynchronous events */
+typedef void(*generic_cb)(void);
+
+/**
+* @brief Asynchronous event type. 
+*/
 typedef struct
 {
-	serial_data_t		serial_data[SERIAL_QUEUE_SIZE];
-	uint8_t					head;
-	uint8_t 				tail;
-} serial_queue_t;
+    event_type_t type;
+    union
+    {
+        struct 
+        {
+            radio_rx_cb function;
+            uint8_t* data;
+        }radio_rx;
+        packet_t packet; /* packet to be processed */
+        radio_tx_cb radio_tx;/*void return */
+        timer_callback timer;/*void return */
+        generic_cb generic; /*void return */
+    } callback;
+} async_event_t;
 
-void serial_queue_init(serial_queue_t* queue);
 
-bool serial_queue_dequeue(serial_queue_t* queue, serial_data_t* data);
+void event_handler_init(void);
 
-bool serial_queue_enqueue(serial_queue_t* queue, serial_data_t* data);
+/** @brief Queue an asynchronous event for execution later */
+void event_handler_push(async_event_t* evt);
 
-bool serial_queue_is_empty(serial_queue_t* queue);
+/** @brief called from ts handler upon ts exit */
+void event_handler_on_ts_end(void);
 
-bool serial_queue_is_full(serial_queue_t* queue);
+/** @brief called from ts handler upon ts begin */
+void event_handler_on_ts_begin(void);
 
-bool serial_queue_peek(serial_queue_t* queue, serial_data_t* data);
+#endif /* _EVENT_HANDLER_H__ */
 
-#endif /* _SERIAL_QUEUE_H__ */

@@ -46,6 +46,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef enum
 {
     SERIAL_CMD_OPCODE_ECHO                  = 0x02,
+    SERIAL_CMD_OPCODE_RADIO_RESET           = 0x0E,
+    
     SERIAL_CMD_OPCODE_INIT                  = 0x70,
     SERIAL_CMD_OPCODE_VALUE_SET             = 0x71,
     SERIAL_CMD_OPCODE_VALUE_ENABLE          = 0x72,
@@ -56,8 +58,8 @@ typedef enum
     SERIAL_CMD_OPCODE_ACCESS_ADDR_GET       = 0x7C,
     SERIAL_CMD_OPCODE_CHANNEL_GET           = 0x7D,
     SERIAL_CMD_OPCODE_HANDLE_COUNT_GET      = 0x7E,
-    SERIAL_CMD_OPCODE_ADV_INT_GET           = 0x7F
-} __packed serial_cmd_opcode_t;
+    SERIAL_CMD_OPCODE_ADV_INT_GET           = 0x7F,
+} serial_cmd_opcode_t;
 
 
 /****** CMD PARAMS ******/
@@ -90,19 +92,13 @@ typedef struct
     uint8_t handle;
 } __packed serial_cmd_params_value_disable_t;
 
-
-typedef struct
+typedef __packed struct
 {
     uint8_t handle;
 } __packed serial_cmd_params_value_get_t;
 
 
-
-
-
-
-
-typedef struct
+typedef __packed struct
 {
     uint8_t length;
     serial_cmd_opcode_t opcode;

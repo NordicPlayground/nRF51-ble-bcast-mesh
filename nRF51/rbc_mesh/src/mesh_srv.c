@@ -43,7 +43,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_soc.h"
 #include "nrf_error.h"
 #include "ble.h"
-
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -58,7 +57,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define CONN_HANDLE_INVALID             (0xFFFF)
 
-#define MESH_VALUE_LOLLIPOP_LIMIT       (200)
+#define MESH_VERSION_SCHEME_LOLLIPOP    (1)
+
+#if MESH_VERSION_SCHEME_LOLLIPOP
+    #define MESH_VALUE_LOLLIPOP_LIMIT       (200)
+#endif    
+
+#define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x800)
 /*****************************************************************************
 * Local Type Definitions
 *****************************************************************************/
@@ -78,14 +83,10 @@ typedef struct
 *****************************************************************************/
 static mesh_srv_t g_mesh_service = {0, NULL, 0};
 
-static const ble_uuid128_t mesh_base_uuid =
-{
-    {
-        0x1E, 0xCD, 0x00, 0x00, 0x8C, 0xB9, 0xA8, 0x8B,
-        0x82, 0xD8, 0x51, 0xFD, 0xA1, 0x77, 0x1E, 0x2A
-    }
-};
-
+static const ble_uuid128_t mesh_base_uuid = {0x1E, 0xCD, 0x00, 0x00,
+                                            0x8C, 0xB9, 0xA8, 0x8B,
+                                            0x82, 0xD8, 0x51, 0xFD,
+                                            0xA1, 0x77, 0x1E, 0x2A};
 static uint8_t mesh_base_uuid_type;
 
 static bool is_initialized = false;
@@ -95,9 +96,25 @@ static uint16_t g_active_conn_handle = CONN_HANDLE_INVALID;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-
+static void version_increase(uint16_t* version)
+{
+#if MESH_VERSION_SCHEME_LOLLIPOP    
+    if (*version == UINT16_MAX)
+    {
+        *version = MESH_VALUE_LOLLIPOP_LIMIT;
+    }
+    else
+    {
+        (*version)++;
+    }
+#else
+    (*version)++;
+#endif    
+}
+                                            
+                                            
 /**
-* @brief Add metadata GATT characteristic to the Mesh GATT service. Part of 
+* @brief Add metadata GATT characteristic to the Mesh GATT service. Part of
 *   the initialization procedure.
 */
 static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
@@ -189,7 +206,7 @@ static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
     uint32_t error_code = sd_ble_gatts_characteristic_add(
         g_mesh_service.service_handle,
         &ble_char_md,
-        &ble_attr, 
+        &ble_attr,
         &g_mesh_service.ble_md_char_handles);
 
     if (error_code != NRF_SUCCESS)
@@ -283,7 +300,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
     uint32_t error_code = sd_ble_gatts_characteristic_add(
         g_mesh_service.service_handle,
         &ble_char_md,
-        &ble_attr, 
+        &ble_attr,
         &ble_value_char_handles);
 
     if (error_code != NRF_SUCCESS)
@@ -303,7 +320,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
 uint32_t mesh_srv_init(uint8_t mesh_value_count,
     uint32_t access_address, uint8_t channel, uint32_t adv_int_ms)
 {
-    if (mesh_value_count > MAX_VALUE_COUNT)
+    if (mesh_value_count > MAX_VALUE_COUNT || mesh_value_count == 0)
     {
         return NRF_ERROR_INVALID_PARAM;
     }
@@ -316,22 +333,21 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     is_initialized = true;
 
     ble_enable_params_t ble_enable_params;
-    ble_enable_params.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
+    ble_enable_params.gatts_enable_params.attr_tab_size = RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT;
     ble_enable_params.gatts_enable_params.service_changed = 0;
-    
+
     uint32_t error_code = sd_ble_enable(&ble_enable_params);
     if (error_code != NRF_SUCCESS)
     {
         return NRF_ERROR_INTERNAL;
     }
-    
-    sd_ble_enable(&ble_enable_params);
-    
+
     g_mesh_service.value_count = mesh_value_count;
 
     ble_uuid_t ble_srv_uuid;
-
+    mesh_base_uuid_type = BLE_UUID_TYPE_UNKNOWN;
     /* add the mesh base UUID */
+
     error_code = sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
     if (error_code != NRF_SUCCESS)
     {
@@ -341,7 +357,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     ble_srv_uuid.type = mesh_base_uuid_type;
     ble_srv_uuid.uuid = MESH_SRV_UUID;
 
-    error_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, 
+    error_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY,
         &ble_srv_uuid, &g_mesh_service.service_handle);
 
     if (error_code != NRF_SUCCESS)
@@ -355,13 +371,13 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     mesh_metadata.mesh_adv_int_ms = adv_int_ms;
     mesh_metadata.mesh_channel = channel;
     mesh_metadata.mesh_value_count = mesh_value_count;
-    
+
     error_code = mesh_md_char_add(&mesh_metadata);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
-    
+
     uint32_t md_len = sizeof(mesh_char_metadata_t) * g_mesh_service.value_count;
 
     /* allocate metadata array */
@@ -406,7 +422,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index - 1];
 
     /* this is now a new version of this data, signal to the rest of the mesh */
-    ++ch_md->version_number;
+    version_increase(&ch_md->version_number);
 
     bool first_time =
         (ch_md->flags &
@@ -463,11 +479,14 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     }
     else
     {
-        ble_gatts_value_t  value = {.len = len, .offset = 0, .p_value = data};
-
-        error_code = sd_ble_gatts_value_set(g_active_conn_handle, 
-                                            ch_md->char_value_handle, 
-                                            &value);
+        ble_gatts_value_t gatts_value_set;
+        gatts_value_set.len = len;
+        gatts_value_set.offset = 0;
+        gatts_value_set.p_value = data;
+        error_code = sd_ble_gatts_value_set(
+						BLE_CONN_HANDLE_INVALID,
+            ch_md->char_value_handle,
+            &gatts_value_set);
 
         if (error_code != NRF_SUCCESS)
         {
@@ -491,31 +510,26 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len, ble_
     }
 
     *len = MAX_VALUE_LENGTH;
+    ble_gatts_value_t ble_gatts_value_get;
+    ble_gatts_value_get.len = *(uint16_t*)len;
+    ble_gatts_value_get.offset = 0;
+    ble_gatts_value_get.p_value = data;
+    uint32_t error_code = sd_ble_gatts_value_get(
+				BLE_CONN_HANDLE_INVALID,
+        g_mesh_service.char_metadata[index - 1].char_value_handle,
+        &ble_gatts_value_get);
 
-    ble_gatts_value_t  value = {.len = *len, .offset = 0, .p_value = NULL};
+		*len = ble_gatts_value_get.len;
 
-    uint32_t error_code = sd_ble_gatts_value_get(g_active_conn_handle,
-                                                 g_mesh_service.char_metadata[index - 1].char_value_handle,
-                                                 &value);
     if (error_code != NRF_SUCCESS)
     {
         return NRF_ERROR_INTERNAL;
     }
 
-
-    *len = value.len;
-
-    if (value.p_value == NULL)
-    {
-        return NRF_ERROR_INTERNAL;
-    }
-
-    memcpy(data, value.p_value, *len);
-
     if (origin_addr != NULL)
     {
-        memcpy(origin_addr, 
-            &g_mesh_service.char_metadata[index - 1].last_sender_addr, 
+        memcpy(origin_addr,
+            &g_mesh_service.char_metadata[index - 1].last_sender_addr,
             sizeof(ble_gap_addr_t));
     }
 
@@ -531,37 +545,41 @@ uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata)
 
     uint8_t data_array[MESH_MD_CHAR_LEN];
     uint16_t len = MESH_MD_CHAR_LEN;
+    ble_gatts_value_t ble_gatts_value_get;
+    ble_gatts_value_get.len = len;
+    ble_gatts_value_get.offset = 0;
+    ble_gatts_value_get.p_value = data_array;
 
-    ble_gatts_value_t  value = {.len = len, .offset = 0, .p_value = data_array};
+    uint32_t error_code = sd_ble_gatts_value_get(
+        BLE_CONN_HANDLE_INVALID,
+				g_mesh_service.ble_md_char_handles.value_handle,
+				&ble_gatts_value_get);
 
-    uint32_t error_code = sd_ble_gatts_value_get(g_active_conn_handle,
-                                                 g_mesh_service.ble_md_char_handles.value_handle,
-                                                 &value);
+		len = ble_gatts_value_get.len;
+
     if (error_code != NRF_SUCCESS)
     {
         return NRF_ERROR_INTERNAL;
     }
-
-    len = value.len;
 
     if (len != MESH_MD_CHAR_LEN)
     {
         return NRF_ERROR_INTERNAL;
     }
 
-    memcpy(&metadata->mesh_access_addr, 
+    memcpy(&metadata->mesh_access_addr,
         &data_array[MESH_MD_CHAR_AA_OFFSET],
         sizeof(metadata->mesh_access_addr));
 
-    memcpy(&metadata->mesh_adv_int_ms, 
+    memcpy(&metadata->mesh_adv_int_ms,
         &data_array[MESH_MD_CHAR_ADV_INT_OFFSET],
         sizeof(metadata->mesh_adv_int_ms));
 
-    memcpy(&metadata->mesh_channel, 
+    memcpy(&metadata->mesh_channel,
         &data_array[MESH_MD_CHAR_CH_OFFSET],
         sizeof(metadata->mesh_channel));
 
-    memcpy(&metadata->mesh_value_count, 
+    memcpy(&metadata->mesh_value_count,
         &data_array[MESH_MD_CHAR_COUNT_OFFSET],
         sizeof(metadata->mesh_value_count));
 
@@ -583,7 +601,7 @@ uint32_t mesh_srv_get_next_processing_time(uint64_t* time)
             continue;
 
         uint64_t temp_time = trickle_next_processing_get(&g_mesh_service.char_metadata[i].trickle);
-        
+
         if (temp_time < *time)
         {
             anything_to_process = true;
@@ -637,40 +655,14 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
         trickle_rx_inconsistent(&ch_md->trickle);
     }
 
+#if MESH_VERSION_SCHEME_LOLLIPOP    
     /* new version */
     uint16_t separation = (version >= ch_md->version_number)?
-        (version - ch_md->version_number) : 
-        (-(ch_md->version_number - MESH_VALUE_LOLLIPOP_LIMIT) + (version - MESH_VALUE_LOLLIPOP_LIMIT) - MESH_VALUE_LOLLIPOP_LIMIT);
-
-    if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version > ch_md->version_number) || 
-        (ch_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2) || 
-        uninitialized)
-    {
-        /* update value */
-        mesh_srv_char_val_set(handle, data, data_len, false);
-        ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
-        ch_md->flags &= ~(1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
-        ch_md->version_number = version;
-
-        /* Manually set originator address */
-        memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
-
-        rbc_mesh_event_t update_evt;
-        update_evt.event_type = ((uninitialized)? 
-            RBC_MESH_EVENT_TYPE_NEW_VAL :
-            RBC_MESH_EVENT_TYPE_UPDATE_VAL);
-        update_evt.data_len = data_len;
-        update_evt.value_handle = handle;
-
-        update_evt.data = data;
-        memcpy(&update_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
-
-        rbc_mesh_event_handler(&update_evt);
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&update_evt);
+        (version - ch_md->version_number) :
+        ((version - MESH_VALUE_LOLLIPOP_LIMIT) - (ch_md->version_number - MESH_VALUE_LOLLIPOP_LIMIT) - MESH_VALUE_LOLLIPOP_LIMIT);
 #endif
-    }
-    else if (version == ch_md->version_number)
+    
+    if (version == ch_md->version_number)
     {
         /* check for conflicting data */
         uint16_t old_len = MAX_VALUE_LENGTH;
@@ -683,7 +675,7 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
 
         volatile bool conflicting = false;
 
-        if (packet->rx_crc != ch_md->crc && 
+        if (packet->rx_crc != ch_md->crc &&
             !(ch_md->flags & (1 << MESH_MD_FLAGS_IS_ORIGIN_POS)))
         {
             conflicting = true;
@@ -715,10 +707,42 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
 #endif
         }
         else
-        { 
+        {
             trickle_rx_consistent(&ch_md->trickle);
         }
 
+    }
+#if MESH_VERSION_SCHEME_LOLLIPOP
+    else if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version > ch_md->version_number) ||
+        (ch_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && version >= MESH_VALUE_LOLLIPOP_LIMIT && separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2) ||
+        uninitialized)
+#else
+    else if (ch_md->version_number < version)
+#endif
+    {
+        /* update value */
+        mesh_srv_char_val_set(handle, data, data_len, false);
+        ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
+        ch_md->flags &= ~(1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
+        ch_md->version_number = version;
+
+        /* Manually set originator address */
+        memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
+
+        rbc_mesh_event_t update_evt;
+        update_evt.event_type = ((uninitialized)?
+            RBC_MESH_EVENT_TYPE_NEW_VAL :
+            RBC_MESH_EVENT_TYPE_UPDATE_VAL);
+        update_evt.data_len = data_len;
+        update_evt.value_handle = handle;
+
+        update_evt.data = data;
+        memcpy(&update_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
+
+        rbc_mesh_event_handler(&update_evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&update_evt);
+#endif
     }
 
 
@@ -734,8 +758,8 @@ uint32_t mesh_srv_conn_handle_update(uint16_t conn_handle)
     return NRF_SUCCESS;
 }
 
-uint32_t mesh_srv_packet_assemble(packet_t* packet, 
-    uint16_t packet_max_len, 
+uint32_t mesh_srv_packet_assemble(packet_t* packet,
+    uint16_t packet_max_len,
     bool* has_anything_to_send)
 {
     *has_anything_to_send = false;
@@ -772,14 +796,14 @@ uint32_t mesh_srv_packet_assemble(packet_t* packet,
             }
 
             packet->data[MESH_PACKET_HANDLE_OFFSET] = i + 1;
-            packet->data[MESH_PACKET_VERSION_OFFSET] = 
-                (md_ch->version_number & 0xFF); 
-            packet->data[MESH_PACKET_VERSION_OFFSET + 1] = 
+            packet->data[MESH_PACKET_VERSION_OFFSET] =
+                (md_ch->version_number & 0xFF);
+            packet->data[MESH_PACKET_VERSION_OFFSET + 1] =
                 ((md_ch->version_number >> 8) & 0xFF);
 
             memcpy(&packet->data[MESH_PACKET_DATA_OFFSET], data, len);
             packet->length = len + MESH_PACKET_DATA_OFFSET;
-            
+
             memcpy(&packet->sender, &md_ch->last_sender_addr, sizeof(md_ch->last_sender_addr));
 
             /**@TODO: Add multiple trickle messages in one packet */
@@ -817,19 +841,20 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
                 trickle_init(&ch_md->trickle);
             }
 
-            ch_md->flags |= 
+            ch_md->flags |=
                 (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
                 (1 << MESH_MD_FLAGS_USED_POS) |
                 (1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
 
-            ++ch_md->version_number;
+            version_increase(&ch_md->version_number);
+            
             trickle_rx_inconsistent(&ch_md->trickle);
             ble_gap_addr_t my_addr;
             sd_ble_gap_address_get(&my_addr);
             memcpy(&ch_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
 
             rbc_mesh_event_t update_evt;
-            update_evt.event_type = ((uninitialized)? 
+            update_evt.event_type = ((uninitialized)?
                 RBC_MESH_EVENT_TYPE_NEW_VAL :
                 RBC_MESH_EVENT_TYPE_UPDATE_VAL);
 
@@ -842,7 +867,6 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&update_evt);
 #endif
-
             return NRF_SUCCESS;
         }
     }

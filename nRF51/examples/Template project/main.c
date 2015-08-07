@@ -83,7 +83,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 * @param[in] line_num Line where the error check failed 
 * @param[in] p_file_name File where the error check failed
 */
-void app_error_handler(volatile uint32_t error_code, volatile uint32_t line_num, volatile const uint8_t * p_file_name)
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     error_loop();
 }
@@ -92,15 +92,6 @@ void HardFault_Handler(void)
 {
     error_loop();
 }
-
-/**
-* @brief Softdevice event handler 
-*/
-uint32_t sd_evt_handler(void)
-{
-    return NRF_SUCCESS;
-}
-
 
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
@@ -125,7 +116,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 int main(void)
 {
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, rbc_mesh_sd_irq_handler);
     
 #ifdef RBC_MESH_SERIAL
     

@@ -32,33 +32,35 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
+#ifndef _FIFO_H_
+#define _FIFO_H_
 
-#include "led_config.h"
-#include "nrf_soc.h"
-/**
-* @brief configure LEDs for easily visible status check
-*/
-void led_config(uint8_t led, uint8_t conf)
+#include <stdint.h>
+#include <stdbool.h>
+
+/* specialized function pointer for copying memory between two instances */
+typedef void (*fifo_memcpy)(void* dest, const void* src);
+
+typedef struct
 {
-#if defined(BOARD_PCA10001)
-  if (conf)
-  {
-    NRF_GPIO->OUTSET = (1 << (led - 1 + LED_START));
-  }
-  else
-  {
-    NRF_GPIO->OUTCLR = (1 << (led - 1 + LED_START));
-  }
-#else /* All other boards are the other way around */
-  if (!conf)
-  {
-    NRF_GPIO->OUTSET = (1 << (led - 1 + LED_START));
-  }
-  else
-  {
-    NRF_GPIO->OUTCLR = (1 << (led - 1 + LED_START));
-  }
-#endif
-} 
+  void* elem_array;
+  uint32_t elem_size;
+  uint32_t array_len;
+  uint32_t head;
+  uint32_t tail;
+  fifo_memcpy memcpy_fptr; /* must be a valid function or NULL */
+} fifo_t;
+
+void fifo_init(fifo_t* p_fifo);
+uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem);
+uint32_t fifo_pop(fifo_t* p_fifo, void* p_elem);
+uint32_t fifo_peek_at(fifo_t* p_fifo, void* p_elem, uint32_t elem);
+uint32_t fifo_peek(fifo_t* p_fifo, void* p_elem);
+void fifo_flush(fifo_t* p_fifo);
+uint32_t fifo_get_len(fifo_t* p_fifo);
+bool fifo_is_full(fifo_t* p_fifo);
+bool fifo_is_empty(fifo_t* p_fifo);
 
 
+
+#endif /* _FIFO_H_ */

@@ -34,8 +34,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "timer_control.h"
+#include "rbc_mesh_common.h"
 
 #include "timeslot_handler.h"
+#include "event_handler.h"
 
 #include "app_error.h"
 #include "nrf_soc.h"
@@ -56,7 +58,7 @@ static uint8_t never_used_bitmap = 0xFF;
 
 /* bitmap indicating that callback should be executed in handlers interrupt
  context, instead of swi context */
-static uint8_t sync_exec_bitmap = 0; 
+static uint8_t sync_exec_bitmap = 0;
 
 static int32_t reference_offset;
 
@@ -70,7 +72,7 @@ static uint32_t reference_point = 0;
 
 /** @brief cycle through timer slots to find one that is available */
 static uint8_t get_available_timer(void)
-{    
+{
     for (uint8_t i = 0; i < 4; ++i)
     {
         if (NRF_TIMER0->EVENTS_COMPARE[i] == 1 || (never_used_bitmap & (1 << i)))
@@ -83,7 +85,7 @@ static uint8_t get_available_timer(void)
             return i;
         }
     }
-    
+
     return 0xFF;
 }
 
@@ -102,7 +104,7 @@ void timer_event_handler(void)
         reference_point = NRF_TIMER0->CC[reference_channel] + reference_offset;
         NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + reference_channel));
         NRF_PPI->CHENCLR  = (1 << (TIMER_PPI_CH_START + reference_channel));
-        
+
         reference_channel = 0xFF;
         reference_offset = 0;
     }
@@ -114,7 +116,10 @@ void timer_event_handler(void)
             timer_callback cb = callbacks[i];
             active_callbacks &= ~(1 << i);
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
-            
+
+
+            CHECK_FP(cb);
+
             if (sync_exec_bitmap & (1 << i))
             {
                 sync_exec_bitmap &= ~(1 << i);
@@ -126,29 +131,29 @@ void timer_event_handler(void)
                 async_event_t evt;
                 evt.type = EVENT_TYPE_TIMER;
                 evt.callback.timer = cb;
-                timeslot_queue_async_event(&evt);
+                event_handler_push(&evt);
             }
         }
     }
-            
+
 }
 
 uint8_t timer_order_cb(uint32_t time, timer_callback callback)
 {
     uint8_t timer = get_available_timer();
-    
+
     if (timer == 0xFF)
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
-    
+
     NRF_TIMER0->CC[timer] = reference_point + time;
     NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
     NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
     callbacks[timer] = callback;
     active_callbacks |= (1 << timer);
-    
-    
+
+
     return timer;
 }
 
@@ -157,28 +162,28 @@ uint8_t timer_order_cb_sync_exec(uint32_t time, timer_callback callback)
     /* just calling timer_order_cb and setting flag here creates a race condition,
         needs full impl.*/
     uint8_t timer = get_available_timer();
-    
+
     if (timer == 0xFF)
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
-    
+
     sync_exec_bitmap |= (1 << timer);
-    
+
     NRF_TIMER0->CC[timer] = reference_point + time;
     NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
     NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
     callbacks[timer] = callback;
     active_callbacks |= (1 << timer);
-    
-    
+
+
     return timer;
 }
 
 uint8_t timer_order_cb_ppi(uint32_t time, timer_callback callback, uint32_t* task)
 {
     uint8_t timer = get_available_timer();
-    
+
     if (time == 0xFF)
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
@@ -186,38 +191,38 @@ uint8_t timer_order_cb_ppi(uint32_t time, timer_callback callback, uint32_t* tas
     NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
     NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer));
     NRF_TIMER0->CC[timer] = reference_point + time;
-    
+
     NRF_TIMER0->INTENSET = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
     callbacks[timer] = callback;
     active_callbacks |= (1 << timer);
-    
+
     /* Setup PPI */
     NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
 	NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) task;
 	NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
-    
-    
+
+
     return timer;
 }
 
 uint8_t timer_order_ppi(uint32_t time, uint32_t* task)
 {
     uint8_t timer = get_available_timer();
-    
+
     if (time == 0xFF)
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
-    
+
     NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
     NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer));
     NRF_TIMER0->CC[timer] = reference_point + time;
-    
+
     /* Setup PPI */
     NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
 	NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) task;
 	NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
-    
+
     return timer;
 }
 
@@ -226,7 +231,7 @@ void timer_abort(uint8_t timer_index)
     if (timer_index < 4)
     {
         NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer_index));
-        active_callbacks &= ~(1 << timer_index);   
+        active_callbacks &= ~(1 << timer_index);
         NRF_PPI->CHENCLR = (1 << (TIMER_PPI_CH_START + timer_index));
         never_used_bitmap |= (1 << timer_index);
     }
@@ -235,21 +240,21 @@ void timer_abort(uint8_t timer_index)
 uint32_t timer_get_timestamp(void)
 {
     uint8_t timer = get_available_timer();
-    
+
     if (timer == 0xFF)
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
-    
+
     NRF_TIMER0->TASKS_CAPTURE[timer] = 1;
-    
-    
+
+
     uint32_t stamp = NRF_TIMER0->CC[timer];
-    
+
     never_used_bitmap |= (1 << timer);
-    
+
     return stamp;
-}    
+}
 
 void timer_reference_point_trigger(uint32_t* trigger_event, int32_t time_offset)
 {
@@ -258,17 +263,17 @@ void timer_reference_point_trigger(uint32_t* trigger_event, int32_t time_offset)
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
-    
+
     reference_channel = timer;
     reference_offset = time_offset;
-    
+
     NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
     NRF_TIMER0->INTENSET = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
-        
+
     /* Setup PPI */
 	NRF_PPI->CH[timer].EEP   = (uint32_t) trigger_event;
     NRF_PPI->CH[timer].TEP   = (uint32_t) &(NRF_TIMER0->TASKS_CAPTURE[timer]);
-	NRF_PPI->CHENSET 		 = (1 << (TIMER_PPI_CH_START + timer));    
+	NRF_PPI->CHENSET 		 = (1 << (TIMER_PPI_CH_START + timer));
 }
 
 uint32_t timer_get_reference_point(void)
@@ -290,6 +295,6 @@ void timer_init(void)
     NRF_TIMER0->EVENTS_COMPARE[2] = 0;
     NRF_TIMER0->EVENTS_COMPARE[3] = 0;
     NVIC_EnableIRQ(TIMER0_IRQn);
-    
+
     active_callbacks = 0;
 }

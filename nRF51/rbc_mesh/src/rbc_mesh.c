@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 #include "mesh_srv.h"
 #include "timeslot_handler.h"
+#include "event_handler.h"
 
 #include "nrf_error.h"
 #include "nrf_sdm.h"
@@ -73,7 +74,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     {
         return NRF_ERROR_SOFTDEVICE_NOT_ENABLED;
     }
-        
+
 
     if (g_is_initialized)
     {
@@ -81,10 +82,10 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     }
 
     uint32_t error_code;
-    
-    error_code = mesh_srv_init(init_params.handle_count, 
-                                init_params.access_addr, 
-                                init_params.channel, 
+
+    error_code = mesh_srv_init(init_params.handle_count,
+                                init_params.access_addr,
+                                init_params.channel,
                                 init_params.adv_int_ms);
 
     if (error_code != NRF_SUCCESS)
@@ -92,15 +93,16 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return error_code;
     }
 
+    event_handler_init();
     timeslot_handler_init();
-    
+
     g_access_addr = init_params.access_addr;
     g_channel = init_params.channel;
     g_handle_count = init_params.handle_count;
     g_adv_int_ms = init_params.adv_int_ms;
 
     g_is_initialized = true;
-    
+
     return NRF_SUCCESS;
 }
 
@@ -133,9 +135,9 @@ uint32_t rbc_mesh_access_address_get(uint32_t* access_address)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     *access_address = g_access_addr;
-    
+
     return NRF_SUCCESS;
 }
 
@@ -145,21 +147,21 @@ uint32_t rbc_mesh_channel_get(uint8_t* ch)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     *ch = g_channel;
-    
+
     return NRF_SUCCESS;
 }
-    
+
 uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count)
 {
     if (!g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     *handle_count = g_handle_count;
-    
+
     return NRF_SUCCESS;
 }
 
@@ -181,22 +183,22 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
     {
         mesh_srv_conn_handle_update(evt->evt.gap_evt.conn_handle);
     }
-    
+
     if (!g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     /* may safely ignore all events that don't write to a value */
     if (evt->header.evt_id != BLE_GATTS_EVT_WRITE)
     {
         return NRF_SUCCESS;
     }
     ble_gatts_evt_write_t* write_evt = &evt->evt.gatts_evt.params.write;
-    
+
     uint32_t error_code = mesh_srv_gatts_evt_write_handle(write_evt);
-    
-    if (error_code != NRF_SUCCESS && 
+
+    if (error_code != NRF_SUCCESS &&
         error_code != NRF_ERROR_INVALID_ADDR)
     {
         if (error_code == NRF_ERROR_FORBIDDEN)
@@ -207,16 +209,18 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
         {
             return error_code;
         }
-    }    
-    
+    }
+
     return NRF_SUCCESS;
 }
 
 
 /***** event handler ******/
 
-void rbc_mesh_sd_irq_handler(void)
+uint32_t rbc_mesh_sd_irq_handler(void)
 {
     /* call lower layer event handler */
     ts_sd_event_handler();
+
+    return NRF_SUCCESS;
 }

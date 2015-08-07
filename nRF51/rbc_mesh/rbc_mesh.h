@@ -363,7 +363,7 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
 * @note Should be called from the SD_IRQHandler function. Will poll the 
 *   softdevice for new sd_evt.
 */
-void rbc_mesh_sd_irq_handler(void);
+uint32_t rbc_mesh_sd_irq_handler(void);
 
 /**
  * @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 

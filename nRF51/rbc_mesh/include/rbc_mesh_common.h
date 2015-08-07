@@ -37,9 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _RBC_MESH_COMMON_H__
 #include <stdint.h>
 
-#include "core_cmInstr.h"
-
-#define RBC_MESH_DEBUG  (1)
+#define RBC_MESH_DEBUG  (0)
 
 /******************************************************************************
 * Debug related defines
@@ -116,4 +114,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #define PIN_OUT(val,bitcount)   
 #endif
 
+        
+#define CHECK_FP(fp) if ((uint32_t)fp < 0x18000UL || (uint32_t)fp > 0x20000000UL){APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);}
+        
 #endif /* _RBC_MESH_COMMON_H__ */
