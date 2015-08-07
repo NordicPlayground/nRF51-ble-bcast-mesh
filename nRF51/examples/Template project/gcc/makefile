@@ -5,7 +5,9 @@
 #------------------------------------------------------------------------------
 
 #TARGET_BOARD         ?= BOARD_PCA10000
-TARGET_BOARD         ?= BOARD_PCA10001
+#TARGET_BOARD         ?= BOARD_PCA10001
+#TARGET_BOARD         ?= BOARD_PCA10028
+TARGET_BOARD         ?= BOARD_PCA10031
 
 USE_RBC_MESH_SERIAL  := "no"
 
@@ -18,7 +20,7 @@ COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
 LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
-OUTPUT_NAME   := application
+OUTPUT_NAME   := rbc_mesh_$(TARGET_BOARD)
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
@@ -72,13 +74,12 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 # source common to all targets
 
 C_SOURCE_FILES += ../main.c
-C_SOURCE_FILES += ../led_config.c
 
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
 	CFLAGS += -D RBC_MESH_SERIAL=1
 
 	C_SOURCE_FILES += ../../../rbc_mesh/src/serial_handler.c
-	C_SOURCE_FILES += ../../../rbc_mesh/src/serial_queue.c
+	C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_aci.c
 endif
 
 C_SOURCE_FILES += ../../../rbc_mesh/src/radio_control.c
@@ -88,7 +89,8 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/trickle.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_srv.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_aci.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 
 C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c
 C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c

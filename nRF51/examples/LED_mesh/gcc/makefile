@@ -5,21 +5,22 @@
 #------------------------------------------------------------------------------
 
 #TARGET_BOARD         ?= BOARD_PCA10000
-TARGET_BOARD         ?= BOARD_PCA10001
+#TARGET_BOARD         ?= BOARD_PCA10001
+#TARGET_BOARD         ?= BOARD_PCA10028
+TARGET_BOARD         ?= BOARD_PCA10031
 
-USE_DBGLOG           := "no"
 USE_RBC_MESH_SERIAL  := "no"
 
 #------------------------------------------------------------------------------
 # Define relative paths to SDK components
 #------------------------------------------------------------------------------
 
-SDK_BASE      := ../../../../..
+SDK_BASE      := ../../../../../..
 COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
 LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
-OUTPUT_NAME   := application
+OUTPUT_NAME   := application_$(TARGET_BOARD)
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
@@ -75,12 +76,6 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 C_SOURCE_FILES += ../main.c
 C_SOURCE_FILES += ../led_config.c
 
-ifeq ($(USE_DBGLOG), "yes")
-	CFLAGS += -D USE_DBGLOG=1
-	C_SOURCE_FILES += ../../../common/src/uart.c
-	C_SOURCE_FILES += ../../../common/src/printf.c
-endif
-
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
 	CFLAGS += -D RBC_MESH_SERIAL=1
 
@@ -96,9 +91,12 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/trickle.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_srv.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_aci.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 
 C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c
 C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c
+C_SOURCE_FILES += $(COMPONENTS)/softdevice/common/softdevice_handler/softdevice_handler.c
 
 C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/spi_slave/spi_slave.c
 
@@ -111,9 +109,9 @@ INC_PATHS += -I../include
 INC_PATHS += -I../../../rbc_mesh
 INC_PATHS += -I../../../rbc_mesh/include
 INC_PATHS += -I../../../SDK/bsp
-INC_PATHS += -I../../../common/include
 
 INC_PATHS += -I$(COMPONENTS)/softdevice/s110/headers
+INC_PATHS += -I$(COMPONENTS)/softdevice/common/softdevice_handler
 INC_PATHS += -I$(COMPONENTS)/toolchain/gcc
 INC_PATHS += -I$(COMPONENTS)/libraries/util
 INC_PATHS += -I$(COMPONENTS)/ble/common
@@ -201,7 +199,6 @@ all: $(BUILD_DIRECTORIES) $(OBJECTS)
 	@echo "build with:    $(TOOLCHAIN_BASE)"
 	@echo "build target:  $(TARGET_BOARD)"
 	@echo "build options  --"
-	@echo "               USE_DBGLOG          $(USE_DBGLOG)"
 	@echo "               USE_RBC_MESH_SERIAL $(USE_RBC_MESH_SERIAL)"
 	@echo "build products --"
 	@echo "               $(OUTPUT_NAME).elf"
