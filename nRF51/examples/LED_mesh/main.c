@@ -50,9 +50,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-#include "dbglog.h"
-#include "uart.h"
-
 /* Debug macros for debugging with logic analyzer */
 #define SET_PIN(x)   NRF_GPIO->OUTSET = (1 << (x))
 #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
@@ -208,8 +205,6 @@ int main(void)
 #ifdef RBC_MESH_SERIAL
     mesh_aci_init();
 #else
-
-    PUTS("mesh service init");
 
     rbc_mesh_init_params_t init_params;
 

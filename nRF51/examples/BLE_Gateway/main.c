@@ -208,7 +208,7 @@ int main(void)
 #endif
     NRF_GPIO->OUTCLR = (1 << 4);
 
-#ifndef BUTTONS
+#if !(defined(BUTTONS)) || !(defined(PCA10028))
     /* sleep */
     while (true)
     {
@@ -222,7 +222,6 @@ int main(void)
         // red off
         if(nrf_gpio_pin_read(BUTTON_1) == 0)
         {
-            PUTS("BUTTON_1 pressed");
             while(nrf_gpio_pin_read(BUTTON_1) == 0);
             mesh_data[0] = 0;
             rbc_mesh_value_set(1, mesh_data, 1);
@@ -231,7 +230,6 @@ int main(void)
         // red on
         if(nrf_gpio_pin_read(BUTTON_2) == 0)
         {
-            PUTS("BUTTON_1 pressed");
             while(nrf_gpio_pin_read(BUTTON_2) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(1, mesh_data, 1);
@@ -240,7 +238,6 @@ int main(void)
         // green off 
         if(nrf_gpio_pin_read(BUTTON_3) == 0)
         {
-            PUTS("BUTTON_3 pressed");
             while(nrf_gpio_pin_read(BUTTON_3) == 0);
             mesh_data[0] = 0;
             rbc_mesh_value_set(2, mesh_data, 1);
@@ -249,7 +246,6 @@ int main(void)
         // green on
          if(nrf_gpio_pin_read(BUTTON_4) == 0)
         {
-            PUTS("BUTTON_4 pressed");
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(2, mesh_data, 1);
