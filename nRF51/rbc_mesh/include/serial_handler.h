@@ -43,11 +43,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct 
+typedef __packed struct 
 {
   uint8_t status_byte;
   uint8_t buffer[SERIAL_DATA_MAX_LEN + 2];
-} __packed __packed_gcc serial_data_t;
+} __packed_gcc serial_data_t;
 
 
 void serial_handler_init(void);
