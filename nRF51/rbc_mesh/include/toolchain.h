@@ -32,31 +32,22 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef _SERIAL_HANDLER_H__
-#define _SERIAL_HANDLER_H__
 
-#define SERIAL_DATA_MAX_LEN  (36)
+#ifndef _TOOLCHAIN_H__
+#define _TOOLCHAIN_H__
 
-#include "serial_evt.h"
-#include "serial_command.h"
+#if defined(__CC_ARM)
 
-#include <stdint.h>
-#include <stdbool.h>
+/* ARMCC and GCC have different ordering for packed typedefs, must separate macros */
+    #define __packed_gcc 
 
-typedef struct 
-{
-  uint8_t status_byte;
-  uint8_t buffer[SERIAL_DATA_MAX_LEN + 2];
-} __packed __packed_gcc serial_data_t;
+#elif defined(__GNUC__)
+    
+    #define __packed 
+    #define __packed_gcc __attribute__((packed))
 
+#else
+    #warning "Unsupported toolchain"
+#endif
 
-void serial_handler_init(void);
-
-bool serial_handler_event_send(serial_evt_t* evt);
-
-bool serial_handler_command_get(serial_cmd_t* evt);
-
-
-
-
-#endif /* _SERIAL_HANDLER_H__ */
+#endif /* _TOOLCHAIN_H__ */

@@ -35,6 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _RBC_MESH_COMMON_H__
 #define _RBC_MESH_COMMON_H__
+#include "toolchain.h"
 #include <stdint.h>
 
 #define RBC_MESH_DEBUG  (0)
@@ -48,19 +49,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #define CLEAR_PIN(x) 
 #else
     #if RBC_MESH_DEBUG
-      #if __GNUC__
-        #define TICK_PIN(x) NRF_GPIO->OUTSET = (1 << (x)); \
-                            __NOP();\
-                            __NOP();\
-                            NRF_GPIO->OUTCLR = (1 << (x))
-      #elif __ARM_EABI__
-        #define TICK_PIN(x) NRF_GPIO->OUTSET = (1 << (x)); \
-                            __nop();\
-                            __nop();\
-                            NRF_GPIO->OUTCLR = (1 << (x))
-      #else
-        #warning "unsupported toolchain"
-      #endif
+      #define TICK_PIN(x) NRF_GPIO->OUTSET = (1 << (x)); \
+                          __NOP();\
+                          __NOP();\
+                          NRF_GPIO->OUTCLR = (1 << (x))
 
       #define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
       #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))

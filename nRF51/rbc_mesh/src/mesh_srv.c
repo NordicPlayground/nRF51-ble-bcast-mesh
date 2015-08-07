@@ -83,10 +83,10 @@ typedef struct
 *****************************************************************************/
 static mesh_srv_t g_mesh_service = {0, NULL, 0};
 
-static const ble_uuid128_t mesh_base_uuid = {0x1E, 0xCD, 0x00, 0x00,
+static const ble_uuid128_t mesh_base_uuid = {{0x1E, 0xCD, 0x00, 0x00,
                                             0x8C, 0xB9, 0xA8, 0x8B,
                                             0x82, 0xD8, 0x51, 0xFD,
-                                            0xA1, 0x77, 0x1E, 0x2A};
+                                            0xA1, 0x77, 0x1E, 0x2A}};
 static uint8_t mesh_base_uuid_type;
 
 static bool is_initialized = false;
