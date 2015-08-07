@@ -200,6 +200,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
         {
+            event_handler_on_ts_begin();
             SET_PIN(2);
 
             g_is_in_timeslot = true;
@@ -313,6 +314,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         g_is_in_timeslot = false;
         g_end_timer_triggered = false;
         CLEAR_PIN(2);
+        event_handler_on_ts_end();
     }
     else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND)
     {
@@ -448,4 +450,9 @@ uint64_t timeslot_get_end_time(void)
     }
 
     return g_timeslot_length;
+}
+
+bool timeslot_is_in_cb(void)
+{
+    return g_is_in_callback;
 }

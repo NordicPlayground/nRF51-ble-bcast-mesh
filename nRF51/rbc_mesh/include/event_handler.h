@@ -81,8 +81,11 @@ void event_handler_init(void);
 /** @brief Queue an asynchronous event for execution later */
 void event_handler_push(async_event_t* evt);
 
-/** @brief pick up any unhandled events */
-void event_handler_resume(void);
+/** @brief called from ts handler upon ts exit */
+void event_handler_on_ts_end(void);
+
+/** @brief called from ts handler upon ts begin */
+void event_handler_on_ts_begin(void);
 
 #endif /* _EVENT_HANDLER_H__ */
 

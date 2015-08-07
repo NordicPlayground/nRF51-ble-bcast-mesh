@@ -89,4 +89,7 @@ uint32_t timeslot_get_remaining_time(void);
 /** @brief returns the timestamp the timeslot is set to end at */
 uint64_t timeslot_get_end_time(void);
 
+/** @brief returns whether we're currently in the timeslot callback */
+bool timeslot_is_in_cb(void);
+
 #endif /* _TIMESLOT_HANDLER_H__ */

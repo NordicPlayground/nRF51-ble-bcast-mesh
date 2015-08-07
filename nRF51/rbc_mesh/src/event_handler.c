@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "timeslot_handler.h"
 #include "fifo.h"
+#include "nrf_soc.h"
 #include <string.h>
 
 #define ASYNC_EVENT_FIFO_QUEUE_SIZE (8)
@@ -46,6 +47,7 @@ static async_event_t g_async_evt_fifo_buffer[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 static fifo_t g_async_evt_fifo_ts;
 static async_event_t g_async_evt_fifo_buffer_ts[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 static bool g_is_initialized;
+static bool g_is_in_ts;
 
 /**
  * @brief execute asynchronous event, based on type
@@ -139,6 +141,7 @@ void event_handler_init(void)
     NVIC_EnableIRQ(SWI0_IRQn);
     NVIC_SetPriority(SWI0_IRQn, 3);
     g_is_initialized = true;
+    g_is_in_ts = false;
 }
 
 
@@ -149,6 +152,7 @@ void event_handler_push(async_event_t* evt)
     switch (evt->type)   
     {
     case EVENT_TYPE_GENERIC:
+    case EVENT_TYPE_PACKET:
         p_fifo = &g_async_evt_fifo;
         break;
     default:
@@ -157,15 +161,28 @@ void event_handler_push(async_event_t* evt)
     }
     fifo_push(p_fifo, evt);
 
-    if (NVIC_GetPendingIRQ(SWI0_IRQn) == 0)
+    if (g_is_in_ts)
     {
         NVIC_SetPendingIRQ(SWI0_IRQn);
     }
+    else
+    {
+        sd_nvic_SetPendingIRQ(SWI0_IRQn);
+    }
+        
 }
 
-void event_handler_resume(void)
+
+void event_handler_on_ts_end(void)
 {
-    if (!fifo_is_empty(&g_async_evt_fifo))
+    g_is_in_ts = false;
+    fifo_flush(&g_async_evt_fifo_ts);
+}
+
+void event_handler_on_ts_begin(void)
+{
+    g_is_in_ts = true;
+    if (!fifo_is_empty(&g_async_evt_fifo) || !fifo_is_empty(&g_async_evt_fifo_ts))
     {
         NVIC_SetPendingIRQ(SWI0_IRQn);
     }
