@@ -602,7 +602,7 @@ uint32_t mesh_srv_get_next_processing_time(uint64_t* time)
 
         uint64_t temp_time = trickle_next_processing_get(&g_mesh_service.char_metadata[i].trickle);
 
-        if (temp_time < *time)
+        if (temp_time <= *time)
         {
             anything_to_process = true;
             *time = temp_time;
@@ -675,7 +675,11 @@ uint32_t mesh_srv_packet_process(packet_t* packet)
 
         volatile bool conflicting = false;
 
-        if (packet->rx_crc != ch_md->crc &&
+        if (version == 0 && ch_md->version_number == 0)
+        {
+            conflicting = false;
+        }
+        else if (packet->rx_crc != ch_md->crc &&
             !(ch_md->flags & (1 << MESH_MD_FLAGS_IS_ORIGIN_POS)))
         {
             conflicting = true;

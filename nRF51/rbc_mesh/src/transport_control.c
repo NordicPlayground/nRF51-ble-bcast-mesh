@@ -184,18 +184,21 @@ static void search_callback(uint8_t* data)
     event_handler_push(&async_evt);
 
 
-    /** @TODO: add packet chain handling */
+    /** @TODO: add packet chain handling */ 
 }
 
 /**
 * @brief Handle trickle timing events
 */
-static void trickle_step_callback(void)
+static bool transmit_single_trickle(void)
 {
     TICK_PIN(6);
     /* check if timeslot is about to end */
     if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_US)
-        return;
+        return false;
+    
+    if (radio_queue_is_full())
+        return false;
 
     uint64_t time_now = global_time + timer_get_timestamp();
     trickle_time_update(time_now);
@@ -250,6 +253,15 @@ static void trickle_step_callback(void)
         order_search(); /* search for the rest of the timeslot */
     }
 
+    
+    
+    return has_anything_to_send;
+}
+
+static void trickle_step_callback(void)
+{
+    while (transmit_single_trickle());
+    
     /* order next processing */
     uint64_t next_time;
     uint64_t end_time = timeslot_get_end_time();

@@ -110,6 +110,7 @@ static uint64_t g_timeslot_length;
 static uint32_t g_timeslot_end_timer;
 static uint64_t g_next_timeslot_length;
 static uint64_t g_start_time_ref = 0;
+static uint64_t g_global_time = 0;                
 static bool g_is_in_timeslot = false;
 static bool g_framework_initialized = false;
 static bool g_end_timer_triggered = false;
@@ -180,6 +181,36 @@ static void end_timer_handler(void)
     g_end_timer_triggered = true;
 }
 
+static void global_time_update(void)
+{
+    static uint64_t last_rtc_value = 0;
+    /* sample RTC timer for trickle timing */
+    uint32_t rtc_time = NRF_RTC0->COUNTER;
+
+    /*First time the offset should be added*/
+    if(last_rtc_value == 0)
+    {
+        last_rtc_value = g_start_time_ref;
+    }
+
+    /* Calculate delta rtc time */
+    uint64_t delta_rtc_time;
+    if(last_rtc_value > rtc_time)
+    {
+        delta_rtc_time = 0xFFFFFF - last_rtc_value + rtc_time;
+    }
+    else
+    {
+        delta_rtc_time = rtc_time - last_rtc_value;
+    }
+    /* Store last rtc time */
+    last_rtc_value = rtc_time;
+
+
+    /* scale to become us */
+    g_global_time += ((delta_rtc_time << 15) / 1000);
+}
+    
 
 /**
 * @brief Radio signal callback handler taking care of all signals in searching
@@ -189,8 +220,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 {
     static uint32_t requested_extend_time = 0;
     static uint32_t successful_extensions = 0;
-    static uint64_t last_rtc_value = 0;
-    static uint64_t time_now = 0;
     g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
     g_is_in_callback = true;
     
@@ -200,16 +229,18 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
         {
-            event_handler_on_ts_begin();
             SET_PIN(2);
-
             g_is_in_timeslot = true;
             g_end_timer_triggered = false;
             successful_extensions = 0;
-
+            
+            global_time_update();
+            event_handler_on_ts_begin();
             timer_init();
 
-            g_negotiate_timeslot_length = TIMESLOT_SLOT_EXTEND_LENGTH;//g_timeslot_length;
+
+
+            g_negotiate_timeslot_length = TIMESLOT_SLOT_EXTEND_LENGTH;
             g_timeslot_length = g_next_timeslot_length;
 
             g_timeslot_end_timer =
@@ -219,33 +250,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             /* attempt to extend our time right away */
             timeslot_extend(g_negotiate_timeslot_length);
 
-            /* sample RTC timer for trickle timing */
-            uint32_t rtc_time = NRF_RTC0->COUNTER;
-
-            /*First time the offset should be added*/
-            if(last_rtc_value == 0)
-            {
-                last_rtc_value = g_start_time_ref;
-            }
-
-            /* Calculate delta rtc time */
-            uint64_t delta_rtc_time;
-            if(last_rtc_value > rtc_time)
-            {
-                delta_rtc_time = 0xFFFFFF - last_rtc_value + rtc_time;
-            }
-            else
-            {
-                delta_rtc_time = rtc_time - last_rtc_value;
-            }
-            /* Store last rtc time */
-            last_rtc_value = rtc_time;
-
-
-            /* scale to become us */
-            time_now += ((delta_rtc_time << 15) / 1000);
-
-            transport_control_timeslot_begin(time_now);
+            transport_control_timeslot_begin(g_global_time);
 
 
             break;
@@ -272,7 +277,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             g_timeslot_end_timer =
                 timer_order_cb_sync_exec(g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US,
                     end_timer_handler);
-            g_end_timer_triggered = false;
+            
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
 
             TICK_PIN(1);
@@ -449,7 +454,7 @@ uint64_t timeslot_get_end_time(void)
         return 0;
     }
 
-    return g_timeslot_length;
+    return g_timeslot_length + g_global_time;
 }
 
 bool timeslot_is_in_cb(void)
