@@ -98,9 +98,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         NVIC_SystemReset();
         break;
 
-    case SERIAL_CMD_OPCODE_INIT:
-        TICK_PIN(4);
-        
+    case SERIAL_CMD_OPCODE_INIT:        
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
         serial_evt.length = 3;
@@ -363,7 +361,6 @@ void mesh_aci_command_check(void)
     /* poll queue */
     while (serial_handler_command_get(&serial_cmd))
     {
-        TICK_PIN(3);
         serial_command_handler(&serial_cmd);
     }
 }
