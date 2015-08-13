@@ -44,15 +44,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define TRICKLE_RNG_POOL_SIZE   (64)
 
-#define TRICKLE_FLAGS_T_DONE_Pos    (0)
-#define TRICKLE_FLAGS_DISCARDED_Pos (1)
-
 /*****************************************************************************
 * Static Globals
 *****************************************************************************/
-
-
-static uint64_t g_trickle_time; /* global trickle time that all time variables are relative to */
 
 static uint8_t rng_vals[64];
 static uint8_t rng_index = 0;
@@ -71,19 +65,38 @@ static uint8_t g_k;
 */
 static void trickle_interval_begin(trickle_t* trickle)
 {
-    uint32_t rand_number = 0;
     trickle->c = 0;
 
+    trickle->i += trickle->i_relative;
+}
+
+static void refresh_t(trickle_t* trickle)
+{
+    uint32_t rand_number = 0;
     rand_number |= ((uint32_t) rng_vals[(rng_index++) & 0x3F]);
     rand_number |= (((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 8);
     rand_number |= (((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 16);
     rand_number |= (((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 24);
 
     uint64_t i_half = trickle->i_relative / 2;
-    trickle->t = g_trickle_time + i_half + (rand_number % i_half);
-    trickle->i = g_trickle_time + trickle->i_relative;
+    trickle->t = trickle->i + i_half + (rand_number % i_half);
+}
 
-    trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
+
+static void check_interval(trickle_t* trickle, uint64_t time_now)
+{
+    if (time_now >= trickle->i)
+    {
+        /* we've started a new interval since we last touched this trickle */
+        if (trickle->i_relative < g_i_max * g_i_min)
+            trickle->i_relative *= 2;
+        else
+            trickle->i_relative = g_i_max * g_i_min;
+
+        trickle->c = 0;
+        uint32_t delta = (time_now - trickle->i) / trickle->i_relative;
+        trickle->i += trickle->i_relative * (delta + 1);
+    }
 }
 
 /*****************************************************************************
@@ -124,101 +137,49 @@ void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k)
 
 }
 
-
-void trickle_time_increment(void)
+void trickle_rx_consistent(trickle_t* trickle, uint64_t time_now)
 {
-    /* step global time */
-    ++g_trickle_time;
-}
-
-void trickle_time_update(uint64_t time)
-{
-    g_trickle_time = time;
-}
-
-
-void trickle_init(trickle_t* trickle)
-{
-    trickle->i_relative = 2 * g_i_min;
-
-    trickle->trickle_flags = 0;
-
-    trickle_interval_begin(trickle);
-}
-
-void trickle_rx_consistent(trickle_t* trickle)
-{
+    TICK_PIN(PIN_CONSISTENT);
+    check_interval(trickle, time_now);
     ++trickle->c;
 }
 
-void trickle_rx_inconsistent(trickle_t* trickle)
+void trickle_rx_inconsistent(trickle_t* trickle, uint64_t time_now)
 {
+    TICK_PIN(PIN_INCONSISTENT);
     if (trickle->i_relative > g_i_min)
     {
-        trickle_timer_reset(trickle);
+        trickle_timer_reset(trickle, time_now);
     }
 }
 
-void trickle_timer_reset(trickle_t* trickle)
+void trickle_timer_reset(trickle_t* trickle, uint64_t time_now)
 {
-    trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
+    trickle->i = time_now;
     trickle->i_relative = g_i_min;
 
-
     trickle_interval_begin(trickle);
+    refresh_t(trickle);
 }
 
-void trickle_register_tx(trickle_t* trickle)
+void trickle_tx_register(trickle_t* trickle)
 {
-    trickle->trickle_flags |= (1 << TRICKLE_FLAGS_T_DONE_Pos);
+    refresh_t(trickle); /* order next t */
 }
 
-void trickle_step(trickle_t* trickle, bool* out_do_tx)
+void trickle_tx_timeout(trickle_t* trickle, bool* out_do_tx, uint64_t time_now)
 {
-    *out_do_tx = false;
-
-    if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
+    *out_do_tx = (trickle->c < g_k);
+    check_interval(trickle, time_now);
+    if (!(*out_do_tx))
     {
-        if (trickle->i <= g_trickle_time)
-        {
-            /* double value of i */
-            trickle->i_relative = (trickle->i_relative * 2 < g_i_max * g_i_min)?
-                            trickle->i_relative * 2 :
-                            g_i_max * g_i_min;
-
-            trickle_interval_begin(trickle);
-        }
-    }
-    else /* t is next timeout for this instance */
-    {
-        if (trickle->t <= g_trickle_time)
-        {
-            if (trickle->c < g_k)
-            {
-                *out_do_tx = true;
-            }
-            else /* no tx this interval, tell trickle to prepare
-                for interval timeout*/
-            {
-                trickle->trickle_flags |= (1 << TRICKLE_FLAGS_T_DONE_Pos);
-            }
-        }
+        /* will never get a call to tx_register, order next t manually */
+        refresh_t(trickle);
     }
 }
 
-uint64_t trickle_timestamp_get(void)
+uint64_t trickle_next_processing_get(trickle_t* trickle, uint64_t time_now)
 {
-    return g_trickle_time;
-}
-
-uint64_t trickle_next_processing_get(trickle_t* trickle)
-{
-    if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
-    {
-        return trickle->i;
-    }
-    else /* t is next timeout for this instance */
-    {
-        return trickle->t;
-    }
+    check_interval(trickle, time_now);
+    return trickle->t;
 }
