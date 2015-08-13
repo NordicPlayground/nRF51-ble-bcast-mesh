@@ -82,14 +82,10 @@ void timeslot_order_normal(uint32_t length_us, uint32_t distance_us, bool immedi
 */
 void timeslot_extend(uint32_t extra_time_us);
 
-
-/** @brief returns the time in us until current timeslot ends */
-uint32_t timeslot_get_remaining_time(void);
+/** @brief returns the timestamp sampled at the beginning of the timeslot */
+uint64_t timeslot_get_global_time(void);
 
 /** @brief returns the timestamp the timeslot is set to end at */
 uint64_t timeslot_get_end_time(void);
-
-/** @brief returns whether we're currently in the timeslot callback */
-bool timeslot_is_in_cb(void);
 
 #endif /* _TIMESLOT_HANDLER_H__ */
