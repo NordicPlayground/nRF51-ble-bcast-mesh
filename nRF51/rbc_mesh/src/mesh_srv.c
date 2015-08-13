@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "trickle.h"
 #include "rbc_mesh_common.h"
 #include "mesh_aci.h"
+#include "version_handler.h"
 
 #include "nrf_soc.h"
 #include "nrf_error.h"
@@ -55,6 +56,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_PACKET_VERSION_OFFSET      (MESH_PACKET_HANDLE_OFFSET + MESH_PACKET_HANDLE_LEN)
 #define MESH_PACKET_DATA_OFFSET         (MESH_PACKET_VERSION_OFFSET + MESH_PACKET_VERSION_LEN)
 
+#define MESH_CCCD_HANDLE_OFFSET         (1)
+
 #define CONN_HANDLE_INVALID             (0xFFFF)
 
 #define MESH_VERSION_SCHEME_LOLLIPOP    (1)
@@ -63,7 +66,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #define MESH_VALUE_LOLLIPOP_LIMIT       (200)
 #endif    
 
-#define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x800)
+#define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x2048)
 /*****************************************************************************
 * Local Type Definitions
 *****************************************************************************/
@@ -71,7 +74,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef struct
 {
     uint8_t value_count;
-    mesh_char_metadata_t* char_metadata;
     uint16_t service_handle;
     ble_gatts_char_handles_t ble_md_char_handles;
 } mesh_srv_t;
@@ -96,23 +98,6 @@ static uint16_t g_active_conn_handle = CONN_HANDLE_INVALID;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-static void version_increase(uint16_t* version)
-{
-#if MESH_VERSION_SCHEME_LOLLIPOP    
-    if (*version == UINT16_MAX)
-    {
-        *version = MESH_VALUE_LOLLIPOP_LIMIT;
-    }
-    else
-    {
-        (*version)++;
-    }
-#else
-    (*version)++;
-#endif    
-}
-                                            
-                                            
 /**
 * @brief Add metadata GATT characteristic to the Mesh GATT service. Part of
 *   the initialization procedure.
@@ -308,8 +293,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
         return NRF_ERROR_INTERNAL;
     }
 
-    g_mesh_service.char_metadata[index].char_value_handle =  ble_value_char_handles.value_handle;
-
+    vh_set_gatts_handle(index + 1, ble_value_char_handles.value_handle);
     return NRF_SUCCESS;
 }
 
@@ -344,9 +328,9 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
 
     g_mesh_service.value_count = mesh_value_count;
 
+    /* add the mesh base UUID */
     ble_uuid_t ble_srv_uuid;
     mesh_base_uuid_type = BLE_UUID_TYPE_UNKNOWN;
-    /* add the mesh base UUID */
 
     error_code = sd_ble_uuid_vs_add(&mesh_base_uuid, &mesh_base_uuid_type);
     if (error_code != NRF_SUCCESS)
@@ -377,13 +361,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     {
         return error_code;
     }
-
-    uint32_t md_len = sizeof(mesh_char_metadata_t) * g_mesh_service.value_count;
-
-    /* allocate metadata array */
-    g_mesh_service.char_metadata = (mesh_char_metadata_t*) malloc(md_len);
-    memset(g_mesh_service.char_metadata, 0, md_len);
-
+    
     /* add characteristics to mesh service */
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
     {
@@ -395,13 +373,11 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
         }
     }
 
-    trickle_setup(1000 * adv_int_ms, 600, 3);
-
     return NRF_SUCCESS;
 }
 
 
-uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool update_sender)
+uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len)
 {
     if (!is_initialized)
     {
@@ -419,40 +395,43 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     }
     uint32_t error_code = 0;
 
-    mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[index - 1];
+    uint8_t gatts_handle;
+    vh_get_gatts_handle(index, &gatts_handle);
 
-    /* this is now a new version of this data, signal to the rest of the mesh */
-    version_increase(&ch_md->version_number);
-
-    bool first_time =
-        (ch_md->flags &
-        (1 << MESH_MD_FLAGS_USED_POS)) == 0;
-
-    if (first_time)
-    {
-        ch_md->flags |=
-            (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
-            (1 << MESH_MD_FLAGS_USED_POS);
-        trickle_init(&ch_md->trickle);
-    }
-    else
-    {
-        trickle_rx_inconsistent(&ch_md->trickle);
-    }
-
-    if (update_sender || first_time)
-    {
-        ble_gap_addr_t my_addr;
-        sd_ble_gap_address_get(&my_addr);
-        memcpy(&ch_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
-        ch_md->flags |= (1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
-    }
-
-    /* notify the connected central node, if any */
+    ble_gatts_value_t cccd_val_struct;
+    uint8_t cccd_val[2];
+    cccd_val[0] = 0;
+    cccd_val_struct.p_value = cccd_val;
+    cccd_val_struct.len = 2;
     if (g_active_conn_handle != CONN_HANDLE_INVALID)
     {
+        error_code = sd_ble_gatts_value_get(
+                g_active_conn_handle, 
+                gatts_handle + MESH_CCCD_HANDLE_OFFSET, 
+                &cccd_val_struct);
+
+        if (error_code != NRF_SUCCESS)
+        {
+            if (error_code == BLE_ERROR_INVALID_CONN_HANDLE)
+            {
+                g_active_conn_handle = CONN_HANDLE_INVALID;
+            }
+            else if (error_code == BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+            {
+                /* cccd hasn't been initiated yet, can assume it's not active */
+                cccd_val[0] = 0;
+            }
+            else
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+        }
+    }
+    /* notify the connected central node, if any */
+    if (g_active_conn_handle != CONN_HANDLE_INVALID && cccd_val[0] != 0)
+    {
         ble_gatts_hvx_params_t notify_params;
-        notify_params.handle = ch_md->char_value_handle;
+        notify_params.handle = gatts_handle;
         notify_params.offset = 0;
         notify_params.p_data = data;
         notify_params.p_len = &len;
@@ -485,7 +464,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
         gatts_value_set.p_value = data;
         error_code = sd_ble_gatts_value_set(
 						BLE_CONN_HANDLE_INVALID,
-            ch_md->char_value_handle,
+                        gatts_handle,
             &gatts_value_set);
 
         if (error_code != NRF_SUCCESS)
@@ -497,7 +476,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len, bool 
     return NRF_SUCCESS;
 }
 
-uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len, ble_gap_addr_t* origin_addr)
+uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len)
 {
     if (!is_initialized)
     {
@@ -510,27 +489,23 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len, ble_
     }
 
     *len = MAX_VALUE_LENGTH;
+    uint8_t gatts_handle;
+    vh_get_gatts_handle(index, &gatts_handle);
+
     ble_gatts_value_t ble_gatts_value_get;
-    ble_gatts_value_get.len = *(uint16_t*)len;
+    ble_gatts_value_get.len = *len;
     ble_gatts_value_get.offset = 0;
     ble_gatts_value_get.p_value = data;
     uint32_t error_code = sd_ble_gatts_value_get(
 				BLE_CONN_HANDLE_INVALID,
-        g_mesh_service.char_metadata[index - 1].char_value_handle,
+        gatts_handle,
         &ble_gatts_value_get);
-
-		*len = ble_gatts_value_get.len;
+    
+    *len = ble_gatts_value_get.len;
 
     if (error_code != NRF_SUCCESS)
     {
         return NRF_ERROR_INTERNAL;
-    }
-
-    if (origin_addr != NULL)
-    {
-        memcpy(origin_addr,
-            &g_mesh_service.char_metadata[index - 1].last_sender_addr,
-            sizeof(ble_gap_addr_t));
     }
 
     return NRF_SUCCESS;
@@ -586,240 +561,12 @@ uint32_t mesh_srv_char_md_get(mesh_metadata_char_t* metadata)
     return NRF_SUCCESS;
 }
 
-uint32_t mesh_srv_get_next_processing_time(uint64_t* time)
-{
-    if (!is_initialized)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-    bool anything_to_process = false;
-    *time = UINT64_MAX;
-
-    for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
-    {
-        if ((g_mesh_service.char_metadata[i].flags & (1 << MESH_MD_FLAGS_USED_POS)) == 0)
-            continue;
-
-        uint64_t temp_time = trickle_next_processing_get(&g_mesh_service.char_metadata[i].trickle);
-
-        if (temp_time <= *time)
-        {
-            anything_to_process = true;
-            *time = temp_time;
-        }
-    }
-    if (!anything_to_process)
-    {
-        return NRF_ERROR_NOT_FOUND;
-    }
-
-    return NRF_SUCCESS;
-}
-
-uint32_t mesh_srv_packet_process(packet_t* packet)
-{
-    if (!is_initialized)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-    uint32_t error_code;
-
-    uint8_t handle = packet->data[MESH_PACKET_HANDLE_OFFSET];
-    uint16_t version = (packet->data[MESH_PACKET_VERSION_OFFSET] |
-                    (((uint16_t) packet->data[MESH_PACKET_VERSION_OFFSET + 1]) << 8));
-    uint8_t* data = &packet->data[MESH_PACKET_DATA_OFFSET];
-    uint16_t data_len = packet->length - MESH_PACKET_DATA_OFFSET;
-
-    if (data_len > MAX_VALUE_LENGTH)
-    {
-        return NRF_ERROR_INVALID_LENGTH;
-    }
-
-    if (handle > g_mesh_service.value_count || handle == 0)
-    {
-        return NRF_ERROR_INVALID_ADDR;
-    }
-
-
-    mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[handle - 1];
-
-    bool uninitialized = !(ch_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS));
-
-    if (uninitialized)
-    {
-        trickle_init(&ch_md->trickle);
-    }
-
-    if (ch_md->version_number != version)
-    {
-        trickle_rx_inconsistent(&ch_md->trickle);
-    }
-
-#if MESH_VERSION_SCHEME_LOLLIPOP    
-    /* new version */
-    uint16_t separation = (version >= ch_md->version_number)?
-        (version - ch_md->version_number) :
-        ((version - MESH_VALUE_LOLLIPOP_LIMIT) - (ch_md->version_number - MESH_VALUE_LOLLIPOP_LIMIT) - MESH_VALUE_LOLLIPOP_LIMIT);
-#endif
-    
-    if (version == ch_md->version_number)
-    {
-        /* check for conflicting data */
-        uint16_t old_len = MAX_VALUE_LENGTH;
-
-        error_code = mesh_srv_char_val_get(handle, NULL, &old_len, NULL);
-        if (error_code != NRF_SUCCESS)
-        {
-            return error_code;
-        }
-
-        volatile bool conflicting = false;
-
-        if (version == 0 && ch_md->version_number == 0)
-        {
-            conflicting = false;
-        }
-        else if (packet->rx_crc != ch_md->crc &&
-            !(ch_md->flags & (1 << MESH_MD_FLAGS_IS_ORIGIN_POS)))
-        {
-            conflicting = true;
-        }
-        else if (old_len != data_len)
-        {
-            conflicting = true;
-        }
-
-
-        if (conflicting)
-        {
-            TICK_PIN(7);
-            rbc_mesh_event_t conflicting_evt;
-
-            conflicting_evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
-
-            conflicting_evt.data_len = data_len;
-            conflicting_evt.value_handle = handle;
-
-            conflicting_evt.data = data;
-            memcpy(&conflicting_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
-
-            trickle_rx_inconsistent(&ch_md->trickle);
-
-            rbc_mesh_event_handler(&conflicting_evt);
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&conflicting_evt);
-#endif
-        }
-        else
-        {
-            trickle_rx_consistent(&ch_md->trickle);
-        }
-
-    }
-#if MESH_VERSION_SCHEME_LOLLIPOP
-    else if ((ch_md->version_number < MESH_VALUE_LOLLIPOP_LIMIT && version > ch_md->version_number) ||
-        (ch_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && version >= MESH_VALUE_LOLLIPOP_LIMIT && separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2) ||
-        uninitialized)
-#else
-    else if (ch_md->version_number < version)
-#endif
-    {
-        /* update value */
-        mesh_srv_char_val_set(handle, data, data_len, false);
-        ch_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
-        ch_md->flags &= ~(1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
-        ch_md->version_number = version;
-
-        /* Manually set originator address */
-        memcpy(&ch_md->last_sender_addr, &packet->sender, sizeof(ble_gap_addr_t));
-
-        rbc_mesh_event_t update_evt;
-        update_evt.event_type = ((uninitialized)?
-            RBC_MESH_EVENT_TYPE_NEW_VAL :
-            RBC_MESH_EVENT_TYPE_UPDATE_VAL);
-        update_evt.data_len = data_len;
-        update_evt.value_handle = handle;
-
-        update_evt.data = data;
-        memcpy(&update_evt.originator_address, &packet->sender, sizeof(ble_gap_addr_t));
-
-        rbc_mesh_event_handler(&update_evt);
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&update_evt);
-#endif
-    }
-
-
-    ch_md->crc = packet->rx_crc;
-
-    return NRF_SUCCESS;
-}
-
 uint32_t mesh_srv_conn_handle_update(uint16_t conn_handle)
 {
     g_active_conn_handle = conn_handle;
 
     return NRF_SUCCESS;
 }
-
-uint32_t mesh_srv_packet_assemble(packet_t* packet,
-    uint16_t packet_max_len,
-    bool* has_anything_to_send)
-{
-    *has_anything_to_send = false;
-    if (!is_initialized)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-
-    uint32_t error_code;
-
-    for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
-    {
-        mesh_char_metadata_t* md_ch = &g_mesh_service.char_metadata[i];
-
-        if ((md_ch->flags & (1 << MESH_MD_FLAGS_USED_POS)) == 0)
-            continue;
-
-        bool do_trickle_tx = false;
-        trickle_step(&md_ch->trickle, &do_trickle_tx);
-
-
-        if (do_trickle_tx && !(*has_anything_to_send))
-        {
-            trickle_register_tx(&md_ch->trickle);
-
-            uint8_t data[MAX_VALUE_LENGTH];
-            uint16_t len = MAX_VALUE_LENGTH;
-
-            error_code = mesh_srv_char_val_get(i + 1, data, &len, NULL);
-
-            if (error_code != NRF_SUCCESS)
-            {
-                return error_code;
-            }
-
-            packet->data[MESH_PACKET_HANDLE_OFFSET] = i + 1;
-            packet->data[MESH_PACKET_VERSION_OFFSET] =
-                (md_ch->version_number & 0xFF);
-            packet->data[MESH_PACKET_VERSION_OFFSET + 1] =
-                ((md_ch->version_number >> 8) & 0xFF);
-
-            memcpy(&packet->data[MESH_PACKET_DATA_OFFSET], data, len);
-            packet->length = len + MESH_PACKET_DATA_OFFSET;
-
-            memcpy(&packet->sender, &md_ch->last_sender_addr, sizeof(md_ch->last_sender_addr));
-
-            /**@TODO: Add multiple trickle messages in one packet */
-
-            *has_anything_to_send = true;
-            //break;
-        }
-    }
-
-    return NRF_SUCCESS;
-}
-
 
 uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
 {
@@ -835,39 +582,32 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
 
     for (uint8_t i = 0; i < g_mesh_service.value_count; ++i)
     {
-        if (g_mesh_service.char_metadata[i].char_value_handle == evt->handle)
-        {
-            mesh_char_metadata_t* ch_md = &g_mesh_service.char_metadata[i];
-            bool uninitialized = !(ch_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS));
+        uint8_t gatts_handle;
+        vh_get_gatts_handle(i + 1, &gatts_handle);
 
-            if (uninitialized)
+        if (gatts_handle == evt->handle)
+        {
+            vh_data_status_t update_status = vh_local_update(i + 1);
+            if (update_status == VH_DATA_STATUS_UNKNOWN)
             {
-                trickle_init(&ch_md->trickle);
+                return NRF_ERROR_INTERNAL;
             }
 
-            ch_md->flags |=
-                (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
-                (1 << MESH_MD_FLAGS_USED_POS) |
-                (1 << MESH_MD_FLAGS_IS_ORIGIN_POS);
-
-            version_increase(&ch_md->version_number);
-            
-            trickle_rx_inconsistent(&ch_md->trickle);
-            ble_gap_addr_t my_addr;
-            sd_ble_gap_address_get(&my_addr);
-            memcpy(&ch_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
-
+            /* propagate to application */
             rbc_mesh_event_t update_evt;
-            update_evt.event_type = ((uninitialized)?
+            update_evt.event_type = ((update_status == VH_DATA_STATUS_NEW)?
                 RBC_MESH_EVENT_TYPE_NEW_VAL :
                 RBC_MESH_EVENT_TYPE_UPDATE_VAL);
 
             update_evt.data_len = evt->len;
             update_evt.value_handle = i + 1;
             update_evt.data = evt->data;
+            ble_gap_addr_t my_addr;
+            sd_ble_gap_address_get(&my_addr);
             memcpy(&update_evt.originator_address, &my_addr, sizeof(ble_gap_addr_t));
 
             rbc_mesh_event_handler(&update_evt);
+
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&update_evt);
 #endif
@@ -877,42 +617,3 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
     return NRF_ERROR_INVALID_ADDR;
 }
 
-uint32_t mesh_srv_char_val_enable(uint8_t index)
-{
-    if (!is_initialized)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-
-    if (index > g_mesh_service.value_count || index == 0)
-    {
-        return NRF_ERROR_INVALID_ADDR;
-    }
-
-    trickle_init(&g_mesh_service.char_metadata[index - 1].trickle);
-
-    g_mesh_service.char_metadata[index - 1].flags |=
-        (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
-        (1 << MESH_MD_FLAGS_USED_POS);
-
-
-    return NRF_SUCCESS;
-}
-
-uint32_t mesh_srv_char_val_disable(uint8_t index)
-{
-    if (!is_initialized)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-
-    if (index > g_mesh_service.value_count || index == 0)
-    {
-        return NRF_ERROR_INVALID_ADDR;
-    }
-
-    g_mesh_service.char_metadata[index - 1].flags &=
-        ~(1 << MESH_MD_FLAGS_USED_POS);
-
-    return NRF_SUCCESS;
-}
