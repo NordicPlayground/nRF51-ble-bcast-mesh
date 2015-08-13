@@ -46,8 +46,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef enum
 {
     EVENT_TYPE_TIMER,
-    EVENT_TYPE_RADIO_RX,
-    EVENT_TYPE_RADIO_TX,
     EVENT_TYPE_GENERIC,
     EVENT_TYPE_PACKET
 } event_type_t;
@@ -63,14 +61,17 @@ typedef struct
     event_type_t type;
     union
     {
+        struct
+        {
+            uint8_t* payload; /* packet to be processed */
+            uint32_t crc;
+            uint32_t timestamp;
+        } packet;
         struct 
         {
-            radio_rx_cb function;
-            uint8_t* data;
-        }radio_rx;
-        packet_t packet; /* packet to be processed */
-        radio_tx_cb radio_tx;/*void return */
-        timer_callback timer;/*void return */
+            timer_callback cb;/*void return */
+            uint32_t timestamp;
+        } timer;
         generic_cb generic; /*void return */
     } callback;
 } async_event_t;
@@ -79,7 +80,7 @@ typedef struct
 void event_handler_init(void);
 
 /** @brief Queue an asynchronous event for execution later */
-void event_handler_push(async_event_t* evt);
+uint32_t event_handler_push(async_event_t* evt);
 
 /** @brief called from ts handler upon ts exit */
 void event_handler_on_ts_end(void);

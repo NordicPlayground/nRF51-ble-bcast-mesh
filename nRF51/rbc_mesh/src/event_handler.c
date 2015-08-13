@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 #include "app_error.h"
 #include "timeslot_handler.h"
+#include "transport_control.h"
 #include "fifo.h"
 #include "nrf_soc.h"
 #include <string.h>
@@ -47,7 +48,6 @@ static async_event_t g_async_evt_fifo_buffer[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 static fifo_t g_async_evt_fifo_ts;
 static async_event_t g_async_evt_fifo_buffer_ts[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 static bool g_is_initialized;
-static bool g_is_in_ts;
 
 /**
  * @brief execute asynchronous event, based on type
@@ -57,25 +57,16 @@ static void async_event_execute(async_event_t* evt)
 
     switch (evt->type)
     {
-        case EVENT_TYPE_RADIO_RX:
-            CHECK_FP(evt->callback.radio_rx.function);
-            (*evt->callback.radio_rx.function)(evt->callback.radio_rx.data);
-            break;
-        case EVENT_TYPE_RADIO_TX:
-            CHECK_FP(evt->callback.radio_tx);
-            (*evt->callback.radio_tx)();
-            break;
         case EVENT_TYPE_TIMER:
-            CHECK_FP(evt->callback.timer);
-            (*evt->callback.timer)();
+            CHECK_FP(evt->callback.timer.cb);
+            (*evt->callback.timer.cb)(evt->callback.timer.timestamp);
             break;
         case EVENT_TYPE_GENERIC:
             CHECK_FP(evt->callback.generic);
             (*evt->callback.generic)();
             break;
         case EVENT_TYPE_PACKET:
-            TICK_PIN(19);
-            mesh_srv_packet_process(&evt->callback.packet);
+            tc_packet_handler(evt->callback.packet.payload, evt->callback.packet.crc, evt->callback.packet.timestamp);
         default:
             break;
     }
@@ -83,14 +74,16 @@ static void async_event_execute(async_event_t* evt)
 
 static bool event_fifo_pop(fifo_t* evt_fifo)
 {
+    SET_PIN(PIN_SWI0);
     async_event_t evt;
     uint32_t error_code = fifo_pop(evt_fifo, &evt);
     if (error_code == NRF_SUCCESS)
     {
         async_event_execute(&evt);
+        CLEAR_PIN(PIN_SWI0);
         return true;
     }
-    
+    CLEAR_PIN(PIN_SWI0);
     return false;
 }
 
@@ -99,7 +92,6 @@ static bool event_fifo_pop(fifo_t* evt_fifo)
 */
 void SWI0_IRQHandler(void)
 {
-    TICK_PIN(4);
     while (true)
     {
         bool got_evt = false;
@@ -141,13 +133,11 @@ void event_handler_init(void)
     NVIC_EnableIRQ(SWI0_IRQn);
     NVIC_SetPriority(SWI0_IRQn, 3);
     g_is_initialized = true;
-    g_is_in_ts = false;
 }
 
 
-void event_handler_push(async_event_t* evt)
+uint32_t event_handler_push(async_event_t* evt)
 {
-    /**@NOTE: This might drop events... */
     fifo_t* p_fifo = NULL;
     switch (evt->type)   
     {
@@ -159,29 +149,26 @@ void event_handler_push(async_event_t* evt)
         p_fifo = &g_async_evt_fifo_ts;
         break;
     }
-    fifo_push(p_fifo, evt);
+    uint32_t result = fifo_push(p_fifo, evt);
+    if (result != NRF_SUCCESS)
+    {
+        return result;
+    }
 
-    if (g_is_in_ts)
-    {
-        NVIC_SetPendingIRQ(SWI0_IRQn);
-    }
-    else
-    {
-        sd_nvic_SetPendingIRQ(SWI0_IRQn);
-    }
-        
+    /* trigger IRQ */
+    NVIC_SetPendingIRQ(SWI0_IRQn);
+    
+    return NRF_SUCCESS;
 }
 
 
 void event_handler_on_ts_end(void)
 {
-    g_is_in_ts = false;
     fifo_flush(&g_async_evt_fifo_ts);
 }
 
 void event_handler_on_ts_begin(void)
 {
-    g_is_in_ts = true;
     if (!fifo_is_empty(&g_async_evt_fifo) || !fifo_is_empty(&g_async_evt_fifo_ts))
     {
         NVIC_SetPendingIRQ(SWI0_IRQn);
