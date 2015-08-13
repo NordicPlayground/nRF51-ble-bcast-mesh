@@ -38,6 +38,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_srv.h"
 #include "timeslot_handler.h"
 #include "event_handler.h"
+#include "version_handler.h"
+#include "transport_control.h"
+#include "mesh_packet.h"
 
 #include "nrf_error.h"
 #include "nrf_sdm.h"
@@ -83,6 +86,13 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
 
     uint32_t error_code;
 
+    error_code = vh_init(init_params.handle_count, init_params.adv_int_ms * 1000);
+    
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+    
     error_code = mesh_srv_init(init_params.handle_count,
                                 init_params.access_addr,
                                 init_params.channel,
@@ -92,7 +102,10 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     {
         return error_code;
     }
-
+    
+    
+    tc_init(init_params.access_addr, init_params.channel);
+    mesh_packet_init();
     event_handler_init();
     timeslot_handler_init();
 
@@ -108,12 +121,12 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
 
 uint32_t rbc_mesh_value_enable(uint8_t handle)
 {
-    return mesh_srv_char_val_enable(handle);
+    return vh_value_enable(handle);
 }
 
 uint32_t rbc_mesh_value_disable(uint8_t handle)
 {
-    return mesh_srv_char_val_disable(handle);
+    return vh_value_disable(handle);
 }
 
 
@@ -121,12 +134,24 @@ uint32_t rbc_mesh_value_disable(uint8_t handle)
 
 uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
 {
-    return mesh_srv_char_val_set(handle, data, len, true);
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    vh_data_status_t data_status;
+    data_status = vh_local_update(handle);
+    if (data_status == VH_DATA_STATUS_UNKNOWN)
+        return NRF_ERROR_INVALID_ADDR;
+    return mesh_srv_char_val_set(handle, data, len);
 }
 
 uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len, ble_gap_addr_t* origin_addr)
 {
-    return mesh_srv_char_val_get(handle, data, len, origin_addr);
+    uint32_t error_code;
+    error_code = vh_get_origin_addr(handle, origin_addr);
+    if (error_code != NRF_SUCCESS)
+        return error_code;
+    return mesh_srv_char_val_get(handle, data, len);
 }
 
 uint32_t rbc_mesh_access_address_get(uint32_t* access_address)
