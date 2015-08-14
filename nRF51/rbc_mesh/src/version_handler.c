@@ -141,15 +141,9 @@ static void transmit_all_instances(uint64_t timestamp)
                 else
                 {
                     /* the handle is queued for transmission */
-                    TICK_PIN(PIN_MESH_TX);
                     trickle_tx_register(&g_md_set.md[handle].trickle);
                 }
             }
-        }
-        else
-        {
-            volatile uint32_t ff = 0;
-            ff++;
         }
 
         handle++;
@@ -213,7 +207,7 @@ vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t 
 
         if ((origin_is_me && (memcmp(&p_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t)) == 0)) || 
             (crc == p_md->crc) ||
-            (uninitialized))
+            (version == 0))
         {
             return VH_DATA_STATUS_SAME;
         }
@@ -297,16 +291,20 @@ vh_data_status_t vh_local_update(uint8_t handle)
     metadata_t* p_md = &g_md_set.md[handle-1]; /* to zero-indexed */
 
     vh_data_status_t status;
+    uint64_t time_now = timer_get_timestamp() + timeslot_get_global_time();
 
     if (p_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS))
     {
         status = VH_DATA_STATUS_UPDATED;
+        trickle_rx_inconsistent(&p_md->trickle, time_now);
     }
     else
     {
         status = VH_DATA_STATUS_NEW;
+        trickle_timer_reset(&g_md_set.md[handle - 1].trickle, time_now);
     }
-    p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
+    p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
+        (1 << MESH_MD_FLAGS_USED_POS);
 
     version_increase(&p_md->version_number);
 
@@ -315,7 +313,6 @@ vh_data_status_t vh_local_update(uint8_t handle)
     sd_ble_gap_address_get(&my_addr);
     memcpy(&p_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
 
-    trickle_rx_inconsistent(&p_md->trickle, timer_get_timestamp() + timeslot_get_global_time());
     vh_order_update(0);
 
     return status;
@@ -384,7 +381,7 @@ uint32_t vh_value_enable(uint8_t handle)
     vh_order_update(0);
     
     
-    trickle_timer_reset(&g_md_set.md[handle - 1].trickle, timeslot_get_global_time());
+    trickle_timer_reset(&g_md_set.md[handle - 1].trickle, timer_get_timestamp() + timeslot_get_global_time());
 
     g_md_set.md[handle - 1].flags |=
         (1 << MESH_MD_FLAGS_INITIALIZED_POS) |

@@ -43,6 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 #include "version_handler.h"
 #include "event_handler.h"
+#include "mesh_packet.h"
 
 #include "nrf_sdm.h"
 #include "app_error.h"
@@ -54,11 +55,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-#define TIMESLOT_END_SAFETY_MARGIN_US   (5000)
+#define TIMESLOT_END_SAFETY_MARGIN_US   (500)
 #define TIMESLOT_SLOT_LENGTH            (10000) /* !!! MUST BE LARGER THAN TIMESLOT_END_SAFETY_MARGIN_US */
 #define TIMESLOT_SLOT_EXTEND_LENGTH     (50000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
-#define TIMESLOT_MAX_LENGTH             (2000000UL) /* 2s */
+#define TIMESLOT_MAX_LENGTH             (10000000UL) /* 10s */
 
 
 /*****************************************************************************
@@ -235,6 +236,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             successful_extensions = 0;
             
             global_time_update();
+            mesh_packet_on_ts_begin();
             event_handler_on_ts_begin();
             timer_init();
             tc_on_ts_begin();
@@ -437,4 +439,9 @@ uint64_t timeslot_get_end_time(void)
     }
 
     return g_timeslot_length + g_global_time;
+}
+
+bool timeslot_is_in_ts(void)
+{
+    return g_is_in_timeslot;
 }

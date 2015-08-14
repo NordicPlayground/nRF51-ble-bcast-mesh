@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "toolchain.h"
 #include <stdint.h>
 
-#define RBC_MESH_DEBUG  (0)
+#define RBC_MESH_DEBUG  (1)
 
 /******************************************************************************
 * Debug related defines
@@ -87,7 +87,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PIN_SYNC_TIME       (29)
 
 
-#define DEBUG_RADIO         (0)
+#define DEBUG_RADIO         (1)
 
 #define PIN_RADIO_STATE_RX  (16)
 #define PIN_RADIO_STATE_TX  (17)

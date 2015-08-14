@@ -159,7 +159,6 @@ static void radio_transition_end(bool successful_transmission)
     }
     else
     {
-
         /* Take care of the upcoming event */
 
         bool start_manually = false;
@@ -288,6 +287,10 @@ static void radio_transition_end(bool successful_transmission)
             (*prev_evt.callback.tx)(prev_evt.packet_ptr);
         }
     }
+    else
+    {
+        APP_ERROR_CHECK(NRF_ERROR_NULL);
+    }
 
     if (fifo_is_empty(&radio_fifo))
     {
@@ -312,7 +315,10 @@ static void radio_wakeup(void)
             current_evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
             /* event is preemptable, stop it */
-            fifo_pop(&radio_fifo, &current_evt);            
+            fifo_pop(&radio_fifo, &current_evt);
+            
+            /* propagate failed rx event */
+            (*current_evt.callback.rx)(current_evt.packet_ptr, false, 0xFFFFFFFF);
             radio_disable();
             --events_in_queue;
         }
@@ -391,7 +397,7 @@ static void radio_wakeup(void)
                 fifo_peek_at(&radio_fifo, &radio_event, 1);
 
                 /* setup shorts */
-                if ((ev.event_type & 0x2) == (radio_event.event_type & 0x2))
+                if ((ev.event_type != RADIO_EVENT_TYPE_TX) == (radio_event.event_type != RADIO_EVENT_TYPE_TX))
                 {
                     NRF_RADIO->SHORTS &= ~(RADIO_SHORTS_END_DISABLE_Msk);
                 }
@@ -474,14 +480,23 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_cb)
     (*g_idle_cb)();
 }
 
-void radio_order(radio_event_t* radio_event)
+bool radio_order(radio_event_t* radio_event)
 {
-    bool event_in_progress = !fifo_is_empty(&radio_fifo);
-    fifo_push(&radio_fifo, radio_event);
-
+    if (fifo_push(&radio_fifo, radio_event) != NRF_SUCCESS)
+    {
+        return false;
+    }
+    
     /* trigger radio callback */
-    forced_wakeup = true;
-    NVIC_SetPendingIRQ(RADIO_IRQn);
+    uint32_t was_masked = __disable_irq();
+    if (timeslot_is_in_ts())
+    {
+        forced_wakeup = true;
+        NVIC_SetPendingIRQ(RADIO_IRQn);
+    }
+    if (!was_masked) __enable_irq();
+    
+    return true;
 }
 
 
@@ -508,7 +523,7 @@ void radio_event_handler(void)
         /* triggered wakeup event */
         radio_wakeup();
     }
-    else if (RADIO_EVENT(EVENTS_END))
+    if (RADIO_EVENT(EVENTS_END))
     {
         NRF_RADIO->EVENTS_END = 0;
         radio_transition_end(true);

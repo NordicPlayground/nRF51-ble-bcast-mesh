@@ -82,7 +82,7 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_callback);
 * @param[in] radio_event pointer to user-created radio event to be queued. 
 *   Is copied into queue, may be stack allocated
 */
-void radio_order(radio_event_t* radio_event);
+bool radio_order(radio_event_t* radio_event);
 
 /**
 * @brief Disable the radio. Overrides any ongoing rx or tx procedures

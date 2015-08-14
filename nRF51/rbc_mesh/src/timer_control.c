@@ -44,6 +44,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "nrf51_bitfields.h"
 
+#define TIMER_SAFE_START()    NVIC_DisableIRQ(TIMER0_IRQn) 
+#define TIMER_SAFE_END()      NVIC_EnableIRQ(TIMER0_IRQn)   
 
 
 /*****************************************************************************
@@ -58,13 +60,10 @@ static uint8_t sync_exec_bitmap = 0;
 
 static timer_callback callbacks[3];
 
+static bool is_in_ts = false;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-static bool is_in_ts(void)
-{
-    return (!NRF_TIMER0->EVENTS_COMPARE[TIMER_INDEX_TS_END]);
-}
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
@@ -78,6 +77,11 @@ void timer_event_handler(void)
             timer_callback cb = callbacks[i];
             active_callbacks &= ~(1 << i);
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
+            
+            if (i == TIMER_INDEX_TS_END)
+            {
+                is_in_ts = false;
+            }
 
             CHECK_FP(cb);
 
@@ -102,23 +106,42 @@ void timer_event_handler(void)
 
 void timer_order_cb(uint8_t timer, uint32_t time, timer_callback callback)
 {
-    uint32_t was_masked = __disable_irq();
-    if (is_in_ts())
+    TIMER_SAFE_START(); 
+    if (timer == TIMER_INDEX_TS_END)
     {
-        NRF_TIMER0->CC[timer] = time;
-        NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
-        NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
-        callbacks[timer] = callback;
-        active_callbacks |= (1 << timer);
+        is_in_ts = true;
     }
-    if (!was_masked)
-        __enable_irq();
+    if (is_in_ts)
+    {
+        uint64_t time_now = timer_get_timestamp();
+        if (time > time_now)
+        {
+            NRF_TIMER0->CC[timer] = time;
+            NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
+            NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
+            callbacks[timer] = callback;
+            active_callbacks |= (1 << timer);
+        }
+        else
+        {
+            async_event_t evt;
+            evt.type = EVENT_TYPE_TIMER;
+            evt.callback.timer.cb = callback;
+            evt.callback.timer.timestamp = time_now;
+            event_handler_push(&evt);
+        }
+    }
+    TIMER_SAFE_END();
 }
 
 void timer_order_cb_sync_exec(uint8_t timer, uint32_t time, timer_callback callback)
 {
-    uint32_t was_masked = __disable_irq();
-    if (is_in_ts())
+    TIMER_SAFE_START();    
+    if (timer == TIMER_INDEX_TS_END)
+    {
+        is_in_ts = true;
+    }
+    if (is_in_ts)
     {
         sync_exec_bitmap |= (1 << timer);
 
@@ -128,37 +151,52 @@ void timer_order_cb_sync_exec(uint8_t timer, uint32_t time, timer_callback callb
         callbacks[timer] = callback;
         active_callbacks |= (1 << timer);
     }
-
-    if (!was_masked)
-        __enable_irq();
+    TIMER_SAFE_END();
 }
 
 void timer_order_cb_ppi(uint8_t timer, uint32_t time, timer_callback callback, uint32_t* task)
 {
-    uint32_t was_masked = __disable_irq();
-    if (is_in_ts())
+    TIMER_SAFE_START(); 
+    if (timer == TIMER_INDEX_TS_END)
     {
-        NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
-        NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer));
-        NRF_TIMER0->CC[timer] = time;
-
-        NRF_TIMER0->INTENSET = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
-        callbacks[timer] = callback;
-        active_callbacks |= (1 << timer);
-
-        /* Setup PPI */
-        NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
-        NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) task;
-        NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
+        is_in_ts = true;
     }
-    if (!was_masked)
-        __enable_irq();
+    if (is_in_ts)
+    {
+        uint64_t time_now = timer_get_timestamp();
+        if (time > time_now)
+        {
+            NRF_TIMER0->CC[timer] = time;
+            NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
+            NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
+            callbacks[timer] = callback;
+            active_callbacks |= (1 << timer);
+            /* Setup PPI */
+            NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
+            NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) task;
+            NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
+        }
+        else
+        {
+            async_event_t evt;
+            evt.type = EVENT_TYPE_TIMER;
+            evt.callback.timer.cb = callback;
+            evt.callback.timer.timestamp = time_now;
+            event_handler_push(&evt);
+            *task = 1;
+        }
+    }
+    TIMER_SAFE_END();
 }
 
 void timer_order_ppi(uint8_t timer, uint32_t time, uint32_t* task)
 {
-    uint32_t was_masked = __disable_irq();
-    if (is_in_ts())
+    TIMER_SAFE_START(); 
+    if (timer == TIMER_INDEX_TS_END)
+    {
+        is_in_ts = true;
+    }
+    if (is_in_ts)
     {
         NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
         NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer));
@@ -169,14 +207,17 @@ void timer_order_ppi(uint8_t timer, uint32_t time, uint32_t* task)
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) task;
         NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
     }
-    if (!was_masked)
-        __enable_irq();
+    TIMER_SAFE_END();
 }
 
 void timer_abort(uint8_t timer)
 {
-    uint32_t was_masked = __disable_irq();
-    if (is_in_ts())
+    TIMER_SAFE_START(); 
+    if (timer == TIMER_INDEX_TS_END)
+    {
+        is_in_ts = true;
+    }
+    if (is_in_ts)
     {
         if (timer < 4)
         {
@@ -185,23 +226,20 @@ void timer_abort(uint8_t timer)
             NRF_PPI->CHENCLR = (1 << (TIMER_PPI_CH_START + timer));
         }
     }
-    
-    if (!was_masked)
-        __enable_irq();
+    TIMER_SAFE_END();
 }
 
 uint32_t timer_get_timestamp(void)
 {
-    uint32_t was_masked = __disable_irq();
+    TIMER_SAFE_START(); 
     uint32_t time = 0;
-    if (is_in_ts())
+    if (is_in_ts)
     {
         NRF_TIMER0->EVENTS_COMPARE[TIMER_INDEX_TIMESTAMP] = 0;
         NRF_TIMER0->TASKS_CAPTURE[TIMER_INDEX_TIMESTAMP] = 1;
         time = NRF_TIMER0->CC[TIMER_INDEX_TIMESTAMP];
     }
-    if (!was_masked)
-        __enable_irq();
+    TIMER_SAFE_END();
     return time;
 }
 

@@ -54,6 +54,7 @@ typedef struct
 {
     uint32_t access_address;
     uint8_t channel;
+    bool queue_saturation; /* flag indicating a full processing queue */
 } tc_state_t;
 
 /******************************************************************************
@@ -79,7 +80,10 @@ static void order_search(void)
     evt.access_address = g_state.access_address;
     evt.channel = g_state.channel;
     evt.callback.rx = rx_cb;
-    radio_order(&evt);
+    if (!radio_order(&evt))
+    {
+        mesh_packet_free((mesh_packet_t*) evt.packet_ptr);
+    }
 }
 
 
@@ -102,21 +106,33 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
         evt.callback.packet.payload = data;
         evt.callback.packet.crc = crc;
         evt.callback.packet.timestamp = timer_get_timestamp();
-        event_handler_push(&evt);
+        if (event_handler_push(&evt) != NRF_SUCCESS)
+        {
+            /* packet will not be freed by the packet processing event */
+            mesh_packet_free((mesh_packet_t*) data);
+            g_state.queue_saturation = true;
+        }
+    }
+    else
+    {
+        /* packet will not be freed by the packet processing event*/
+        mesh_packet_free((mesh_packet_t*) data);
     }
 }
 
 /* radio callback, executed in STACK_LOW */
 static void tx_cb(uint8_t* data)
 {
-    mesh_packet_free((mesh_packet_t*) data);    
-    //vh_order_update(); /* tell the vh, so that it can push more updates */
+    mesh_packet_free((mesh_packet_t*) data);
+    vh_order_update(timer_get_timestamp()); /* tell the vh, so that it can push more updates */
 }
 
 
 static void radio_idle_callback(void)
 {
-    order_search();
+    /* If the processor is unable to keep up, we should back down, and give it time */
+    if (!g_state.queue_saturation)
+        order_search();
 }
 
 
@@ -131,6 +147,7 @@ void tc_init(uint32_t access_address, uint8_t channel)
 
 void tc_on_ts_begin(void)
 {
+    
     radio_init(g_state.access_address, radio_idle_callback);
 }
 
@@ -164,6 +181,7 @@ uint32_t tc_tx(uint8_t handle, uint16_t version, ble_gap_addr_t* origin_addr)
     p_packet->payload.handle = handle;
     p_packet->payload.version = version;
 
+    TICK_PIN(PIN_MESH_TX);
     /* queue the packet for transmission */
     radio_event_t event;
     event.start_time = 0;
@@ -171,7 +189,11 @@ uint32_t tc_tx(uint8_t handle, uint16_t version, ble_gap_addr_t* origin_addr)
     event.access_address = g_state.access_address;
     event.channel = g_state.channel;
     event.callback.tx = tx_cb;
-    radio_order(&event);
+    if (!radio_order(&event))
+    {
+        mesh_packet_free(p_packet);
+        return NRF_ERROR_NO_MEM;
+    }
     
     return NRF_SUCCESS;
 }
@@ -275,5 +297,12 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     }
 
     mesh_packet_free(p_packet);
+    
+    if (g_state.queue_saturation)
+    {
+        order_search();
+        g_state.queue_saturation = false;
+    }
+    
     CLEAR_PIN(PIN_RX);
 }

@@ -88,4 +88,6 @@ uint64_t timeslot_get_global_time(void);
 /** @brief returns the timestamp the timeslot is set to end at */
 uint64_t timeslot_get_end_time(void);
 
+bool timeslot_is_in_ts(void);
+
 #endif /* _TIMESLOT_HANDLER_H__ */

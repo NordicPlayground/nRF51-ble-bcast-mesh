@@ -57,6 +57,7 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet)
     {
         if (!g_packet_alloc_array[i])
         {
+            g_packet_alloc_array[i] = true;
             *pp_packet = &g_packet_pool[i];
             return true;
         }
@@ -69,7 +70,15 @@ bool mesh_packet_free(mesh_packet_t* p_packet)
     uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
     if (index > MESH_PACKET_POOL_SIZE)
         return false;
+    
     g_packet_alloc_array[index] = false;
     return true;
 }
 
+void mesh_packet_on_ts_begin(void)
+{
+    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
+    {
+        g_packet_alloc_array[i] = false;
+    }
+}

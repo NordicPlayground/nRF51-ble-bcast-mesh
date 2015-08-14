@@ -86,5 +86,7 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet);
 
 bool mesh_packet_free(mesh_packet_t* p_packet);
 
+void mesh_packet_on_ts_begin(void);
+
 #endif /* _MESH_PACKET_H__ */
 
