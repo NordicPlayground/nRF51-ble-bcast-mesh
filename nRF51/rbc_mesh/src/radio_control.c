@@ -471,13 +471,23 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_cb)
     fifo_init(&radio_fifo);
 
     radio_state = RADIO_STATE_DISABLED;
-    fifo_flush(&radio_fifo);
     NVIC_ClearPendingIRQ(RADIO_IRQn);
     NVIC_EnableIRQ(RADIO_IRQn);
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
     g_idle_cb = idle_cb;
-    (*g_idle_cb)();
+    if (fifo_is_empty(&radio_fifo))
+    {
+        (*g_idle_cb)();
+    }
+    else
+    {        
+        if (timeslot_is_in_ts())
+        {
+            forced_wakeup = true;
+            NVIC_SetPendingIRQ(RADIO_IRQn);
+        }
+    }
 }
 
 bool radio_order(radio_event_t* radio_event)

@@ -84,8 +84,12 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return NRF_ERROR_INVALID_STATE;
     }
 
-    uint32_t error_code;
+    
+    event_handler_init();
+    mesh_packet_init();
+    tc_init(init_params.access_addr, init_params.channel);
 
+    uint32_t error_code;
     error_code = vh_init(init_params.handle_count, init_params.adv_int_ms * 1000);
     
     if (error_code != NRF_SUCCESS)
@@ -104,9 +108,6 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     }
     
     
-    tc_init(init_params.access_addr, init_params.channel);
-    mesh_packet_init();
-    event_handler_init();
     timeslot_handler_init();
 
     g_access_addr = init_params.access_addr;
