@@ -44,6 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "timeslot_handler.h"
 #include "rbc_mesh_common.h"
 #include "version_handler.h"
+#include "mesh_aci.h"
 
 #include <string.h>
 
@@ -260,6 +261,9 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             prepare_event(&evt, p_packet);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
             rbc_mesh_event_handler(&evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
             break;
 
         case VH_DATA_STATUS_UPDATED:
@@ -274,6 +278,9 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             prepare_event(&evt, p_packet);
             evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
             rbc_mesh_event_handler(&evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
             break;
 
         case VH_DATA_STATUS_OLD:
@@ -289,6 +296,9 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             prepare_event(&evt, p_packet);
             evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
             rbc_mesh_event_handler(&evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
             break;
 
         case VH_DATA_STATUS_UNKNOWN:
