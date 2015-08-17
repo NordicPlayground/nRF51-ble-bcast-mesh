@@ -65,6 +65,7 @@ uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
 	{
 		return NRF_ERROR_NO_MEM;
 	}
+    uint32_t was_masked = __disable_irq();
     void* p_dest = s_fifo_at(p_fifo, p_fifo->head & (p_fifo->array_len - 1));
 
     if (p_fifo->memcpy_fptr)
@@ -73,6 +74,7 @@ uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
         memcpy(p_dest, p_elem, p_fifo->elem_size);
 
     ++p_fifo->head;
+    if (!was_masked) __enable_irq();
     return NRF_SUCCESS;
 }
 
