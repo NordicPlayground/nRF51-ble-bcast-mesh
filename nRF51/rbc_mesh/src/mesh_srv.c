@@ -60,13 +60,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define CONN_HANDLE_INVALID             (0xFFFF)
 
-#define MESH_VERSION_SCHEME_LOLLIPOP    (1)
-
-#if MESH_VERSION_SCHEME_LOLLIPOP
-    #define MESH_VALUE_LOLLIPOP_LIMIT       (200)
-#endif    
-
 #define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x2048)
+
+#define MESH_CHANNEL_MAX                (39)
+#define MESH_ADV_INT_MIN                (5)
+#define MESH_ADV_INT_MAX                (60000)
 /*****************************************************************************
 * Local Type Definitions
 *****************************************************************************/
@@ -105,9 +103,9 @@ static uint16_t g_active_conn_handle = CONN_HANDLE_INVALID;
 static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
 {
     /**@TODO: put ranges in public #defines */
-    if (metadata->mesh_channel > 39 ||
-        metadata->mesh_adv_int_ms < 5 ||
-        metadata->mesh_adv_int_ms > 60000)
+    if (metadata->mesh_channel > MESH_CHANNEL_MAX ||
+        metadata->mesh_adv_int_ms < MESH_ADV_INT_MIN ||
+        metadata->mesh_adv_int_ms > MESH_ADV_INT_MAX)
     {
         return NRF_ERROR_INVALID_PARAM;
     }
