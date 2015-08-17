@@ -24,15 +24,18 @@ the only module that should be accessed by the application.
 * *mesh_srv* The value storage module, communicates with the Softdevice's GATT
 server, and maps all handles to GATT characteristics.
 
+* *version_handler* Takes care of the data versioning. Uses the trickle module to 
+schedule retransmissions and manage which versions of the data is currently presented 
+by the node.
+
 * *timeslot_handler* A module communicating with and abstracting the nRF51
-Softdevice Timeslot API and manages the two interrupt contexts the framework
-runs in.
+Softdevice Timeslot API.
 
 * *trickle* Implementation of the IETF RFC6206 "Trickle" algorithm for
 mesh-global state propagation.
 
 * *transport_control* Lower level packet handler. Abstracts the radio interface and
-packet format for the mesh_srv-module. 
+packet format for the higher modules
 
 * *radio_control* Asynchronous radio abstraction. Offers a way for higher level
 modules to queue radio events and packets, and also provides callbacks on
@@ -40,6 +43,12 @@ various radio events.
 
 * *timer_control* Interfaces the NRF_TIMER0 hardware module by managing timer
 capture allocations and callbacks. Tightly integrated with the radio module.
+
+* *mesh_packet* Packet pool for mesh packets. Used exclusively by the transport interface 
+to efficiently store and manage data packets.
+
+* *event_handler* Asynchronous event handler. Manages two event queues and executes them 
+in a FIFO manner in the SWI0 interrupt.
 
 == API
 
