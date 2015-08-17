@@ -60,7 +60,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define CONN_HANDLE_INVALID             (0xFFFF)
 
-#define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x2048)
+#define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x700)
 
 #define MESH_CHANNEL_MAX                (39)
 #define MESH_ADV_INT_MIN                (5)
@@ -102,7 +102,6 @@ static uint16_t g_active_conn_handle = CONN_HANDLE_INVALID;
 */
 static uint32_t mesh_md_char_add(mesh_metadata_char_t* metadata)
 {
-    /**@TODO: put ranges in public #defines */
     if (metadata->mesh_channel > MESH_CHANNEL_MAX ||
         metadata->mesh_adv_int_ms < MESH_ADV_INT_MIN ||
         metadata->mesh_adv_int_ms > MESH_ADV_INT_MAX)

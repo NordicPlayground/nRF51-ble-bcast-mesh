@@ -376,10 +376,7 @@ uint32_t vh_value_enable(uint8_t handle)
     if (handle > g_md_set.handle_count || handle == 0)
         return NRF_ERROR_INVALID_ADDR;
     
-    /* overload any previous sender address */
-    //sd_ble_gap_address_get(&g_md_set.md[handle - 1].last_sender_addr);
     vh_order_update(0);
-    
     
     trickle_timer_reset(&g_md_set.md[handle - 1].trickle, timer_get_timestamp() + timeslot_get_global_time());
 

@@ -106,12 +106,12 @@ static nrf_radio_request_t radio_request_earliest =
 static nrf_radio_signal_callback_return_param_t g_ret_param;
 //static nrf_radio_signal_callback_return_param_t g_final_ret_param;
 
-static bool g_is_in_callback = true;
 
 static uint64_t g_timeslot_length;
 static uint64_t g_next_timeslot_length;
 static uint64_t g_start_time_ref = 0;
-static uint64_t g_global_time = 0;                
+static uint64_t g_global_time = 0;    
+static bool g_is_in_callback = false;            
 static bool g_is_in_timeslot = false;
 static bool g_framework_initialized = false;
 static bool g_end_timer_triggered = false;

@@ -66,7 +66,9 @@ static void async_event_execute(async_event_t* evt)
             (*evt->callback.generic)();
             break;
         case EVENT_TYPE_PACKET:
-            tc_packet_handler(evt->callback.packet.payload, evt->callback.packet.crc, evt->callback.packet.timestamp);
+            tc_packet_handler(evt->callback.packet.payload, 
+                                evt->callback.packet.crc, 
+                                evt->callback.packet.timestamp);
         default:
             break;
     }
@@ -169,7 +171,8 @@ void event_handler_on_ts_end(void)
 
 void event_handler_on_ts_begin(void)
 {
-    if (!fifo_is_empty(&g_async_evt_fifo) || !fifo_is_empty(&g_async_evt_fifo_ts))
+    if (!fifo_is_empty(&g_async_evt_fifo) || 
+        !fifo_is_empty(&g_async_evt_fifo_ts))
     {
         NVIC_SetPendingIRQ(SWI0_IRQn);
     }

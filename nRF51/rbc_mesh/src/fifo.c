@@ -42,7 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *****************************************************************************/
 static void* s_fifo_at(fifo_t* p_fifo, uint32_t index)
 {
-  return ((uint8_t*) p_fifo->elem_array + p_fifo->elem_size * index);
+    return ((uint8_t*) p_fifo->elem_array + p_fifo->elem_size * index);
 }
 
 /*****************************************************************************
@@ -50,90 +50,89 @@ static void* s_fifo_at(fifo_t* p_fifo, uint32_t index)
 *****************************************************************************/
 void fifo_init(fifo_t* p_fifo)
 {
-    /* round off to nearest(lower) size that can use & operator instead of modulo */
-    uint32_t i = 32;
-    while (!((p_fifo->array_len >> --i) & 0x01));
-    p_fifo->array_len = (1 << i);
+	/* round off to nearest(lower) size that can use & operator instead of modulo */
+	uint32_t i = 32;
+	while (!((p_fifo->array_len >> --i) & 0x01));
+	p_fifo->array_len = (1 << i);
 
-    p_fifo->head = 0;
-    p_fifo->tail = 0;
+	p_fifo->head = 0;
+	p_fifo->tail = 0;
 }
 
 uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
 {
-    if (fifo_is_full(p_fifo))
-    {
-        return NRF_ERROR_NO_MEM;
-    }
+	if (fifo_is_full(p_fifo))
+	{
+		return NRF_ERROR_NO_MEM;
+	}
+    void* p_dest = s_fifo_at(p_fifo, p_fifo->head & (p_fifo->array_len - 1));
 
-  void* p_dest = s_fifo_at(p_fifo, p_fifo->head & (p_fifo->array_len - 1));
+    if (p_fifo->memcpy_fptr)
+        p_fifo->memcpy_fptr(p_dest, p_elem);
+    else
+        memcpy(p_dest, p_elem, p_fifo->elem_size);
 
-  if (p_fifo->memcpy_fptr)
-    p_fifo->memcpy_fptr(p_dest, p_elem);
-  else
-    memcpy(p_dest, p_elem, p_fifo->elem_size);
-
-  ++p_fifo->head;
-  return NRF_SUCCESS;
+    ++p_fifo->head;
+    return NRF_SUCCESS;
 }
 
 uint32_t fifo_pop(fifo_t* p_fifo, void* p_elem)
 {
-  if (fifo_is_empty(p_fifo))
-  {
-    return NRF_ERROR_NULL;
-  }
+    if (fifo_is_empty(p_fifo))
+    {
+        return NRF_ERROR_NULL;
+    }
 
-  void* p_src = s_fifo_at(p_fifo, p_fifo->tail & (p_fifo->array_len - 1));
+    void* p_src = s_fifo_at(p_fifo, p_fifo->tail & (p_fifo->array_len - 1));
 
-  if (p_fifo->memcpy_fptr)
-    p_fifo->memcpy_fptr(p_elem, p_src);
-  else
-    memcpy(p_elem, p_src, p_fifo->elem_size);
+    if (p_fifo->memcpy_fptr)
+        p_fifo->memcpy_fptr(p_elem, p_src);
+    else
+        memcpy(p_elem, p_src, p_fifo->elem_size);
 
-  ++p_fifo->tail;
+    ++p_fifo->tail;
 
-  return NRF_SUCCESS;
+    return NRF_SUCCESS;
 }
 
 uint32_t fifo_peek_at(fifo_t* p_fifo, void* p_elem, uint32_t elem)
 {
-  if (fifo_get_len(p_fifo) <= elem)
-  {
-    return NRF_ERROR_NULL;
-  }
+    if (fifo_get_len(p_fifo) <= elem)
+    {
+        return NRF_ERROR_NULL;
+    }
 
-  void* p_src = s_fifo_at(p_fifo, (p_fifo->tail + elem) & (p_fifo->array_len - 1));
+    void* p_src = s_fifo_at(p_fifo, (p_fifo->tail + elem) & (p_fifo->array_len - 1));
 
-  if (p_fifo->memcpy_fptr)
-    p_fifo->memcpy_fptr(p_elem, p_src);
-  else
-    memcpy(p_elem, p_src, p_fifo->elem_size);
+    if (p_fifo->memcpy_fptr)
+        p_fifo->memcpy_fptr(p_elem, p_src);
+    else
+        memcpy(p_elem, p_src, p_fifo->elem_size);
 
-  return NRF_SUCCESS;
+    return NRF_SUCCESS;
 }
 
 uint32_t fifo_peek(fifo_t* p_fifo, void* p_elem)
 {
-  return fifo_peek_at(p_fifo, p_elem, 0);
+	return fifo_peek_at(p_fifo, p_elem, 0);
 }
 
 void fifo_flush(fifo_t* p_fifo)
 {
-  p_fifo->tail = p_fifo->head;
+	p_fifo->tail = p_fifo->head;
 }
 
 uint32_t fifo_get_len(fifo_t* p_fifo)
 {
-  return (p_fifo->head - p_fifo->tail);
+	return (p_fifo->head - p_fifo->tail);
 }
 
 bool fifo_is_full(fifo_t* p_fifo)
 {
-  return (p_fifo->tail + p_fifo->array_len == p_fifo->head);
+	return (p_fifo->tail + p_fifo->array_len == p_fifo->head);
 }
 
 bool fifo_is_empty(fifo_t* p_fifo)
 {
-  return (p_fifo->tail == p_fifo->head);
+	return (p_fifo->tail == p_fifo->head);
 }
