@@ -81,7 +81,7 @@ typedef struct
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static mesh_srv_t g_mesh_service = {0, NULL, 0};
+static mesh_srv_t g_mesh_service = {0, 0, {0}};
 
 static const ble_uuid128_t mesh_base_uuid = {{0x1E, 0xCD, 0x00, 0x00,
                                             0x8C, 0xB9, 0xA8, 0x8B,
