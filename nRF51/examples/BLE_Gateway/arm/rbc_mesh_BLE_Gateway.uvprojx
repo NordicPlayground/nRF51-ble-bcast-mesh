@@ -310,7 +310,7 @@
               <OCR_RVCT4>
                 <Type>1</Type>
                 <StartAddress>0x18000</StartAddress>
-                <Size>0x28000</Size>
+                <Size>0x2c000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -334,8 +334,8 @@
               </OCR_RVCT8>
               <OCR_RVCT9>
                 <Type>0</Type>
-                <StartAddress>0x20003000</StartAddress>
-                <Size>0x5000</Size>
+                <StartAddress>0x20004000</StartAddress>
+                <Size>0x4000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
@@ -363,7 +363,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>BOARD_PCA10031 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT</Define>
+              <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\s110\headers</IncludePath>
             </VariousControls>
@@ -568,6 +568,16 @@
               <FileName>event_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\event_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>version_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_packet.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1127,6 +1137,16 @@
               <FileName>event_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\event_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>version_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_packet.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1729,6 +1749,16 @@
               <FileName>event_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\event_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>version_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_packet.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
             </File>
           </Files>
         </Group>

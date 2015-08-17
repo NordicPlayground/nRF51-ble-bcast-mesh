@@ -556,6 +556,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\event_handler.c</FilePath>
             </File>
+            <File>
+              <FileName>mesh_packet.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
+            </File>
+            <File>
+              <FileName>version_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1096,6 +1106,16 @@
               <FileName>event_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\event_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_packet.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
+            </File>
+            <File>
+              <FileName>version_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
             </File>
           </Files>
         </Group>
