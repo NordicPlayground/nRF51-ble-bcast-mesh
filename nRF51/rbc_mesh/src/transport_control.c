@@ -222,7 +222,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             p_packet->payload.handle, 
             p_packet->payload.version,
             crc,
-            &p_packet->addr);
+            &addr);
     uint32_t error_code = NRF_SUCCESS;
 
     if (data_status != VH_DATA_STATUS_UNKNOWN)

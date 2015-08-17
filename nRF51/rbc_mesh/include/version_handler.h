@@ -53,7 +53,7 @@ typedef enum
 
 uint32_t vh_init(uint8_t handle_count, uint32_t min_interval_us);
 
-vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t crc, bool origin_is_me);
+vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t crc, ble_gap_addr_t* origin_addr);
 
 uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t version, uint32_t crc, ble_gap_addr_t* origin, uint64_t timestamp);
 

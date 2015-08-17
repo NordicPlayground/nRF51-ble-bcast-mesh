@@ -186,7 +186,7 @@ uint32_t vh_init(uint8_t handle_count, uint32_t min_interval_us)
     return NRF_SUCCESS;
 }
 
-vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t crc, bool origin_is_me)
+vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t crc, ble_gap_addr_t* origin_addr)
 {
     if (!g_is_initialized)
         return VH_DATA_STATUS_UNKNOWN;
@@ -205,9 +205,9 @@ vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t 
         ble_gap_addr_t my_addr;
         sd_ble_gap_address_get(&my_addr);
 
-        if ((origin_is_me && (memcmp(&p_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t)) == 0)) || 
+        if ((memcmp(&origin_addr, &my_addr, sizeof(ble_gap_addr_t)) == 0) || 
             (crc == p_md->crc) ||
-            (version == 0))
+            (version == 0 && p_md->version_number == 0))
         {
             return VH_DATA_STATUS_SAME;
         }
@@ -254,7 +254,6 @@ uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t versio
     switch (status)
     {
         case VH_DATA_STATUS_NEW:
-            vh_order_update(timestamp);
             /* deliberate fallthrough */
         
         case VH_DATA_STATUS_UPDATED:
@@ -267,6 +266,7 @@ uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t versio
         case VH_DATA_STATUS_CONFLICTING:
             p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
             trickle_rx_inconsistent(&p_md->trickle, ts_start_time + timestamp);
+            vh_order_update(timestamp);
             break;
 
         case VH_DATA_STATUS_SAME:
