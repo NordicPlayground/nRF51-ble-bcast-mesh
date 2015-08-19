@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _TRICKLE_H__
 #define _TRICKLE_H__
 #include "nrf51.h"
+#include "toolchain.h"
 #include <stdint.h>
 #include <stdbool.h>
 /**
@@ -47,13 +48,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @brief trickle instance type. Contains all values necessary for maintaining
 *   an isolated version of the algorithm
 */
-typedef struct
+typedef __packed struct
 {
     uint64_t        t;              /* Absolute value of t. Equals g_trickle_time (at set time) + t_relative */
     uint64_t        i;              /* Absolute value of i. Equals g_trickle_time (at set time) + i_relative */
     uint32_t        i_relative;     /* Relative value of i. Represents the actual i value in IETF RFC6206 */
     uint8_t         c;              /* Consistent messages counter */
-} trickle_t;
+} __packed_gcc trickle_t;
 
 
 /** 

@@ -40,6 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "timer_control.h"
 #include "event_handler.h"
 #include "rbc_mesh_common.h"
+#include "toolchain.h"
 #include "trickle.h"
 
 #include "nrf_error.h"
@@ -131,7 +132,7 @@ static void transmit_all_instances(uint64_t timestamp)
             {
                 if (tc_tx(handle + 1 /* 1-indexed */,
                             g_md_set.md[handle].version_number,
-                            &g_md_set.md[handle].last_sender_addr)
+                            (ble_gap_addr_t*) &g_md_set.md[handle].last_sender_addr) /* not packing only adds padding at the end of the struct */
                         != NRF_SUCCESS)
                 {
                     /* the radio queue is full, tc will notify us when it's available again */
@@ -306,7 +307,7 @@ vh_data_status_t vh_local_update(uint8_t handle)
     p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
         (1 << MESH_MD_FLAGS_USED_POS);
 
-    version_increase(&p_md->version_number);
+    version_increase((uint16_t*) &p_md->version_number);
 
     p_md->crc = 0xFFFFFFFF; /* invalid crc */
     ble_gap_addr_t my_addr;

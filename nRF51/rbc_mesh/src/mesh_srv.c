@@ -60,7 +60,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define CONN_HANDLE_INVALID             (0xFFFF)
 
-#define RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT (0x700)
+#ifndef RBC_MESH_GATTS_ATTR_TABLE_SIZE
+    #define RBC_MESH_GATTS_ATTR_TABLE_SIZE (0x700)
+#endif
 
 #define MESH_CHANNEL_MAX                (39)
 #define MESH_ADV_INT_MIN                (5)
@@ -314,7 +316,7 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
     is_initialized = true;
 
     ble_enable_params_t ble_enable_params;
-    ble_enable_params.gatts_enable_params.attr_tab_size = RBC_MESH_GATTS_ATTR_TABLE_SIZE_DEFAULT;
+    ble_enable_params.gatts_enable_params.attr_tab_size = RBC_MESH_GATTS_ATTR_TABLE_SIZE;
     ble_enable_params.gatts_enable_params.service_changed = 0;
 
     uint32_t error_code = sd_ble_enable(&ble_enable_params);
