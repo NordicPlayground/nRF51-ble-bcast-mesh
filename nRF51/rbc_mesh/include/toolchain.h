@@ -35,16 +35,27 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _TOOLCHAIN_H__
 #define _TOOLCHAIN_H__
+#include "nrf51.h"
 
 #if defined(__CC_ARM)
 
 /* ARMCC and GCC have different ordering for packed typedefs, must separate macros */
     #define __packed_gcc 
+    
+    #define DISABLE_IRQS(_was_masked) _was_masked = __disable_irq()
+    #define ENABLE_IRQS() __enable_irq()
 
 #elif defined(__GNUC__)
     
     #define __packed 
     #define __packed_gcc __attribute__((packed))
+
+    #define DISABLE_IRQS(_was_masked) do{ \
+        __ASM volatile ("MRS %0, primask" : "=r" (_was_masked) );\
+        __ASM volatile ("cpsid i" : : : "memory");\
+    } while(0)
+    
+    #define ENABLE_IRQS() __enable_irq()
 
 #else
     #warning "Unsupported toolchain"

@@ -42,6 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf.h"
 #include "nrf_sdm.h"
 #include "app_error.h"
+#include "toolchain.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -498,13 +499,16 @@ bool radio_order(radio_event_t* radio_event)
     }
     
     /* trigger radio callback */
-    uint32_t was_masked = __disable_irq();
+    uint32_t was_masked;
+    DISABLE_IRQS(was_masked);
+    
     if (timeslot_is_in_ts())
     {
         forced_wakeup = true;
         NVIC_SetPendingIRQ(RADIO_IRQn);
     }
-    if (!was_masked) __enable_irq();
+    
+    if (!was_masked) ENABLE_IRQS();
     
     return true;
 }
