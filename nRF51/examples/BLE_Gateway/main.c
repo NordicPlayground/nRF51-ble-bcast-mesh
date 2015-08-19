@@ -208,7 +208,7 @@ int main(void)
 #endif
     NRF_GPIO->OUTCLR = (1 << 4);
 
-#if !(defined(BUTTONS)) || !(defined(PCA10028))
+#if !(defined(BUTTONS))
     /* sleep */
     while (true)
     {
