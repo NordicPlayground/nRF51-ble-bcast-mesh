@@ -60,6 +60,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_MD_FLAGS_USED_POS          (0) /* Metadata flag: Used */
 #define MESH_MD_FLAGS_INITIALIZED_POS   (1) /* Metadata flag: Initialized */
 #define MESH_MD_FLAGS_IS_ORIGIN_POS     (2) /* Metadata flag: Is origin */
+#define MESH_MD_FLAGS_FAST_UPDATE_POS   (3) /* Metadata flag: Update as soon as possible */
 /******************************************************************************
 * Local typedefs
 ******************************************************************************/
@@ -124,9 +125,12 @@ static void transmit_all_instances(uint64_t timestamp)
             handle -= g_md_set.handle_count;
 
         if ((g_md_set.md[handle].flags & (1 << MESH_MD_FLAGS_USED_POS)) &&
-            g_md_set.md[handle].trickle.t <= timestamp + ts_begin_time)
+            ((g_md_set.md[handle].trickle.t <= timestamp + ts_begin_time) ||
+             (g_md_set.md[handle].flags & (1 << MESH_MD_FLAGS_FAST_UPDATE_POS)))
+        )
         {
             bool do_tx = false;
+            g_md_set.md[handle].flags &= ~(1 << MESH_MD_FLAGS_FAST_UPDATE_POS);
             trickle_tx_timeout(&g_md_set.md[handle].trickle, &do_tx, timestamp + ts_begin_time);
             if (do_tx)
             {
@@ -304,8 +308,9 @@ vh_data_status_t vh_local_update(uint8_t handle)
         status = VH_DATA_STATUS_NEW;
         trickle_timer_reset(&g_md_set.md[handle - 1].trickle, time_now);
     }
-    p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
-        (1 << MESH_MD_FLAGS_USED_POS);
+    p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS)
+                |  (1 << MESH_MD_FLAGS_USED_POS)
+                |  (1 << MESH_MD_FLAGS_FAST_UPDATE_POS); /* force immediate transmit */
 
     version_increase((uint16_t*) &p_md->version_number);
 
@@ -377,13 +382,15 @@ uint32_t vh_value_enable(uint8_t handle)
     if (handle > g_md_set.handle_count || handle == 0)
         return NRF_ERROR_INVALID_ADDR;
     
-    vh_order_update(0);
     
     trickle_timer_reset(&g_md_set.md[handle - 1].trickle, timer_get_timestamp() + timeslot_get_global_time());
 
     g_md_set.md[handle - 1].flags |=
-        (1 << MESH_MD_FLAGS_INITIALIZED_POS) |
-        (1 << MESH_MD_FLAGS_USED_POS);
+              (1 << MESH_MD_FLAGS_INITIALIZED_POS)
+            | (1 << MESH_MD_FLAGS_USED_POS)
+            | (1 << MESH_MD_FLAGS_FAST_UPDATE_POS);
+    
+    vh_order_update(0);
 
     return NRF_SUCCESS;
 }

@@ -139,11 +139,13 @@ uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    vh_data_status_t data_status;
-    data_status = vh_local_update(handle);
-    if (data_status == VH_DATA_STATUS_UNKNOWN)
-        return NRF_ERROR_INVALID_ADDR;
-    return mesh_srv_char_val_set(handle, data, len);
+    /* important to update data first, as the vh may choose to transmit immediately */
+    uint32_t error_code = mesh_srv_char_val_set(handle, data, len);
+    if (error_code != NRF_SUCCESS)
+        return error_code;
+    if (vh_local_update(handle) == VH_DATA_STATUS_UNKNOWN)
+        return NRF_ERROR_INTERNAL; /* The mesh_srv call should have prevented this */
+    return NRF_SUCCESS;
 }
 
 uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len, ble_gap_addr_t* origin_addr)
