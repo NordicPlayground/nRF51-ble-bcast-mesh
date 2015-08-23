@@ -48,7 +48,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-
 /* Debug macros for debugging with logic analyzer */
 #define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
 #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
@@ -60,12 +59,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 static void error_loop(void)
 {
-    SET_PIN(7);
+    led_config(3, 1);
     while (true)
     {
-        __WFE();
     }
-}    
+}
 
 /**
 * @brief Softdevice crash handler, never returns
@@ -87,7 +85,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 * @param[in] line_num Line where the error check failed 
 * @param[in] p_file_name File where the error check failed
 */
-void app_error_handler(volatile uint32_t error_code, volatile uint32_t line_num, volatile const uint8_t * p_file_name)
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     error_loop();
 }
@@ -100,7 +98,6 @@ void HardFault_Handler(void)
 /**
 * @brief Softdevice event handler 
 */
-#if 1
 uint32_t sd_evt_handler(void)
 {
     rbc_mesh_sd_irq_handler();
@@ -113,8 +110,6 @@ uint32_t sd_evt_handler(void)
     }
     return NRF_SUCCESS;
 }
-#endif
-
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
 *   events coming from the mesh. Sets LEDs according to data
@@ -126,19 +121,18 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
     TICK_PIN(28);
     switch (evt->event_type)
     {
-        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:   
+        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-        
             if (evt->value_handle > 2)
                 break;
-            
+
             led_config(evt->value_handle, evt->data[0]);
             break;
         case RBC_MESH_EVENT_TYPE_INITIALIZED:
             /* init BLE gateway softdevice application: */
             nrf_adv_conn_init();
-            break;  
+            break;
     }
 }
 
@@ -148,10 +142,18 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 */
 void gpio_init(void)
 {
+    nrf_gpio_range_cfg_output(LED_START, LED_STOP);
+    
+    for (uint32_t i = 0; i < LEDS_NUMBER; ++i)
+    {
+        nrf_gpio_pin_set(LED_START + i);
+    }
+    
+#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
+    nrf_gpio_range_cfg_output(0, 32);
+#endif    
+    
 #ifdef BOARD_PCA10028
-		nrf_gpio_cfg_output(LED_1);
-		nrf_gpio_cfg_output(LED_2);
-	
     #ifdef BUTTONS
         nrf_gpio_cfg_input(BUTTON_1, NRF_GPIO_PIN_PULLUP);
         nrf_gpio_cfg_input(BUTTON_2, NRF_GPIO_PIN_PULLUP);
@@ -159,49 +161,26 @@ void gpio_init(void)
         nrf_gpio_cfg_input(BUTTON_4, NRF_GPIO_PIN_PULLUP);
     #endif
 #endif
-#ifdef BOARD_PCA10031
-	  nrf_gpio_cfg_output(LED_RGB_RED);
-    nrf_gpio_cfg_output(LED_RGB_GREEN);
-		nrf_gpio_cfg_output(LED_RGB_BLUE);
-
-    nrf_gpio_pin_set(LED_RGB_RED);
-    nrf_gpio_pin_set(LED_RGB_GREEN);
-    nrf_gpio_pin_set(LED_RGB_BLUE);
-#endif
-	
-#ifdef BOARD_PCA10000
-	  nrf_gpio_cfg_output(LED_RGB_RED);
-    nrf_gpio_cfg_output(LED_RGB_GREEN);
-    nrf_gpio_cfg_output(LED_RGB_BLUE); 
-
-    nrf_gpio_pin_set(LED_RGB_RED);
-    nrf_gpio_pin_set(LED_RGB_GREEN);
-    nrf_gpio_pin_set(LED_RGB_BLUE);
-#endif
-
-#ifdef BOARD_PCA10001 
-    nrf_gpio_range_cfg_output(0, 32);
-#endif    
-
-    led_config(1, 0);
-    led_config(2, 0);
+    
 }
 
 /** @brief main function */
 int main(void)
-{
+{   
+    
+    NRF_POWER->RESET = 1;
+    /* init leds and pins */
+    gpio_init();
+    NRF_GPIO->OUTSET = (1 << 4);
     /* Enable Softdevice (including sd_ble before framework */
     SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
     
-    /* init leds and pins */
-    gpio_init();
-    
 #ifdef RBC_MESH_SERIAL
-    
+
     /* only want to enable serial interface, and let external host setup the framework */
     mesh_aci_init();
 
-#else    
+#else
     /* Enable mesh framework on channel 37, min adv interval at 100ms, 
         2 characteristics */
     rbc_mesh_init_params_t init_params;
@@ -213,29 +192,28 @@ int main(void)
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
-    uint32_t error_code;
-    error_code = rbc_mesh_init(init_params);
+    uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
-    
+
     /* request values for both LEDs on the mesh */
     error_code = rbc_mesh_value_enable(1);
     APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_enable(2);
     APP_ERROR_CHECK(error_code);
-    
-    
+
+
     /* init BLE gateway softdevice application: */
     nrf_adv_conn_init();
-    
-#endif
 
-#ifndef BUTTONS
+#endif
+    NRF_GPIO->OUTCLR = (1 << 4);
+
+#if !(defined(BUTTONS))
     /* sleep */
     while (true)
     {
         sd_app_evt_wait();
     }
-    
     
 #else
     uint8_t mesh_data[16] = {0,0};
@@ -247,6 +225,7 @@ int main(void)
             while(nrf_gpio_pin_read(BUTTON_1) == 0);
             mesh_data[0] = 0;
             rbc_mesh_value_set(1, mesh_data, 1);
+            led_config(1, 0);
         }
         // red on
         if(nrf_gpio_pin_read(BUTTON_2) == 0)
@@ -254,6 +233,7 @@ int main(void)
             while(nrf_gpio_pin_read(BUTTON_2) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(1, mesh_data, 1);
+            led_config(1, 1);
         }
         // green off 
         if(nrf_gpio_pin_read(BUTTON_3) == 0)
@@ -261,6 +241,7 @@ int main(void)
             while(nrf_gpio_pin_read(BUTTON_3) == 0);
             mesh_data[0] = 0;
             rbc_mesh_value_set(2, mesh_data, 1);
+            led_config(2, 0);
         }
         // green on
          if(nrf_gpio_pin_read(BUTTON_4) == 0)
@@ -268,9 +249,10 @@ int main(void)
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(2, mesh_data, 1);
+            led_config(2, 1);
         }
-    }   
-#endif    
+    }
+#endif
 
 }
 

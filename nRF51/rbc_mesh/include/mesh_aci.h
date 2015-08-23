@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _MESH_ACI_H__
 
 #include "rbc_mesh.h"
+#include "toolchain.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -53,8 +54,8 @@ typedef enum
   ACI_STATUS_ERROR_INVALID_DATA                             = 0x87,
   ACI_STATUS_RESERVED_START                                 = 0xF0,
   ACI_STATUS_RESERVED_END                                   = 0xFF
+} __packed __packed_gcc aci_status_code_t;
 
-} __packed aci_status_code_t;
 
 /** @brief Initialize serial handler */
 void mesh_aci_init(void);

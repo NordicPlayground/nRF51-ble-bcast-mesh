@@ -41,48 +41,102 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf51_bitfields.h"
 #include <string.h>
 
-
-#define TRICKLE_RNG_POOL_SIZE   (64)
-
-#define TRICKLE_FLAGS_T_DONE_Pos    (0)
-#define TRICKLE_FLAGS_DISCARDED_Pos (1)
-
+typedef struct 
+{ 
+    uint32_t a; 
+    uint32_t b; 
+    uint32_t c; 
+    uint32_t d; 
+} rand_t;
+#define rot(x,k) (((x)<<(k))|((x)>>(32-(k))))
 /*****************************************************************************
 * Static Globals
 *****************************************************************************/
-
-
-static uint64_t g_trickle_time; /* global trickle time that all time variables are relative to */
-
-static uint8_t rng_vals[64];
-static uint8_t rng_index;
 
 /*global parameters for trickle behavior, set in trickle_setup() */
 static uint32_t g_i_min, g_i_max;
 static uint8_t g_k;
 
+static rand_t g_rand;
+
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
 
-/** 
-* @brief Do calculations for beginning of a trickle interval. Is called from 
+/* Bob Jenkins' small prng 
+http://burtleburtle.net/bob/rand/smallprng.html */
+static uint32_t rand() {
+    uint32_t e = g_rand.a - rot(g_rand.b, 27);
+    g_rand.a = g_rand.b ^ rot(g_rand.c, 17);
+    g_rand.b = g_rand.c + g_rand.d;
+    g_rand.c = g_rand.d + e;
+    g_rand.d = e + g_rand.a;
+    return g_rand.d;
+}
+
+static void rand_init(void)
+{
+    uint32_t error_code;
+    uint8_t bytes_available;
+    uint32_t seed;
+    
+    /* generate true random seed */
+    do
+    {
+        error_code =
+            sd_rand_application_bytes_available_get(&bytes_available);
+        APP_ERROR_CHECK(error_code);
+    } while (bytes_available < 4);
+    
+    error_code =
+        sd_rand_application_vector_get((uint8_t*) &seed,
+        4);
+    APP_ERROR_CHECK(error_code);
+    
+    /* establish base magic numbers */
+    g_rand.a = 0xf1ea5eed;
+    g_rand.b = g_rand.c = g_rand.d = seed;
+    
+    for (uint32_t i = 0; i < 20; ++i) {
+        (void)rand();
+    }
+}
+
+
+/**
+* @brief Do calculations for beginning of a trickle interval. Is called from
 *   trickle_step function.
 */
 static void trickle_interval_begin(trickle_t* trickle)
 {
     trickle->c = 0;
+
+    trickle->i += trickle->i_relative;
+}
+
+static void refresh_t(trickle_t* trickle)
+{
+    uint32_t rand_number = rand();
     
-    uint32_t rand_number =  ((uint32_t) rng_vals[(rng_index++) & 0x3F])       |
-                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 8  |
-                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 16 |
-                            ((uint32_t) rng_vals[(rng_index++) & 0x3F]) << 24;
-    
-    uint64_t i_half = trickle->i_relative / 2;
-    trickle->t = g_trickle_time + i_half + (rand_number % i_half);
-    trickle->i = g_trickle_time + trickle->i_relative;
-    
-    trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
+    uint64_t i_half = trickle->i_relative / 2; 
+    trickle->t = trickle->i + i_half + (rand_number % i_half);
+}
+
+
+static void check_interval(trickle_t* trickle, uint64_t time_now)
+{
+    if (time_now >= trickle->i)
+    {
+        if (trickle->i_relative < g_i_max * g_i_min)
+            trickle->i_relative *= 2;
+        else
+            trickle->i_relative = g_i_max * g_i_min;
+        /* we've started a new interval since we last touched this trickle */
+        trickle->c = 0;
+        uint32_t delta = (time_now - trickle->i) / trickle->i_relative;
+        trickle->i += trickle->i_relative * (delta + 1);
+        
+    }
 }
 
 /*****************************************************************************
@@ -95,129 +149,53 @@ void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k)
     g_i_min = i_min;
     g_i_max = i_max;
     g_k = k;
-    uint32_t error_code;
-    rng_index = 0;
     
-    /* Fill rng pool */
-    uint8_t bytes_available;
-    do 
-    {
-        error_code = 
-            sd_rand_application_bytes_available_get(&bytes_available);
-        APP_ERROR_CHECK(error_code);
-        if (bytes_available > 0)
-        {
-            uint8_t byte_count = 
-                ((bytes_available > TRICKLE_RNG_POOL_SIZE - rng_index)? 
-                (TRICKLE_RNG_POOL_SIZE - rng_index) : 
-                (bytes_available));
-            
-            error_code = 
-                sd_rand_application_vector_get(&rng_vals[rng_index], 
-                byte_count);
-            APP_ERROR_CHECK(error_code);
-            
-            rng_index += byte_count;
-        }
-    } while (rng_index < TRICKLE_RNG_POOL_SIZE);
-    
+    rand_init();
 }
 
-
-void trickle_time_increment(void)
+void trickle_rx_consistent(trickle_t* trickle, uint64_t time_now)
 {
-    /* step global time */
-    ++g_trickle_time;
-}
-
-void trickle_time_update(uint64_t time)
-{
-    g_trickle_time = time;
-}
-
-
-void trickle_init(trickle_t* trickle)
-{
-    trickle->i_relative = 2 * g_i_min;
-    
-    trickle->trickle_flags = 0;
-    
-    trickle_interval_begin(trickle);
-}
-
-void trickle_rx_consistent(trickle_t* trickle)
-{    
+    TICK_PIN(PIN_CONSISTENT);
+    check_interval(trickle, time_now);
     ++trickle->c;
 }
 
-void trickle_rx_inconsistent(trickle_t* trickle)
-{        
+void trickle_rx_inconsistent(trickle_t* trickle, uint64_t time_now)
+{
+    TICK_PIN(PIN_INCONSISTENT);
     if (trickle->i_relative > g_i_min)
     {
-        trickle_timer_reset(trickle);
+        trickle_timer_reset(trickle, time_now);
     }
 }
 
-void trickle_timer_reset(trickle_t* trickle)
-{    
-    trickle->trickle_flags &= ~(1 << TRICKLE_FLAGS_T_DONE_Pos);
-    trickle->i_relative = g_i_min; 
-    
-        
+void trickle_timer_reset(trickle_t* trickle, uint64_t time_now)
+{
+    trickle->i = time_now;
+    trickle->i_relative = g_i_min;
+
     trickle_interval_begin(trickle);
+    refresh_t(trickle);
 }
 
-void trickle_register_tx(trickle_t* trickle)
+void trickle_tx_register(trickle_t* trickle)
 {
-    trickle->trickle_flags |= (1 << TRICKLE_FLAGS_T_DONE_Pos);
+    refresh_t(trickle); /* order next t */
 }
 
-void trickle_step(trickle_t* trickle, bool* out_do_tx)
+void trickle_tx_timeout(trickle_t* trickle, bool* out_do_tx, uint64_t time_now)
 {
-    *out_do_tx = false;
-    
-    if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
+    *out_do_tx = (trickle->c < g_k);
+    check_interval(trickle, time_now);
+    if (!(*out_do_tx))
     {
-        if (trickle->i <= g_trickle_time)
-        {
-            /* double value of i */
-            trickle->i_relative = (trickle->i_relative * 2 < g_i_max * g_i_min)?
-                            trickle->i_relative * 2 : 
-                            g_i_max * g_i_min;
-            
-            trickle_interval_begin(trickle);
-        }
-    }
-    else /* t is next timeout for this instance */
-    {
-        if (trickle->t <= g_trickle_time)
-        {
-            if (trickle->c < g_k)
-            {
-                *out_do_tx = true;
-            }
-            else /* no tx this interval, tell trickle to prepare 
-                for interval timeout*/
-            {
-                trickle->trickle_flags |= (1 << TRICKLE_FLAGS_T_DONE_Pos);
-            }
-        }
+        /* will never get a call to tx_register, order next t manually */
+        refresh_t(trickle);
     }
 }
 
-uint64_t trickle_timestamp_get(void)
+uint64_t trickle_next_processing_get(trickle_t* trickle, uint64_t time_now)
 {
-    return g_trickle_time;
-}
-
-uint64_t trickle_next_processing_get(trickle_t* trickle)
-{
-    if (trickle->trickle_flags & (1 << TRICKLE_FLAGS_T_DONE_Pos)) /* i is next timeout for this instance */
-    {
-        return trickle->i;
-    }
-    else /* t is next timeout for this instance */
-    {
-        return trickle->t;
-    }
+    check_interval(trickle, time_now);
+    return trickle->t;
 }

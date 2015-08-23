@@ -1,8 +1,8 @@
 = nRF51-ble-broadcast-mesh
 
 Bluetooth Low Energy based rebroadcasting mesh implementation on the nRF51.
-Works with SoftDevice S110 v7.x with Timeslot API (tested), likely to work with
-S120 and S130 SoftDevices (not tested). Support for both SDK6.x.x and SDK7.x.x as of release v0.6.1.
+Works with SoftDevice S110 v8.x with Timeslot API (tested), likely to work with
+S120 and S130 SoftDevices (not tested). Support for both SDK6.x.x and SDK7.x.x as of release v0.6.1, as well as SDK8.x.x as of release v0.6.5.
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 

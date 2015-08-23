@@ -51,7 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 
 /* Debug macros for debugging with logic analyzer */
-#define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
+#define SET_PIN(x)   NRF_GPIO->OUTSET = (1 << (x))
 #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
 #define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
 
@@ -61,15 +61,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 static void error_loop(void)
 {
-    NRF_GPIO->OUTSET = (1 << (LED_START + 0));
-    NRF_GPIO->OUTSET = (1 << (LED_START + 1));
-    NRF_GPIO->OUTCLR = (1 << (LED_START + 2));
-    SET_PIN(7);
+    led_config(3, 1);
     while (true)
     {
-        __WFE();
     }
-}    
+}
 
 /**
 * @brief Softdevice crash handler, never returns
@@ -91,7 +87,7 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 * @param[in] line_num Line where the error check failed 
 * @param[in] p_file_name File where the error check failed
 */
-void app_error_handler(volatile uint32_t error_code, volatile uint32_t line_num, volatile const uint8_t * p_file_name)
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     error_loop();
 }
@@ -112,17 +108,18 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t *file_name)
 */
 void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
-    TICK_PIN(28);
+    TICK_PIN(18);
+    CLEAR_PIN(15);
     switch (evt->event_type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-        
             if (evt->value_handle > 2)
                 break;
-            
             led_config(evt->value_handle, evt->data[0]);
+            break;
+        case RBC_MESH_EVENT_TYPE_INITIALIZED:
             break;
     }
 }
@@ -144,12 +141,12 @@ static void gpiote_init(void)
                                 | (BUTTON_PULL << GPIO_PIN_CNF_PULL_Pos)
                                 | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos)
                                 | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
-    
+
 
     /* GPIOTE interrupt handler normally runs in STACK_LOW priority, need to put it 
     in APP_LOW in order to use the mesh API */
     NVIC_SetPriority(GPIOTE_IRQn, 3);
-    
+
     NVIC_EnableIRQ(GPIOTE_IRQn);
     NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_PORT_Msk;
 }
@@ -188,10 +185,9 @@ void test_app_init(void)
     }
     nrf_gpio_range_cfg_output(0, 32);
 #if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
-    
     nrf_gpio_range_cfg_input(BUTTON_START, BUTTON_STOP, BUTTON_PULL);
     gpiote_init();
-#endif    
+#endif
 
     led_config(0, 0);
     led_config(1, 0);
@@ -201,13 +197,15 @@ void test_app_init(void)
 
 int main(void)
 {
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, NULL);
+    NRF_POWER->RESET = 1;
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, rbc_mesh_sd_irq_handler);
     test_app_init();
-    
+
+
 #ifdef RBC_MESH_SERIAL
     mesh_aci_init();
-#else    
-    
+#else
+
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr = 0xA541A68F;
@@ -217,24 +215,22 @@ int main(void)
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
-    uint32_t error_code = rbc_mesh_init(init_params);
+    volatile uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
-    
+
     error_code = rbc_mesh_value_enable(1);
     APP_ERROR_CHECK(error_code);
     error_code = rbc_mesh_value_enable(2);
     APP_ERROR_CHECK(error_code);
-#endif    
-    
+#endif
+
     sd_nvic_EnableIRQ(SD_EVT_IRQn);
-    
+
     /* sleep */
     while (true)
     {
-      __WFE();
-        //sd_app_evt_wait();
+        sd_app_evt_wait();
     }
-    
 
 }
 

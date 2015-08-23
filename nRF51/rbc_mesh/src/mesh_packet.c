@@ -32,32 +32,53 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef _SERIAL_QUEUE_H__
-#define _SERIAL_QUEUE_H__
 
-#include "serial_handler.h"
-#include <stdint.h>
-#include <stdbool.h>
+#include "mesh_packet.h"
 
-#define SERIAL_QUEUE_SIZE 4
-
-typedef struct
+/******************************************************************************
+* Static globals
+******************************************************************************/
+static mesh_packet_t g_packet_pool[MESH_PACKET_POOL_SIZE];
+static bool g_packet_alloc_array[MESH_PACKET_POOL_SIZE];
+/******************************************************************************
+* Interface functions
+******************************************************************************/
+void mesh_packet_init(void)
 {
-	serial_data_t		serial_data[SERIAL_QUEUE_SIZE];
-	uint8_t					head;
-	uint8_t 				tail;
-} serial_queue_t;
+    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
+    {
+        g_packet_alloc_array[i] = false;
+    }
+}
 
-void serial_queue_init(serial_queue_t* queue);
+bool mesh_packet_acquire(mesh_packet_t** pp_packet)
+{
+    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
+    {
+        if (!g_packet_alloc_array[i])
+        {
+            g_packet_alloc_array[i] = true;
+            *pp_packet = &g_packet_pool[i];
+            return true;
+        }
+    }
+    return false;
+}
 
-bool serial_queue_dequeue(serial_queue_t* queue, serial_data_t* data);
+bool mesh_packet_free(mesh_packet_t* p_packet)
+{
+    uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
+    if (index > MESH_PACKET_POOL_SIZE)
+        return false;
+    
+    g_packet_alloc_array[index] = false;
+    return true;
+}
 
-bool serial_queue_enqueue(serial_queue_t* queue, serial_data_t* data);
-
-bool serial_queue_is_empty(serial_queue_t* queue);
-
-bool serial_queue_is_full(serial_queue_t* queue);
-
-bool serial_queue_peek(serial_queue_t* queue, serial_data_t* data);
-
-#endif /* _SERIAL_QUEUE_H__ */
+void mesh_packet_on_ts_begin(void)
+{
+    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
+    {
+        g_packet_alloc_array[i] = false;
+    }
+}

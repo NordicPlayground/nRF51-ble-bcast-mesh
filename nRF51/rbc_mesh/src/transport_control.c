@@ -36,270 +36,283 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 
 #include "radio_control.h"
+#include "mesh_packet.h"
 #include "timer_control.h"
 #include "mesh_srv.h"
 #include "rbc_mesh.h"
+#include "event_handler.h"
 #include "timeslot_handler.h"
 #include "rbc_mesh_common.h"
-#include "ble_gap.h"
-#include "nrf_soc.h"
+#include "version_handler.h"
+#include "mesh_aci.h"
+
 #include <string.h>
-#include <stdlib.h>
 
-/**@file
-* 
-* @brief Controller for radio_control, timer_control and timeslot_handler.
-*   Acts as an abstraction of the lower transport to higher layer modules
-*/
+/******************************************************************************
+* Local typedefs
+******************************************************************************/
+typedef struct
+{
+    uint32_t access_address;
+    uint8_t channel;
+    bool queue_saturation; /* flag indicating a full processing queue */
+} tc_state_t;
 
-#define PACKET_TYPE_LEN             (1)
-#define PACKET_LENGTH_LEN           (1)
-#define PACKET_ADDR_LEN             (BLE_GAP_ADDR_LEN)
-
-#define PACKET_TYPE_POS             (0)
-#define PACKET_LENGTH_POS           (1)
-#define PACKET_PADDING_POS          (2)
-#define PACKET_ADDR_POS             (3)
-#define PACKET_DATA_POS             (PACKET_ADDR_POS + PACKET_ADDR_LEN)
-
-
-#define PACKET_TYPE_ADV_NONCONN     (0x02)
-
-#define PACKET_TYPE_MASK            (0x0F)
-#define PACKET_LENGTH_MASK          (0x3F)
-#define PACKET_ADDR_TYPE_MASK       (0x40)
-
-#define PACKET_DATA_MAX_LEN         (28)
-#define PACKET_MAX_CHAIN_LEN        (1) /**@TODO: May be increased when RX 
-                                        callback packet chain handling is implemented.*/
-
-/* minimum time to be left in the timeslot for there to be any point in ordering the radio */
-#define RADIO_SAFETY_TIMING_US      (500)
+/******************************************************************************
+* Static globals
+******************************************************************************/
+static tc_state_t g_state;
+/******************************************************************************
+* Static functions
+******************************************************************************/
+static void rx_cb(uint8_t* data, bool success, uint32_t crc);
+static void tx_cb(uint8_t* data);
 
 
-static uint8_t tx_data[(PACKET_DATA_MAX_LEN + PACKET_DATA_POS) * PACKET_MAX_CHAIN_LEN];
-static uint64_t global_time = 0;
-static uint8_t step_timer_index = 0xFF;
-
-static void search_callback(uint8_t* data);
-static void trickle_step_callback(void);
-
-/** 
-* @brief Order the radio_control module to do a RX, and report back to 
-*   search_callback().
-*/
 static void order_search(void)
 {
-    radio_event_t search_event;
-    search_event.access_address = 1; /* RX: treat as bitfield */
-    search_event.callback.rx = search_callback;
-    rbc_mesh_channel_get(&search_event.channel);
-    search_event.event_type = RADIO_EVENT_TYPE_RX;
-    search_event.start_time = 0;
-    
-    radio_order(&search_event);   
+    radio_event_t evt;
+    evt.event_type = RADIO_EVENT_TYPE_RX_PREEMPTABLE;
+    evt.start_time = 0;
+    if (!mesh_packet_acquire((mesh_packet_t**) &evt.packet_ptr))
+    {
+        return; /* something is hogging all the packets */
+    }
+    evt.access_address = g_state.access_address;
+    evt.channel = g_state.channel;
+    evt.callback.rx = rx_cb;
+    if (!radio_order(&evt))
+    {
+        mesh_packet_free((mesh_packet_t*) evt.packet_ptr);
+    }
 }
 
-/**
-* @brief Convert a data array into a packet object. Pulls out address, payload,
-*   CRC and length.
-*/
-static inline void packet_create_from_data(uint8_t* data, packet_t* packet)
+
+static void prepare_event(rbc_mesh_event_t* evt, mesh_packet_t* p_packet)
 {
-    /* advertisement package */
-    
-    packet->length = (data[PACKET_LENGTH_POS] & PACKET_LENGTH_MASK) - PACKET_ADDR_LEN;
-    memcpy(packet->data, &data[PACKET_DATA_POS], packet->length);
-    memcpy(packet->sender.addr, &data[PACKET_ADDR_POS], PACKET_ADDR_LEN);
-    
-    /* addr type */
-    bool addr_is_random = (data[PACKET_TYPE_POS] & PACKET_ADDR_TYPE_MASK);
-    
-    if (addr_is_random)
+    evt->value_handle = p_packet->payload.handle;
+    evt->data = &p_packet->payload.data[0];
+    evt->data_len = p_packet->header.length - MESH_PACKET_OVERHEAD;
+    evt->originator_address.addr_type = p_packet->header.addr_type;
+    memcpy(&evt->originator_address.addr, &p_packet->addr, BLE_GAP_ADDR_LEN);
+}
+
+/* radio callback, executed in STACK_LOW */
+static void rx_cb(uint8_t* data, bool success, uint32_t crc)
+{
+    if (success)
     {
-        bool is_static = ((packet->sender.addr[5] & 0xC0) == 0xC0);
-        if (is_static)
+        async_event_t evt;
+        evt.type = EVENT_TYPE_PACKET;
+        evt.callback.packet.payload = data;
+        evt.callback.packet.crc = crc;
+        evt.callback.packet.timestamp = timer_get_timestamp();
+        if (event_handler_push(&evt) != NRF_SUCCESS)
         {
-            packet->sender.addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC;
-        }
-        else
-        {
-            bool is_resolvable = ((packet->sender.addr[5] & 0xC0) == 0x40);
-            packet->sender.addr_type = (is_resolvable? 
-                BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE :
-                BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_NON_RESOLVABLE);
+            /* packet will not be freed by the packet processing event */
+            mesh_packet_free((mesh_packet_t*) data);
+            g_state.queue_saturation = true;
         }
     }
     else
     {
-        packet->sender.addr_type = BLE_GAP_ADDR_TYPE_PUBLIC;
+        /* packet will not be freed by the packet processing event*/
+        mesh_packet_free((mesh_packet_t*) data);
     }
 }
 
-/**
-* @brief check whether a packet is a valid data packet, eligible for processing
-*/
-static inline bool packet_is_data_packet(uint8_t* data)
+/* radio callback, executed in STACK_LOW */
+static void tx_cb(uint8_t* data)
 {
-    return ((data[PACKET_TYPE_POS] & PACKET_TYPE_MASK) 
-        == PACKET_TYPE_ADV_NONCONN);
+    mesh_packet_free((mesh_packet_t*) data);
+    vh_order_update(timer_get_timestamp()); /* tell the vh, so that it can push more updates */
 }
 
-/**
-* @brief Handle incoming packets 
-*/
-static void search_callback(uint8_t* data)
+
+static void radio_idle_callback(void)
+{
+    /* If the processor is unable to keep up, we should back down, and give it time */
+    if (!g_state.queue_saturation)
+        order_search();
+}
+
+
+/******************************************************************************
+* Interface functions
+******************************************************************************/
+void tc_init(uint32_t access_address, uint8_t channel)
+{
+    g_state.access_address = access_address;
+    g_state.channel = channel;
+}
+
+void tc_on_ts_begin(void)
+{
+    
+    radio_init(g_state.access_address, radio_idle_callback);
+}
+
+uint32_t tc_tx(uint8_t handle, uint16_t version, ble_gap_addr_t* origin_addr)
+{
+    uint32_t error_code;
+    mesh_packet_t* p_packet = NULL;
+    if (!mesh_packet_acquire(&p_packet))
+    {
+        return NRF_ERROR_NO_MEM;
+    }
+
+    uint16_t length = MAX_VALUE_LENGTH;
+    error_code = mesh_srv_char_val_get(handle, &p_packet->payload.data[0], &length);
+    if (error_code != NRF_SUCCESS)
+    {
+        mesh_packet_free(p_packet);
+        return error_code;
+    }
+
+    if (length == 0)
+    {
+        mesh_packet_free(p_packet);
+        return NRF_ERROR_INTERNAL;
+    }
+
+    p_packet->header.length = MESH_PACKET_OVERHEAD + length;
+    p_packet->header.addr_type = origin_addr->addr_type;
+    memcpy(&p_packet->addr, &origin_addr->addr, BLE_GAP_ADDR_LEN);
+    p_packet->header.type = BLE_PACKET_TYPE_ADV_NONCONN_IND;
+    p_packet->payload.handle = handle;
+    p_packet->payload.version = version;
+
+    TICK_PIN(PIN_MESH_TX);
+    /* queue the packet for transmission */
+    radio_event_t event;
+    event.start_time = 0;
+    event.packet_ptr = (uint8_t*) p_packet;
+    event.access_address = g_state.access_address;
+    event.channel = g_state.channel;
+    event.callback.tx = tx_cb;
+    if (!radio_order(&event))
+    {
+        mesh_packet_free(p_packet);
+        return NRF_ERROR_NO_MEM;
+    }
+    
+    return NRF_SUCCESS;
+}
+
+/* packet processing, executed in APP_LOW */
+void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 {
     SET_PIN(PIN_RX);
-    
-    uint32_t checksum = (NRF_RADIO->RXCRC & 0x00FFFFFF);
-    
-    /* check if timeslot is about to end */
-    uint64_t radio_time_left = timeslot_get_remaining_time();
-    
-    if (radio_time_left > RADIO_SAFETY_TIMING_US)
+    mesh_packet_t* p_packet = (mesh_packet_t*) data;
+
+    if (p_packet->header.length > MESH_PACKET_OVERHEAD + MAX_VALUE_LENGTH || 
+            p_packet->header.type != BLE_PACKET_TYPE_ADV_NONCONN_IND)
     {
-        /* setup next RX */
+        /* invalid packet, ignore */
+        mesh_packet_free(p_packet);
+        CLEAR_PIN(PIN_RX);
+        return;
+    }
+    
+    ble_gap_addr_t addr;
+    memcpy(addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
+    addr.addr_type = p_packet->header.addr_type;
+
+    vh_data_status_t data_status = vh_compare_metadata(
+            p_packet->payload.handle, 
+            p_packet->payload.version,
+            crc,
+            &addr);
+    uint32_t error_code = NRF_SUCCESS;
+
+    if (data_status != VH_DATA_STATUS_UNKNOWN)
+    {
+        error_code = 
+            vh_rx_register(
+                data_status, 
+                p_packet->payload.handle, 
+                p_packet->payload.version,
+                crc,
+                &addr,
+                timestamp
+        );
+        if (error_code != NRF_SUCCESS)
+        {
+            CLEAR_PIN(PIN_RX);
+            mesh_packet_free(p_packet);
+            return;
+        }
+    }
+
+    /* prepare app event */
+    rbc_mesh_event_t evt;
+
+    switch (data_status)
+    {
+        case VH_DATA_STATUS_NEW:
+            error_code = mesh_srv_char_val_set(
+                    p_packet->payload.handle, 
+                    &p_packet->payload.data[0], 
+                    p_packet->header.length - MESH_PACKET_OVERHEAD);
+            if (error_code != NRF_SUCCESS)
+                while(1); /* shouldn't happen after the vh has approved it */
+
+            /* notify application */
+            prepare_event(&evt, p_packet);
+            evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
+            rbc_mesh_event_handler(&evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
+            break;
+
+        case VH_DATA_STATUS_UPDATED:
+            error_code = mesh_srv_char_val_set(
+                    p_packet->payload.handle, 
+                    &p_packet->payload.data[0], 
+                    p_packet->header.length - MESH_PACKET_OVERHEAD);
+            if (error_code != NRF_SUCCESS)
+                while(1); /* shouldn't happen after the vh has approved it */
+
+            /* notify application */
+            prepare_event(&evt, p_packet);
+            evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+            rbc_mesh_event_handler(&evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
+            break;
+
+        case VH_DATA_STATUS_OLD:
+            /* do nothing */
+            break;
+            
+        case VH_DATA_STATUS_SAME:
+            /* do nothing */
+            break;
+
+        case VH_DATA_STATUS_CONFLICTING:
+
+            prepare_event(&evt, p_packet);
+            evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
+            rbc_mesh_event_handler(&evt);
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
+            break;
+
+        case VH_DATA_STATUS_UNKNOWN:
+            
+            break;
+    }
+
+    mesh_packet_free(p_packet);
+    
+    if (g_state.queue_saturation)
+    {
         order_search();
+        g_state.queue_saturation = false;
     }
     
     CLEAR_PIN(PIN_RX);
-    
-    if (data == NULL || !packet_is_data_packet(data))
-        return;
-    
-    
-    async_event_t async_evt;
-    async_evt.type = EVENT_TYPE_PACKET;
-    packet_create_from_data(data, &async_evt.callback.packet);
-    async_evt.callback.packet.rx_crc = checksum;
-    timeslot_queue_async_event(&async_evt);
-    
-    /** @TODO: add packet chain handling */
 }
-
-/**
-* @brief Handle trickle timing events 
-*/
-static void trickle_step_callback(void)
-{
-    TICK_PIN(6);
-    /* check if timeslot is about to end */
-    if (timeslot_get_remaining_time() < RADIO_SAFETY_TIMING_US)
-        return;
-    
-    uint64_t time_now = global_time + timer_get_timestamp();
-    trickle_time_update(time_now);
-    
-    packet_t packet;
-    bool has_anything_to_send = false;
-    
-    mesh_srv_packet_assemble(&packet, PACKET_DATA_MAX_LEN * PACKET_MAX_CHAIN_LEN, 
-        &has_anything_to_send);
-    
-    if (has_anything_to_send)
-    {
-        TICK_PIN(PIN_MESH_TX);
-        radio_disable();
-        
-        uint8_t packet_and_addr_type = PACKET_TYPE_ADV_NONCONN |
-            ((packet.sender.addr_type == BLE_GAP_ADDR_TYPE_PUBLIC)?
-            0 :
-            PACKET_ADDR_TYPE_MASK);
-        
-        uint8_t* temp_data_ptr = &packet.data[0];
-        uint8_t* tx_data_ptr = &tx_data[0];
-        tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
-        
-        /* Code structured for packet chaining, although this is yet 
-         to be implemented. */
-        do
-        {
-            uint8_t min_len = ((packet.length > PACKET_DATA_MAX_LEN)? 
-                PACKET_DATA_MAX_LEN : 
-                packet.length);
-            
-            tx_data_ptr[PACKET_PADDING_POS] = 0;
-            tx_data_ptr[PACKET_LENGTH_POS] = (min_len + PACKET_ADDR_LEN);
-            tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
-            
-            memcpy(&tx_data_ptr[PACKET_ADDR_POS], packet.sender.addr, PACKET_ADDR_LEN);
-            memcpy(&tx_data_ptr[PACKET_DATA_POS], &temp_data_ptr[0], min_len);
-            
-            radio_event_t tx_event;
-            tx_event.access_address = 0;
-            rbc_mesh_channel_get(&tx_event.channel);
-            tx_event.event_type = RADIO_EVENT_TYPE_TX;
-            tx_event.packet_ptr = &tx_data_ptr[0];
-            tx_event.start_time = 0;
-            tx_event.callback.tx = NULL;
-            
-            radio_order(&tx_event);
-            /*
-            temp_data_ptr += min_len;
-            tx_data_ptr += min_len + PACKET_DATA_POS;
-            packet.length -= min_len;
-            
-            tx_data_ptr[PACKET_TYPE_POS] = packet_and_addr_type;
-            */
-        } while (0);
-        
-        order_search(); /* search for the rest of the timeslot */
-    }
-    
-    /* order next processing */
-    uint64_t next_time;
-    uint64_t end_time = timeslot_get_end_time();
-    uint32_t error_code = mesh_srv_get_next_processing_time(&next_time);
-    
-    if (error_code == NRF_SUCCESS && next_time < global_time + end_time)
-    {
-        timer_abort(step_timer_index);
-        step_timer_index = timer_order_cb(next_time - global_time, trickle_step_callback);
-    }
-}
-
-void transport_control_timeslot_begin(uint64_t global_timer_value)
-{
-    uint32_t aa;    
-    rbc_mesh_access_address_get(&aa);
-    
-    radio_init(aa);
-    
-    step_timer_index = 0xFF;
-    
-    global_time = global_timer_value;
-    
-    order_search();
-    transport_control_step();
-    
-}
-
-void transport_control_step(void)
-{
-    uint64_t next_time;
-    uint64_t time_now = timer_get_timestamp() + global_time;
-    trickle_time_update(time_now);
-    uint32_t error_code = mesh_srv_get_next_processing_time(&next_time);
-    if (error_code != NRF_SUCCESS)
-    {
-        return;
-    }
-    
-    if (next_time < time_now)
-    {
-        async_event_t async_evt;
-        async_evt.callback.generic = trickle_step_callback;
-        async_evt.type = EVENT_TYPE_GENERIC;
-        timeslot_queue_async_event(&async_evt);
-    }
-    else 
-    {
-        if (next_time < global_time + timeslot_get_end_time())
-        {
-            timer_abort(step_timer_index);
-            step_timer_index = timer_order_cb(next_time - global_time, trickle_step_callback);
-        }
-    }
-}
-

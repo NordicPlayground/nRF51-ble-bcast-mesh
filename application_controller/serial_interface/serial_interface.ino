@@ -39,197 +39,127 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rbc_mesh_interface.h"
 
-static aci_pins_t pins;
+#define ACCESS_ADDR     (0xA541A68F)
 
-static uint8_t         uart_buffer[20];
-static uint8_t         dummychar = 0;
+// defining the state of the system for communication
+enum state_t{
+    STATE_INIT,           // not yet initialized
+    STATE_READY,          // no external command in work
+    STATE_WAITING_FOR_EVT // external command in work, waiting for answer from SPI slave
+};
 
-// access address in our example mesh application
-//uint32_t accAddr = 0x8FA641A5;
-uint32_t accAddr = 0xA541A68F;
+int state = STATE_INIT;
 
-void __ble_assert(const char *file, uint16_t line)
-{
-  Serial.print("ERROR ");
-  Serial.print(file);
-  Serial.print(": ");
-  Serial.print(line);
-  Serial.print("\n");
-  while(1);
+// buffer for the last value send by the SPI slave
+int lastResponse;
+
+int initState = 0;
+
+// callback function for http command to set a handle value
+int set_val(String args){
+
+    if(state != ready){
+        return -1;
+    }
+    state = waitingForEvent;
+
+    uint8_t handle = args[0] - '0';
+    uint8_t value  = args[1] - '0';
+    
+    return rbc_mesh_value_set(handle, &value, (uint8_t) 1);
 }
 
+// callback function for http command to get a handle value
+int get_val_req(String args){
 
+    if(state != ready){
+        return -1;
+    }
+    state = waitingForEvent;
+
+    uint8_t handle = args[0] - '0';
+    
+    return rbc_mesh_value_get(handle);
+}
+
+aci_pins_t pins;
+
+// arduino conform init function
 void setup(void)
 {
-  Serial.begin(115200);
-  //Wait until the serial port is available (useful only for the Leonardo)
-  //As the Leonardo board is not reseted every time you open the Serial Monitor
-  #if defined (__AVR_ATmega32U4__)
-    while(!Serial)
-    {}
-    delay(1000);  //5 seconds delay for enabling to see the start up comments on the serial board
-  #elif defined(__PIC32MX__)
-    delay(1000);
-  #endif
+  Serial.begin(9600);
   
   pins.board_name = BOARD_DEFAULT; //See board.h for details REDBEARLAB_SHIELD_V1_1 or BOARD_DEFAULT
-  pins.reqn_pin   = SS; 
-  pins.rdyn_pin   = 8; 
-  pins.mosi_pin   = MOSI;
-  pins.miso_pin   = MISO;
-  pins.sck_pin    = SCK;
+  pins.reqn_pin   = A2;
+  pins.rdyn_pin   = D5;
+  pins.mosi_pin   = A5;
+  pins.miso_pin   = A4;
+  pins.sck_pin    = A3;
 
   pins.spi_clock_divider      = SPI_CLOCK_DIV8;
-  pins.reset_pin              = UNUSED; //4 for Nordic board, UNUSED for REDBEARLAB_SHIELD_V1_1
-  pins.active_pin             = UNUSED;
-  pins.optional_chip_sel_pin  = UNUSED;
+
+  pins.reset_pin              = D2;
+  pins.active_pin             = NRF_UNUSED;
+  pins.optional_chip_sel_pin  = NRF_UNUSED;
 
   pins.interface_is_interrupt = false; //Interrupts still not available in Chipkit
   pins.interrupt_number       = 1;
 
-  // initialize mesh_interface
   rbc_mesh_hw_init(&pins);
-
-  Serial.println("Local setup done");
-  Serial.println("Starting connection setup");
-  return;
-
 }
 
-bool stringComplete = false;  // whether the string is complete
-uint8_t stringIndex = 0;      //Initialize the index to store incoming chars
-
-enum state_t{
-    starting,
-    ready,
-    waitingForEvent
-};
-
-int state = starting;
-
-
-int initState = 0;
-bool newMessage = false;
-
+// sending intialization commands to SPI slave
+// alternating sending of commands and waiting for response
 void initConnectionSlowly(){
     switch(initState) {
         case 0:
-            Serial.print(".");
-            rbc_mesh_init(accAddr, (uint8_t) 38, (uint8_t) 2, (uint32_t) 100);
+            rbc_mesh_init(ACCESS_ADDR, (uint8_t) 38, (uint8_t) 2, (uint32_t) 100);
             initState++;
+            Serial.println("Sent init command");
             break;
         case 1:
-            if(newMessage){
-                Serial.print(".");
-                rbc_mesh_value_enable((uint8_t) 1);
-                initState++;
-            }
+            rbc_mesh_value_enable((uint8_t) 1);
+            initState++;
+            Serial.println("Enabled value 1");
             break;
         case 2:
-            if(newMessage){
-                Serial.println(".");
-                rbc_mesh_value_enable((uint8_t) 2);
-                initState++;
-            }
+            rbc_mesh_value_enable((uint8_t) 2);
+            initState++;
+            Serial.println("Enabled value 2");
             break;
         case 3:
-            if(newMessage){
-                state = ready;
-                Serial.println("connection setup done");
-                Serial.println("possible commands are");
-                Serial.println(" 1 - red off");
-                Serial.println(" 2 - red on");
-                Serial.println(" 3 - green off");
-                Serial.println(" 4 - green on");
-            }
+            state = ready;
+            Serial.println("init done");
     }
 }
 
-void actions_loop() {
-  if (stringComplete){
-    Serial.print("");
-    Serial.print("running, state is ");
-    Serial.println(state);
-      
-    uint8_t handle = 1;
-    uint8_t value = 1;
-    if(uart_buffer[0] == '1'){
-      Serial.println("got 1: red off");
-      handle = 1;
-      value = 0;
-    }
-    if(uart_buffer[0] == '2'){
-      Serial.println("got 2: red on");
-      handle = 1;
-      value = 1;
-    }
-    if(uart_buffer[0] == '3'){
-      Serial.println("got 3: green off");
-      handle = 2;
-      value = 0;
-    }
-    if(uart_buffer[0] == '4'){
-      Serial.println("got 4: green on");
-      handle = 2;
-      value = 1;
-    }
-    if(state == ready){
-      Serial.println("sending now");
-      state = waitingForEvent;
-      rbc_mesh_value_set(handle, &value, (uint8_t) 1);
-    }  
-    stringIndex = 0;
-    stringComplete = false;
-  }
-  if (Serial.available()) {
-      serialEvent();
-  }
-}
-
+// arduino conform main loop
 void loop() {
-  
-    if(state == starting){
+    static bool newMessage = false;
+    // send next initialization command to SPI slave until we leave init state
+    if (state == STATE_INIT && newMessage) {
         initConnectionSlowly();
     }
+    
     //Process any ACI commands or events
     serial_evt_t evnt;
     newMessage = rbc_mesh_evt_get(&evnt);
 
-    if(state == waitingForEvent && newMessage){
-        state = ready;
-    } 
-    
-  // react to command line interaction
-  actions_loop();
+    if(newMessage && evnt.opcode == SERIAL_EVT_OPCODE_CMD_RSP){
+        if (evnt.params.cmd_rsp.status != ACI_STATUS_SUCCESS)
+        {
+            Serial.print("Error response on cmd ");
+            Serial.print(evnt.params.cmd_rsp.command_opcode, HEX);
+            Serial.print(": ");
+            Serial.print(evnt.params.cmd_rsp.status, HEX);
+            Serial.println();
+        }
 
-}
-
-// handle incoming UART messages
-void serialEvent() {
-
-  while(Serial.available() > 0){
-    // get the new byte:
-    dummychar = (uint8_t)Serial.read();
-    if(stringComplete){
-      continue;
+        if (state == STATE_WAITING_FOR_EVT) {
+            state = STATE_READY;
+            // save the response value of SPI slave into buffer
+            // can be read via callback function
+            lastResponse = evnt.params.cmd_rsp.response.val_get.data[0];
+        }
     }
-    if (dummychar == '\n'){
-      // if the incoming character is a newline, set a flag
-      // so the main loop can do something about it
-      uart_buffer[stringIndex] = 0;
-      stringIndex--;
-      stringComplete = true;
-      continue;
-    }
-      
-    if(stringIndex > 19){
-      Serial.println("Serial input truncated");
-      stringIndex--;
-      stringComplete = true;
-      return;
-    }
-    // add it to the uart_buffer
-    uart_buffer[stringIndex] = dummychar;
-    stringIndex++;
-  }
 }

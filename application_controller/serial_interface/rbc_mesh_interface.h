@@ -145,4 +145,14 @@ bool rbc_mesh_evt_get(serial_evt_t* p_evt);
  */
 void rbc_mesh_hw_init(aci_pins_t* pins);
 
+/** @brief Transmit a reset command to the slave
+ *  @details 
+ *  The slave will do a software reset, calling NVIC_SystemReset(), effectively 
+ *  restarting the device, erasing all configuration and halting operation.
+ *  To resume operation, the initialization process has to be redone.
+ *  The command does not yield a command response, but the slave will transmit
+ *  a DEVICE_STARTED event when it is ready to receive initialization commands.
+ */
+void rbc_mesh_radio_reset();
+
 #endif //MESH_INTERFACE_H__
