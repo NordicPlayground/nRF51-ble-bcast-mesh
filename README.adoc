@@ -86,9 +86,13 @@ classic BLE SoftDevice connection, implemented in application space. The "BLE
 Gateway example" displays a way to achieve such behavior.
 
 == Architecture details
-link:docs/structure.adoc[Structure of the repository]
+link:docs/usage.adoc[Using the framework]
+
+- A brief introduction to the Trickle mechanic, and overview of the API and the internal structure of the system.
 
 link:docs/how_it_works.adoc[How the mesh works]
+
+- Detailed description of Trickle, the usage of the Softdevice and the on-air packets.
 
 == Forum
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
