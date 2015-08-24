@@ -152,7 +152,7 @@ void tc_on_ts_begin(void)
     radio_init(g_state.access_address, radio_idle_callback);
 }
 
-uint32_t tc_tx(uint8_t handle, uint16_t version, ble_gap_addr_t* origin_addr)
+uint32_t tc_tx(uint8_t handle, uint16_t version)
 {
     uint32_t error_code;
     mesh_packet_t* p_packet = NULL;
@@ -174,10 +174,13 @@ uint32_t tc_tx(uint8_t handle, uint16_t version, ble_gap_addr_t* origin_addr)
         mesh_packet_free(p_packet);
         return NRF_ERROR_INTERNAL;
     }
+    
+    ble_gap_addr_t my_addr;
+    sd_ble_gap_address_get(&my_addr);
 
     p_packet->header.length = MESH_PACKET_OVERHEAD + length;
-    p_packet->header.addr_type = origin_addr->addr_type;
-    memcpy(&p_packet->addr, &origin_addr->addr, BLE_GAP_ADDR_LEN);
+    p_packet->header.addr_type = my_addr.addr_type;
+    memcpy(&p_packet->addr, &my_addr.addr, BLE_GAP_ADDR_LEN);
     p_packet->header.type = BLE_PACKET_TYPE_ADV_NONCONN_IND;
     p_packet->payload.handle = handle;
     p_packet->payload.version = version;
@@ -221,8 +224,9 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     vh_data_status_t data_status = vh_compare_metadata(
             p_packet->payload.handle, 
             p_packet->payload.version,
-            crc,
-            &addr);
+            p_packet->payload.data,
+            p_packet->header.length - MESH_PACKET_OVERHEAD
+    );
     uint32_t error_code = NRF_SUCCESS;
 
     if (data_status != VH_DATA_STATUS_UNKNOWN)
@@ -232,8 +236,6 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
                 data_status, 
                 p_packet->payload.handle, 
                 p_packet->payload.version,
-                crc,
-                &addr,
                 timestamp
         );
         if (error_code != NRF_SUCCESS)
@@ -250,12 +252,10 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     switch (data_status)
     {
         case VH_DATA_STATUS_NEW:
-            error_code = mesh_srv_char_val_set(
+            mesh_srv_char_val_set(
                     p_packet->payload.handle, 
                     &p_packet->payload.data[0], 
                     p_packet->header.length - MESH_PACKET_OVERHEAD);
-            if (error_code != NRF_SUCCESS)
-                while(1); /* shouldn't happen after the vh has approved it */
 
             /* notify application */
             prepare_event(&evt, p_packet);
@@ -267,12 +267,10 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             break;
 
         case VH_DATA_STATUS_UPDATED:
-            error_code = mesh_srv_char_val_set(
+            mesh_srv_char_val_set(
                     p_packet->payload.handle, 
                     &p_packet->payload.data[0], 
                     p_packet->header.length - MESH_PACKET_OVERHEAD);
-            if (error_code != NRF_SUCCESS)
-                while(1); /* shouldn't happen after the vh has approved it */
 
             /* notify application */
             prepare_event(&evt, p_packet);

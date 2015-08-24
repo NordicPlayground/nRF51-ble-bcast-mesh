@@ -60,7 +60,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_MD_FLAGS_USED_POS          (0) /* Metadata flag: Used */
 #define MESH_MD_FLAGS_INITIALIZED_POS   (1) /* Metadata flag: Initialized */
 #define MESH_MD_FLAGS_IS_ORIGIN_POS     (2) /* Metadata flag: Is origin */
-#define MESH_MD_FLAGS_FAST_UPDATE_POS   (3) /* Metadata flag: Update as soon as possible */
 /******************************************************************************
 * Local typedefs
 ******************************************************************************/
@@ -69,8 +68,6 @@ typedef struct
     uint16_t version_number; /* value version */
     uint8_t char_value_handle; /* value handle */
     uint8_t flags; /* value flags */
-    uint32_t crc; /* previous value CRC */
-    ble_gap_addr_t last_sender_addr; /*previous value originator address */
     trickle_t trickle; /* trickle instance for mesh value */
 } metadata_t;
 
@@ -125,18 +122,15 @@ static void transmit_all_instances(uint64_t timestamp)
             handle -= g_md_set.handle_count;
 
         if ((g_md_set.md[handle].flags & (1 << MESH_MD_FLAGS_USED_POS)) &&
-            ((g_md_set.md[handle].trickle.t <= timestamp + ts_begin_time) ||
-             (g_md_set.md[handle].flags & (1 << MESH_MD_FLAGS_FAST_UPDATE_POS)))
+            ((g_md_set.md[handle].trickle.t <= timestamp + ts_begin_time))
         )
         {
             bool do_tx = false;
-            g_md_set.md[handle].flags &= ~(1 << MESH_MD_FLAGS_FAST_UPDATE_POS);
             trickle_tx_timeout(&g_md_set.md[handle].trickle, &do_tx, timestamp + ts_begin_time);
             if (do_tx)
             {
                 if (tc_tx(handle + 1 /* 1-indexed */,
-                            g_md_set.md[handle].version_number,
-                            (ble_gap_addr_t*) &g_md_set.md[handle].last_sender_addr) /* not packing only adds padding at the end of the struct */
+                            g_md_set.md[handle].version_number) /* not packing only adds padding at the end of the struct */
                         != NRF_SUCCESS)
                 {
                     /* the radio queue is full, tc will notify us when it's available again */
@@ -169,6 +163,20 @@ static void version_increase(uint16_t* version)
     }
 }
 
+/* compare payloads, assuming version number is equal */
+static bool payload_has_conflict(uint8_t handle, uint8_t* new_data, uint8_t len)
+{
+    uint8_t old_data[MAX_VALUE_LENGTH];
+    uint16_t old_len = MAX_VALUE_LENGTH;
+    
+    if (mesh_srv_char_val_get(handle, old_data, &old_len) != NRF_SUCCESS)
+        return true;
+    if (old_len != len)
+        return true;
+    
+    return (memcmp(old_data, new_data, len) != 0);
+}
+
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
@@ -187,11 +195,15 @@ uint32_t vh_init(uint8_t handle_count, uint32_t min_interval_us)
     g_md_set.handle_count = handle_count;
     
     trickle_setup(min_interval_us, MESH_TRICKLE_I_MAX, MESH_TRICKLE_K);
+    for (uint32_t i = 0; i < handle_count; ++i)
+    {
+        trickle_timer_reset(&g_md_set.md[i].trickle, 0);
+    }
 
     return NRF_SUCCESS;
 }
 
-vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t crc, ble_gap_addr_t* origin_addr)
+vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint8_t* incoming_data, uint8_t len)
 {
     if (!g_is_initialized)
         return VH_DATA_STATUS_UNKNOWN;
@@ -207,18 +219,15 @@ vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t 
 
     if (version == p_md->version_number)
     {
-        ble_gap_addr_t my_addr;
-        sd_ble_gap_address_get(&my_addr);
-
-        if ((memcmp(&origin_addr, &my_addr, sizeof(ble_gap_addr_t)) == 0) || 
-            (crc == p_md->crc) ||
-            (version == 0 && p_md->version_number == 0))
+        if (version > 0 && 
+            p_md->version_number > 0 &&
+            payload_has_conflict(handle, incoming_data, len))
         {
-            return VH_DATA_STATUS_SAME;
+            return VH_DATA_STATUS_CONFLICTING;
         }
         else
         {
-            return VH_DATA_STATUS_CONFLICTING;
+            return VH_DATA_STATUS_SAME;
         }
     }
     else if (uninitialized)
@@ -235,7 +244,7 @@ vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t 
             p_md->version_number >= MESH_VALUE_LOLLIPOP_LIMIT && 
             version >= MESH_VALUE_LOLLIPOP_LIMIT && 
             separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2
-        ) 
+        )
     )
     {
         return VH_DATA_STATUS_UPDATED;
@@ -246,7 +255,7 @@ vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t 
     }
 }
 
-uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t version, uint32_t crc, ble_gap_addr_t* origin, uint64_t timestamp)
+uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t version, uint64_t timestamp)
 {
     if (!g_is_initialized)
         return NRF_ERROR_INVALID_STATE;
@@ -259,23 +268,19 @@ uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t versio
     switch (status)
     {
         case VH_DATA_STATUS_NEW:
-            /* deliberate fallthrough */
-        
         case VH_DATA_STATUS_UPDATED:
             p_md->version_number = version;
-            p_md->crc = crc;
-            memcpy(&p_md->last_sender_addr, origin, sizeof(ble_gap_addr_t));
             /* deliberate fallthrough */
 
         case VH_DATA_STATUS_OLD:
         case VH_DATA_STATUS_CONFLICTING:
-            p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS);
+            p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS)
+                         | (1 << MESH_MD_FLAGS_USED_POS);
             trickle_rx_inconsistent(&p_md->trickle, ts_start_time + timestamp);
-            vh_order_update(timestamp);
+            vh_order_update(0);
             break;
 
         case VH_DATA_STATUS_SAME:
-            p_md->crc = crc; /* if we previously had an invalid crc because of a local update */
             trickle_rx_consistent(&p_md->trickle, ts_start_time + timestamp); 
             break;
 
@@ -296,7 +301,8 @@ vh_data_status_t vh_local_update(uint8_t handle)
     metadata_t* p_md = &g_md_set.md[handle-1]; /* to zero-indexed */
 
     vh_data_status_t status;
-    uint64_t time_now = timer_get_timestamp() + timeslot_get_global_time();
+    const uint64_t ts_time = timer_get_timestamp();
+    const uint64_t time_now = ts_time + timeslot_get_global_time();
 
     if (p_md->flags & (1 << MESH_MD_FLAGS_INITIALIZED_POS))
     {
@@ -309,17 +315,11 @@ vh_data_status_t vh_local_update(uint8_t handle)
         trickle_timer_reset(&g_md_set.md[handle - 1].trickle, time_now);
     }
     p_md->flags |= (1 << MESH_MD_FLAGS_INITIALIZED_POS)
-                |  (1 << MESH_MD_FLAGS_USED_POS)
-                |  (1 << MESH_MD_FLAGS_FAST_UPDATE_POS); /* force immediate transmit */
+                |  (1 << MESH_MD_FLAGS_USED_POS);
 
     version_increase((uint16_t*) &p_md->version_number);
 
-    p_md->crc = 0xFFFFFFFF; /* invalid crc */
-    ble_gap_addr_t my_addr;
-    sd_ble_gap_address_get(&my_addr);
-    memcpy(&p_md->last_sender_addr, &my_addr, sizeof(ble_gap_addr_t));
-
-    vh_order_update(0);
+    vh_order_update(ts_time);
 
     return status;
 }
@@ -364,17 +364,6 @@ uint32_t vh_get_gatts_handle(uint8_t value_handle, uint8_t* gatts_handle)
     return NRF_SUCCESS;
 }
 
-uint32_t vh_get_origin_addr(uint8_t handle, ble_gap_addr_t* addr)
-{
-    if (!g_is_initialized)
-        return NRF_ERROR_INVALID_STATE;
-    if (handle > g_md_set.handle_count || handle == 0)
-        return NRF_ERROR_INVALID_ADDR;
-    
-    memcpy(addr, &g_md_set.md[handle].last_sender_addr, sizeof(ble_gap_addr_t));
-    return NRF_SUCCESS;
-}
-
 uint32_t vh_value_enable(uint8_t handle)
 {
     if (!g_is_initialized)
@@ -382,15 +371,17 @@ uint32_t vh_value_enable(uint8_t handle)
     if (handle > g_md_set.handle_count || handle == 0)
         return NRF_ERROR_INVALID_ADDR;
     
+    const uint64_t ts_time = timer_get_timestamp();
+    const uint64_t time_now = ts_time + timeslot_get_global_time();
+
     
-    trickle_timer_reset(&g_md_set.md[handle - 1].trickle, timer_get_timestamp() + timeslot_get_global_time());
+    trickle_timer_reset(&g_md_set.md[handle - 1].trickle, time_now);
 
     g_md_set.md[handle - 1].flags |=
               (1 << MESH_MD_FLAGS_INITIALIZED_POS)
-            | (1 << MESH_MD_FLAGS_USED_POS)
-            | (1 << MESH_MD_FLAGS_FAST_UPDATE_POS);
+            | (1 << MESH_MD_FLAGS_USED_POS);
     
-    vh_order_update(0);
+    vh_order_update(ts_time);
 
     return NRF_SUCCESS;
 }

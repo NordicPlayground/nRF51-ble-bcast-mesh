@@ -148,12 +148,8 @@ uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len, ble_gap_addr_t* origin_addr)
+uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
 {
-    uint32_t error_code;
-    error_code = vh_get_origin_addr(handle, origin_addr);
-    if (error_code != NRF_SUCCESS)
-        return error_code;
     return mesh_srv_char_val_get(handle, data, len);
 }
 

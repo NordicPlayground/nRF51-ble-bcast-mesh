@@ -222,9 +222,6 @@ uint32_t rbc_mesh_value_disable(uint8_t handle);
 * @param[out] data Databuffer to be copied into the value slot. Must be at least
 *    RBC_VALUE_MAX_LEN long
 * @param[out] len Length of the copied data. Will not exceed RBC_VALUE_MAX_LEN.
-* @param[out] origin_addr BLE GAP address of the node that first broadcasted 
-*   the current version of this value. Set to NULL if the address is not of 
-*   interest.
 * 
 * @return NRF_SUCCESS the value has been successfully fetched.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
@@ -233,64 +230,7 @@ uint32_t rbc_mesh_value_disable(uint8_t handle);
 */
 uint32_t rbc_mesh_value_get(uint8_t handle, 
     uint8_t* data, 
-    uint16_t* len, 
-    ble_gap_addr_t* origin_addr);
-
-/**
-* @brief Get current mesh access address
-* 
-* @param[out] access_addr Pointer location to put access address in
-* 
-* @return NRF_SUCCESS the value was fetched successfully
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
-*/
-uint32_t rbc_mesh_access_address_get(uint32_t* access_address);
-
-/**
-* @brief Get current mesh channel
-* 
-* @param[out] ch Pointer location to put mesh channel in 
-*
-* @return NRF_SUCCESS the value was fetched successfully
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
-*/
-uint32_t rbc_mesh_channel_get(uint8_t* ch);
-
-/**
-* @brief Get the amount of allocated handle-value pairs 
-* 
-* @param[out] handle_count Pointer location to put handle count in 
-*
-* @return NRF_SUCCESS the value was fetched successfully
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
-*/
-uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
-
-/**
-* @brief Get the mesh minimum advertise interval in ms
-*
-* @param[out] adv_int_ms Pointer location to put adv int in
-*
-* @return NRF_SUCCESS the value was fetched successfully
- * @brief Get the contents of the data array pointed to by the provided handle
-*
-* @param[in] handle The handle of the value we want to update. Is mesh-global.
-* @param[out] data Databuffer to be copied into the value slot. Must be at least
-*    RBC_VALUE_MAX_LEN long
-* @param[out] len Length of the copied data. Will not exceed RBC_VALUE_MAX_LEN.
-* @param[out] origin_addr BLE GAP address of the node that first broadcasted 
-*   the current version of this value. Set to NULL if the address is not of 
-*   interest.
-* 
-* @return NRF_SUCCESS the value has been successfully fetched.
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
-*    in @ref rbc_mesh_init.
-*/
-uint32_t rbc_mesh_value_get(uint8_t handle, 
-    uint8_t* data, 
-    uint16_t* len, 
-    ble_gap_addr_t* origin_addr);
+    uint16_t* len);
 
 /**
 * @brief Get current mesh access address

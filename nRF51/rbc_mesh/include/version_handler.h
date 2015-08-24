@@ -53,9 +53,9 @@ typedef enum
 
 uint32_t vh_init(uint8_t handle_count, uint32_t min_interval_us);
 
-vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint32_t crc, ble_gap_addr_t* origin_addr);
+vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint8_t* incoming_data, uint8_t len);
 
-uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t version, uint32_t crc, ble_gap_addr_t* origin, uint64_t timestamp);
+uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t version, uint64_t timestamp);
 
 vh_data_status_t vh_local_update(uint8_t handle);
 
@@ -66,8 +66,6 @@ uint32_t vh_order_update(uint64_t time_now);
 uint32_t vh_set_gatts_handle(uint8_t value_handle, uint8_t gatts_handle);
 
 uint32_t vh_get_gatts_handle(uint8_t value_handle, uint8_t* gatts_handle);
-
-uint32_t vh_get_origin_addr(uint8_t handle, ble_gap_addr_t* addr);
 
 uint32_t vh_value_enable(uint8_t handle);
 

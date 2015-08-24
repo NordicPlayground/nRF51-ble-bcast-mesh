@@ -54,7 +54,7 @@ void tc_on_ts_begin(void);
 * @brief: assemble a packet by getting data from server based on params,
 *   and place it on the radio queue
 */
-uint32_t tc_tx(uint8_t handle, uint16_t version, ble_gap_addr_t* origin_addr);
+uint32_t tc_tx(uint8_t handle, uint16_t version);
 
 void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp);
 #endif /* _TRANSPORT_CONTROL_H__ */
