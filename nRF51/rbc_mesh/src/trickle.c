@@ -118,7 +118,7 @@ static void refresh_t(trickle_t* trickle)
 {
     uint32_t rand_number = rand();
     
-    uint64_t i_half = trickle->i_relative / 2; 
+    uint64_t i_half = trickle->i_relative / 2;
     trickle->t = trickle->i + i_half + (rand_number % i_half);
 }
 
@@ -174,8 +174,8 @@ void trickle_timer_reset(trickle_t* trickle, uint64_t time_now)
     trickle->i = time_now;
     trickle->i_relative = g_i_min;
 
-    trickle_interval_begin(trickle);
     refresh_t(trickle);
+    trickle_interval_begin(trickle);
 }
 
 void trickle_tx_register(trickle_t* trickle)
