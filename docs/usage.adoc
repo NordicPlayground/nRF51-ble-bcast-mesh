@@ -1,3 +1,23 @@
+= Understanding the inner workings
+
+In order to use the framework efficiently, a basic understanding of the employed transmission scheme is important. This section aims to provide a practical introduction to the underlying mechanics, while link:./how_it_works.adoc[the "How it works" document] provides a more thorough description of the details.
+
+== The Trickle algorithm
+
+The http://tools.ietf.org/html/rfc6206[Trickle algorithm] is a flood control algorithm for wireless networks. It helps reduce the amount of redundant traffic in the network by adapting the rate of transmissions to the network density. 
+
+The bcast-mesh is a _rebroadcasting_ mesh, where all devices acts as repeaters, rebroadcasting all incoming messages. In order to make sure that all devices in the mesh are up to date on the latest values, the devices never stop repeating the last messages. Every now and then, a device will wake up and transmit a the same message over and over. The interval at which a device retransmits a value is decided by the _Trickle_ algorithm and the setup parameters provided by the application. _Trickle_ states that the transmissions should be repeated forever, with exponentially increasing intervals. The lower boundary for these intervals are set by the application throught the `adv_int_ms` parameter in the `rbc_mesh_init()` function. In the example applications, this lower boundary is set to 100ms, which means that the device will wait no longer than 100ms to retransmit an incoming value. After the first retransmit, the framework will double the interval to 200ms, then wake up to transmit again once that interval has expired. The interval will keep doubling like this until it hits an upper boundary of *2000 x adv_int_ms*. When the interval hits this upper limit, it will stay there and the device will keep repeating the message over and over forever. If the device gets a new value from the application (or another device), it will reset it interval back to the lower boundary, `adv_int_ms`.
+
+In order to reduce the amount of packet collisions, the _Trickle_ algorithm also randomizes the transmission times within each interval. More specifically, a retransmission will occur at a random time in the second half of the current interval. So, say that you're using the default `adv_int_ms` of 100ms, the first retransmission of a value will occur sometime between 50 and 100ms after the value was first received. The second retransmission, which operates with an interval of 200ms, will occur after 200 to 300ms after the value was received.
+
+The bcast-mesh operates with one instance of these intervals per data value. Each data value is rebroadcasted to the network with exponentially increasing intervals, but when a data value gets an update, only that value's intervals will reset to `adv_int_ms`. The rest of the data value intervals will continue on their path towards the upper boundary, unaffected by the reset in the other values. This allows less frequently used values to retain their high intervals (and therefore low presence in the network).
+
+== Example usage: Implementing heartbeat functionality
+
+As an example for how to use the _Trickle_ mechanism correctly we can take a look at a heartbeat application. A heartbeat application will announce its presence on the network with regular intervals, allowing for other devices to discover it. In order to ensure that each heartbeat message is propagated to the rest of the network, a device must set its rebroadcast lower boundary (`adv_int_ms`) to a significantly lower interval than the heartbeat itself. If the device is to transmit a new heartbeat every N seconds, the `adv_int_ms` parameter must be set to a significantly lower interval, allowing the device to ensure that its neighbors gets the old heartbeat before it is overwritten by its successor. Preferrably, the device should be allowed to transmit at least two or three times before the heartbeat message is replaced, which equals an `adv_int_ms` of around 1-1.5 seconds. Note that the `adv_int_ms` parameter is shared by all data values on the device, and should cater to the most frequently updated value.
+
+Note that the rebroadcast in itself cannot serve as a heartbeat signal, as the framework will filter out repeated messages in the receiving nodes.
+
 = Structure
 The project is split into two parts: _/nRF51/_ and _/application_controller/_. 
 
