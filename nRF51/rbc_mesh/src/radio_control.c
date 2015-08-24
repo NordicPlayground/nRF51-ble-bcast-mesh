@@ -272,16 +272,10 @@ static void radio_transition_end(bool successful_transmission)
         if (prev_evt.event_type == RADIO_EVENT_TYPE_RX || 
             prev_evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
-
+            (*prev_evt.callback.rx)(prev_evt.packet_ptr, successful_transmission && crc_status, crc);
+            
             if (successful_transmission && crc_status)
-            {
-                (*prev_evt.callback.rx)(prev_evt.packet_ptr, true, crc);
                 NRF_RADIO->EVENTS_END = 0;
-            }
-            else
-            {
-                (*prev_evt.callback.rx)(prev_evt.packet_ptr, false, crc);
-            }
         }
         else
         {
