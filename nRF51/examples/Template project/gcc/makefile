@@ -9,7 +9,7 @@
 #TARGET_BOARD         ?= BOARD_PCA10028
 TARGET_BOARD         ?= BOARD_PCA10031
 
-USE_RBC_MESH_SERIAL  := "no"
+USE_RBC_MESH_SERIAL  ?= "no"
 
 #------------------------------------------------------------------------------
 # Define relative paths to SDK components
