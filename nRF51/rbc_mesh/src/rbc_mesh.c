@@ -56,7 +56,7 @@ static bool g_is_initialized = false;
 static uint32_t g_access_addr;
 static uint8_t g_channel;
 static uint8_t g_handle_count;
-static uint32_t g_adv_int_ms;
+static uint32_t g_interval_min_ms;
 
 
 /*****************************************************************************
@@ -78,10 +78,15 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return NRF_ERROR_SOFTDEVICE_NOT_ENABLED;
     }
 
-
     if (g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
+    }
+
+    if (init_params.interval_min_ms < RBC_MESH_INTERVAL_MIN_MIN_MS ||
+        init_params.interval_min_ms > RBC_MESH_INTERVAL_MIN_MAX_MS)
+    {
+        return NRF_ERROR_INVALID_PARAM;
     }
 
     
@@ -90,7 +95,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     tc_init(init_params.access_addr, init_params.channel);
 
     uint32_t error_code;
-    error_code = vh_init(init_params.handle_count, init_params.adv_int_ms * 1000);
+    error_code = vh_init(init_params.handle_count, init_params.interval_min_ms * 1000);
     
     if (error_code != NRF_SUCCESS)
     {
@@ -100,7 +105,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     error_code = mesh_srv_init(init_params.handle_count,
                                 init_params.access_addr,
                                 init_params.channel,
-                                init_params.adv_int_ms);
+                                init_params.interval_min_ms);
 
     if (error_code != NRF_SUCCESS)
     {
@@ -113,7 +118,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     g_access_addr = init_params.access_addr;
     g_channel = init_params.channel;
     g_handle_count = init_params.handle_count;
-    g_adv_int_ms = init_params.adv_int_ms;
+    g_interval_min_ms = init_params.interval_min_ms;
 
     g_is_initialized = true;
 
@@ -189,14 +194,14 @@ uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms)
+uint32_t rbc_mesh_interval_min_get(uint32_t* interval_min_ms)
 {
     if (!g_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
 
-    *adv_int_ms = g_adv_int_ms;
+    *interval_min_ms = g_interval_min_ms;
 
     return NRF_SUCCESS;
 }

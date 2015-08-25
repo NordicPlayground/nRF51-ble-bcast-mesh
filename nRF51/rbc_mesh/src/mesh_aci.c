@@ -114,7 +114,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             init_params.access_addr = serial_cmd->params.init.access_addr;
             init_params.channel = serial_cmd->params.init.channel;
             init_params.handle_count = serial_cmd->params.init.handle_count;
-            init_params.adv_int_ms = serial_cmd->params.init.adv_int_min;
+            init_params.interval_min_ms = serial_cmd->params.init.interval_min_ms;
             init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
             init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
 
@@ -324,9 +324,9 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         }
         else
         {
-            uint32_t adv_int;
-            uint32_t error_code = rbc_mesh_adv_int_get(&adv_int);
-            serial_evt.params.cmd_rsp.response.adv_int.adv_int = adv_int;
+            uint32_t interval_min_ms;
+            uint32_t error_code = rbc_mesh_interval_min_ms_get(&interval_min_ms);
+            serial_evt.params.cmd_rsp.response.adv_int.adv_int = interval_min_ms;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 

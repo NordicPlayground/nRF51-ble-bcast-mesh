@@ -41,8 +41,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ble.h"
 
 #define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
-#define RBC_MESH_ADV_INT_MIN             (5)
-#define RBC_MESH_ADV_INT_MAX             (60000)
+#define RBC_MESH_INTERVAL_MIN_MIN_MS     (5)
+#define RBC_MESH_INTERVAL_MIN_MAX_MS     (60000)
 #define RBC_MESH_VALUE_MAX_LEN           (28)
 /** 
 * @brief Rebroadcast value handle type 
@@ -127,7 +127,7 @@ typedef enum
 *    channels. Must be between 1 and 39.
 * @param[in] handle_count The maximum number of handle-value pairs available to the
 *    application. May not be higher than 155 due to BLE namespace requirements
-* @param[in] adv_int_ms The minimum adv_interval for nodes in the network in 
+* @param[in] interval_min_ms The minimum tx interval for nodes in the network in 
 *    millis. Must be between 5 and 60000.
 * @param radio_mode The radio mode the mesh shall operate on. Must be the same
 *    across all nodes in the mesh. NOT YET IMPLEMENTED
@@ -138,7 +138,7 @@ typedef struct
     uint32_t access_addr;
     uint8_t channel;
     uint8_t handle_count;
-    uint32_t adv_int_ms;
+    uint32_t interval_min_ms;
     rbc_mesh_radio_mode_t radio_mode;
     rbc_mesh_packet_format_t packet_format;
 } rbc_mesh_init_params_t;

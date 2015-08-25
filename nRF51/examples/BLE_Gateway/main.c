@@ -181,12 +181,10 @@ int main(void)
     mesh_aci_init();
 
 #else
-    /* Enable mesh framework on channel 37, min adv interval at 100ms, 
-        2 characteristics */
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr = 0xA541A68F;
-    init_params.adv_int_ms = 100;
+    init_params.interval_min_ms = 100;
     init_params.channel = 38;
     init_params.handle_count = 2;
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
