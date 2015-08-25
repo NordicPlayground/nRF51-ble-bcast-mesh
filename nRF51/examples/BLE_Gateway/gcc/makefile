@@ -9,8 +9,8 @@
 TARGET_BOARD         ?= BOARD_PCA10028
 #TARGET_BOARD         ?= BOARD_PCA10031
 
-USE_RBC_MESH_SERIAL  := "no"
-USE_BUTTONS          := "no"
+USE_RBC_MESH_SERIAL  ?= "no"
+USE_BUTTONS          ?= "no"
 
 #------------------------------------------------------------------------------
 # Define relative paths to SDK components
@@ -21,7 +21,20 @@ COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
 LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
-OUTPUT_NAME   := rbc_gatt_$(TARGET_BOARD)
+
+ifeq ($(USE_BUTTONS), "yes")
+	BUTTON_STRING="_buttons"
+else
+	BUTTON_STRING=""
+endif
+
+ifeq ($(USE_RBC_MESH_SERIAL), "yes")
+	SERIAL_STRING="_serial"
+else
+	SERIAL_STRING=""
+endif
+
+OUTPUT_NAME := rbc_gatt$(BUTTON_STRING)$(SERIAL_STRING)_$(TARGET_BOARD)
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.

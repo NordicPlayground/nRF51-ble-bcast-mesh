@@ -20,7 +20,15 @@ COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
 LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
-OUTPUT_NAME   := rbc_mesh_$(TARGET_BOARD)
+
+ifeq ($(USE_RBC_MESH_SERIAL), "yes")
+	SERIAL_STRING := "_serial"
+else
+	SERIAL_STRING := ""
+endif
+
+OUTPUT_NAME := rbc_mesh$(SERIAL_STRING)_$(TARGET_BOARD)
+
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
