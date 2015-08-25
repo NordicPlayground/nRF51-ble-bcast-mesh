@@ -55,8 +55,13 @@ I = init framework (will not occur without SPI)
 Events ends with a CRLF.
 
 == UART settings:
+
 Baud: 460800
+
 Data bits: 8
+
 Parity bit: no
+
 Stop bit: 1
+
 Flow control enabled (RTS/CTS)

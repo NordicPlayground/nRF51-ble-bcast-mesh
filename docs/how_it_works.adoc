@@ -137,13 +137,9 @@ Softdevice Specification, available on the Nordic Semiconductor homepage.
 
 == Air interface packets
 All Mesh-related packets are broadcasted as regular BLE Nonconnectable
-Advertisements, with a few differences: The Access address is set by the user,
+Advertisements, with a single exception: The Access address is set by the user,
 and does not have to match the Bluetooth Specification advertisement access
-address. In addition, the Advertisement Address (GAP address) field provided after
-the packet header, does not necessarily contain the Advertisement Address of
-the node broadcasting the message, but rather the address of the mesh node at
-which the indicated version of the value-handle pair first appeared. The
-packet structure is illustrated below.
+address. The packet structure is illustrated below.
 
 image::packet_format.png[Packet format on air]
 
