@@ -164,7 +164,7 @@ void GPIOTE_IRQHandler(void)
         {
             uint8_t val[28];
             uint16_t len;
-            APP_ERROR_CHECK(rbc_mesh_value_get(i + 1, val, &len, NULL));
+            APP_ERROR_CHECK(rbc_mesh_value_get(i + 1, val, &len));
             val[0] = !val[0];
             led_config(i + 1, val[0]);
             APP_ERROR_CHECK(rbc_mesh_value_set(i + 1, &val[0], 1));

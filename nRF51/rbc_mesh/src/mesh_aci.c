@@ -215,15 +215,13 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         }
         else
         {
-            ble_gap_addr_t origin_addr;
             uint32_t error_code = rbc_mesh_value_get(serial_cmd->params.value_get.handle,
                                                         serial_evt.params.cmd_rsp.response.val_get.data,
-                                                        (uint16_t*) &serial_evt.length,
-                                                        &origin_addr);
+                                                        (uint16_t*) &serial_evt.length);
 
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
 
-            memcpy(serial_evt.params.cmd_rsp.response.val_get.origin_addr, origin_addr.addr, BLE_GAP_ADDR_LEN);
+            memset(serial_evt.params.cmd_rsp.response.val_get.origin_addr, 0, BLE_GAP_ADDR_LEN);
             serial_evt.params.cmd_rsp.response.val_get.addr_type = ADDR_TYPE_BLE_GAP_ADV_ADDR;
             serial_evt.params.cmd_rsp.response.val_get.handle = serial_cmd->params.value_get.handle;
             serial_evt.length += 3 + 1 + 1 + 6; /* opcode + command + status + handle + addr_type + addr */
