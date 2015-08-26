@@ -48,7 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @brief trickle instance type. Contains all values necessary for maintaining
 *   an isolated version of the algorithm
 */
-typedef __packed struct
+typedef __packed_armcc struct
 {
     uint64_t        t;              /* Absolute value of t. Equals g_trickle_time (at set time) + t_relative */
     uint64_t        i;              /* Absolute value of i. Equals g_trickle_time (at set time) + i_relative */
