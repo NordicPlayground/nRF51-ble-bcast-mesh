@@ -57,6 +57,10 @@ typedef enum
     SERIAL_CMD_OPCODE_CHANNEL_GET           = 0x7D,
     SERIAL_CMD_OPCODE_HANDLE_COUNT_GET      = 0x7E,
     SERIAL_CMD_OPCODE_ADV_INT_GET           = 0x7F,
+
+    SERIAL_CMD_OPCODE_DFU_BEGIN             = 0x20,
+    SERIAL_CMD_OPCODE_DFU_PACKET            = 0x21,
+    SERIAL_CMD_OPCODE_DFU_END               = 0x22,
 } __packed __packed_gcc serial_cmd_opcode_t;
 
 
@@ -95,6 +99,29 @@ typedef __packed struct
     uint8_t handle;
 } __packed_gcc serial_cmd_params_value_get_t;
 
+typedef __packed struct
+{
+    uint32_t start_addr;
+    uint32_t length;
+    uint32_t packet_count;
+    uint8_t dfu_type;
+    __packed union
+    {
+        uint16_t sd_firmware_id;
+        __packed struct
+        {
+            uint8_t major;
+            uint8_t minor1;
+            uint8_t minor2;
+        } __packed_gcc app_version;
+    } __packed_gcc version;
+} __packed_gcc serial_cmd_params_dfu_begin_t;
+
+typedef __packed struct
+{
+    uint32_t start_addr;
+    uint8_t data[16];
+} __packed_gcc serial_cmd_params_dfu_packet_t;
 
 typedef __packed struct 
 {
@@ -108,6 +135,8 @@ typedef __packed struct
         serial_cmd_params_value_enable_t    value_enable;
         serial_cmd_params_value_disable_t   value_disable;
         serial_cmd_params_value_get_t       value_get;
+        serial_cmd_params_dfu_begin_t       dfu_begin;
+        serial_cmd_params_dfu_packet_t      dfu_packet;
     } __packed_gcc params;
 } __packed_gcc  serial_cmd_t;
 
