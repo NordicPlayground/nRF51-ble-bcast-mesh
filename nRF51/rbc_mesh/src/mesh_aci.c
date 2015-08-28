@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "event_handler.h"
 #include "timeslot_handler.h"
 #include "version.h"
+#include "dfu.h"
 
 #include <string.h>
 
@@ -64,6 +65,10 @@ static aci_status_code_t error_code_translate(uint32_t nrf_error_code)
             return ACI_STATUS_ERROR_INVALID_PARAMETER;
         case NRF_ERROR_INVALID_STATE:
             return ACI_STATUS_ERROR_DEVICE_STATE_INVALID;
+        case NRF_ERROR_INVALID_DATA:
+            return ACI_STATUS_ERROR_INVALID_DATA;
+        case NRF_ERROR_INVALID_ADDR:
+            return ACI_STATUS_ERROR_INVALID_DATA;
         case NRF_ERROR_SOFTDEVICE_NOT_ENABLED:
             return ACI_STATUS_ERROR_BUSY;
         case NRF_ERROR_INVALID_LENGTH:
@@ -215,7 +220,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         }
         else
         {
-            uint32_t error_code = rbc_mesh_value_get(serial_cmd->params.value_get.handle,
+            error_code = rbc_mesh_value_get(serial_cmd->params.value_get.handle,
                                                         serial_evt.params.cmd_rsp.response.val_get.data,
                                                         (uint16_t*) &serial_evt.length);
 
@@ -264,7 +269,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         {
             uint32_t access_addr;
 
-            uint32_t error_code = rbc_mesh_access_address_get(&access_addr);
+            error_code = rbc_mesh_access_address_get(&access_addr);
             serial_evt.params.cmd_rsp.response.access_addr.access_addr = access_addr;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
@@ -284,7 +289,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         else
         {
             uint8_t channel;
-            uint32_t error_code = rbc_mesh_channel_get(&channel);
+            error_code = rbc_mesh_channel_get(&channel);
             serial_evt.params.cmd_rsp.response.channel.channel = channel;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
@@ -305,7 +310,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         else
         {
             uint8_t handle_count;
-            uint32_t error_code = rbc_mesh_handle_count_get(&handle_count);
+            error_code = rbc_mesh_handle_count_get(&handle_count);
             serial_evt.params.cmd_rsp.response.handle_count.handle_count = handle_count;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
@@ -325,11 +330,51 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         else
         {
             uint32_t interval_min_ms;
-            uint32_t error_code = rbc_mesh_interval_min_ms_get(&interval_min_ms);
+            error_code = rbc_mesh_interval_min_ms_get(&interval_min_ms);
             serial_evt.params.cmd_rsp.response.adv_int.adv_int = interval_min_ms;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 
+        serial_handler_event_send(&serial_evt);
+        break;
+
+    case SERIAL_CMD_OPCODE_DFU_BEGIN:
+        {
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+
+            dfu_bootloader_info_t bl_info;
+            bl_info.size = serial_cmd->params.dfu_begin.length;
+            bl_info.dfu_type = (dfu_type_t) serial_cmd->params.dfu_begin.dfu_type;
+            bl_info.start_addr = serial_cmd->params.dfu_begin.start_addr;
+            bl_info.app_id = serial_cmd->params.dfu_begin.version.app_id;
+            bl_info.image_crc = serial_cmd->params.dfu_begin.crc16;
+
+            error_code = dfu_transfer_begin(&bl_info);
+
+            serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+            serial_handler_event_send(&serial_evt);
+        }
+        break;
+
+    case SERIAL_CMD_OPCODE_DFU_PACKET:
+        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+
+        error_code = dfu_transfer_data(serial_cmd->params.dfu_packet.start_addr, serial_cmd->length - 6, serial_cmd->params.dfu_packet.data);
+
+        serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+        serial_handler_event_send(&serial_evt);
+        break;
+
+    case SERIAL_CMD_OPCODE_DFU_END:
+        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+
+        error_code = dfu_end();
+
+        /* only gets here if there's an error or the dfu was a bootloader */
+        serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         serial_handler_event_send(&serial_evt);
         break;
 
