@@ -105,16 +105,14 @@ typedef __packed struct
     uint32_t length;
     uint32_t packet_count;
     uint8_t dfu_type;
+    uint16_t crc16;
     __packed union
     {
         uint16_t sd_firmware_id;
-        __packed struct
-        {
-            uint8_t major;
-            uint8_t minor1;
-            uint8_t minor2;
-        } __packed_gcc app_version;
+        uint16_t bootloader_id;
+        uint32_t app_id;
     } __packed_gcc version;
+
 } __packed_gcc serial_cmd_params_dfu_begin_t;
 
 typedef __packed struct
