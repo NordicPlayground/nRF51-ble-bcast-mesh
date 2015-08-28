@@ -38,10 +38,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_flash.h"
 #include "nrf_sdm.h"
 #include "bootloader_util.h"
+#include "app_error.h"
 
 #include "nrf51.h"
 #include <stdbool.h>
+#include <string.h>
 
+#define MAX_NUMBER_INTERRUPTS   (32)
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
@@ -91,7 +94,7 @@ static void interrupts_disable(void)
     // Loop from interrupt 0 for disabling of all interrupts.
     for (irq = 0; irq < MAX_NUMBER_INTERRUPTS; irq++)
     {
-        if (interrupt_setting_mask & (IRQ_ENABLED << irq))
+        if (interrupt_setting_mask & (1 << irq))
         {
             // The interrupt was enabled, hence disable it.
             NVIC_DisableIRQ((IRQn_Type)irq);
@@ -153,7 +156,7 @@ uint32_t dfu_transfer_begin(dfu_bootloader_info_t* bl_info)
 
     /* store bootloader info in last page */
     nrf_flash_erase((uint32_t*) BOOTLOADER_INFO_ADDRESS, PAGE_SIZE);
-    nrf_flash_store((uint32_t*) BOOTLOADER_INFO_ADDRESS, bl_info, sizeof(dfu_bootloader_info_t), 0);
+    nrf_flash_store((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint8_t*) bl_info, sizeof(dfu_bootloader_info_t), 0);
 
     /* make ram copy */
     memcpy(&g_bl_info, bl_info, sizeof(dfu_bootloader_info_t));
@@ -204,6 +207,7 @@ uint32_t dfu_end(void)
         /* Jesus, take the wheel */
         start_bootloader();
     }
-
+    
+    return NRF_SUCCESS;
 }
 
