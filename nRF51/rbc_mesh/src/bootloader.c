@@ -78,8 +78,12 @@ static bool bank_is_valid(const uint8_t* bank_start, uint32_t size, uint16_t ban
 
 /* generic application restart. Never returns */
 static void exit_bootloader(void)
-{
-    NVIC_SystemReset();
+{   
+    uint32_t err_code = sd_softdevice_vector_table_base_set(APP_START_ADDRESS);
+    APP_ERROR_CHECK(err_code);
+
+    interrupts_disable();
+    bootloader_util_app_start(APP_START_ADDRESS);
 }
 
 /*****************************************************************************
@@ -99,4 +103,6 @@ void main(void)
     /* do the flash */
     nrf_flash_erase((uint32_t*) g_bl_info.start_addr, g_bl_info.size);
     nrf_flash_store((uint32_t*) g_bl_info.start_addr, (uint8_t*) g_bl_info.bank_addr, g_bl_info.size, 0);
+
+    exit_bootloader();
 }
