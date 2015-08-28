@@ -58,7 +58,7 @@ typedef struct
 #define BOOTLOADER_MAX_SIZE         (BOOTLOADER_INFO_ADDRESS - BOOTLOADER_START_ADDRESS)
 
 #define DFU_SD_BANK_ADDRESS         (BOOTLOADER_START_ADDRESS / 2)
-#define DFU_SD_MAX_SIZE             (BOOTLOADER_START_ADDRESS - DFU_BANK_ADDRESS)
+#define DFU_SD_MAX_SIZE             (BOOTLOADER_START_ADDRESS - DFU_SD_BANK_ADDRESS)
 
 #define DFU_APP_BANK_ADDRESS        ((BOOTLOADER_START_ADDRESS - APP_START_ADDRESS) / 2 + APP_START_ADDRESS)
 #define DFU_APP_MAX_SIZE            (BOOTLOADER_START_ADDRESS - DFU_APP_BANK_ADDRESS)
@@ -79,7 +79,7 @@ typedef struct
     dfu_type_t dfu_type; 
     uint32_t start_addr;
     uint32_t app_id;
-    uint32_t bank_addr;
+    uint32_t bank_addr; /* ignored by fw */
     uint16_t image_crc;
 } dfu_bootloader_info_t;
 
