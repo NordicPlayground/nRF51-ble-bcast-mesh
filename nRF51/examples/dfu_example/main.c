@@ -77,51 +77,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     } while(0)
 
 #define _LOG_BUFFER(buf, len) do{\
-        uint8_t* c = buf;\
-        uint8_t length = len;\
-        while (length--)\
-            app_uart_put(*(c++));\
+        for (uint32_t i = 0; i < len; ++i)\
+            app_uart_put(buf[i]);\
     } while(0)
 
 #endif
 
-/** @brief parse a number from a string (similar to std::atoi) */
-static uint8_t get_num(uint8_t** buf, uint32_t* len)
-{
-    uint8_t num = 0;
-    uint8_t* p = *buf;
-    
-    while (*p >= '0' && *p <= '9') 
-    {
-        num *= 10;
-        num += *p - '0';
-        p++;
-        (*len)--;
-    }
-    *buf = p;
-    return num;
-}
-    
-/** @brief Parse an incoming set command */
-static void parse_set(uint8_t* buf, uint32_t* len, uint8_t* handle, uint8_t** payload)
-{
-    *handle = 0;
-    uint8_t* p = buf;
-    
-    while (*p == ' ') 
-    {
-        (*len)--;
-        p++;
-    }
-    *handle = get_num(&p, len);
-    while (*p == ' ') 
-    {
-        (*len)--;
-        p++;
-    }
-    (*len)--;
-    *payload = p;
-}
 
 /** 
 * @brief Handle an incoming command, and act accordingly.
@@ -133,26 +94,52 @@ static void cmd_rx(uint8_t* cmd, uint32_t len)
     
     uint32_t length = cmd[0];
     uint8_t opcode = cmd[1];
+    uint32_t error;
     switch (opcode)
     {
         case 0x20: /* begin */
         {
             dfu_bootloader_info_t bl_info;
-            bl_info.bank_addr = *((uint32_t*) &cmd[2]);
-            bl_info.size = *((uint32_t*) &cmd[6]);
-            bl_info.dfu_type = cmd[10];
-            dfu_transfer_begin(&bl_info);
+            memcpy(&bl_info.start_addr, &cmd[2], 4);
+            memcpy(&bl_info.size, &cmd[6], 4);
+            bl_info.dfu_type = (dfu_type_t) cmd[10];
+            bl_info.using_crc = 0;
+            bl_info.app_id = 0;
+            error = dfu_transfer_begin(&bl_info);
         }
             break;
         case 0x21: /* data */
-            
+        {
+            uint32_t addr;
+            memcpy(&addr, &cmd[2], 4);
+            error = dfu_transfer_data(addr, length - 7, &cmd[8]);
+        }
             break; 
         case 0x22: /* end */
-            
+            error = dfu_end();
+            break;
+        case 0x02: /* echo */
+        {
+            uint8_t echo_reply[32];
+            echo_reply[0] = length;
+            echo_reply[1] = 0x82;
+            memcpy(&echo_reply[0], &cmd[2], length - 1);
+            app_uart_put(length);
+            app_uart_put(0x82);
+            app_uart_put(cmd[1]);
+            for (uint32_t i = 0; i < length - 1; ++i)
+            {
+                app_uart_put(echo_reply[i]);
+            }
+        }
             break;
     }
-    uint8_t reply[] = {0x02, opcode, 0x00};
-    _LOG_BUFFER(reply, 3);
+    uint8_t reply[] = {0x05, 0x82, opcode, 0, 0, 0, 0};
+    memcpy(&reply[3], &error, 4);
+    for (uint32_t i = 0; i < reply[0] + 2; ++i)
+    {
+        app_uart_put(reply[i]);
+    }
     
 }
 
@@ -273,9 +260,10 @@ void uart_event_handler(app_uart_evt_t * p_app_uart_event)
 /** @brief main function */
 int main(void)
 {   
+    uint32_t error_code;
     /* Enable Softdevice (including sd_ble before framework */
     SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
-    
+#if 0    
     /* Init the rbc_mesh */
     rbc_mesh_init_params_t init_params;
 
@@ -286,16 +274,19 @@ int main(void)
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
-    uint32_t error_code = rbc_mesh_init(init_params);
+    error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
-    nrf_gpio_range_cfg_output(0, 32);
     
     for (uint32_t i = 0; i < HANDLE_COUNT; ++i)
     {
         rbc_mesh_value_enable(i + 1);
     }
- 
+#endif
+    nrf_gpio_range_cfg_output(0, 32);
+    for (uint32_t i = LED_START; i <= LED_STOP; ++i)
+        NRF_GPIO->OUTSET = (1 << i);
+    NRF_GPIO->OUTCLR = (1 << LED_2);
     
 #if LOG_RTT
     SEGGER_RTT_ConfigUpBuffer(0, NULL, NULL, 0, SEGGER_RTT_MODE_NO_BLOCK_SKIP);
@@ -312,7 +303,7 @@ int main(void)
     APP_ERROR_CHECK(error_code);
 #endif
 
-    _LOG("START\r\n");
+    //_LOG("START\r\n");
     
 #if LOG_RTT
     while (true)
