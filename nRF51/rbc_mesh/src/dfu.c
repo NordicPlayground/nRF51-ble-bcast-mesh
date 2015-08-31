@@ -49,9 +49,61 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Static globals
 *****************************************************************************/
 static dfu_bootloader_info_t g_bl_info;
+static bool g_in_dfu = false;
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
+static uint32_t flash_write(uint32_t* destination, uint8_t* data, uint32_t length)
+{
+    /* max length of a write is 256 * 4 = 1024 bytes, split it. */
+    uint32_t writes = 0;
+    while (length > 0)
+    {
+        uint32_t write_len =  length;
+        if (write_len > 1024)
+            write_len = 1024;
+        
+        uint32_t error_code = sd_flash_write(destination + writes * 256, (uint32_t*) data, write_len / 4);
+        if (error_code != NRF_SUCCESS)
+        {
+            return error_code;
+        }
+        uint32_t evt;
+        while (sd_evt_get(&evt) != NRF_SUCCESS || (evt != NRF_EVT_FLASH_OPERATION_SUCCESS && evt != NRF_EVT_FLASH_OPERATION_ERROR));
+        if (evt == NRF_EVT_FLASH_OPERATION_ERROR)
+        {
+            return NRF_ERROR_INVALID_ADDR;
+        }
+        
+        length -= write_len;
+        writes++;
+        data += write_len;
+    }
+    
+    return NRF_SUCCESS;
+}
+
+static uint32_t flash_erase(uint32_t page_addr, uint32_t length)
+{
+    for (uint32_t i = 0; i <= (length - 1) / PAGE_SIZE; ++i)
+    {
+        uint32_t error_code = sd_flash_page_erase((page_addr / PAGE_SIZE) + i);
+        if (error_code != NRF_SUCCESS)
+        {
+            return error_code;
+        }
+        
+        uint32_t evt;
+        while (sd_evt_get(&evt) != NRF_SUCCESS || (evt != NRF_EVT_FLASH_OPERATION_SUCCESS && evt != NRF_EVT_FLASH_OPERATION_ERROR));
+        if (evt == NRF_EVT_FLASH_OPERATION_ERROR)
+        {
+            return NRF_ERROR_INVALID_ADDR;
+        }
+    }
+    
+    return NRF_SUCCESS;
+}
+
 static void get_bootloader_info(dfu_bootloader_info_t* p_info)
 {
     memcpy(p_info, 
@@ -119,6 +171,11 @@ static void start_bootloader(void)
 
 uint32_t dfu_transfer_begin(dfu_bootloader_info_t* bl_info)
 {
+    if (g_in_dfu)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
     switch (bl_info->dfu_type)
     {
         case DFU_TYPE_APP:
@@ -146,26 +203,46 @@ uint32_t dfu_transfer_begin(dfu_bootloader_info_t* bl_info)
 
     dfu_bootloader_info_t old_bl_info;
     get_bootloader_info(&old_bl_info);
-    if (old_bl_info.app_id == bl_info->app_id)
+
+    uint32_t error_code;
+    
+    /* erase bank */ 
+    error_code = flash_erase(bl_info->bank_addr, bl_info->size);
+    if (error_code != NRF_SUCCESS)
     {
-        return NRF_ERROR_INVALID_STATE;
+        return error_code;
     }
 
-    /* erase bank */ 
-    nrf_flash_erase((uint32_t*) bl_info->bank_addr, bl_info->size);
-
     /* store bootloader info in last page */
-    nrf_flash_erase((uint32_t*) BOOTLOADER_INFO_ADDRESS, PAGE_SIZE);
-    nrf_flash_store((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint8_t*) bl_info, sizeof(dfu_bootloader_info_t), 0);
+    error_code = flash_erase(BOOTLOADER_INFO_ADDRESS, PAGE_SIZE);
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+    
+    error_code = flash_write((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint8_t*) bl_info, sizeof(dfu_bootloader_info_t));
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
 
     /* make ram copy */
     memcpy(&g_bl_info, bl_info, sizeof(dfu_bootloader_info_t));
 
+    g_in_dfu = true;
+    
+    NRF_UICR->BOOTLOADERADDR = BOOTLOADER_START_ADDRESS;
+    
     return NRF_SUCCESS;
 }
 
 uint32_t dfu_transfer_data(uint32_t address, uint32_t length, uint8_t* data)
 {
+    if (!g_in_dfu)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
     if (address < g_bl_info.start_addr ||
         address + length > g_bl_info.start_addr + g_bl_info.size)
     {
@@ -173,32 +250,43 @@ uint32_t dfu_transfer_data(uint32_t address, uint32_t length, uint8_t* data)
     }
 
     /* must be word aligned */
-    if (address & 0x03 != 0)
+    if ((address & 0x03) != 0)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
-    if (length & 0x03 != 0)
+    if ((length & 0x03) != 0)
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
-
-    nrf_flash_store((uint32_t*) g_bl_info.bank_addr, data, length, address - g_bl_info.start_addr);
-
-    return NRF_SUCCESS;
+    return flash_write((uint32_t*) g_bl_info.bank_addr + (address - g_bl_info.start_addr)/ 4, data, length);
 }
 
 uint32_t dfu_end(void)
 {
-    if (!bank_is_valid((uint8_t*) g_bl_info.bank_addr, g_bl_info.size, g_bl_info.image_crc))
+    if (!g_in_dfu)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    if (g_bl_info.using_crc && !bank_is_valid((uint8_t*) g_bl_info.bank_addr, g_bl_info.size, g_bl_info.image_crc))
     {
         return NRF_ERROR_INVALID_DATA;
     }
 
+    g_in_dfu = false;
+    
     if (g_bl_info.dfu_type == DFU_TYPE_BOOTLOADER)
     {
         /* do the copy directly */
-        nrf_flash_erase((uint32_t*) BOOTLOADER_START_ADDRESS, BOOTLOADER_MAX_SIZE);
-        nrf_flash_store((uint32_t*) BOOTLOADER_START_ADDRESS, (uint8_t*) g_bl_info.bank_addr, g_bl_info.size, 0);
+        uint32_t error_code;
+        error_code = flash_erase(BOOTLOADER_START_ADDRESS, BOOTLOADER_MAX_SIZE);
+        if (error_code != NRF_SUCCESS)
+        {
+            return error_code;
+        }
+        
+        /* copy bootloader from bank */
+        return flash_write((uint32_t*) BOOTLOADER_START_ADDRESS, (uint8_t*) g_bl_info.bank_addr, g_bl_info.size);
 
         /* the device now has a new bootloader! */
     }
