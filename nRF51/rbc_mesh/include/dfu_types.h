@@ -45,7 +45,7 @@ typedef struct
     uint32_t magic_number;                                                                              /**< Not used. */
     uint32_t softdevice_size;                                                                           /**< Size field containing the size of installed SoftDevice. */
     uint16_t firmware_id;                                                                               /**< Firmware id. */
-    uint8_t  reserved2[2];                                                                                 /**< Not used. */
+    uint8_t  reserved2[2];                                                                              /**< Not used. */
 } SOFTDEVICE_INFORMATION_Type;
 
 #define SOFTDEVICE_INFORMATION_BASE     0x0003000                                                       /**< Location in the SoftDevice image which holds the SoftDevice informations. */
@@ -81,6 +81,7 @@ typedef struct
     uint32_t app_id;
     uint32_t bank_addr; /* ignored by fw */
     uint16_t image_crc;
+    uint8_t using_crc; /* flag for whether or not the image_crc is actually used */
 } dfu_bootloader_info_t;
 
 #endif /* _DFU_TYPES_H__ */
