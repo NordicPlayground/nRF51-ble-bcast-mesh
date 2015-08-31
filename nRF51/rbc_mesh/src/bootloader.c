@@ -36,8 +36,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types.h"
 #include "nrf_flash.h"
 
+#include "nrf_sdm.h"
 #include "nrf51.h"
+#include "bootloader_util.h"
+#include <string.h>
+#include <stdbool.h>
 
+#define MAX_NUMBER_INTERRUPTS   (32)
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
@@ -69,7 +74,6 @@ static uint16_t crc16_compute(const uint8_t * p_data, uint32_t size, const uint1
     return crc;
 }
 
-
 static bool bank_is_valid(const uint8_t* bank_start, uint32_t size, uint16_t bank_crc)
 {
     uint16_t crc = crc16_compute(bank_start, size, NULL);
@@ -79,30 +83,27 @@ static bool bank_is_valid(const uint8_t* bank_start, uint32_t size, uint16_t ban
 /* generic application restart. Never returns */
 static void exit_bootloader(void)
 {   
-    uint32_t err_code = sd_softdevice_vector_table_base_set(APP_START_ADDRESS);
-    APP_ERROR_CHECK(err_code);
-
-    interrupts_disable();
+    sd_softdevice_vector_table_base_set(APP_START_ADDRESS);
+    
     bootloader_util_app_start(APP_START_ADDRESS);
 }
-
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
 
 
-void main(void)
+int main(void)
 {
     get_bootloader_info(&g_bl_info);
 
-    if (!bank_is_valid((uint8_t*) g_bl_info.bank_addr, g_bl_info.size, g_bl_info.image_crc))
+    if (g_bl_info.using_crc && !bank_is_valid((uint8_t*) g_bl_info.bank_addr, g_bl_info.size, g_bl_info.image_crc))
     {
-        return NRF_ERROR_INVALID_DATA;
+        exit_bootloader();
     }
     
     /* do the flash */
     nrf_flash_erase((uint32_t*) g_bl_info.start_addr, g_bl_info.size);
     nrf_flash_store((uint32_t*) g_bl_info.start_addr, (uint8_t*) g_bl_info.bank_addr, g_bl_info.size, 0);
-
+    
     exit_bootloader();
 }
