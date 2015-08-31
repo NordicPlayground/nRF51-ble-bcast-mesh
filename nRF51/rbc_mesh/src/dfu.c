@@ -159,11 +159,11 @@ static void start_bootloader(void)
     uint32_t err_code = sd_softdevice_disable();
     APP_ERROR_CHECK(err_code);
 
-    err_code = sd_softdevice_vector_table_base_set(NRF_UICR->BOOTLOADERADDR);
+    err_code = sd_softdevice_vector_table_base_set(BOOTLOADER_START_ADDRESS);
     APP_ERROR_CHECK(err_code);
 
     interrupts_disable();
-    bootloader_util_app_start(NRF_UICR->BOOTLOADERADDR);
+    bootloader_util_app_start(BOOTLOADER_START_ADDRESS);
 }
 /*****************************************************************************
 * Interface Functions
