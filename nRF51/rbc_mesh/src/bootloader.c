@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_sdm.h"
 #include "nrf51.h"
 #include "bootloader_util.h"
+#include "boards.h"
 #include <string.h>
 #include <stdbool.h>
 
@@ -87,6 +88,12 @@ static void exit_bootloader(void)
     
     bootloader_util_app_start(APP_START_ADDRESS);
 }
+
+static void init_leds(void)
+{
+    nrf_gpio_cfg_output(LED_START);
+    NRF_GPIO->OUTCLR = (1 << LED_START);
+}
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
@@ -94,10 +101,12 @@ static void exit_bootloader(void)
 
 int main(void)
 {
+    init_leds();
     get_bootloader_info(&g_bl_info);
 
     if (g_bl_info.using_crc && !bank_is_valid((uint8_t*) g_bl_info.bank_addr, g_bl_info.size, g_bl_info.image_crc))
     {
+        NRF_GPIO->OUTCLR = (1 << LED_START);
         exit_bootloader();
     }
     
@@ -105,5 +114,6 @@ int main(void)
     nrf_flash_erase((uint32_t*) g_bl_info.start_addr, g_bl_info.size);
     nrf_flash_store((uint32_t*) g_bl_info.start_addr, (uint8_t*) g_bl_info.bank_addr, g_bl_info.size, 0);
     
+    NRF_GPIO->OUTCLR = (1 << LED_START);
     exit_bootloader();
 }
