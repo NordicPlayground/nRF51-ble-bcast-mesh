@@ -364,6 +364,23 @@ uint32_t vh_get_gatts_handle(uint8_t value_handle, uint8_t* gatts_handle)
     return NRF_SUCCESS;
 }
 
+uint16_t vh_get_version_delta(uint8_t handle, uint16_t version)
+{
+    metadata_t* p_md = &g_md_set.md[handle];
+    if (version < MESH_VALUE_LOLLIPOP_LIMIT)
+    {
+        return (version > p_md->version_number)? (version - p_md->version_number) : 0;
+    }
+    else
+    {
+        const uint16_t separation = (version >= p_md->version_number)?
+            (version - p_md->version_number) :
+            (version - p_md->version_number - MESH_VALUE_LOLLIPOP_LIMIT);
+        
+        return (separation < (UINT16_MAX - MESH_VALUE_LOLLIPOP_LIMIT)/2)? separation : 0;
+    }
+}
+
 uint32_t vh_value_enable(uint8_t handle)
 {
     if (!g_is_initialized)
@@ -373,7 +390,6 @@ uint32_t vh_value_enable(uint8_t handle)
     
     const uint64_t ts_time = timer_get_timestamp();
     const uint64_t time_now = ts_time + timeslot_get_global_time();
-
     
     trickle_timer_reset(&g_md_set.md[handle - 1].trickle, time_now);
 
