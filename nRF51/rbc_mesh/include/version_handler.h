@@ -67,6 +67,8 @@ uint32_t vh_set_gatts_handle(uint8_t value_handle, uint8_t gatts_handle);
 
 uint32_t vh_get_gatts_handle(uint8_t value_handle, uint8_t* gatts_handle);
 
+uint16_t vh_get_version_delta(uint8_t handle, uint16_t version);
+
 uint32_t vh_value_enable(uint8_t handle);
 
 uint32_t vh_value_disable(uint8_t handle);
