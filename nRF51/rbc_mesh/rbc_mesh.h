@@ -67,11 +67,12 @@ typedef enum
 */
 typedef struct
 {
-    rbc_mesh_event_type_t event_type;        /** See @ref rbc_mesh_event_type_t */
-    rbc_mesh_value_handle_t value_handle;    /** Handle of the value the event is generated for */
-    uint8_t* data;                      /** Current data array contained at the event handle location */
-    uint8_t data_len;                   /** Length of data array */
-    ble_gap_addr_t originator_address; /** GAP address of node where this version of the message appeared */
+    rbc_mesh_event_type_t event_type;       /** See @ref rbc_mesh_event_type_t */
+    rbc_mesh_value_handle_t value_handle;   /** Handle of the value the event is generated for */
+    uint8_t* data;                          /** Current data array contained at the event handle location */
+    uint8_t data_len;                       /** Length of data array */
+    uint16_t version_delta;                 /** Version number increase since last update */
+    ble_gap_addr_t originator_address;      /** GAP address of node where this version of the message appeared */
 } rbc_mesh_event_t;
 
 

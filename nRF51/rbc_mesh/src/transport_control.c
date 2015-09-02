@@ -227,6 +227,8 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             p_packet->payload.data,
             p_packet->header.length - MESH_PACKET_OVERHEAD
     );
+    
+    uint16_t delta = vh_get_version_delta(p_packet->payload.handle, p_packet->payload.version);
     uint32_t error_code = NRF_SUCCESS;
 
     if (data_status != VH_DATA_STATUS_UNKNOWN)
@@ -248,6 +250,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 
     /* prepare app event */
     rbc_mesh_event_t evt;
+    evt.version_delta = delta;
 
     switch (data_status)
     {
