@@ -163,6 +163,7 @@ uint32_t tc_tx(uint8_t handle, uint16_t version)
 
     uint16_t length = MAX_VALUE_LENGTH;
     error_code = mesh_srv_char_val_get(handle, &p_packet->payload.data[0], &length);
+
     if (error_code != NRF_SUCCESS)
     {
         mesh_packet_free(p_packet);
@@ -176,7 +177,13 @@ uint32_t tc_tx(uint8_t handle, uint16_t version)
     }
     
     ble_gap_addr_t my_addr;
+    
+#ifdef SOFTDEVICE_PRESENT
     sd_ble_gap_address_get(&my_addr);
+#else    
+    memcpy(my_addr.addr, (uint32_t*) NRF_FICR->DEVICEADDR, 6);
+    my_addr.addr_type = NRF_FICR->DEVICEADDRTYPE;
+#endif    
 
     p_packet->header.length = MESH_PACKET_OVERHEAD + length;
     p_packet->header.addr_type = my_addr.addr_type;
@@ -259,7 +266,6 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
                     p_packet->payload.handle, 
                     &p_packet->payload.data[0], 
                     p_packet->header.length - MESH_PACKET_OVERHEAD);
-
             /* notify application */
             prepare_event(&evt, p_packet);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;

@@ -79,17 +79,7 @@ static void rand_init(void)
     uint32_t seed = 0;
     
     /* generate true random seed */
-#ifdef BOOTLOADER        
-    NRF_RNG->TASKS_START = 1;
-    for (uint32_t i = 0; i < 4; ++i)
-    {
-        while (!NRF_RNG->EVENTS_VALRDY);
-        seed |= NRF_RNG->VALUE;
-        NRF_RNG->EVENTS_VALRDY = 0;
-        seed <<= 8;
-    }
-    NRF_RNG->TASKS_STOP = 1;
-#else    
+#ifdef SOFTDEVICE_PRESENT    
     uint32_t error_code;    
     uint8_t bytes_available;
     do
@@ -104,6 +94,16 @@ static void rand_init(void)
         sd_rand_application_vector_get((uint8_t*) &seed,
         4);
     APP_ERROR_CHECK(error_code);
+#else
+    NRF_RNG->TASKS_START = 1;
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        while (!NRF_RNG->EVENTS_VALRDY);
+        seed |= NRF_RNG->VALUE;
+        NRF_RNG->EVENTS_VALRDY = 0;
+        seed <<= 8;
+    }
+    NRF_RNG->TASKS_STOP = 1;
 #endif
     
     /* establish base magic numbers */
