@@ -20,3 +20,4 @@
 *.uvguix.*
 *.tmp
 **/arm/JLinkLog.txt
+**/_viminfo
