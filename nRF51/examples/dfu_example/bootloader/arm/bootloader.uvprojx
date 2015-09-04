@@ -235,7 +235,7 @@
             <NoZi2>0</NoZi2>
             <NoZi3>0</NoZi3>
             <NoZi4>0</NoZi4>
-            <NoZi5>0</NoZi5>
+            <NoZi5>1</NoZi5>
             <Ro1Chk>0</Ro1Chk>
             <Ro2Chk>0</Ro2Chk>
             <Ro3Chk>0</Ro3Chk>
@@ -309,7 +309,7 @@
               </OCR_RVCT3>
               <OCR_RVCT4>
                 <Type>1</Type>
-                <StartAddress>0x3c000</StartAddress>
+                <StartAddress>0x0</StartAddress>
                 <Size>0x3c00</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
@@ -334,13 +334,13 @@
               </OCR_RVCT8>
               <OCR_RVCT9>
                 <Type>0</Type>
-                <StartAddress>0x20002c00</StartAddress>
-                <Size>0x4000</Size>
+                <StartAddress>0x20000000</StartAddress>
+                <Size>0x2000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
-                <StartAddress>0x0</StartAddress>
-                <Size>0x0</Size>
+                <StartAddress>0x20002000</StartAddress>
+                <Size>0x6000</Size>
               </OCR_RVCT10>
             </OnChipMemories>
             <RvctStartVector></RvctStartVector>
@@ -363,9 +363,9 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>NRF51 BOARD_PCA10028</Define>
+              <Define>NRF51 BOARD_PCA10028 BOOTLOADER</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\..\components\libraries\bootloader_dfu;..\..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\..\..\components\drivers_nrf\hal</IncludePath>
+              <IncludePath>..\..\..\..\rbc_mesh\include;..\..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\..\components\libraries\bootloader_dfu;..\..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\rbc_mesh;..\..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\..\components\libraries\fifo</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -409,14 +409,57 @@
           <GroupName>app</GroupName>
           <Files>
             <File>
-              <FileName>bootloader.c</FileName>
+              <FileName>bootloader_timeslot.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\rbc_mesh\src\bootloader.c</FilePath>
+              <FilePath>..\bootloader_timeslot.c</FilePath>
             </File>
             <File>
-              <FileName>nrf_flash.c</FileName>
+              <FileName>main.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\rbc_mesh\src\nrf_flash.c</FilePath>
+              <FilePath>..\main.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>2</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>2</AlwaysBuild>
+                  <GenerateAssemblyFile>2</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                  <PublicsOnly>2</PublicsOnly>
+                  <StopOnExitCode>11</StopOnExitCode>
+                  <CustomArgument></CustomArgument>
+                  <IncludeLibraryModules></IncludeLibraryModules>
+                  <ComprImg>1</ComprImg>
+                </CommonProperty>
+                <FileArmAds>
+                  <Cads>
+                    <interw>2</interw>
+                    <Optim>0</Optim>
+                    <oTime>2</oTime>
+                    <SplitLS>2</SplitLS>
+                    <OneElfS>2</OneElfS>
+                    <Strict>2</Strict>
+                    <EnumInt>2</EnumInt>
+                    <PlainCh>2</PlainCh>
+                    <Ropi>2</Ropi>
+                    <Rwpi>2</Rwpi>
+                    <wLevel>2</wLevel>
+                    <uThumb>2</uThumb>
+                    <uSurpInc>2</uSurpInc>
+                    <uC99>2</uC99>
+                    <useXO>2</useXO>
+                    <VariousControls>
+                      <MiscControls></MiscControls>
+                      <Define></Define>
+                      <Undefine></Undefine>
+                      <IncludePath></IncludePath>
+                    </VariousControls>
+                  </Cads>
+                </FileArmAds>
+              </FileOption>
             </File>
           </Files>
         </Group>
@@ -442,6 +485,230 @@
               <FileName>bootloader_util.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\components\libraries\bootloader_dfu\bootloader_util.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_uart_fifo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\uart\app_uart_fifo.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_drv_common.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\common\nrf_drv_common.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_drv_gpiote.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\gpiote\nrf_drv_gpiote.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_fifo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\components\libraries\fifo\app_fifo.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>rbc_mesh</GroupName>
+          <Files>
+            <File>
+              <FileName>bootloader.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\bootloader.c</FilePath>
+            </File>
+            <File>
+              <FileName>dfu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\dfu.c</FilePath>
+            </File>
+            <File>
+              <FileName>event_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\event_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>fifo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\fifo.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_aci.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\mesh_aci.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>2</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>2</AlwaysBuild>
+                  <GenerateAssemblyFile>2</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                  <PublicsOnly>2</PublicsOnly>
+                  <StopOnExitCode>11</StopOnExitCode>
+                  <CustomArgument></CustomArgument>
+                  <IncludeLibraryModules></IncludeLibraryModules>
+                  <ComprImg>1</ComprImg>
+                </CommonProperty>
+                <FileArmAds>
+                  <Cads>
+                    <interw>2</interw>
+                    <Optim>0</Optim>
+                    <oTime>2</oTime>
+                    <SplitLS>2</SplitLS>
+                    <OneElfS>2</OneElfS>
+                    <Strict>2</Strict>
+                    <EnumInt>2</EnumInt>
+                    <PlainCh>2</PlainCh>
+                    <Ropi>2</Ropi>
+                    <Rwpi>2</Rwpi>
+                    <wLevel>2</wLevel>
+                    <uThumb>2</uThumb>
+                    <uSurpInc>2</uSurpInc>
+                    <uC99>2</uC99>
+                    <useXO>2</useXO>
+                    <VariousControls>
+                      <MiscControls></MiscControls>
+                      <Define></Define>
+                      <Undefine></Undefine>
+                      <IncludePath></IncludePath>
+                    </VariousControls>
+                  </Cads>
+                </FileArmAds>
+              </FileOption>
+            </File>
+            <File>
+              <FileName>mesh_packet.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\nrf_flash.c</FilePath>
+            </File>
+            <File>
+              <FileName>radio_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\radio_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>version_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>rbc_mesh.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>2</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>2</AlwaysBuild>
+                  <GenerateAssemblyFile>2</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                  <PublicsOnly>2</PublicsOnly>
+                  <StopOnExitCode>11</StopOnExitCode>
+                  <CustomArgument></CustomArgument>
+                  <IncludeLibraryModules></IncludeLibraryModules>
+                  <ComprImg>1</ComprImg>
+                </CommonProperty>
+                <FileArmAds>
+                  <Cads>
+                    <interw>2</interw>
+                    <Optim>0</Optim>
+                    <oTime>2</oTime>
+                    <SplitLS>2</SplitLS>
+                    <OneElfS>2</OneElfS>
+                    <Strict>2</Strict>
+                    <EnumInt>2</EnumInt>
+                    <PlainCh>2</PlainCh>
+                    <Ropi>2</Ropi>
+                    <Rwpi>2</Rwpi>
+                    <wLevel>2</wLevel>
+                    <uThumb>2</uThumb>
+                    <uSurpInc>2</uSurpInc>
+                    <uC99>2</uC99>
+                    <useXO>2</useXO>
+                    <VariousControls>
+                      <MiscControls></MiscControls>
+                      <Define></Define>
+                      <Undefine></Undefine>
+                      <IncludePath></IncludePath>
+                    </VariousControls>
+                  </Cads>
+                </FileArmAds>
+              </FileOption>
+            </File>
+            <File>
+              <FileName>serial_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\serial_handler.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>2</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>2</AlwaysBuild>
+                  <GenerateAssemblyFile>2</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                  <PublicsOnly>2</PublicsOnly>
+                  <StopOnExitCode>11</StopOnExitCode>
+                  <CustomArgument></CustomArgument>
+                  <IncludeLibraryModules></IncludeLibraryModules>
+                  <ComprImg>1</ComprImg>
+                </CommonProperty>
+                <FileArmAds>
+                  <Cads>
+                    <interw>2</interw>
+                    <Optim>0</Optim>
+                    <oTime>2</oTime>
+                    <SplitLS>2</SplitLS>
+                    <OneElfS>2</OneElfS>
+                    <Strict>2</Strict>
+                    <EnumInt>2</EnumInt>
+                    <PlainCh>2</PlainCh>
+                    <Ropi>2</Ropi>
+                    <Rwpi>2</Rwpi>
+                    <wLevel>2</wLevel>
+                    <uThumb>2</uThumb>
+                    <uSurpInc>2</uSurpInc>
+                    <uC99>2</uC99>
+                    <useXO>2</useXO>
+                    <VariousControls>
+                      <MiscControls></MiscControls>
+                      <Define></Define>
+                      <Undefine></Undefine>
+                      <IncludePath></IncludePath>
+                    </VariousControls>
+                  </Cads>
+                </FileArmAds>
+              </FileOption>
+            </File>
+            <File>
+              <FileName>timer_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\timer_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>transport_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\transport_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>trickle.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\rbc_mesh\src\trickle.c</FilePath>
             </File>
           </Files>
         </Group>
