@@ -135,6 +135,15 @@ uint32_t rbc_mesh_value_disable(uint8_t handle)
     return vh_value_disable(handle);
 }
 
+uint32_t rbc_mesh_tx_report(uint8_t handle, bool do_tx_event)
+{
+    if (!g_is_initialized)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    return vh_tx_report(handle, do_tx_event);
+}
 
 /****** Getters and setters ******/
 

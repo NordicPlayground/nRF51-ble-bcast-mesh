@@ -58,7 +58,8 @@ typedef enum
     RBC_MESH_EVENT_TYPE_UPDATE_VAL,      /** Another node has updated the value */
     RBC_MESH_EVENT_TYPE_CONFLICTING_VAL, /** Another node has a conflicting version of the value */
     RBC_MESH_EVENT_TYPE_NEW_VAL,         /** A previously unallocated value has been received and allocated */
-    RBC_MESH_EVENT_TYPE_INITIALIZED      /** The framework has been initialized internally (most likely via serial interface) */
+    RBC_MESH_EVENT_TYPE_INITIALIZED,     /** The framework has been initialized internally (most likely via serial interface) */
+    RBC_MESH_EVENT_TYPE_TX               /** The indicated handle was transmitted */
 } rbc_mesh_event_type_t;
 
 /** 
@@ -72,7 +73,6 @@ typedef struct
     uint8_t* data;                          /** Current data array contained at the event handle location */
     uint8_t data_len;                       /** Length of data array */
     uint16_t version_delta;                 /** Version number increase since last update */
-    ble_gap_addr_t originator_address;      /** GAP address of node where this version of the message appeared */
 } rbc_mesh_event_t;
 
 
@@ -215,6 +215,27 @@ uint32_t rbc_mesh_value_enable(uint8_t handle);
 * @return NRF_ERROR_INVALID_STATE The framework has not been initialized.
 */
 uint32_t rbc_mesh_value_disable(uint8_t handle);
+
+/**
+* @brief Set whether the given handle should produce TX events for each time
+*   the value is transmitted.
+*
+* @note In order to maintain high performance in the framework, it is 
+*   recommended that the amount of values that have this flag set is kept
+*   as low as possible. The flag is set to 0 by default.
+* @note The TX event data-field is set to NULL, and any need to access the 
+*   contents of the transmission must be done with the @ref 
+*   rbc_mesh_value_get() function.
+*
+* @param[in] handle Handle to change TX event flag for 
+* @param[in] do_tx_event The TX event configuration for the given value
+*
+* @return NRF_SUCCESS the TX event configuration has been set successfully
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
+*   in @ref rbc_mesh_init.
+*/
+uint32_t rbc_mesh_tx_report(uint8_t handle, bool do_tx_event);
 
 /**
  * @brief Get the contents of the data array pointed to by the provided handle

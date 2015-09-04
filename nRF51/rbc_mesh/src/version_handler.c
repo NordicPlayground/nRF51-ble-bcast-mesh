@@ -60,6 +60,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_MD_FLAGS_USED_POS          (0) /* Metadata flag: Used */
 #define MESH_MD_FLAGS_INITIALIZED_POS   (1) /* Metadata flag: Initialized */
 #define MESH_MD_FLAGS_IS_ORIGIN_POS     (2) /* Metadata flag: Is origin */
+#define MESH_MD_FLAGS_TX_EVENT          (3) /* Metadata flag: do a TX event for each transmit */
 /******************************************************************************
 * Local typedefs
 ******************************************************************************/
@@ -141,7 +142,18 @@ static void transmit_all_instances(uint64_t timestamp)
                 {
                     /* the handle is queued for transmission */
                     trickle_tx_register(&g_md_set.md[handle].trickle);
-                }
+
+                    if (g_md_set.md[handle].flags & (1 << MESH_MD_FLAGS_TX_EVENT))
+                    {
+                        rbc_mesh_event_t tx_event;
+                        tx_event.event_type = RBC_MESH_EVENT_TYPE_TX;
+                        tx_event.value_handle = handle + 1; /* 1-indexed */
+                        tx_event.data = NULL;
+                        tx_event.data_len = 0;
+                        tx_event.version_delta = 0;
+
+                        rbc_mesh_event_handler(&tx_event);
+                    }
             }
         }
 
@@ -337,6 +349,21 @@ uint32_t vh_order_update(uint64_t time_now)
     tx_event.callback.timer.cb = transmit_all_instances;
     tx_event.callback.timer.timestamp = time_now;
     return event_handler_push(&tx_event);
+}
+
+uint32_t vh_tx_report(uint8_t handle, bool do_tx_event)
+{
+    if (!g_is_initialized)
+        return NRF_ERROR_INVALID_STATE;
+    if (value_handle > g_md_set.handle_count || value_handle == 0)
+        return NRF_ERROR_INVALID_ADDR;
+
+    if (do_tx_event)
+        g_md_set.md[value_handle - 1].flags |= (1 << MESH_MD_FLAGS_TX_EVENT);
+    else 
+        g_md_set.md[value_handle - 1].flags &= ~(1 << MESH_MD_FLAGS_TX_EVENT);
+
+    return NRF_SUCCESS;
 }
 
 uint32_t vh_set_gatts_handle(uint8_t value_handle, uint8_t gatts_handle)
