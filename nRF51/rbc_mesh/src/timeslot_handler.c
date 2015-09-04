@@ -59,9 +59,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TIMESLOT_SLOT_LENGTH            (10000) /* !!! MUST BE LARGER THAN TIMESLOT_END_SAFETY_MARGIN_US */
 #define TIMESLOT_SLOT_EXTEND_LENGTH     (50000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
+#define TIMESLOT_DISTANCE_DEFAULT       (10000)
+#define TIMESLOT_TIMEOUT_DEFAULT        (50000)
 #define TIMESLOT_MAX_LENGTH             (10000000UL) /* 10s */
 
-
+#define RTC_MAX_TIME                    (0xFFFFFF)
 /*****************************************************************************
 * Local type definitions
 *****************************************************************************/
@@ -84,7 +86,7 @@ static nrf_radio_request_t radio_request_normal =
                     {
                         .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
                         .priority = NRF_RADIO_PRIORITY_NORMAL,
-                        .distance_us = 10000,
+                        .distance_us = TIMESLOT_DISTANCE_DEFAULT,
                         .length_us = TIMESLOT_SLOT_LENGTH
                     }
                 };
@@ -97,7 +99,7 @@ static nrf_radio_request_t radio_request_earliest =
                         .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
                         .priority = NRF_RADIO_PRIORITY_NORMAL,
                         .length_us = TIMESLOT_SLOT_LENGTH,
-                        .timeout_us = 50000 /* 10ms */
+                        .timeout_us = TIMESLOT_TIMEOUT_DEFAULT
                     }
                 };
 
@@ -141,7 +143,6 @@ void ts_sd_event_handler(void)
     SET_PIN(PIN_SD_EVT_HANDLER);
     while (sd_evt_get(&evt) == NRF_SUCCESS)
     {
-        PIN_OUT(evt, 32);
         switch (evt)
         {
             case NRF_EVT_RADIO_SESSION_IDLE:
@@ -198,7 +199,7 @@ static void global_time_update(void)
     uint64_t delta_rtc_time;
     if(last_rtc_value > rtc_time)
     {
-        delta_rtc_time = 0xFFFFFF + rtc_time - last_rtc_value;
+        delta_rtc_time = RTC_MAX_TIME + rtc_time - last_rtc_value;
     }
     else
     {

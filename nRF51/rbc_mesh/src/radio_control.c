@@ -47,13 +47,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include <string.h>
 
-#define RADIO_FIFO_QUEUE_SIZE 8 /* must be power of two */
+#define RADIO_FIFO_QUEUE_SIZE           (8) /* must be power of two */
 
 #define RADIO_RX_TIMEOUT                (150 + 80)
 
-#define RADIO_EVENT(evt)  (NRF_RADIO->evt == 1)
+#define RADIO_EVENT(evt)                (NRF_RADIO->evt == 1)
 
-#define PPI_CH_STOP_RX_ABORT        (TIMER_PPI_CH_START + 4)
+#define PPI_CH_STOP_RX_ABORT            (TIMER_PPI_CH_START + 4)
 
 /**
 * Internal enum denoting radio state.

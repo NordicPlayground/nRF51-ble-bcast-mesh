@@ -55,6 +55,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
 #define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
 
+#define MESH_ACCESS_ADDR        (0xA541A68F)
+#define MESH_INTERVAL_MIN_MS    (100)
+#define MESH_CHANNEL            (38)
+#define MESH_HANDLE_COUNT       (2)
 
 /**
 * @brief General error handler.
@@ -208,20 +212,22 @@ int main(void)
 
     rbc_mesh_init_params_t init_params;
 
-    init_params.access_addr = 0xA541A68F;
-    init_params.interval_min_ms = 100;
-    init_params.channel = 38;
-    init_params.handle_count = 2;
+    init_params.access_addr = MESH_ACCESS_ADDR;
+    init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
+    init_params.channel = MESH_CHANNEL;
+    init_params.handle_count = MESH_HANDLE_COUNT;
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
     volatile uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
 
-    error_code = rbc_mesh_value_enable(1);
-    APP_ERROR_CHECK(error_code);
-    error_code = rbc_mesh_value_enable(2);
-    APP_ERROR_CHECK(error_code);
+    /* request values for both LEDs on the mesh */
+    for (uint32_t i = 0; i < MESH_HANDLE_COUNT; ++i)
+    {
+        error_code = rbc_mesh_value_enable(i + 1);
+        APP_ERROR_CHECK(error_code);
+    }
 #endif
 
     sd_nvic_EnableIRQ(SD_EVT_IRQn);
