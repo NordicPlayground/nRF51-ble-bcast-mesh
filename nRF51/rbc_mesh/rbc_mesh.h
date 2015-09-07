@@ -164,6 +164,36 @@ typedef struct
 uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
 
 /**
+* @brief Start mesh radio activity after stopping it. 
+*
+* @details This function is called automatically in the @ref rbc_mesh_init 
+*   function, and only has to be called after a call to @ref rbc_mesh_stop.
+*
+* @return NRF_SUCCESS the mesh successfully started radio operation
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized, or
+*   the mesh is already running.
+*/
+uint32_t rbc_mesh_start(void);
+
+/**
+* @brief Stop mesh radio activity. 
+*
+* @details Stop ordering timeslots from the Softdevice, effectively stopping 
+*   all radio activity. This allows the chip to enter long-term low power 
+*   operation.
+*
+* @note While other mesh calls will work locally, the device will not be able
+*   to transmit or receive anything to/from other devices in the network before
+*   being reactivated by a call to @ref rbc_mesh_start.
+*
+* @return NRF_SUCCESS the mesh successfully stopped all radio operation
+* @return NRF_ERROR_INVALID_STATE te framework has not been initialized, or
+*   the mesh operation is already stopped.
+*/
+uint32_t rbc_mesh_stop(void);
+
+
+/**
 * @brief Set the contents of the data array pointed to by the provided handle
 * 
 * @note If the indicated handle-value pair is in a disabled state, it will 
