@@ -133,6 +133,8 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 
             led_config(evt->value_handle, evt->data[0]);
             break;
+        case RBC_MESH_EVENT_TYPE_TX:
+            break;
         case RBC_MESH_EVENT_TYPE_INITIALIZED:
             /* init BLE gateway softdevice application: */
             nrf_adv_conn_init();

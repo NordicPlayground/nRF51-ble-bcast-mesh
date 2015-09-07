@@ -253,6 +253,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
         case RBC_MESH_EVENT_TYPE_INITIALIZED: cmd = 'I'; break;
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL: cmd = 'U'; break;
         case RBC_MESH_EVENT_TYPE_NEW_VAL: cmd = 'N'; break;
+        case RBC_MESH_EVENT_TYPE_TX: cmd = 'T'; break;
     }
     _LOG("%c[%d] ", cmd, evt->value_handle);
     _LOG_BUFFER(evt->data, evt->data_len);
