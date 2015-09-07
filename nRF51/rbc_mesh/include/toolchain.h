@@ -41,13 +41,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* ARMCC and GCC have different ordering for packed typedefs, must separate macros */
     #define __packed_gcc 
+    #define __packed_armcc __packed
     
     #define DISABLE_IRQS(_was_masked) _was_masked = __disable_irq()
     #define ENABLE_IRQS() __enable_irq()
 
 #elif defined(__GNUC__)
     
-    #define __packed 
+    #define __packed_armcc 
     #define __packed_gcc __attribute__((packed))
 
     #define DISABLE_IRQS(_was_masked) do{ \

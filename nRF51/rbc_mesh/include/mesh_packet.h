@@ -56,7 +56,7 @@ typedef enum
   BLE_PACKET_TYPE_ADV_DISCOVER_IND
 } ble_packet_type_t;
 
-typedef __packed struct
+typedef __packed_armcc struct
 {
   ble_packet_type_t type : 4;
   uint8_t _rfu1 : 2;
@@ -66,11 +66,11 @@ typedef __packed struct
   uint8_t _rfu3;
 } __packed_gcc ble_packet_header_t;
 
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
     ble_packet_header_t header;
     uint8_t addr[6];
-    __packed struct
+    __packed_armcc struct
     {
         uint8_t handle;
         uint16_t version;
