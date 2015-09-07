@@ -50,6 +50,8 @@ typedef __packed_armcc enum
     SERIAL_CMD_OPCODE_VALUE_SET             = 0x71,
     SERIAL_CMD_OPCODE_VALUE_ENABLE          = 0x72,
     SERIAL_CMD_OPCODE_VALUE_DISABLE         = 0x73,
+    SERIAL_CMD_OPCODE_START                 = 0x74,
+    SERIAL_CMD_OPCODE_STOP                  = 0x75,
     
     SERIAL_CMD_OPCODE_VALUE_GET             = 0x7A,
     SERIAL_CMD_OPCODE_BUILD_VERSION_GET     = 0x7B,

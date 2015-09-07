@@ -135,6 +135,28 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         }
         break;
 
+    case SERIAL_CMD_OPCODE_START:
+        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+        serial_evt.length = 3;
+
+        error_code = rbc_mesh_start();
+        serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+        
+        serial_handler_event_send(&serial_evt);
+        break;
+
+    case SERIAL_CMD_OPCODE_STOP:
+        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+        serial_evt.length = 3;
+
+        error_code = rbc_mesh_stop();
+        serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+        
+        serial_handler_event_send(&serial_evt);
+        break;
+
     case SERIAL_CMD_OPCODE_VALUE_SET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
