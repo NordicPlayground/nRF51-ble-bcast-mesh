@@ -601,9 +601,6 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
             update_evt.data_len = evt->len;
             update_evt.value_handle = i + 1;
             update_evt.data = evt->data;
-            ble_gap_addr_t my_addr;
-            sd_ble_gap_address_get(&my_addr);
-            memcpy(&update_evt.originator_address, &my_addr, sizeof(ble_gap_addr_t));
 
             rbc_mesh_event_handler(&update_evt);
 

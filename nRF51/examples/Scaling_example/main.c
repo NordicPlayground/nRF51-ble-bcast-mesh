@@ -256,15 +256,6 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
     }
     _LOG("%c[%d] ", cmd, evt->value_handle);
     _LOG_BUFFER(evt->data, evt->data_len);
-    _LOG(" \tL:%d [%02X:%02X:%02X:%02X:%02X:%02X]\r\n",
-        (int)evt->data_len,
-        evt->originator_address.addr[0],
-        evt->originator_address.addr[1],
-        evt->originator_address.addr[2],
-        evt->originator_address.addr[3],
-        evt->originator_address.addr[4],
-        evt->originator_address.addr[5]
-    );
 }
 
 /** Handler for incoming UART events */

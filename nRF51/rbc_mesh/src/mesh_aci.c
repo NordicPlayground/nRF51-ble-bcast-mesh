@@ -114,7 +114,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             init_params.access_addr = serial_cmd->params.init.access_addr;
             init_params.channel = serial_cmd->params.init.channel;
             init_params.handle_count = serial_cmd->params.init.handle_count;
-            init_params.interval_min_ms = serial_cmd->params.init.interval_min_ms;
+            init_params.interval_min_ms = serial_cmd->params.init.adv_int_min;
             init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
             init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
 
@@ -160,7 +160,6 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         app_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
         app_evt.data = serial_cmd->params.value_set.value;
         app_evt.data_len = serial_cmd->length - 2;
-        sd_ble_gap_address_get(&app_evt.originator_address);
         app_evt.value_handle = serial_cmd->params.value_set.handle;
 
         rbc_mesh_event_handler(&app_evt);
@@ -390,7 +389,7 @@ void mesh_aci_rbc_event_handler(rbc_mesh_event_t* evt)
 
     /* all event parameter types are the same, just use event_update for all */
     serial_evt.params.event_update.addr_type = ADDR_TYPE_BLE_GAP_ADV_ADDR;
-    memcpy(serial_evt.params.event_update.origin_addr, evt->originator_address.addr, BLE_GAP_ADDR_LEN);
+    memset(serial_evt.params.event_update.origin_addr, 0, BLE_GAP_ADDR_LEN);
     serial_evt.params.event_update.handle = evt->value_handle;
     memcpy(serial_evt.params.event_update.data, evt->data, evt->data_len);
 
