@@ -41,6 +41,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_soc.h"
 #include <string.h>
 
+#define EVENT_HANDLER_IRQ       (QDEC_IRQn)
+
 #define ASYNC_EVENT_FIFO_QUEUE_SIZE (8)
 
 static fifo_t g_async_evt_fifo;
@@ -92,7 +94,7 @@ static bool event_fifo_pop(fifo_t* evt_fifo)
 /**
 * @brief Async event dispatcher, works in APP LOW
 */
-void SWI0_IRQHandler(void)
+void QDEC_IRQHandler(void)
 {
     while (true)
     {
@@ -132,8 +134,8 @@ void event_handler_init(void)
     g_async_evt_fifo_ts.memcpy_fptr = NULL;
     fifo_init(&g_async_evt_fifo_ts);
     
-    NVIC_EnableIRQ(SWI0_IRQn);
-    NVIC_SetPriority(SWI0_IRQn, 3);
+    NVIC_EnableIRQ(EVENT_HANDLER_IRQ);
+    NVIC_SetPriority(EVENT_HANDLER_IRQ, 3);
     g_is_initialized = true;
 }
 
@@ -158,7 +160,7 @@ uint32_t event_handler_push(async_event_t* evt)
     }
 
     /* trigger IRQ */
-    NVIC_SetPendingIRQ(SWI0_IRQn);
+    NVIC_SetPendingIRQ(EVENT_HANDLER_IRQ);
     
     return NRF_SUCCESS;
 }
@@ -174,7 +176,7 @@ void event_handler_on_ts_begin(void)
     if (!fifo_is_empty(&g_async_evt_fifo) || 
         !fifo_is_empty(&g_async_evt_fifo_ts))
     {
-        NVIC_SetPendingIRQ(SWI0_IRQn);
+        NVIC_SetPendingIRQ(EVENT_HANDLER_IRQ);
     }
 }
 
