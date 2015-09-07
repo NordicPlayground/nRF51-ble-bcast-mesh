@@ -42,6 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 #include "toolchain.h"
 #include "trickle.h"
+#include "rbc_mesh.h"
 
 #include "nrf_error.h"
 #include <stdlib.h>
@@ -154,6 +155,7 @@ static void transmit_all_instances(uint64_t timestamp)
 
                         rbc_mesh_event_handler(&tx_event);
                     }
+                }
             }
         }
 
@@ -355,13 +357,13 @@ uint32_t vh_tx_report(uint8_t handle, bool do_tx_event)
 {
     if (!g_is_initialized)
         return NRF_ERROR_INVALID_STATE;
-    if (value_handle > g_md_set.handle_count || value_handle == 0)
+    if (handle > g_md_set.handle_count || handle == 0)
         return NRF_ERROR_INVALID_ADDR;
 
     if (do_tx_event)
-        g_md_set.md[value_handle - 1].flags |= (1 << MESH_MD_FLAGS_TX_EVENT);
+        g_md_set.md[handle - 1].flags |= (1 << MESH_MD_FLAGS_TX_EVENT);
     else 
-        g_md_set.md[value_handle - 1].flags &= ~(1 << MESH_MD_FLAGS_TX_EVENT);
+        g_md_set.md[handle - 1].flags &= ~(1 << MESH_MD_FLAGS_TX_EVENT);
 
     return NRF_SUCCESS;
 }
