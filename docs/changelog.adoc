@@ -1,5 +1,121 @@
 = Changelog
 
+== 0.6.9 API-additions Sep 7
+New small update, mostly adding to the API, both for extended functionality and more precise naming.
+
+Changes included since v0.6.8:
+
+- Added centralized build.sh file in _/examples/_ folder. This shell script builds all examples in all configurations with gcc.
+
+- API: changed the name of the `adv_int_min` parameter to `interval_ms_min`, to avoid any confusion caused by slightly unprecise naming.
+
+- API: Added a TX event, and an enable/disable function for it. This event is enabled for each individual data-value (it's off by default), and makes the framework propagate an event each time a value is transmitted in the mesh. This makes the application more aware of what happens on the radio, and allows for more precise control of data-value updating.
+
+- API: Added start/stop functionality. This allows the application to halt all mesh related radio activity, without losing track of local data variables. (this is a follow-up on this issue: https://devzone.nordicsemi.com/question/48773/how-to-turn-onoff-mesh/) 
+
+- API: Added a `version_delta` parameter to the `rbc_mesh_event_t` struct. The delta reports the version increase since the last external update to this value, allowing the application to be aware of any missed versions: Normally, the delta should come back as 1 when receiving an UPDATE event. If the delta comes back as 2 or more, the device has missed some data value update; an indication that the network is pushing new value updates too frequently. 
+
+- merged pull-request #35 from @hh123okbb, fixing some compatiblity issues with the SDK APP_TIMER module. Thanks!
+
+- The Async event handler now uses the Quadrature decoder hardware interrupt handler to do asynchronous processing, instead of the SWI0 (suggested in Issue #26). This allows the SDK APP_TIMER module to freely use the SWI0, without modification. 
+
+- Some minor additional adjustments and fixes
+
+== 0.6.8 Scaling example and addressing scheme Aug 24
+Small quick update, adding a new example, and changing addressing scheme.
+
+The new Scaling example displays the mesh's ability to handle extensive amounts of handles. It can be interfaced from a host computer via terminal or Segger's RTT interface. Read more about the example in its local README file.
+
+The only functionality change in this update is with the address field of a mesh packet. Instead of containing the source of the current version of the packet, it now contains the local address of whichever node is relaying the packet, as per BLE specification. This will allow your device to recognize the devices around it better, in addition to reducing the amount of memory allocated for metadata.
+
+Also included: some updated documentation, with a more approachable description of Trickle and its usage.
+
+== 0.6.7 GCC support Aug 19
+As promised in v0.6.6, this is the official GCC release. As mentioned in the release notes for v0.6.6, it uses @foldedtoad's PR, with some modifications.
+
+There were a couple of code changes required for proper gcc support:
+There's a new toolchain.h file in rbc_mesh/include/, which introduces a couple of macros that handles the differences between gcc and armcc: The armcc syntax for defining packed typedef structs is different from gcc, and required a new \__packed_gcc macro. In addition, the gcc-implementation of the \__disable_irq() intinsic doesn't return the value of the primask register, and required some inline assembly in a new DISABLE_IRQS() macro. All internal usages of \__disable_irq() and \__enable_irq() have been changed to the macro definitions in the framework. In addition, we found that the size of the metadata had increased in the restructure, but this is now fixed (by packing the trickle struct)
+
+*A couple of "gotchas" for the makefiles:*
+
+- When changing build options like target boards and optional features, you need to run a make clean before make, as gcc won't notice the change otherwise.
+
+- If you've never used gcc with your copy of the nRF51 SDK before, you might have to do some changes to your platform-makefile in /components/toolchain/gcc/Makefile.posix (or Makefile.windows if you're working with cygwin or similar).
+
+- Some combinations of target boards and optional features are not intended for usage (like dongle+buttons or buttons+serial), and may result in strange behavior.
+
+- Output files are labeled with target board
+
+This release fixes issues #4 and #32, and includes PR #33 and #34
+
+Again, huge thanks to @foldedtoad for doing all the work for this feature.
+
+== 0.6.6 Major internal restructure Aug 17
+This is the largest update to the repo in the past 6 months! While looking into some performance issues when using 50+ data instances, we decided to restructure some of the lower levels of the framework. Specifically, the control flow related to sending and receiving packets was redone almost completely. While this update doesn't include any new features or API changes, the performance and code quality has been significantly improved.
+
+Here's a list of all the biggest changes:
+
+- The mesh_srv block is slimmed down to just handle data storage and SD GATT server interfacing, and a new version_handler block is added. This block takes care of all data versioning, including scheduling of retransmissions and trickle management.
+
+- The new version_handler schedules updates in a much more organized fashion, by employing a round robin scheme to the transmissions, and should fix all starvation problems experienced with a high number of trickle instances.
+
+- We had some initial stability problems with the transition to SD8, which should be fixed with this update. The internal context handling is tightened up on level 3 the async events in SWI0, fixing some stability issues with the SD8.
+
+- The mesh now does packet pooling, removing one redundant data copy during processing.
+
+- The transport_control block has taken over some of the responsibility of the mesh_srv block, and both processes incoming and constructs outgoing packets.
+
+- Traces of @foldedtoad's great gcc-support PR is also included as part of this update (thanks!), but still requires some minor alterations to work right out of the box. We'll try to get these fixes out the door later this week.
+
+== 0.6.5 Inernal structure and stability Aug 6
+This release superseeds v0.6.4, which featured some stability issues. We recommend skipping v0.6.4 and v0.6.3, and moving directly to this release.
+
+Changes from v0.6.4:
+
+- Moved asynchronous events to a separate module
+
+- Split the async events into two queues internally, where one only contains events that must be handled inside timeslots (like timer and radio calls), and the other may execute at any time.
+
+- Added serial event "DEVICE_STARTED", which notifies the application controller of nRF51 startup
+
+- Added RadioReset serial command, which causes the nRF51 to reset to its initial state.
+
+- Got rid of the serial_queue module, and used the new generic fifo in its place. No change in functionality.
+
+- Stability improvements to timeslot handling
+
+== 0.6.4 Stability improvements Aug 3
+This release offers no new features, but includes some internal adjustments and stability improvements:
+
+- Lollipop versioning fixed (Issue #28)
+
+- Unified FIFO queue implementation added for internal asynchronous events and commands
+
+- Improved stability for timeslots
+
+- Increased default GATT Server storage (can be changed in mesh_srv.c)
+
+- Some source file cleanup
+
+== 0.6.3-SD8 Support for sdk 8 and sd 8 Jul 28
+Support for sdk 8.1 and softdevice S110 v8.0
+
+The pin maps for LEDs have been changed and include the boards PCA 10031 and PCA 10028.
+The softdevice calls have been modified to fit the interface to the sd S110 v8
+These calls are:
+
+ble_gap_sec_params_t has no param timeout any more
+
+sd_ble_gatts_sys_attr_set takes an optional flag parameter
+
+sd_ble_gatts_sys_attr_set and ..._get require a connection handle (can be BLE_CONN_HANDLE_INVALID) and an other structure for the passed parameters
+
+sd_ble_gap_sec_params_reply takes a keyset structure, can be NULL
+
+In addition, the project now utilizes the Softdevice handler to take care of all SD initialization.
+
+This release is a bugfix for the previously released SD8-support release, which was somewhat unstable.
+
 == 0.6.3 Bugfix-release May 4
 
 Fixed issues: 
