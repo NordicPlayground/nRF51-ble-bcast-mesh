@@ -51,6 +51,22 @@ bool rbc_mesh_init(
 	uint8_t handleCount,
     uint32_t advInt_ms);
 
+/** @brief Start mesh radio operation.
+ * @note calling this function as part of the initialization procedure is 
+ *   redundant, and will result in an invalid-state event.
+ *
+ *  @return True if the data was successfully queued for sending, 
+ *  false if there is no more space to store messages to send.
+ */
+bool rbc_mesh_start(void);
+
+/** @brief Stop all mesh radio activity.
+ *
+ *  @return True if the data was successfully queued for sending, 
+ *  false if there is no more space to store messages to send.
+ */
+bool rbc_mesh_stop(void);
+
 /** @brief alter value of a handle
  *  @details
  *  promts the slave to call the rbc_mesh_init

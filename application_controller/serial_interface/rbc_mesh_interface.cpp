@@ -78,6 +78,28 @@ bool rbc_mesh_init(
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
+bool rbc_mesh_start(void)
+{
+    hal_aci_data_t msg_for_mesh;
+    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
+
+    p_cmd->length = 1;
+    p_cmd->opcode = SERIAL_CMD_OPCODE_START;
+
+    return hal_aci_tl_send(&msg_for_mesh);
+}
+
+bool rbc_mesh_stop(void)
+{
+    hal_aci_data_t msg_for_mesh;
+    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
+
+    p_cmd->length = 1;
+    p_cmd->opcode = SERIAL_CMD_OPCODE_STOP;
+
+    return hal_aci_tl_send(&msg_for_mesh);
+}
+
 bool rbc_mesh_value_set(uint8_t handle, uint8_t* buffer, int len){
 
 	if (len > HAL_ACI_MAX_LENGTH - 1 || len < 1)
