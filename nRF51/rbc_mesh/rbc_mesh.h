@@ -59,7 +59,7 @@ typedef enum
     RBC_MESH_EVENT_TYPE_CONFLICTING_VAL, /** Another node has a conflicting version of the value */
     RBC_MESH_EVENT_TYPE_NEW_VAL,         /** A previously unallocated value has been received and allocated */
     RBC_MESH_EVENT_TYPE_INITIALIZED,     /** The framework has been initialized internally (most likely via serial interface) */
-    RBC_MESH_EVENT_TYPE_TX               /** The indicated handle was transmitted */
+    RBC_MESH_EVENT_TYPE_TX,              /** The indicated handle was transmitted */
 } rbc_mesh_event_type_t;
 
 /** 
@@ -191,7 +191,6 @@ uint32_t rbc_mesh_start(void);
 *   the mesh operation is already stopped.
 */
 uint32_t rbc_mesh_stop(void);
-
 
 /**
 * @brief Set the contents of the data array pointed to by the provided handle
