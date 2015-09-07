@@ -21,3 +21,4 @@
 *.tmp
 **/arm/JLinkLog.txt
 **/_viminfo
+**/_vimtags
