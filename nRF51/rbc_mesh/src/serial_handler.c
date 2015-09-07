@@ -33,7 +33,6 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 #include "serial_handler.h"
-//#include "serial_queue.h"
 #include "spi_slave.h"
 #include "event_handler.h"
 #include "fifo.h"
