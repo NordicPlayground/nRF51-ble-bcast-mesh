@@ -203,7 +203,7 @@ uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_interval_min_get(uint32_t* interval_min_ms)
+uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
 {
     if (!g_is_initialized)
     {

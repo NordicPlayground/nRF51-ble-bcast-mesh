@@ -285,14 +285,14 @@ uint32_t rbc_mesh_channel_get(uint8_t* ch);
 uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
 
 /**
-* @brief Get the mesh minimum advertise interval in ms
+* @brief Get the mesh minimum transmit interval in ms
 *
-* @param[out] adv_int_ms Pointer location to put adv int in
+* @param[out] interval_min_ms Pointer location to put adv int in
 *
 * @return NRF_SUCCESS the value was fetched successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized
 */
-uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms);
+uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 
 /**
 * @brief Event handler to be called upon external BLE event arrival.
