@@ -100,6 +100,31 @@ adv_int_ms may be different.
 
 '''
 
+*Start mesh radio activity*
+[source,c]
+----
+uint32_t rbc_mesh_start(void);
+----
+Start radio operation after stopping it with `rbc_mesh_stop()`.
+It is not necessary to run this command when initializing the mesh, as the 
+`rbc_mesh_init()` function will start radio operation automatically.
+
+'''
+
+*Stop mesh radio activity*
+[source,c]
+----
+uint32_t rbc_mesh_stop(void);
+----
+Stop all mesh-related radio activity immediately. This prevents the device
+from communicating with any other device in the mesh until the 
+`rbc_mesh_start()` function is called. It will still be possible to change 
+the local mesh-data values (both through an API call, a Softdevice 
+connection or the serial-interface), but these changes will not be 
+propagated to the rest of the mesh, while the device is stopped.
+
+'''
+
 *Manually enable broadcasting of a given value*
 [source,c]
 ----
