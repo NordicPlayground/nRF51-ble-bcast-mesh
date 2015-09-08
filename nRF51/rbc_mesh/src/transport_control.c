@@ -93,8 +93,6 @@ static void prepare_event(rbc_mesh_event_t* evt, mesh_packet_t* p_packet)
     evt->value_handle = p_packet->payload.handle;
     evt->data = &p_packet->payload.data[0];
     evt->data_len = p_packet->header.length - MESH_PACKET_OVERHEAD;
-    evt->originator_address.addr_type = p_packet->header.addr_type;
-    memcpy(&evt->originator_address.addr, &p_packet->addr, BLE_GAP_ADDR_LEN);
 }
 
 /* radio callback, executed in STACK_LOW */

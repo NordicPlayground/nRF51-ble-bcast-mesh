@@ -63,6 +63,8 @@ uint32_t vh_on_timeslot_begin(void);
 
 uint32_t vh_order_update(uint64_t time_now);
 
+uint32_t vh_tx_report(uint8_t handle, bool do_tx_event);
+
 uint32_t vh_set_gatts_handle(uint8_t value_handle, uint8_t gatts_handle);
 
 uint32_t vh_get_gatts_handle(uint8_t value_handle, uint8_t* gatts_handle);
@@ -73,3 +75,4 @@ uint32_t vh_value_enable(uint8_t handle);
 
 uint32_t vh_value_disable(uint8_t handle);
 #endif /* _VERSION_HANDLER_H__ */
+

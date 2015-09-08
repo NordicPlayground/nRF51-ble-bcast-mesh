@@ -41,7 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 
 
-typedef enum
+typedef __packed_armcc enum
 {
     SERIAL_CMD_OPCODE_ECHO                  = 0x02,
     SERIAL_CMD_OPCODE_RADIO_RESET           = 0x0E,
@@ -50,6 +50,8 @@ typedef enum
     SERIAL_CMD_OPCODE_VALUE_SET             = 0x71,
     SERIAL_CMD_OPCODE_VALUE_ENABLE          = 0x72,
     SERIAL_CMD_OPCODE_VALUE_DISABLE         = 0x73,
+    SERIAL_CMD_OPCODE_START                 = 0x74,
+    SERIAL_CMD_OPCODE_STOP                  = 0x75,
     
     SERIAL_CMD_OPCODE_VALUE_GET             = 0x7A,
     SERIAL_CMD_OPCODE_BUILD_VERSION_GET     = 0x7B,
@@ -65,12 +67,12 @@ typedef enum
 
 
 /****** CMD PARAMS ******/
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
 	uint8_t data[29];
 } __packed_gcc serial_cmd_params_echo_t;
 
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
     uint32_t access_addr;
     uint8_t channel;
@@ -78,23 +80,23 @@ typedef __packed struct
     uint32_t adv_int_min;
 } __packed_gcc serial_cmd_params_init_t;
 
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
     uint8_t handle;
     uint8_t value[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc serial_cmd_params_value_set_t;
 
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
     uint8_t handle;
 } __packed_gcc serial_cmd_params_value_enable_t;
 
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
     uint8_t handle;
 } __packed_gcc serial_cmd_params_value_disable_t;
 
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
     uint8_t handle;
 } __packed_gcc serial_cmd_params_value_get_t;
@@ -121,11 +123,11 @@ typedef __packed struct
     uint8_t data[16];
 } __packed_gcc serial_cmd_params_dfu_packet_t;
 
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
     uint8_t length;
     serial_cmd_opcode_t opcode;
-    __packed union 
+    __packed_armcc union 
     {
         serial_cmd_params_echo_t            echo;
         serial_cmd_params_init_t            init;

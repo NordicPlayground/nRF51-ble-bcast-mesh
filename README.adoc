@@ -39,7 +39,11 @@ The SDK 7.x.x projects utilizes the *non-pack* version of the SDK, available at 
 This will ensure that all references to the SDK are correctly placed, so that you don't have to change all references to the SDK in the project files. If you still want to clone the repo into a different folder than suggested, you need to change the location of all the files under the _Lib_ group in Keil uVision, in addition to the include paths under the menu _Target options -> C/C++ -> Include Paths_.
 
 === Integrating with existing applications
-The framework is built to be compatible with most existing SDK example projects, and we've written a short guide to include it in existing projects with as few changes to existing code as possible. The guide uses the ble_app_proximity example from the SDK as reference, and shows a step by step approach to overcoming typical problems with integration:
+The framework is built to be compatible with most existing SDK example projects, and as of v0.6.9, it is also compatible with the SDK module APP_TIMER right out of the box. 
+In order to be compatible with the APP_TIMER module, the framework makes use of the Quadrature Decoder hardware interrupt handler for asynchronous processing. 
+Applications which already use this hardware module must be altered to use a different interrupt for mesh processing. All async-behavior is contained in the _event_handler.c_ file.
+
+We've written a short guide to include it in existing projects with as few changes to existing code as possible. The guide uses the ble_app_proximity example from the SDK as reference, and shows a step by step approach to overcoming typical problems with integration:
 
 link:docs/integrating_w_SD_apps.adoc[Guide to integrating rbc_mesh into existing projects]
 

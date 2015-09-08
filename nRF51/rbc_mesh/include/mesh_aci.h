@@ -41,7 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef enum
+typedef __packed_armcc enum
 {
   ACI_STATUS_SUCCESS                                        = 0x00,
   ACI_STATUS_ERROR_UNKNOWN                                  = 0x80,
@@ -54,7 +54,7 @@ typedef enum
   ACI_STATUS_ERROR_INVALID_DATA                             = 0x87,
   ACI_STATUS_RESERVED_START                                 = 0xF0,
   ACI_STATUS_RESERVED_END                                   = 0xFF
-} __packed __packed_gcc aci_status_code_t;
+} __packed_gcc aci_status_code_t;
 
 
 /** @brief Initialize serial handler */

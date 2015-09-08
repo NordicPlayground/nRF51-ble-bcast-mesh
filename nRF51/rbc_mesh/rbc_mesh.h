@@ -58,7 +58,8 @@ typedef enum
     RBC_MESH_EVENT_TYPE_UPDATE_VAL,      /** Another node has updated the value */
     RBC_MESH_EVENT_TYPE_CONFLICTING_VAL, /** Another node has a conflicting version of the value */
     RBC_MESH_EVENT_TYPE_NEW_VAL,         /** A previously unallocated value has been received and allocated */
-    RBC_MESH_EVENT_TYPE_INITIALIZED      /** The framework has been initialized internally (most likely via serial interface) */
+    RBC_MESH_EVENT_TYPE_INITIALIZED,     /** The framework has been initialized internally (most likely via serial interface) */
+    RBC_MESH_EVENT_TYPE_TX,              /** The indicated handle was transmitted */
 } rbc_mesh_event_type_t;
 
 /** 
@@ -72,7 +73,6 @@ typedef struct
     uint8_t* data;                          /** Current data array contained at the event handle location */
     uint8_t data_len;                       /** Length of data array */
     uint16_t version_delta;                 /** Version number increase since last update */
-    ble_gap_addr_t originator_address;      /** GAP address of node where this version of the message appeared */
 } rbc_mesh_event_t;
 
 
@@ -164,6 +164,35 @@ typedef struct
 uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
 
 /**
+* @brief Start mesh radio activity after stopping it. 
+*
+* @details This function is called automatically in the @ref rbc_mesh_init 
+*   function, and only has to be called after a call to @ref rbc_mesh_stop.
+*
+* @return NRF_SUCCESS the mesh successfully started radio operation
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized, or
+*   the mesh is already running.
+*/
+uint32_t rbc_mesh_start(void);
+
+/**
+* @brief Stop mesh radio activity. 
+*
+* @details Stop ordering timeslots from the Softdevice, effectively stopping 
+*   all radio activity. This allows the chip to enter long-term low power 
+*   operation.
+*
+* @note While other mesh calls will work locally, the device will not be able
+*   to transmit or receive anything to/from other devices in the network before
+*   being reactivated by a call to @ref rbc_mesh_start.
+*
+* @return NRF_SUCCESS the mesh successfully stopped all radio operation
+* @return NRF_ERROR_INVALID_STATE te framework has not been initialized, or
+*   the mesh operation is already stopped.
+*/
+uint32_t rbc_mesh_stop(void);
+
+/**
 * @brief Set the contents of the data array pointed to by the provided handle
 * 
 * @note If the indicated handle-value pair is in a disabled state, it will 
@@ -217,6 +246,27 @@ uint32_t rbc_mesh_value_enable(uint8_t handle);
 uint32_t rbc_mesh_value_disable(uint8_t handle);
 
 /**
+* @brief Set whether the given handle should produce TX events for each time
+*   the value is transmitted.
+*
+* @note In order to maintain high performance in the framework, it is 
+*   recommended that the amount of values that have this flag set is kept
+*   as low as possible. The flag is set to 0 by default.
+* @note The TX event data-field is set to NULL, and any need to access the 
+*   contents of the transmission must be done with the @ref 
+*   rbc_mesh_value_get() function.
+*
+* @param[in] handle Handle to change TX event flag for 
+* @param[in] do_tx_event The TX event configuration for the given value
+*
+* @return NRF_SUCCESS the TX event configuration has been set successfully
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
+*   in @ref rbc_mesh_init.
+*/
+uint32_t rbc_mesh_tx_report(uint8_t handle, bool do_tx_event);
+
+/**
  * @brief Get the contents of the data array pointed to by the provided handle
 *
 * @param[in] handle The handle of the value we want to update. Is mesh-global.
@@ -264,14 +314,14 @@ uint32_t rbc_mesh_channel_get(uint8_t* ch);
 uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
 
 /**
-* @brief Get the mesh minimum advertise interval in ms
+* @brief Get the mesh minimum transmit interval in ms
 *
-* @param[out] adv_int_ms Pointer location to put adv int in
+* @param[out] interval_min_ms Pointer location to put adv int in
 *
 * @return NRF_SUCCESS the value was fetched successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized
 */
-uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms);
+uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 
 /**
 * @brief Event handler to be called upon external BLE event arrival.

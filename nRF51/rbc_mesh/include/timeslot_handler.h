@@ -82,6 +82,9 @@ void timeslot_order_normal(uint32_t length_us, uint32_t distance_us, bool immedi
 */
 void timeslot_extend(uint32_t extra_time_us);
 
+/** @brief Forcibly stop the timeslot execution */
+void timeslot_stop(void);
+
 /** @brief returns the timestamp sampled at the beginning of the timeslot */
 uint64_t timeslot_get_global_time(void);
 

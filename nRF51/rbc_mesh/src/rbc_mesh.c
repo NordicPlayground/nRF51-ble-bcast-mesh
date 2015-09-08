@@ -50,9 +50,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-
-
-static bool g_is_initialized = false;
+static enum
+{
+    MESH_STATE_UNINITIALIZED,
+    MESH_STATE_RUNNING,
+    MESH_STATE_STOPPED
+} g_mesh_state;
 static uint32_t g_access_addr;
 static uint8_t g_channel;
 static uint8_t g_handle_count;
@@ -78,7 +81,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return NRF_ERROR_SOFTDEVICE_NOT_ENABLED;
     }
 
-    if (g_is_initialized)
+    if (g_mesh_state != MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -120,7 +123,35 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     g_handle_count = init_params.handle_count;
     g_interval_min_ms = init_params.interval_min_ms;
 
-    g_is_initialized = true;
+    g_mesh_state = MESH_STATE_RUNNING;
+
+    return NRF_SUCCESS;
+}
+
+uint32_t rbc_mesh_start(void)
+{
+    if (g_mesh_state != MESH_STATE_STOPPED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    timeslot_order_earliest(10000, true);
+
+    g_mesh_state = MESH_STATE_RUNNING;
+
+    return NRF_SUCCESS;
+}
+
+uint32_t rbc_mesh_stop(void)
+{
+    if (g_mesh_state != MESH_STATE_RUNNING)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    timeslot_stop();
+
+    g_mesh_state = MESH_STATE_STOPPED;
 
     return NRF_SUCCESS;
 }
@@ -135,12 +166,21 @@ uint32_t rbc_mesh_value_disable(uint8_t handle)
     return vh_value_disable(handle);
 }
 
+uint32_t rbc_mesh_tx_report(uint8_t handle, bool do_tx_event)
+{
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    return vh_tx_report(handle, do_tx_event);
+}
 
 /****** Getters and setters ******/
 
 uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
 {
-    if (!g_is_initialized)
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -160,7 +200,7 @@ uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
 
 uint32_t rbc_mesh_access_address_get(uint32_t* access_address)
 {
-    if (!g_is_initialized)
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -172,7 +212,7 @@ uint32_t rbc_mesh_access_address_get(uint32_t* access_address)
 
 uint32_t rbc_mesh_channel_get(uint8_t* ch)
 {
-    if (!g_is_initialized)
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -184,7 +224,7 @@ uint32_t rbc_mesh_channel_get(uint8_t* ch)
 
 uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count)
 {
-    if (!g_is_initialized)
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -194,9 +234,9 @@ uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_interval_min_get(uint32_t* interval_min_ms)
+uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
 {
-    if (!g_is_initialized)
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -213,7 +253,7 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
         mesh_srv_conn_handle_update(evt->evt.gap_evt.conn_handle);
     }
 
-    if (!g_is_initialized)
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }

@@ -47,6 +47,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TIMER_SAFE_START()    NVIC_DisableIRQ(TIMER0_IRQn) 
 #define TIMER_SAFE_END()      NVIC_EnableIRQ(TIMER0_IRQn)   
 
+#define TIMER_COMPARE_COUNT     (4)
 
 /*****************************************************************************
 * Static globals
@@ -219,7 +220,7 @@ void timer_abort(uint8_t timer)
     }
     if (is_in_ts)
     {
-        if (timer < 4)
+        if (timer < TIMER_COMPARE_COUNT)
         {
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer));
             active_callbacks &= ~(1 << timer);

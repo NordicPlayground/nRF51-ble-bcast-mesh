@@ -33,7 +33,6 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 #include "serial_handler.h"
-//#include "serial_queue.h"
 #include "spi_slave.h"
 #include "event_handler.h"
 #include "fifo.h"
@@ -150,10 +149,6 @@ static void do_transmit(void)
         /* don't need to wait for SPIS mutex */
         NRF_GPIO->OUTCLR = (1 << PIN_RDYN);
     }
-
-    nrf_gpio_pin_set(0);
-    nrf_gpio_pin_clear(0);
-
     /* wait for SPI driver to finish buffer set operation */
 }
 
@@ -170,8 +165,6 @@ static void gpiote_init(void)
                                               | (GPIOTE_CONFIG_MODE_Event << GPIOTE_CONFIG_MODE_Pos);
                                               
 
-    nrf_gpio_cfg_output(0);
-    nrf_gpio_cfg_output(1);
     NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_IN0_Msk;
     NVIC_SetPriority(GPIOTE_IRQn, APP_IRQ_PRIORITY_LOW);
     NVIC_ClearPendingIRQ(GPIOTE_IRQn);
@@ -191,11 +184,8 @@ static void gpiote_init(void)
 */
 void GPIOTE_IRQHandler(void)
 {
-    NRF_GPIO->OUTSET = (1 << 2);
     if (NRF_GPIOTE->EVENTS_IN[SERIAL_REQN_GPIOTE_CH] && serial_state == SERIAL_STATE_IDLE)
     {
-        
-        NRF_GPIO->OUTSET = (1 << 3);
         if (fifo_is_full(&rx_fifo))
         {
             /* wait until the application pops an event off the rx queue */
@@ -205,10 +195,8 @@ void GPIOTE_IRQHandler(void)
         {
             do_transmit();
         }
-        NRF_GPIO->OUTCLR = (1 << 3);
     }
     NRF_GPIOTE->EVENTS_IN[SERIAL_REQN_GPIOTE_CH] = 0;
-    NRF_GPIO->OUTCLR = (1 << 2);
 }
 
 /**
@@ -228,8 +216,6 @@ void spi_event_handler(spi_slave_evt_t evt)
 
         case SPI_SLAVE_XFER_DONE:
             NRF_GPIO->OUTSET = (1 << PIN_RDYN);
-            nrf_gpio_pin_set(1);
-            nrf_gpio_pin_clear(1);
             if (doing_tx)
             {
                 doing_tx = false;

@@ -85,6 +85,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #endif
 
+#define MESH_ACCESS_ADDR        (0xA541A68F)
+#define MESH_INTERVAL_MIN_MS    (100)
+#define MESH_CHANNEL            (38)
+#define MESH_HANDLE_COUNT       (2)
+
 typedef enum
 {
     SCALING_CMD_TX = 'U',
@@ -248,18 +253,10 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
         case RBC_MESH_EVENT_TYPE_INITIALIZED: cmd = 'I'; break;
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL: cmd = 'U'; break;
         case RBC_MESH_EVENT_TYPE_NEW_VAL: cmd = 'N'; break;
+        case RBC_MESH_EVENT_TYPE_TX: cmd = 'T'; break;
     }
     _LOG("%c[%d] ", cmd, evt->value_handle);
     _LOG_BUFFER(evt->data, evt->data_len);
-    _LOG(" \tL:%d [%02X:%02X:%02X:%02X:%02X:%02X]\r\n",
-        (int)evt->data_len,
-        evt->originator_address.addr[0],
-        evt->originator_address.addr[1],
-        evt->originator_address.addr[2],
-        evt->originator_address.addr[3],
-        evt->originator_address.addr[4],
-        evt->originator_address.addr[5]
-    );
 }
 
 /** Handler for incoming UART events */
@@ -289,13 +286,13 @@ int main(void)
     /* Init the rbc_mesh */
     rbc_mesh_init_params_t init_params;
 
-    init_params.access_addr = 0xA541A68F;
-    init_params.interval_min_ms = 100; /* the initial lower bound to transmission intervals */
-    init_params.channel = 38;
-    init_params.handle_count = HANDLE_COUNT;
+    init_params.access_addr = MESH_ACCESS_ADDR;
+    init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
+    init_params.channel = MESH_CHANNEL;
+    init_params.handle_count = MESH_HANDLE_COUNT;
     init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
-    
+   
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     

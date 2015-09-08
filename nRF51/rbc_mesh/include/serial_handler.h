@@ -43,7 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef __packed struct 
+typedef __packed_armcc struct 
 {
   uint8_t status_byte;
   uint8_t buffer[SERIAL_DATA_MAX_LEN + 2];
