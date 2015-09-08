@@ -32,7 +32,6 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-
 #include "cache.h"
 #include "journal.h"
 
@@ -119,22 +118,41 @@ void cache_flash(void)
         /* load old page from flash */
         memcpy(g_assembly_page, PAGE_SIZE * page_index, PAGE_SIZE);
 
-        /* search through records */
+        /* apply records to page */
         dfu_record_t* p_rec = get_next_record(page_index, true);
         uint32_t record_count = 0;
         while (p_rec != NULL)
         {
             record_count++;
-            memcpy(
+
+            memcpy(g_assembly_page + PAGE_LOCAL_ADDR(FULL_ADDRESS(p_rec->short_addr)), p_rec->data, DFU_RECORD_SIZE);
+            p_rec->short_addr = INVALID_SHORT_ADDR; /* invalidate */
+
+            p_rec = get_next_record(page_index, false);
         }
-
         
-        
+        /* erase and flash */
+        journal_invalidate(page_index);
+        nrf_flash_erase(page_index * PAGE_SIZE, PAGE_SIZE);
+        nrf_flash_store(page_index * PAGE_SIZE, g_assembly_page, PAGE_SIZE, 0);
+        journal_complete(page_index);
 
+        /* fetch next page */
+        page_index = get_first_page_index(false);
+    }
+    g_index = 0;
 }
 
-bool cache_record_get(uint32_t reference_address, int16_t offset, dfu_record_t* p_record)
+bool cache_record_get(uint16_t seq_num, dfu_record_t* p_record)
 {
-
+    for (uint32_t i = 0; i < g_index; ++i)
+    {
+        if (gp_cache[i].seq_num == seq_num)
+        {
+            memcpy(p_record, &gp_cache[i], sizeof(dfu_record_t));
+            return true;
+        }
+    }
+    return false;
 } 
 
