@@ -106,11 +106,11 @@ uint32_t sd_evt_handler(void)
 {
     rbc_mesh_sd_irq_handler();
     
-    ble_evt_t ble_evt;
+    uint8_t ble_evt[sizeof(ble_evt_t) + RBC_MESH_VALUE_MAX_LEN];
     uint16_t len = sizeof(ble_evt);
     while (sd_ble_evt_get((uint8_t*) &ble_evt, &len) == NRF_SUCCESS)
     {
-        nrf_adv_conn_evt_handler(&ble_evt);
+        nrf_adv_conn_evt_handler((ble_evt_t*) &ble_evt);
     }
     return NRF_SUCCESS;
 }
