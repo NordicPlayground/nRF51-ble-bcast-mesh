@@ -33,26 +33,32 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#ifndef __CACHE_H__
-#define __CACHE_H__
+#ifndef __RECORDS_H__
+#define __RECORDS_H__
 
 #include "dfu.h"
 #include <stdint.h>
 #include <stdbool.h>
 
-
 #define DFU_RECORD_SIZE     (16)
+
+#define PAGE_INDEX(full_addr)       ((full_addr) >> 10)
 
 typedef struct 
 {
-    uint16_t short_addr;
     uint16_t seq_num;
+    uint16_t short_addr;
     uint8_t data[DFU_RECORD_SIZE];
 } dfu_record_t;
 
-void cache_init(void);
-void cache_record_add(dfu_record_t* p_record);
-void cache_record_get(uint16_t seq_num, dfu_record_t* p_record);
-void cache_flash(void);
+uint32_t records_init(uint32_t missing_record_pool_size);
+void records_record_add(dfu_record_t* p_record, bool was_missing);
+bool records_record_get(uint16_t seq_num, dfu_record_t* p_record);
+void records_flash_page(uint32_t page_index);
+void records_flash(void);
+void records_missing_report(uint16_t seq_num);
+bool records_missing_in_range(uint16_t lowest_seq_num, uint16_t highest_seq_num);
+bool records_is_missing(uint16_t seq_num);
+uint16_t records_missing_get(void);
 
-#endif /* __CACHE_H__ */
+#endif /* __RECORDS_H__ */
