@@ -40,11 +40,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-static void* s_fifo_at(fifo_t* p_fifo, uint32_t index)
-{
-    return ((uint8_t*) p_fifo->elem_array + p_fifo->elem_size * index);
-}
-
+#define FIFO_ELEM_AT(p_fifo, index) ((uint8_t*) (p_fifo->elem_array) + (p_fifo->elem_size) * (index))
+#define FIFO_IS_FULL(p_fifo) (p_fifo->tail + p_fifo->array_len == p_fifo->head)
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
@@ -59,19 +56,21 @@ void fifo_init(fifo_t* p_fifo)
 	p_fifo->tail = 0;
 }
 
-uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
+inline uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
 {
-	if (fifo_is_full(p_fifo))
+	if (FIFO_IS_FULL(p_fifo))
 	{
 		return NRF_ERROR_NO_MEM;
 	}
     uint32_t was_masked;
     DISABLE_IRQS(was_masked);
     
-    void* p_dest = s_fifo_at(p_fifo, p_fifo->head & (p_fifo->array_len - 1));
+    void* p_dest = FIFO_ELEM_AT(p_fifo, p_fifo->head & (p_fifo->array_len - 1));
 
     if (p_fifo->memcpy_fptr)
         p_fifo->memcpy_fptr(p_dest, p_elem);
+    else if (p_fifo->elem_size == 4) /* faster */
+        *((uint32_t*) p_dest) = *((uint32_t*) p_elem);
     else
         memcpy(p_dest, p_elem, p_fifo->elem_size);
 
@@ -87,7 +86,7 @@ uint32_t fifo_pop(fifo_t* p_fifo, void* p_elem)
         return NRF_ERROR_NULL;
     }
 
-    void* p_src = s_fifo_at(p_fifo, p_fifo->tail & (p_fifo->array_len - 1));
+    void* p_src = FIFO_ELEM_AT(p_fifo, p_fifo->tail & (p_fifo->array_len - 1));
 
     if (p_fifo->memcpy_fptr)
         p_fifo->memcpy_fptr(p_elem, p_src);
@@ -106,7 +105,7 @@ uint32_t fifo_peek_at(fifo_t* p_fifo, void* p_elem, uint32_t elem)
         return NRF_ERROR_NULL;
     }
 
-    void* p_src = s_fifo_at(p_fifo, (p_fifo->tail + elem) & (p_fifo->array_len - 1));
+    void* p_src = FIFO_ELEM_AT(p_fifo, (p_fifo->tail + elem) & (p_fifo->array_len - 1));
 
     if (p_fifo->memcpy_fptr)
         p_fifo->memcpy_fptr(p_elem, p_src);
@@ -131,9 +130,9 @@ uint32_t fifo_get_len(fifo_t* p_fifo)
 	return (p_fifo->head - p_fifo->tail);
 }
 
-bool fifo_is_full(fifo_t* p_fifo)
+inline bool fifo_is_full(fifo_t* p_fifo)
 {
-	return (p_fifo->tail + p_fifo->array_len == p_fifo->head);
+	return FIFO_IS_FULL(p_fifo);
 }
 
 bool fifo_is_empty(fifo_t* p_fifo)
