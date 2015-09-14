@@ -1,3 +1,4 @@
+CURRDIR=$(pwd)
 for e in */ ; do
 	echo "building $e"
 	cd "$e"
@@ -20,6 +21,6 @@ for e in */ ; do
 	export USE_BUTTONS=\"no\"
 	export USE_RBC_MESH_SERIAL=\"yes\"
 	make
-	cd ../..
+	cd $CURRDIR
 done
 
