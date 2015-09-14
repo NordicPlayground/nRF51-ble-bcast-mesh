@@ -43,11 +43,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "toolchain.h"
 #include "trickle.h"
 #include "rbc_mesh.h"
+#include "log.h"
 
 #include "nrf_error.h"
+
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+
+#define LOG_VH                          (1)
 
 #define MESH_TRICKLE_I_MAX              (2000)
 #define MESH_TRICKLE_K                  (3)
@@ -55,6 +59,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_VALUE_LOLLIPOP_LIMIT       (200)
 
 #define TIMESLOT_STARTUP_DELAY_US       (100)
+
+#if LOG_VH
+#define LOG(str) log_push(str)
+static const char m_log_tx[] = "VH: TX\n";
+static const char m_log_rx[] = "VH: RX\n";
+static const char m_log_local_update[] = "VH: Local update\n";
+static const char m_log_queue_full[] = "VH: TX queue full\n";
+#else
+#define LOG(str)
+#endif
 
 
 
@@ -137,6 +151,7 @@ static void transmit_all_instances(uint64_t timestamp)
                 {
                     /* the radio queue is full, tc will notify us when it's available again */
                     TICK_PIN(PIN_TC_QUEUE_FULL);
+                    LOG(m_log_queue_full);
                     break;
                 }
                 else
@@ -155,6 +170,8 @@ static void transmit_all_instances(uint64_t timestamp)
 
                         rbc_mesh_event_handler(&tx_event);
                     }
+                    
+                    LOG(m_log_tx);
                 }
             }
         }
@@ -278,6 +295,7 @@ uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t versio
 
     metadata_t* p_md = &g_md_set.md[handle-1]; /* to zero-indexed */
     uint64_t ts_start_time = timeslot_get_global_time();
+    
 
     switch (status)
     {
@@ -302,6 +320,7 @@ uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t versio
             return NRF_ERROR_INVALID_PARAM;
     }
 
+    LOG(m_log_rx);
     return NRF_SUCCESS;
 }
 
@@ -335,6 +354,7 @@ vh_data_status_t vh_local_update(uint8_t handle)
 
     vh_order_update(ts_time);
 
+    LOG(m_log_local_update);
     return status;
 }
 

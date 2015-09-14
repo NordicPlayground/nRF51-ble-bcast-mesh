@@ -39,7 +39,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 #include "fifo.h"
 #include "nrf_soc.h"
+#include "log.h"
 #include <string.h>
+
+#define LOG_EH      (1)
+
+#if LOG_EH
+#define LOG(str) log_push(str)
+static const char m_log_queue_full[] = "EH: Event dropped\n";
+#else
+#define LOG(str)
+#endif
 
 #define EVENT_HANDLER_IRQ       (QDEC_IRQn)
 
@@ -156,6 +166,7 @@ uint32_t event_handler_push(async_event_t* evt)
     uint32_t result = fifo_push(p_fifo, evt);
     if (result != NRF_SUCCESS)
     {
+        LOG(m_log_queue_full);
         return result;
     }
 
