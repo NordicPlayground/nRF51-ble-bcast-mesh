@@ -566,6 +566,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
             </File>
+            <File>
+              <FileName>log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\log.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1116,6 +1121,11 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\log.c</FilePath>
             </File>
           </Files>
         </Group>
