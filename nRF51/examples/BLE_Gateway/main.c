@@ -43,6 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "boards.h"
+#include "log.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -58,6 +59,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_CHANNEL            (38)
 #define MESH_HANDLE_COUNT       (2)
 
+const char m_log_start[] = "START\n";
+
 /**
 * @brief General error handler.
 */
@@ -66,6 +69,8 @@ static void error_loop(void)
     led_config(3, 1);
     while (true)
     {
+        log_process();
+        __WFE();
     }
 }
 
@@ -78,6 +83,8 @@ static void error_loop(void)
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
+    static const char assert_str[] = "ERROR: SD assert handler\n";
+    log_push(assert_str);
     error_loop();
 }
 
@@ -91,11 +98,16 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
+    static char error_str[64];
+    sprintf(error_str, "ERROR: %X, %s:L%d\n", (unsigned int) error_code, p_file_name, (int) line_num);
+    log_push(error_str);
     error_loop();
 }
 
 void HardFault_Handler(void)
 {
+    static const char error_str[] = "ERROR: HARDFAULT\n";
+    log_push(error_str);
     error_loop();
 }
 
@@ -123,6 +135,12 @@ uint32_t sd_evt_handler(void)
 void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     TICK_PIN(28);
+    static char evt_log[] = "EVENT:[x]:0x\n";
+    evt_log[7] = '0' + evt->event_type;
+    evt_log[10] = '0' + evt->value_handle / 10;
+    evt_log[11] = '0' + evt->value_handle % 10;
+
+    log_push(evt_log);
     switch (evt->event_type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
@@ -181,6 +199,8 @@ int main(void)
     /* Enable Softdevice (including sd_ble before framework */
     SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
     
+    log_init(UART_BAUDRATE_BAUDRATE_Baud460800, false);
+    
 #ifdef RBC_MESH_SERIAL
 
     /* only want to enable serial interface, and let external host setup the framework */
@@ -212,12 +232,15 @@ int main(void)
 
 #endif
     NRF_GPIO->OUTCLR = (1 << 4);
+    
+    log_push(m_log_start);
 
 #if !(defined(BUTTONS))
     /* sleep */
     while (true)
     {
-        sd_app_evt_wait();
+        //sd_app_evt_wait();
+        log_process();
     }
     
 #else
@@ -249,13 +272,15 @@ int main(void)
             led_config(2, 0);
         }
         // green on
-         if(nrf_gpio_pin_read(BUTTON_4) == 0)
+        if(nrf_gpio_pin_read(BUTTON_4) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(2, mesh_data, 1);
             led_config(2, 1);
         }
+        
+        log_process();
     }
 #endif
 
