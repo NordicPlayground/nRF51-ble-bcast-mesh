@@ -65,7 +65,6 @@ typedef __packed_armcc enum
     SERIAL_CMD_OPCODE_DFU_END               = 0x22,
 } __packed_gcc serial_cmd_opcode_t;
 
-
 /****** CMD PARAMS ******/
 typedef __packed_armcc struct 
 {

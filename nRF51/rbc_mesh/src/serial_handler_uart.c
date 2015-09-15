@@ -35,7 +35,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "serial_handler.h"
 #include "event_handler.h"
 #include "fifo.h"
-#include "app_uart.h"
 
 #include "nrf_soc.h"
 #include "boards.h"
@@ -52,6 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef enum
 {
     SERIAL_STATE_IDLE,
+    SERIAL_STATE_WAIT_FOR_QUEUE,
     SERIAL_STATE_TRANSMIT
 } serial_state_t;
 /*****************************************************************************
@@ -64,24 +64,23 @@ static serial_data_t rx_fifo_buffer[SERIAL_QUEUE_SIZE];
 static serial_data_t tx_fifo_buffer[SERIAL_QUEUE_SIZE];
 
 static serial_state_t serial_state;
+static serial_data_t tx_buffer;
+static uint32_t tx_len;
+static uint8_t* tx_ptr;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
 /** @brief Process packet queue, always done in the async context */
 static void do_transmit(void)
 {
-    serial_data_t tx_buffer;
-
-    while (fifo_pop(&tx_fifo, &tx_buffer) == NRF_SUCCESS)
+    if (fifo_pop(&tx_fifo, &tx_buffer) == NRF_SUCCESS)
     {
-        serial_state = SERIAL_STATE_TRANSMIT;
-        uint32_t len = ((serial_evt_t*) tx_buffer.buffer)->length;
-        uint8_t* pp = tx_buffer.buffer;
-        while (len--)
-        {
-            app_uart_put(*(pp++));
-        }
-        serial_state = SERIAL_STATE_IDLE;
+        tx_len = ((serial_evt_t*) tx_buffer.buffer)->length; /* should be serial_evt_t->length+1, but will be decremented after the push below, so we don't bother */
+        tx_ptr = &tx_buffer.buffer[0];
+
+        NRF_UART0->EVENTS_TXDRDY = 0;
+        NRF_UART0->TASKS_STARTTX = 1;
+        NRF_UART0->TXD = *(tx_ptr++);
     }
 }
 
@@ -121,6 +120,12 @@ static void char_rx(uint8_t c)
             fail_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_BUSY;
             serial_handler_event_send(&fail_evt);
         }
+
+        if (fifo_is_full(&rx_fifo))
+        {
+            serial_state = SERIAL_STATE_WAIT_FOR_QUEUE;
+            NRF_UART0->TASKS_STOPRX = 1;
+        }
         pp = rx_buf.buffer;
     }
 }
@@ -128,23 +133,36 @@ static void char_rx(uint8_t c)
 /*****************************************************************************
 * System callbacks
 *****************************************************************************/
-/**
-* @brief UART event handler
-*/
-void uart_event_handler(app_uart_evt_t * p_app_uart_event)
+void UART0_IRQHandler(void)
 {
-    uint8_t c;
-    switch (p_app_uart_event->evt_type)
+    /* receive all pending bytes */
+    while (NRF_UART0->EVENTS_RXDRDY)
     {
-        case APP_UART_DATA_READY:
-            while (app_uart_get(&c) == NRF_SUCCESS)
+        NRF_UART0->EVENTS_RXDRDY = 0;
+        char_rx(NRF_UART0->RXD);
+    }
+
+    /* transmit any pending bytes */
+    if (NRF_UART0->EVENTS_TXDRDY)
+    {
+        NRF_UART0->EVENTS_TXDRDY = 0;
+        if (tx_len--)
+        {
+            NRF_UART0->TXD = *(tx_ptr++);
+        }
+        else
+        {
+            NRF_UART0->TASKS_STOPTX = 1;
+            if (serial_state != SERIAL_STATE_WAIT_FOR_QUEUE)
             {
-                /* log single character */
-                char_rx(c);
+                serial_state = SERIAL_STATE_IDLE;
             }
-            break;
-        default:
-            break;
+
+            if (!fifo_is_empty(&tx_fifo))
+            {
+                schedule_transmit();
+            }
+        }
     }
 }
 
@@ -166,18 +184,27 @@ void serial_handler_init(void)
     rx_fifo.memcpy_fptr = NULL;
     fifo_init(&rx_fifo);
 
-    uint32_t error_code;
-    app_uart_comm_params_t uart_params;
-    uart_params.baud_rate = UART_BAUDRATE_BAUDRATE_Baud460800;
-    uart_params.cts_pin_no = CTS_PIN_NUMBER;
-    uart_params.rts_pin_no = RTS_PIN_NUMBER;
-    uart_params.rx_pin_no = RX_PIN_NUMBER;
-    uart_params.tx_pin_no = TX_PIN_NUMBER;
-    uart_params.flow_control = APP_UART_FLOW_CONTROL_ENABLED;
-    uart_params.use_parity = false;
-    APP_UART_FIFO_INIT(&uart_params, 8, 256, uart_event_handler, APP_IRQ_PRIORITY_LOW, error_code);
-    APP_ERROR_CHECK(error_code);
+    /* setup hw */
+    nrf_gpio_cfg_output(TX_PIN_NUMBER);
+    nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_NOPULL);
+    nrf_gpio_cfg_output(RTS_PIN_NUMBER);
+    nrf_gpio_cfg_input(CTS_PIN_NUMBER, NRF_GPIO_PIN_NOPULL);
 
+    NRF_UART0->PSELTXD       = TX_PIN_NUMBER;
+    NRF_UART0->PSELRXD       = RX_PIN_NUMBER;
+    NRF_UART0->PSELCTS       = CTS_PIN_NUMBER;
+    NRF_UART0->PSELRTS       = RTS_PIN_NUMBER;
+    NRF_UART0->CONFIG        = (UART_CONFIG_HWFC_Enabled << UART_CONFIG_HWFC_Pos);
+    NRF_UART0->BAUDRATE      = (UART_BAUDRATE_BAUDRATE_Baud460800 << UART_BAUDRATE_BAUDRATE_Pos);
+    NRF_UART0->ENABLE        = (UART_ENABLE_ENABLE_Enabled << UART_ENABLE_ENABLE_Pos);
+    NRF_UART0->TASKS_STARTRX = 1;
+    NRF_UART0->EVENTS_RXDRDY = 0;
+    NRF_UART0->INTENSET      = (UART_INTENSET_RXDRDY_Msk | 
+                                UART_INTENSET_TXDRDY_Msk);
+
+    NVIC_SetPriority(UART0_IRQn, 3);
+    NVIC_EnableIRQ(UART0_IRQn);
+    
     /* notify application controller of the restart */ 
     serial_evt_t started_event;
     started_event.length = 4;
@@ -228,6 +255,12 @@ bool serial_handler_command_get(serial_cmd_t* cmd)
     if (((serial_cmd_t*) temp.buffer)->length > 0)
     {
         memcpy(cmd, temp.buffer, ((serial_cmd_t*) temp.buffer)->length + 1);
+    }
+
+    if (serial_state == SERIAL_STATE_WAIT_FOR_QUEUE)
+    {
+        serial_state = SERIAL_STATE_IDLE;
+        NRF_UART0->TASKS_STARTRX = 1;
     }
     return true;
 }
