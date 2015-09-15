@@ -33,18 +33,45 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#include "dfu.h"
+#include "dfu_mesh.h"
+#include "dfu_types_mesh.h"
 #include "dfu_types.h"
 #include "nrf_flash.h"
 #include "nrf_sdm.h"
 #include "bootloader_util.h"
 #include "app_error.h"
+#include "rbc_mesh.h"
+#include "records.h"
+#include "mesh_srv.h"
+#include "version_handler.h"
 
 #include "nrf51.h"
 #include <stdbool.h>
 #include <string.h>
 
 #define MAX_NUMBER_INTERRUPTS   (32)
+
+#define DATA_HANDLE_START   (3)
+#define DATA_HANDLE_STOP    (DFU_HANDLE_COUNT)
+#define RECOVERY_REQ_HANDLE (1)
+#define RECOVERY_RSP_HANDLE (2)
+
+typedef union
+{
+    struct 
+    {
+        uint16_t short_addr;
+        uint8_t data[DFU_RECORD_SIZE];
+    } data;
+    
+    struct 
+    {
+        uint16_t seq_num;
+    } req;
+    
+    dfu_record_t rsp;
+    
+} dfu_packet_t;
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
@@ -53,57 +80,6 @@ static bool g_in_dfu = false;
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
-static uint32_t flash_write(uint32_t* destination, uint8_t* data, uint32_t length)
-{
-    /* max length of a write is 256 * 4 = 1024 bytes, split it. */
-    uint32_t writes = 0;
-    while (length > 0)
-    {
-        uint32_t write_len =  length;
-        if (write_len > 1024)
-            write_len = 1024;
-        
-        uint32_t error_code = sd_flash_write(destination + writes * 256, (uint32_t*) data, write_len / 4);
-        if (error_code != NRF_SUCCESS)
-        {
-            return error_code;
-        }
-        uint32_t evt;
-        while (sd_evt_get(&evt) != NRF_SUCCESS || (evt != NRF_EVT_FLASH_OPERATION_SUCCESS && evt != NRF_EVT_FLASH_OPERATION_ERROR));
-        if (evt == NRF_EVT_FLASH_OPERATION_ERROR)
-        {
-            return NRF_ERROR_INVALID_ADDR;
-        }
-        
-        length -= write_len;
-        writes++;
-        data += write_len;
-    }
-    
-    return NRF_SUCCESS;
-}
-
-static uint32_t flash_erase(uint32_t page_addr, uint32_t length)
-{
-    for (uint32_t i = 0; i <= (length - 1) / PAGE_SIZE; ++i)
-    {
-        uint32_t error_code = sd_flash_page_erase((page_addr / PAGE_SIZE) + i);
-        if (error_code != NRF_SUCCESS)
-        {
-            return error_code;
-        }
-        
-        uint32_t evt;
-        while (sd_evt_get(&evt) != NRF_SUCCESS || (evt != NRF_EVT_FLASH_OPERATION_SUCCESS && evt != NRF_EVT_FLASH_OPERATION_ERROR));
-        if (evt == NRF_EVT_FLASH_OPERATION_ERROR)
-        {
-            return NRF_ERROR_INVALID_ADDR;
-        }
-    }
-    
-    return NRF_SUCCESS;
-}
-
 static void get_bootloader_info(dfu_bootloader_info_t* p_info)
 {
     memcpy(p_info, 
@@ -127,7 +103,6 @@ static uint16_t crc16_compute(const uint8_t * p_data, uint32_t size, const uint1
 
     return crc;
 }
-
 
 static bool bank_is_valid(const uint8_t* bank_start, uint32_t size, uint16_t bank_crc)
 {
@@ -154,16 +129,59 @@ static void interrupts_disable(void)
     }
 }
 
-static void start_bootloader(void)
+
+void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 {
-    uint32_t err_code = sd_softdevice_disable();
-    APP_ERROR_CHECK(err_code);
-
-    err_code = sd_softdevice_vector_table_base_set(BOOTLOADER_START_ADDRESS);
-    APP_ERROR_CHECK(err_code);
-
-    interrupts_disable();
-    bootloader_util_app_start(BOOTLOADER_START_ADDRESS);
+    if (p_evt->event_type == RBC_MESH_EVENT_TYPE_NEW_VAL ||
+        p_evt->event_type == RBC_MESH_EVENT_TYPE_UPDATE_VAL || 
+        p_evt->event_type == RBC_MESH_EVENT_TYPE_CONFLICTING_VAL
+    )
+    {
+        dfu_packet_t* p_packet = (dfu_packet_t*) p_evt->data;
+        
+        if (p_evt->value_handle >= DATA_HANDLE_START && 
+            p_evt->value_handle <= DATA_HANDLE_STOP)
+        {
+            /* regular dfu packet */
+            dfu_record_t record;
+            if (p_evt->data_len >= 8)
+            {
+                memcpy(&record, &p_evt->data[0], sizeof(dfu_record_t));
+                records_record_add(&record, false);
+            }
+            else 
+            {
+                APP_ERROR_CHECK(NRF_ERROR_INVALID_LENGTH);
+            }
+            
+            if (p_evt->version_delta > 1)
+            {
+                /* we've missed a packet */
+                records_missing_report(record.seq_num - DFU_HANDLE_COUNT);
+            }
+        }
+        else if (p_evt->value_handle == RECOVERY_REQ_HANDLE)
+        {
+            /* someone is requesting a recovery */
+            dfu_packet_t rsp_packet;
+            if (records_record_get(p_evt->data[0], &rsp_packet.rsp))
+            {
+                mesh_srv_char_val_set(RECOVERY_RSP_HANDLE, (uint8_t*) &rsp_packet, sizeof(rsp_packet));
+                vh_local_update(RECOVERY_RSP_HANDLE);
+            }
+        }
+        else if (p_evt->value_handle == RECOVERY_RSP_HANDLE)
+        {
+            if (records_is_missing(p_packet->rsp.seq_num))
+            {
+                records_record_add(&p_packet->rsp, true);
+            }
+        }
+        else
+        {
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);
+        }
+    }
 }
 /*****************************************************************************
 * Interface Functions
@@ -200,38 +218,9 @@ uint32_t dfu_transfer_begin(dfu_bootloader_info_t* bl_info)
             }
             break;
     }
-
-    dfu_bootloader_info_t old_bl_info;
-    get_bootloader_info(&old_bl_info);
-
-    uint32_t error_code;
     
-    /* erase bank */ 
-    error_code = flash_erase(bl_info->bank_addr, bl_info->size);
-    if (error_code != NRF_SUCCESS)
-    {
-        return error_code;
-    }
-
-    /* store bootloader info in last page */
-    error_code = flash_erase(BOOTLOADER_INFO_ADDRESS, PAGE_SIZE);
-    if (error_code != NRF_SUCCESS)
-    {
-        return error_code;
-    }
-    
-    error_code = flash_write((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint8_t*) bl_info, sizeof(dfu_bootloader_info_t));
-    if (error_code != NRF_SUCCESS)
-    {
-        return error_code;
-    }
-
     /* make ram copy */
     memcpy(&g_bl_info, bl_info, sizeof(dfu_bootloader_info_t));
-
-    g_in_dfu = true;
-    
-    NRF_UICR->BOOTLOADERADDR = BOOTLOADER_START_ADDRESS;
     
     return NRF_SUCCESS;
 }
@@ -258,7 +247,9 @@ uint32_t dfu_transfer_data(uint32_t address, uint32_t length, uint8_t* data)
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
-    return flash_write((uint32_t*) g_bl_info.bank_addr + (address - g_bl_info.start_addr)/ 4, data, length);
+    
+    nrf_flash_store((uint32_t*) g_bl_info.bank_addr + (address - g_bl_info.start_addr)/ 4, data, length, 0);
+    return NRF_SUCCESS;
 }
 
 uint32_t dfu_end(void)
@@ -275,25 +266,10 @@ uint32_t dfu_end(void)
 
     g_in_dfu = false;
     
-    if (g_bl_info.dfu_type == DFU_TYPE_BOOTLOADER)
+    if (g_bl_info.dfu_type != DFU_TYPE_BOOTLOADER)
     {
-        /* do the copy directly */
-        uint32_t error_code;
-        error_code = flash_erase(BOOTLOADER_START_ADDRESS, BOOTLOADER_MAX_SIZE);
-        if (error_code != NRF_SUCCESS)
-        {
-            return error_code;
-        }
-        
-        /* copy bootloader from bank */
-        return flash_write((uint32_t*) BOOTLOADER_START_ADDRESS, (uint8_t*) g_bl_info.bank_addr, g_bl_info.size);
-
+        /** @todo */
         /* the device now has a new bootloader! */
-    }
-    else
-    {
-        /* Jesus, take the wheel */
-        start_bootloader();
     }
     
     return NRF_SUCCESS;

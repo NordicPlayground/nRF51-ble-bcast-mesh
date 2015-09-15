@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "records.h"
 #include "journal.h"
 #include "nrf_flash.h"
-#include "dfu_types.h"
+#include "dfu_types_mesh.h"
 #include "nrf.h"
 #include "nrf_error.h"
 #include <string.h>

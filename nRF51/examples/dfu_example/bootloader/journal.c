@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu.h"
 
 #include "nrf_flash.h"
-#include "dfu_types.h"
+#include "dfu_types_mesh.h"
 #include "boards.h"
 
 #define JOURNAL_INVALIDATE_ADDR  ((uint32_t*) 0x3FF00)

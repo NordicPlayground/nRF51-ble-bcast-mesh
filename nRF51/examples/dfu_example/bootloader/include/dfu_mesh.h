@@ -1,5 +1,5 @@
 /***********************************************************************************
-Copyright (c) Nordic Semiconductor ASA
+  Copyright (c) Nordic Semiconductor ASA
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -32,34 +32,28 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
+#ifndef _DFU_H__
+#define _DFU_H__
 
-#ifndef __RECORDS_H__
-#define __RECORDS_H__
-
-#include "dfu_mesh.h"
+#include "dfu_types_mesh.h"
 #include <stdint.h>
-#include <stdbool.h>
 
-#define DFU_RECORD_SIZE     (16)
 
-#define PAGE_INDEX(full_addr)       ((full_addr) >> 10)
+#define DFU_ACCESS_ADDR     (0xDF7F548F)
+#define DFU_HANDLE_COUNT    (18)
+#define MISSING_POOL_SIZE   (32)
 
-typedef struct 
-{
-    uint16_t seq_num;
-    uint16_t short_addr;
-    uint8_t data[DFU_RECORD_SIZE];
-} dfu_record_t;
+uint32_t dfu_transfer_begin(dfu_bootloader_info_t* p_info);
 
-uint32_t records_init(uint32_t missing_record_pool_size);
-void records_record_add(dfu_record_t* p_record, bool was_missing);
-bool records_record_get(uint16_t seq_num, dfu_record_t* p_record);
-void records_flash_page(uint32_t page_index);
-void records_flash(void);
-void records_missing_report(uint16_t seq_num);
-bool records_missing_in_range(uint16_t lowest_seq_num, uint16_t highest_seq_num);
-bool records_is_missing(uint16_t seq_num);
-uint16_t records_missing_get(void);
-void records_clear(void);
+/** 
+* @brief: put one data fragment in DFU bank.
+* 
+* @param[in] address: the fragment's address in final FW. Must be word aligned.
+* @param[in] length: Length of the fragment (must be in multiples of 4).
+*/
+uint32_t dfu_transfer_data(uint32_t address, uint32_t length, uint8_t* data);
 
-#endif /* __RECORDS_H__ */
+/** @brief: All fragments have been received, initiate the bootloader. */
+uint32_t dfu_end(void);
+
+#endif /* _DFU_H__ */
