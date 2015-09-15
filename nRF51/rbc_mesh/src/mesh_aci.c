@@ -39,7 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "event_handler.h"
 #include "timeslot_handler.h"
 #include "version.h"
-#include "dfu.h"
+#include "dfu_mesh.h"
 
 #include <string.h>
 
@@ -98,6 +98,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         serial_handler_event_send(&serial_evt);
         break;
+#ifndef BOOTLOADER
     case SERIAL_CMD_OPCODE_RADIO_RESET:
         /* brute force kill :) */
         NVIC_SystemReset();
@@ -256,7 +257,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         serial_handler_event_send(&serial_evt);
         break;
-
+#endif
     case SERIAL_CMD_OPCODE_BUILD_VERSION_GET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
@@ -276,7 +277,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         serial_handler_event_send(&serial_evt);
         break;
-
+#ifndef BOOTLOADER
     case SERIAL_CMD_OPCODE_ACCESS_ADDR_GET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
@@ -377,7 +378,8 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             serial_handler_event_send(&serial_evt);
         }
         break;
-
+#endif
+#ifdef BOOTLOADER    
     case SERIAL_CMD_OPCODE_DFU_PACKET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
@@ -393,12 +395,11 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
 
         error_code = dfu_end();
-
-        /* only gets here if there's an error or the dfu was a bootloader */
+    
         serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         serial_handler_event_send(&serial_evt);
         break;
-
+#endif
     default:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
