@@ -60,5 +60,6 @@ void records_missing_report(uint16_t seq_num);
 bool records_missing_in_range(uint16_t lowest_seq_num, uint16_t highest_seq_num);
 bool records_is_missing(uint16_t seq_num);
 uint16_t records_missing_get(void);
+void records_clear(void);
 
 #endif /* __RECORDS_H__ */

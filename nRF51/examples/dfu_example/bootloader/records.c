@@ -134,7 +134,7 @@ uint32_t records_init(uint32_t missing_record_count)
 {
     m_missing_count_max = missing_record_count;
     
-    /* shameless dirty hack */
+    /* shameless dirty hack, seizing all unallocated memory */
 #pragma diag_suppress 170
     extern uint32_t __initial_sp;
     mp_missing = (uint16_t*) (&__initial_sp + 4);
@@ -295,4 +295,10 @@ uint16_t records_missing_get(void)
         }
     }
     return INVALID_SEQ_NUM;
+}
+
+void records_clear(void)
+{
+    missing_records_invalidate();
+    records_invalidate();
 }
