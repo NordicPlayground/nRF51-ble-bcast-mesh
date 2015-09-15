@@ -50,10 +50,28 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_assert.h"
 #include "nrf_soc.h"
 #include "fifo.h"
+#include "log.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+
+#define LOG_TS                          (1)
+
+#if LOG_TS
+#define LOG(str) log_push(str)
+#if 0
+/* begin and end stopped due to spam */
+static const char m_log_begin[] = "TS: begin\n";
+static const char m_log_end[] = "TS: end\n";
+#endif
+static const char m_log_blocked[] = "TS: blocked\n";
+static const char m_log_idle[] = "TS: idle\n";
+static const char m_log_canceled[] = "TS: canceled\n";
+static const char m_log_closed[] = "TS: closed\n";
+#else
+#define LOG(str)
+#endif
 
 #define TIMESLOT_END_SAFETY_MARGIN_US   (500)
 #define TIMESLOT_SLOT_LENGTH            (10000) /* !!! MUST BE LARGER THAN TIMESLOT_END_SAFETY_MARGIN_US */
@@ -148,11 +166,12 @@ void ts_sd_event_handler(void)
         {
             case NRF_EVT_RADIO_SESSION_IDLE:
                 /* the idle event is triggered when rbc_mesh_stop is called */
+                LOG(m_log_idle);
                 break;
 
             case NRF_EVT_RADIO_SESSION_CLOSED:
+                LOG(m_log_closed);
                 APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
-
                 break;
 
             case NRF_EVT_RADIO_BLOCKED:
@@ -160,6 +179,7 @@ void ts_sd_event_handler(void)
                 go into emergency mode, where slots are short, in order to
                 avoid complete lockout */
                 timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
+                LOG(m_log_blocked);
                 break;
 
             case NRF_EVT_RADIO_SIGNAL_CALLBACK_INVALID_RETURN:
@@ -168,6 +188,7 @@ void ts_sd_event_handler(void)
 
             case NRF_EVT_RADIO_CANCELED:
                 timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+                LOG(m_log_canceled);
                 break;
             default:
                 APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
@@ -281,6 +302,8 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
                 timeslot_count++;
             }
             
+            //LOG(m_log_begin);
+            
             break;
         }
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
@@ -349,6 +372,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         g_end_timer_triggered = false;
         CLEAR_PIN(PIN_IN_TS);
         event_handler_on_ts_end();
+        //LOG(m_log_end);
     }
     else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND)
     {
@@ -358,8 +382,8 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     {
         requested_extend_time = 0;
     }
+    
     g_is_in_callback = false;
-
     CLEAR_PIN(PIN_IN_CB);
     return &g_ret_param;
 }

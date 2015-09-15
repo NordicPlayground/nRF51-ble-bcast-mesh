@@ -89,6 +89,7 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/version_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_packet.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/log.c
 ASM_SOURCE_FILES += gcc_startup_nrf51.s # using local startup file to cater customized heap size
 
 C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c

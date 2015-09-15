@@ -101,6 +101,7 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/version_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_packet.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/log.c
 
 C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c
 C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c

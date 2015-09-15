@@ -569,6 +569,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
             </File>
+            <File>
+              <FileName>log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\log.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1243,6 +1248,11 @@
               <FileName>mesh_packet.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
+            </File>
+            <File>
+              <FileName>log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\log.c</FilePath>
             </File>
           </Files>
         </Group>
