@@ -56,7 +56,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-#define LOG_TS                          (1)
+#define LOG_TS                          (1 && defined(LOGGING))
 
 #if LOG_TS
 #define LOG(str) log_push(str)

@@ -42,7 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "log.h"
 #include <string.h>
 
-#define LOG_EH      (1)
+#define LOG_EH      (1 && defined(LOGGING))
 
 #if LOG_EH
 #define LOG(str) log_push(str)

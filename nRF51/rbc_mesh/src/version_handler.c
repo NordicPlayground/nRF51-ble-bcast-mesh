@@ -51,7 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stddef.h>
 #include <string.h>
 
-#define LOG_VH                          (1)
+#define LOG_VH                          (1 && defined(LOGGING))
 
 #define MESH_TRICKLE_I_MAX              (2000)
 #define MESH_TRICKLE_K                  (3)
