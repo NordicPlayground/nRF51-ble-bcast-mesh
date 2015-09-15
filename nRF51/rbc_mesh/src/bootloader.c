@@ -55,64 +55,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static dfu_bootloader_info_t g_bl_info;
 struct 
 {
     uint16_t length;
     uint8_t data[28];
 } g_srv_data[HANDLE_COUNT];
-
-typedef struct
-{
-    uint16_t short_addr;
-    uint8_t data[16];
-} dfu_record_t;
 /******************************************************************************
 * Static Functions
 *****************************************************************************/
-static void get_bootloader_info(dfu_bootloader_info_t* p_info)
-{
-    memcpy(p_info, 
-            (dfu_bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, 
-            sizeof(dfu_bootloader_info_t));
-}
 
-#if 0
-static uint16_t crc16_compute(const uint8_t * p_data, uint32_t size, const uint16_t * p_crc)
-{
-    uint32_t i;
-    uint16_t crc = (p_crc == NULL) ? 0xffff : *p_crc;
-
-    for (i = 0; i < size; i++)
-    {
-        crc  = (unsigned char)(crc >> 8) | (crc << 8);
-        crc ^= p_data[i];
-        crc ^= (unsigned char)(crc & 0xff) >> 4;
-        crc ^= (crc << 8) << 4;
-        crc ^= ((crc & 0xff) << 4) << 1;
-    }
-
-    return crc;
-}
-static bool bank_is_valid(const uint8_t* bank_start, uint32_t size, uint16_t bank_crc)
-{
-    uint16_t crc = crc16_compute(bank_start, size, NULL);
-    return (crc == bank_crc);
-}
-/* generic application restart. Never returns */
-static void exit_bootloader(void)
-{   
-    sd_softdevice_vector_table_base_set(APP_START_ADDRESS);
-    
-    bootloader_util_app_start(APP_START_ADDRESS);
-}
-#endif
-
-static void init_leds(void)
-{
-    nrf_gpio_range_cfg_output(0, 32);
-    NRF_GPIO->OUTCLR = 0xFFFFFFFF;
-}
 
 /*****************************************************************************
 * Dummy Functions
@@ -122,26 +73,6 @@ void SVC_Handler(void)
     __BKPT(0);
 }
 
-void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
-{
-    __BKPT(0);
-}
-
-void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
-{
-    if (p_evt->event_type == RBC_MESH_EVENT_TYPE_NEW_VAL ||
-        p_evt->event_type == RBC_MESH_EVENT_TYPE_UPDATE_VAL)
-    {
-        if (p_evt->data_len >= 8)
-        {
-            uint16_t address;
-            memcpy(&address, &p_evt->data[0], 2);
-            uint8_t* data = &p_evt->data[2];
-            
-            
-        }            
-    }
-}
 
 uint32_t mesh_srv_char_val_set(uint8_t handle, uint8_t* data, uint16_t length)
 {
@@ -168,50 +99,4 @@ uint32_t mesh_srv_char_val_get(uint8_t handle, uint8_t* data, uint16_t* length)
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
-int main(void)
-{
-    init_leds();
-    extern uint32_t __initial_sp;
-    volatile uint32_t* free_mem = (uint32_t*) (&__initial_sp);
-    volatile uint32_t last_addr = 0x20000000 + NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK;
-    volatile uint32_t available = last_addr - ((uint32_t) free_mem);
-    
-    get_bootloader_info(&g_bl_info);
-    nrf_flash_erase((uint32_t*) BOOTLOADER_INFO_ADDRESS, 0x400);
-    uint8_t data1[] = {0xAA, 0xAA, 0xAA, 0xAA};
-    uint8_t data2[] = {0xFF, 0xFF, 0x00, 0x0F};
-    
-    nrf_flash_store((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint8_t*) &data1, 4, 0);
-    nrf_flash_store((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint8_t*) &data2, 4, 0);
-    
-    tc_init(0xA541A68F, 38);
-    event_handler_init();
-    vh_init(HANDLE_COUNT, 100000);
-    timeslot_handler_init();
-    for (uint32_t i = 0; i < HANDLE_COUNT; ++i)
-    {
-        uint8_t data[] = {'l', 'o', 'l'};
-        mesh_srv_char_val_set(i + 1, data, 3);
-        vh_value_enable(i + 1);
-    }
-    
-#if 0
-    if (g_bl_info.using_crc && !bank_is_valid((uint8_t*) g_bl_info.bank_addr, g_bl_info.size, g_bl_info.image_crc))
-    {
-        NRF_GPIO->OUTCLR = (1 << LED_START);
-        exit_bootloader();
-    }
-    
-    /* do the flash */
-    nrf_flash_erase((uint32_t*) g_bl_info.start_addr, g_bl_info.size);
-    nrf_flash_store((uint32_t*) g_bl_info.start_addr, (uint8_t*) g_bl_info.bank_addr, g_bl_info.size, 0);
-    
-    NRF_GPIO->OUTCLR = (1 << LED_START);
-    exit_bootloader();
-#endif    
-    
-    while (1)
-    {
-        __WFE();
-    }
-}
+
