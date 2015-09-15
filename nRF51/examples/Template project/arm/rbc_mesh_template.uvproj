@@ -499,9 +499,9 @@
               </FileOption>
             </File>
             <File>
-              <FileName>serial_handler.c</FileName>
+              <FileName>serial_handler_spi.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\serial_handler.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\serial_handler_spi.c</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -1093,9 +1093,9 @@
               <FilePath>..\..\..\rbc_mesh\src\mesh_aci.c</FilePath>
             </File>
             <File>
-              <FileName>serial_handler.c</FileName>
+              <FileName>serial_handler_spi.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\serial_handler.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\serial_handler_spi.c</FilePath>
             </File>
             <File>
               <FileName>fifo.c</FileName>
