@@ -314,7 +314,11 @@ void serial_handler_init(void)
     started_event.opcode = SERIAL_EVT_OPCODE_DEVICE_STARTED;
     started_event.params.device_started.operating_mode = OPERATING_MODE_STANDBY;
     uint32_t reset_reason;
+#ifdef SOFTDEVICE_PRESENT
     sd_power_reset_reason_get(&reset_reason);
+#else
+    reset_reason = NRF_POWER->RESETREAS;
+#endif
     started_event.params.device_started.hw_error = !!(reset_reason & (1 << 3));
     started_event.params.device_started.data_credit_available = SERIAL_QUEUE_SIZE;
     

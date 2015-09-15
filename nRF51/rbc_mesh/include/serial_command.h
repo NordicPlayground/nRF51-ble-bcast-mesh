@@ -61,7 +61,6 @@ typedef __packed_armcc enum
     SERIAL_CMD_OPCODE_ADV_INT_GET           = 0x7F,
 } __packed_gcc serial_cmd_opcode_t;
 
-
 /****** CMD PARAMS ******/
 typedef __packed_armcc struct 
 {

@@ -35,7 +35,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "serial_handler.h"
 #include "event_handler.h"
 #include "fifo.h"
+#include "app_uart.h"
 
+#include "nrf_soc.h"
+#include "boards.h"
 #include "nrf_gpio.h"
 #include "app_error.h"
 #include "app_util_platform.h"
@@ -73,8 +76,8 @@ static void do_transmit(void)
     while (fifo_pop(&tx_fifo, &tx_buffer) == NRF_SUCCESS)
     {
         serial_state = SERIAL_STATE_TRANSMIT;
-        uint32_t len = ((serial_evt_t*) tx_buffer)->length;
-        uint8_t* pp = tx_buffer->buffer;
+        uint32_t len = ((serial_evt_t*) tx_buffer.buffer)->length;
+        uint8_t* pp = tx_buffer.buffer;
         while (len--)
         {
             app_uart_put(*(pp++));
@@ -119,7 +122,7 @@ static void char_rx(uint8_t c)
             fail_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_BUSY;
             serial_handler_event_send(&fail_evt);
         }
-        pp = rx_buf;
+        pp = rx_buf.buffer;
     }
 }
 
@@ -164,6 +167,7 @@ void serial_handler_init(void)
     rx_fifo.memcpy_fptr = NULL;
     fifo_init(&rx_fifo);
 
+    uint32_t error_code;
     app_uart_comm_params_t uart_params;
     uart_params.baud_rate = UART_BAUDRATE_BAUDRATE_Baud460800;
     uart_params.cts_pin_no = CTS_PIN_NUMBER;
@@ -181,7 +185,11 @@ void serial_handler_init(void)
     started_event.opcode = SERIAL_EVT_OPCODE_DEVICE_STARTED;
     started_event.params.device_started.operating_mode = OPERATING_MODE_STANDBY;
     uint32_t reset_reason;
+#ifdef SOFTDEVICE_PRESENT
     sd_power_reset_reason_get(&reset_reason);
+#else
+    reset_reason = NRF_POWER->RESETREAS;
+#endif
     started_event.params.device_started.hw_error = !!(reset_reason & (1 << 3));
     started_event.params.device_started.data_credit_available = SERIAL_QUEUE_SIZE;
     
@@ -218,9 +226,9 @@ bool serial_handler_command_get(serial_cmd_t* cmd)
     {
         return false;
     }
-    if (temp.buffer[SERIAL_LENGTH_POS] > 0)
+    if (((serial_cmd_t*) temp.buffer)->length > 0)
     {
-        memcpy(cmd, temp.buffer, temp.buffer[SERIAL_LENGTH_POS] + 1);
+        memcpy(cmd, temp.buffer, ((serial_cmd_t*) temp.buffer)->length + 1);
     }
     return true;
 }
