@@ -164,6 +164,17 @@ void serial_handler_init(void)
     rx_fifo.memcpy_fptr = NULL;
     fifo_init(&rx_fifo);
 
+    app_uart_comm_params_t uart_params;
+    uart_params.baud_rate = UART_BAUDRATE_BAUDRATE_Baud460800;
+    uart_params.cts_pin_no = CTS_PIN_NUMBER;
+    uart_params.rts_pin_no = RTS_PIN_NUMBER;
+    uart_params.rx_pin_no = RX_PIN_NUMBER;
+    uart_params.tx_pin_no = TX_PIN_NUMBER;
+    uart_params.flow_control = APP_UART_FLOW_CONTROL_ENABLED;
+    uart_params.use_parity = false;
+    APP_UART_FIFO_INIT(&uart_params, 8, 256, uart_event_handler, APP_IRQ_PRIORITY_LOW, error_code);
+    APP_ERROR_CHECK(error_code);
+
     /* notify application controller of the restart */ 
     serial_evt_t started_event;
     started_event.length = 4;
