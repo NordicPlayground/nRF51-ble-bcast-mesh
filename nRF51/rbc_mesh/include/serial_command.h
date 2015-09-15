@@ -63,7 +63,7 @@ typedef __packed_armcc enum
     SERIAL_CMD_OPCODE_DFU_BEGIN             = 0x20,
     SERIAL_CMD_OPCODE_DFU_PACKET            = 0x21,
     SERIAL_CMD_OPCODE_DFU_END               = 0x22,
-} __packed __packed_gcc serial_cmd_opcode_t;
+} __packed_gcc serial_cmd_opcode_t;
 
 
 /****** CMD PARAMS ******/
