@@ -51,10 +51,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define MAX_NUMBER_INTERRUPTS   (32)
 
-#define DATA_HANDLE_START   (3)
-#define DATA_HANDLE_STOP    (DFU_HANDLE_COUNT)
-#define RECOVERY_REQ_HANDLE (1)
-#define RECOVERY_RSP_HANDLE (2)
+#define DATA_HANDLE_START       (3)
+#define DATA_HANDLE_STOP        (DFU_HANDLE_COUNT)
+#define RECOVERY_REQ_HANDLE     (1)
+#define RECOVERY_RSP_HANDLE     (2)
+
+#define TX_COUNT_MARGIN         (3)
 
 typedef union
 {
@@ -75,8 +77,10 @@ typedef union
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static dfu_bootloader_info_t g_bl_info;
-static bool g_in_dfu = false;
+static dfu_bootloader_info_t m_bl_info;
+static bool m_in_dfu = false;
+static uint8_t m_tx_counts[DATA_HANDLE_STOP - DATA_HANDLE_START + 1];
+static uint32_t m_next_index = DATA_HANDLE_START;
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
@@ -129,6 +133,10 @@ static void interrupts_disable(void)
     }
 }
 
+/** @brief Put a record into a trickle value and propagate */
+static void seed_record(dfu_record_t* p_record)
+{
+}
 
 void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 {
@@ -182,6 +190,14 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
             APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);
         }
     }
+    else if (p_evt->event_type == RBC_MESH_EVENT_TYPE_TX)
+    {
+        m_tx_counts[p_evt->value_handle - DATA_HANDLE_START]++;
+        if (p_evt->value_handle == m_next_index)
+        {
+            
+        }
+    }
 }
 /*****************************************************************************
 * Interface Functions
@@ -189,7 +205,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 
 uint32_t dfu_transfer_begin(dfu_bootloader_info_t* bl_info)
 {
-    if (g_in_dfu)
+    if (m_in_dfu)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -218,22 +234,22 @@ uint32_t dfu_transfer_begin(dfu_bootloader_info_t* bl_info)
             }
             break;
     }
-    
+    memset(m_tx_counts, 0, sizeof(m_tx_counts));
     /* make ram copy */
-    memcpy(&g_bl_info, bl_info, sizeof(dfu_bootloader_info_t));
+    memcpy(&m_bl_info, bl_info, sizeof(dfu_bootloader_info_t));
     
     return NRF_SUCCESS;
 }
 
 uint32_t dfu_transfer_data(uint32_t address, uint32_t length, uint8_t* data)
 {
-    if (!g_in_dfu)
+    if (!m_in_dfu)
     {
         return NRF_ERROR_INVALID_STATE;
     }
     
-    if (address < g_bl_info.start_addr ||
-        address + length > g_bl_info.start_addr + g_bl_info.size)
+    if (address < m_bl_info.start_addr ||
+        address + length > m_bl_info.start_addr + m_bl_info.size)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
@@ -248,28 +264,27 @@ uint32_t dfu_transfer_data(uint32_t address, uint32_t length, uint8_t* data)
         return NRF_ERROR_INVALID_LENGTH;
     }
     
-    nrf_flash_store((uint32_t*) g_bl_info.bank_addr + (address - g_bl_info.start_addr)/ 4, data, length, 0);
+    
     return NRF_SUCCESS;
 }
 
 uint32_t dfu_end(void)
 {
-    if (!g_in_dfu)
+    if (!m_in_dfu)
     {
         return NRF_ERROR_INVALID_STATE;
     }
     
-    if (g_bl_info.using_crc && !bank_is_valid((uint8_t*) g_bl_info.bank_addr, g_bl_info.size, g_bl_info.image_crc))
+    if (m_bl_info.using_crc && !bank_is_valid((uint8_t*) m_bl_info.bank_addr, m_bl_info.size, m_bl_info.image_crc))
     {
         return NRF_ERROR_INVALID_DATA;
     }
 
-    g_in_dfu = false;
+    m_in_dfu = false;
     
-    if (g_bl_info.dfu_type != DFU_TYPE_BOOTLOADER)
+    if (m_bl_info.dfu_type != DFU_TYPE_BOOTLOADER)
     {
         /** @todo */
-        /* the device now has a new bootloader! */
     }
     
     return NRF_SUCCESS;
