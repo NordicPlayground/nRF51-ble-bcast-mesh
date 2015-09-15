@@ -86,8 +86,9 @@ C_SOURCE_FILES += ../main.c
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
 	CFLAGS += -D RBC_MESH_SERIAL=1
 
-	C_SOURCE_FILES += ../../../rbc_mesh/src/serial_handler.c
+	C_SOURCE_FILES += ../../../rbc_mesh/src/serial_handler_spi.c
 	C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_aci.c
+	C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/spi_slave/spi_slave.c
 endif
 
 C_SOURCE_FILES += ../../../rbc_mesh/src/radio_control.c
@@ -107,7 +108,6 @@ C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c
 C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c
 C_SOURCE_FILES += $(COMPONENTS)/softdevice/common/softdevice_handler/softdevice_handler.c
 
-C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/spi_slave/spi_slave.c
 
 # assembly files common to all targets
 ASM_SOURCE_FILES  += $(COMPONENTS)/toolchain/gcc/gcc_startup_nrf51.s
