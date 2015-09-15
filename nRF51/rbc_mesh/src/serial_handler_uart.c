@@ -63,7 +63,6 @@ static fifo_t tx_fifo;
 static serial_data_t rx_fifo_buffer[SERIAL_QUEUE_SIZE];
 static serial_data_t tx_fifo_buffer[SERIAL_QUEUE_SIZE];
 
-static uint8_t dummy_data = 0;
 static serial_state_t serial_state;
 /*****************************************************************************
 * Static functions
