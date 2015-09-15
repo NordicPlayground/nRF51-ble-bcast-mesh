@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "journal.h"
+#include "dfu.h"
 
 #include "nrf_flash.h"
 #include "boards.h"
@@ -58,14 +59,14 @@ void journal_invalidate(uint16_t page_index)
 {
     page_index -= g_start_addr / PAGE_SIZE;
     uint32_t field = ~(1 << TO_OFFSET(page_index));
-    nrf_flash_store(JOURNAL_INVALIDATE_ADDR, &field, 4, TO_WORD(page_index) * 4);
+    nrf_flash_store(JOURNAL_INVALIDATE_ADDR, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
 }
 
 void journal_complete(uint16_t page_index)
 {
     page_index -= g_start_addr / PAGE_SIZE;
     uint32_t field = ~(1 << TO_OFFSET(page_index));
-    nrf_flash_store(JOURNAL_COMPLETED_ADDR, &field, 4, TO_WORD(page_index) * 4);
+    nrf_flash_store(JOURNAL_COMPLETED_ADDR, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
 }
 
 bool journal_is_finished(void)
