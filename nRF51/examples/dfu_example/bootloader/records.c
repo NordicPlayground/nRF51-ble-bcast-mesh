@@ -49,8 +49,6 @@ static uint32_t m_missing_count; /* current count of missing records (disregardi
 static uint32_t m_missing_recovered_count; /* number of "holes" in the missing-array */
 static uint8_t m_assembly_page[PAGE_SIZE];
 
-#define FULL_ADDRESS(short_addr)    (((uint32_t) (short_addr)) << 8)
-#define PAGE_LOCAL_ADDR(full_addr)  ((full_addr) & 0x03FF)
 
 #define INVALID_PAGE_INDEX          (0xFFFF)
 #define INVALID_SHORT_ADDR          (0xFFFF)

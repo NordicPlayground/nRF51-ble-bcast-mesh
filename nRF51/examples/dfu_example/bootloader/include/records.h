@@ -43,6 +43,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_RECORD_SIZE     (16)
 
 #define PAGE_INDEX(full_addr)       ((full_addr) >> 10)
+#define FULL_ADDRESS(short_addr)    (((uint32_t) (short_addr)) << 8)
+#define SHORT_ADDRESS(full_addr)    ((full_addr) >> 8)
+#define PAGE_LOCAL_ADDR(full_addr)  ((full_addr) & 0x03FF)
 
 typedef struct 
 {
