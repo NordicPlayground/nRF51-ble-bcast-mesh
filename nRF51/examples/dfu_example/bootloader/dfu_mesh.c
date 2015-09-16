@@ -80,7 +80,10 @@ typedef union
 static dfu_bootloader_info_t m_bl_info;
 static bool m_in_dfu = false;
 static uint8_t m_tx_counts[DATA_HANDLE_STOP - DATA_HANDLE_START + 1];
+static uint8_t m_seq_nums[DATA_HANDLE_STOP - DATA_HANDLE_START + 1];
 static uint32_t m_next_index = DATA_HANDLE_START;
+static dfu_record_t m_next_record;
+static bool m_next_record_ready = false;
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
@@ -133,9 +136,28 @@ static void interrupts_disable(void)
     }
 }
 
-/** @brief Put a record into a trickle value and propagate */
-static void seed_record(dfu_record_t* p_record)
+/** @brief Put a record into a trickle value and propagate, seeder device only */
+static void seed_record(void)
 {
+    /* if this fails, it will be picked up in the TX_EVENT */
+    if (m_tx_counts[m_next_index] >= TX_COUNT_MARGIN && m_next_record_ready)
+    {
+        m_tx_counts[m_next_index] = 0;
+        mesh_srv_char_val_set(m_next_index, (uint8_t*) &(m_next_record.short_addr), DFU_RECORD_SIZE + 2);
+        vh_local_update(m_next_index);
+        m_next_record_ready = false;
+        
+        if (++m_next_index == DATA_HANDLE_STOP)
+        {
+            m_next_index = DATA_HANDLE_START;
+        }
+    }
+}
+
+/** @brief request next record from serial, seeder device only */
+static void request_next_record(void)
+{
+    
 }
 
 void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
@@ -154,7 +176,11 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
             dfu_record_t record;
             if (p_evt->data_len >= 8)
             {
-                memcpy(&record, &p_evt->data[0], sizeof(dfu_record_t));
+                memcpy(&record.data, p_packet->data.data, DFU_RECORD_SIZE);
+                record.short_addr = p_packet->data.short_addr;
+                m_seq_nums[p_evt->value_handle - DATA_HANDLE_START] +=
+                               p_evt->version_delta * (DATA_HANDLE_STOP - DATA_HANDLE_START + 1);
+                record.seq_num = m_seq_nums[p_evt->value_handle - DATA_HANDLE_START];
                 records_record_add(&record, false);
             }
             else 
@@ -193,10 +219,8 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
     else if (p_evt->event_type == RBC_MESH_EVENT_TYPE_TX)
     {
         m_tx_counts[p_evt->value_handle - DATA_HANDLE_START]++;
-        if (p_evt->value_handle == m_next_index)
-        {
-            
-        }
+        
+        seed_record(); /* handles checks to avoid  */
     }
 }
 /*****************************************************************************
@@ -259,11 +283,17 @@ uint32_t dfu_transfer_data(uint32_t address, uint32_t length, uint8_t* data)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
-    if ((length & 0x03) != 0)
+    if (length != DFU_RECORD_SIZE)
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
     
+    m_next_record.seq_num++;
+    m_next_record.short_addr = SHORT_ADDRESS(address);
+    memcpy(m_next_record.data, data, length);
+    m_next_record_ready = true;
+    
+    seed_record();
     
     return NRF_SUCCESS;
 }
