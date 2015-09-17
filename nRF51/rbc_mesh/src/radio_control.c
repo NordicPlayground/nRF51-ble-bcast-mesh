@@ -553,12 +553,10 @@ void radio_event_handler(void)
             }
 
         case RADIO_STATE_TX:
-
-
             break;
-
         case RADIO_STATE_DISABLED:
-
+            break;
+        case RADIO_STATE_NEVER_USED:
             break;
     }
 
