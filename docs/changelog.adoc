@@ -1,5 +1,15 @@
 = Changelog
 
+== 0.6.10 Fixed memory leak and UART serial
+This is a tiny, but critical update. 
+The mesh_packet and radio_control modules had a corner case where it discarded queued transmits and their allocated packet memory.
+This caused some packets to never get transmitted, a mishap that would be almost impossible to detect from the application side.
+
+As a bonus to this bugfix, we've added a uart version of the serial interface. It follows the exact same packet format, except for the SPI status byte 
+added to the events coming from the nRF51. No host side implementation of this interface has been implemented yet.
+
+Finally, a fix for issue #39 has been added, the 20byte max limit _not_ included.
+
 == 0.6.9 API-additions Sep 7
 New small update, mostly adding to the API, both for extended functionality and more precise naming.
 
