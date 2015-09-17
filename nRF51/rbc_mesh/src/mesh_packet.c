@@ -77,8 +77,5 @@ bool mesh_packet_free(mesh_packet_t* p_packet)
 
 void mesh_packet_on_ts_begin(void)
 {
-    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
-    {
-        g_packet_alloc_array[i] = false;
-    }
+    /* do nothing */
 }

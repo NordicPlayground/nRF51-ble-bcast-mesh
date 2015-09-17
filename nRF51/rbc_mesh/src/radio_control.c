@@ -62,7 +62,8 @@ typedef enum
 {
     RADIO_STATE_RX,
     RADIO_STATE_TX,
-    RADIO_STATE_DISABLED
+    RADIO_STATE_DISABLED,
+    RADIO_STATE_NEVER_USED
 } radio_state_t;
 
 
@@ -74,7 +75,7 @@ typedef enum
 /**
 * Global radio state
 */
-static radio_state_t radio_state = RADIO_STATE_DISABLED;
+static radio_state_t radio_state = RADIO_STATE_NEVER_USED;
 
 static fifo_t radio_fifo;
 static radio_event_t radio_fifo_queue[RADIO_FIFO_QUEUE_SIZE];
@@ -459,18 +460,25 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_cb)
     NRF_RADIO->TIFS = 148;
 
     /* init radio packet fifo */
-    radio_fifo.array_len = RADIO_FIFO_QUEUE_SIZE;
-    radio_fifo.elem_array = radio_fifo_queue;
-    radio_fifo.elem_size = sizeof(radio_event_t);
-    radio_fifo.memcpy_fptr = NULL;
-    fifo_init(&radio_fifo);
+    if (radio_state == RADIO_STATE_NEVER_USED)
+    {        
+        /* this flushes the queue */ 
+        radio_fifo.array_len = RADIO_FIFO_QUEUE_SIZE;
+        radio_fifo.elem_array = radio_fifo_queue;
+        radio_fifo.elem_size = sizeof(radio_event_t);
+        radio_fifo.memcpy_fptr = NULL;
+        fifo_init(&radio_fifo);
+    }
 
     radio_state = RADIO_STATE_DISABLED;
+    
     NVIC_ClearPendingIRQ(RADIO_IRQn);
     NVIC_EnableIRQ(RADIO_IRQn);
+    g_idle_cb = idle_cb;
+    
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
-    g_idle_cb = idle_cb;
+    
     if (fifo_is_empty(&radio_fifo))
     {
         (*g_idle_cb)();
