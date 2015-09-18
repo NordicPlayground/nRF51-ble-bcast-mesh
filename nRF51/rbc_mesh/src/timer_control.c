@@ -47,7 +47,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TIMER_SAFE_START()    NVIC_DisableIRQ(TIMER0_IRQn) 
 #define TIMER_SAFE_END()      NVIC_EnableIRQ(TIMER0_IRQn)   
 
-#define TIMER_COMPARE_COUNT     (4)
+#define TIMER_COMPARE_COUNT     (3)
+#define TIMEOUT_MARGIN_US       (200)
 
 /*****************************************************************************
 * Static globals
@@ -71,38 +72,46 @@ static bool is_in_ts = false;
 
 void timer_event_handler(void)
 {
+    bool handled = false;
     for (uint32_t i = 0; i < 3; ++i)
     {
-        if ((active_callbacks & (1 << i)) && NRF_TIMER0->EVENTS_COMPARE[i])
+        if (NRF_TIMER0->EVENTS_COMPARE[i])
         {
-            timer_callback cb = callbacks[i];
-            active_callbacks &= ~(1 << i);
-            NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
-            
-            if (i == TIMER_INDEX_TS_END)
+            NRF_TIMER0->EVENTS_COMPARE[i] = 0;
+            if (active_callbacks & (1 << i))
             {
-                is_in_ts = false;
-            }
+                timer_callback cb = callbacks[i];
+                active_callbacks &= ~(1 << i);
+                NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
+                handled = true;
+                if (i == TIMER_INDEX_TS_END)
+                {
+                    is_in_ts = false;
+                }
 
-            CHECK_FP(cb);
+                CHECK_FP(cb);
 
-            if (sync_exec_bitmap & (1 << i))
-            {
-                sync_exec_bitmap &= ~(1 << i);
-                (*cb)(NRF_TIMER0->CC[i]);
-            }
-            else
-            {
-                /* propagate evt */
-                async_event_t evt;
-                evt.type = EVENT_TYPE_TIMER;
-                evt.callback.timer.cb = cb;
-                evt.callback.timer.timestamp = NRF_TIMER0->CC[i];
-                event_handler_push(&evt);
+                if (sync_exec_bitmap & (1 << i))
+                {
+                    sync_exec_bitmap &= ~(1 << i);
+                    (*cb)(NRF_TIMER0->CC[i]);
+                }
+                else
+                {
+                    /* propagate evt */
+                    async_event_t evt;
+                    evt.type = EVENT_TYPE_TIMER;
+                    evt.callback.timer.cb = cb;
+                    evt.callback.timer.timestamp = NRF_TIMER0->CC[i];
+                    event_handler_push(&evt);
+                }
             }
         }
     }
-
+    if (!handled)
+    {
+        APP_ERROR_CHECK(NRF_ERROR_INTERNAL);
+    }
 }
 
 void timer_order_cb(uint8_t timer, uint32_t time, timer_callback callback)
@@ -115,13 +124,13 @@ void timer_order_cb(uint8_t timer, uint32_t time, timer_callback callback)
     if (is_in_ts)
     {
         uint64_t time_now = timer_get_timestamp();
-        if (time > time_now)
+        if (time > time_now + TIMEOUT_MARGIN_US)
         {
+            callbacks[timer] = callback;
+            active_callbacks |= (1 << timer);
             NRF_TIMER0->CC[timer] = time;
             NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
             NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
-            callbacks[timer] = callback;
-            active_callbacks |= (1 << timer);
         }
         else
         {
@@ -146,11 +155,11 @@ void timer_order_cb_sync_exec(uint8_t timer, uint32_t time, timer_callback callb
     {
         sync_exec_bitmap |= (1 << timer);
 
+        callbacks[timer] = callback;
+        active_callbacks |= (1 << timer);
         NRF_TIMER0->CC[timer] = time;
         NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
         NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
-        callbacks[timer] = callback;
-        active_callbacks |= (1 << timer);
     }
     TIMER_SAFE_END();
 }
@@ -165,13 +174,13 @@ void timer_order_cb_ppi(uint8_t timer, uint32_t time, timer_callback callback, u
     if (is_in_ts)
     {
         uint64_t time_now = timer_get_timestamp();
-        if (time > time_now)
+        if (time > time_now + TIMEOUT_MARGIN_US)
         {
+            callbacks[timer] = callback;
+            active_callbacks |= (1 << timer);
             NRF_TIMER0->CC[timer] = time;
             NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
             NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
-            callbacks[timer] = callback;
-            active_callbacks |= (1 << timer);
             /* Setup PPI */
             NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
             NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) task;
