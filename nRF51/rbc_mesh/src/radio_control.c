@@ -55,6 +55,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define PPI_CH_STOP_RX_ABORT            (TIMER_PPI_CH_START + 4)
 
+#define DEBUG_RADIO_SET_STATE(state) do {\
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);\
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);\
+    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_IDLE);\
+    DEBUG_RADIO_SET_PIN(state);\
+    }while (0)
+
 /**
 * Internal enum denoting radio state.
 */
@@ -151,12 +158,10 @@ static void radio_transition_end(bool successful_transmission)
 
     NRF_RADIO->SHORTS = 0;
 
-    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
-    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
-
 
     if (fifo_is_empty(&radio_fifo))
     {
+        DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
         radio_state = RADIO_STATE_DISABLED;
     }
     else
@@ -199,7 +204,7 @@ static void radio_transition_end(bool successful_transmission)
         if (evt.event_type == RADIO_EVENT_TYPE_RX ||
             evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
-            DEBUG_RADIO_SET_PIN(PIN_RADIO_STATE_RX);
+            DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_RX);
             NRF_RADIO->RXADDRESSES = evt.access_address;
             radio_state = RADIO_STATE_RX;
 
@@ -214,7 +219,7 @@ static void radio_transition_end(bool successful_transmission)
         }
         else
         {
-            DEBUG_RADIO_SET_PIN(PIN_RADIO_STATE_TX);
+            DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_TX);
             NRF_RADIO->TXADDRESS = evt.access_address;
             radio_state = RADIO_STATE_TX;
             NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk;
@@ -290,6 +295,7 @@ static void radio_transition_end(bool successful_transmission)
 
     if (fifo_is_empty(&radio_fifo))
     {
+        DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
         (*g_idle_cb)();
     }
 }
@@ -351,14 +357,14 @@ static void radio_wakeup(void)
 
             radio_state = RADIO_STATE_RX;
             NRF_RADIO->INTENSET = RADIO_INTENSET_ADDRESS_Msk;
-            DEBUG_RADIO_SET_PIN(PIN_RADIO_STATE_RX);
+            DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_RX);
         }
         else
         {
             NRF_RADIO->INTENCLR = RADIO_INTENCLR_ADDRESS_Msk;
             NRF_RADIO->TASKS_TXEN = 1;
             radio_state = RADIO_STATE_TX;
-            DEBUG_RADIO_SET_PIN(PIN_RADIO_STATE_TX);
+            DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_TX);
         }
 
         if (radio_event.start_time == 0)
@@ -375,11 +381,15 @@ static void radio_wakeup(void)
     }
     else
     {
+        uint8_t queue_length = fifo_get_len(&radio_fifo);
+
+        if (queue_length == 0)
+        {
+            DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
+        }
         /* queue the event */
         if (!radio_will_go_to_disabled_state())
         {
-            uint8_t queue_length = fifo_get_len(&radio_fifo);
-
             if (queue_length == 2)
             {
                 /* this event will come straight after the current */
@@ -519,8 +529,7 @@ bool radio_order(radio_event_t* radio_event)
 
 void radio_disable(void)
 {
-    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
-    DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
+    DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
     NRF_RADIO->SHORTS = 0;
     NRF_RADIO->INTENCLR = 0xFFFFFFFF;
     NRF_RADIO->TASKS_DISABLE = 1;
