@@ -163,6 +163,7 @@ static void radio_transition_end(bool successful_transmission)
     {
         DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
         radio_state = RADIO_STATE_DISABLED;
+        NRF_RADIO->TASKS_DISABLE = 1; /* in case of any fly throughs still in place */
     }
     else
     {
@@ -505,14 +506,16 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_cb)
 
 bool radio_order(radio_event_t* radio_event)
 {
-    if (fifo_push(&radio_fifo, radio_event) != NRF_SUCCESS)
-    {
-        return false;
-    }
-    
     /* trigger radio callback */
     uint32_t was_masked;
     DISABLE_IRQS(was_masked);
+    
+    if (fifo_push(&radio_fifo, radio_event) != NRF_SUCCESS)
+    {
+        if (!was_masked) ENABLE_IRQS();
+        return false;
+    }
+    
     
     if (timeslot_is_in_ts())
     {
