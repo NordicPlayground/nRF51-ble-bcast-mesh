@@ -349,6 +349,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         g_end_timer_triggered = false;
         CLEAR_PIN(PIN_IN_TS);
         event_handler_on_ts_end();
+        radio_disable();
     }
     else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND)
     {
