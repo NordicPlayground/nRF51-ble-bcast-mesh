@@ -47,7 +47,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *   service. Processes and assembles packet payloads for the mesh.
 */
 
-#define MAX_VALUE_LENGTH                (28) /* The maximum number of bytes available in one mesh value. */
+#define MAX_VALUE_LENGTH                (24) /* The maximum number of bytes available in one mesh value. */
 
 #define MESH_SRV_UUID                   (0x0001) /* Mesh service UUID */
 #define MESH_MD_CHAR_UUID               (0x0002) /* Mesh metadata characteristic UUID */
