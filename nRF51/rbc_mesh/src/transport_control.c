@@ -90,11 +90,11 @@ static void order_search(void)
 }
 
 
-static void prepare_event(rbc_mesh_event_t* evt, mesh_packet_t* p_packet)
+static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_data)
 {
-    evt->value_handle = p_packet->payload.handle;
-    evt->data = &p_packet->payload.data[0];
-    evt->data_len = p_packet->header.length - MESH_PACKET_OVERHEAD;
+    evt->value_handle = p_mesh_adv_data->handle;
+    evt->data = &p_mesh_adv_data->data[0];
+    evt->data_len = p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
 }
 
 /* radio callback, executed in STACK_LOW */
@@ -160,9 +160,12 @@ uint32_t tc_tx(uint8_t handle, uint16_t version)
     {
         return NRF_ERROR_NO_MEM;
     }
+    
+    /* place mesh adv data at beginning of adv payload */
+    mesh_adv_data_t* p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
 
     uint16_t length = MAX_VALUE_LENGTH;
-    error_code = mesh_srv_char_val_get(handle, &p_packet->payload.data[0], &length);
+    error_code = mesh_srv_char_val_get(handle, &p_mesh_adv_data->data[0], &length);
     if (error_code != NRF_SUCCESS)
     {
         mesh_packet_free(p_packet);
@@ -175,6 +178,7 @@ uint32_t tc_tx(uint8_t handle, uint16_t version)
         return NRF_ERROR_INTERNAL;
     }
     
+    /* fill BLE packet header fields */
     ble_gap_addr_t my_addr;
     sd_ble_gap_address_get(&my_addr);
 
@@ -182,10 +186,17 @@ uint32_t tc_tx(uint8_t handle, uint16_t version)
     p_packet->header.addr_type = my_addr.addr_type;
     memcpy(&p_packet->addr, &my_addr.addr, BLE_GAP_ADDR_LEN);
     p_packet->header.type = BLE_PACKET_TYPE_ADV_NONCONN_IND;
-    p_packet->payload.handle = handle;
-    p_packet->payload.version = version;
+    
+    /* fill mesh adv data header fields */
+    p_mesh_adv_data->adv_data_length = length + MESH_PACKET_ADV_OVERHEAD;
+    p_mesh_adv_data->adv_data_type = MESH_ADV_DATA_TYPE;
+    p_mesh_adv_data->mesh_uuid = MESH_UUID;
+    
+    p_mesh_adv_data->handle = handle;
+    p_mesh_adv_data->version = version;
 
     TICK_PIN(PIN_MESH_TX);
+    
     /* queue the packet for transmission */
     radio_event_t event;
     memset(&event, 0, sizeof(radio_event_t));
@@ -210,8 +221,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     SET_PIN(PIN_RX);
     mesh_packet_t* p_packet = (mesh_packet_t*) data;
 
-    if (p_packet->header.length > MESH_PACKET_OVERHEAD + MAX_VALUE_LENGTH || 
-            p_packet->header.type != BLE_PACKET_TYPE_ADV_NONCONN_IND)
+    if (p_packet->header.length > MESH_PACKET_OVERHEAD + MAX_VALUE_LENGTH)
     {
         /* invalid packet, ignore */
         mesh_packet_free(p_packet);
@@ -222,15 +232,40 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     ble_gap_addr_t addr;
     memcpy(addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
     addr.addr_type = p_packet->header.addr_type;
+    
+    /* run through advertisement data to find mesh data */
+    mesh_adv_data_t* p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
+    while (p_mesh_adv_data->adv_data_type != MESH_ADV_DATA_TYPE || 
+            p_mesh_adv_data->mesh_uuid != MESH_UUID)
+    {
+        p_mesh_adv_data += p_mesh_adv_data->adv_data_length + 1;
+        
+        if (((uint8_t*) p_mesh_adv_data) >= &p_packet->payload[BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH])
+        {
+            /* couldn't find mesh data */
+            mesh_packet_free(p_packet);
+            CLEAR_PIN(PIN_RX);
+            return;
+        }
+    }
+    
+    if (p_mesh_adv_data->adv_data_length > MESH_PACKET_ADV_OVERHEAD + MAX_VALUE_LENGTH)
+    {
+        /* invalid length in one of the length fields, discard packet */
+        mesh_packet_free(p_packet);
+        CLEAR_PIN(PIN_RX);
+        return;
+    }
+    
 
     vh_data_status_t data_status = vh_compare_metadata(
-            p_packet->payload.handle, 
-            p_packet->payload.version,
-            p_packet->payload.data,
-            p_packet->header.length - MESH_PACKET_OVERHEAD
+            p_mesh_adv_data->handle, 
+            p_mesh_adv_data->version,
+            p_mesh_adv_data->data,
+            p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD
     );
     
-    uint16_t delta = vh_get_version_delta(p_packet->payload.handle, p_packet->payload.version);
+    uint16_t delta = vh_get_version_delta(p_mesh_adv_data->handle, p_mesh_adv_data->version);
     uint32_t error_code = NRF_SUCCESS;
 
     if (data_status != VH_DATA_STATUS_UNKNOWN)
@@ -238,10 +273,11 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         error_code = 
             vh_rx_register(
                 data_status, 
-                p_packet->payload.handle, 
-                p_packet->payload.version,
+                p_mesh_adv_data->handle, 
+                p_mesh_adv_data->version,
                 timestamp
         );
+        
         if (error_code != NRF_SUCCESS)
         {
             CLEAR_PIN(PIN_RX);
@@ -258,12 +294,12 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     {
         case VH_DATA_STATUS_NEW:
             mesh_srv_char_val_set(
-                    p_packet->payload.handle, 
-                    &p_packet->payload.data[0], 
-                    p_packet->header.length - MESH_PACKET_OVERHEAD);
+                    p_mesh_adv_data->handle, 
+                    &p_mesh_adv_data->data[0], 
+                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
 
             /* notify application */
-            prepare_event(&evt, p_packet);
+            prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
             rbc_mesh_event_handler(&evt);
 #ifdef RBC_MESH_SERIAL
@@ -273,12 +309,12 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 
         case VH_DATA_STATUS_UPDATED:
             mesh_srv_char_val_set(
-                    p_packet->payload.handle, 
-                    &p_packet->payload.data[0], 
-                    p_packet->header.length - MESH_PACKET_OVERHEAD);
+                    p_mesh_adv_data->handle, 
+                    &p_mesh_adv_data->data[0], 
+                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
 
             /* notify application */
-            prepare_event(&evt, p_packet);
+            prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
             rbc_mesh_event_handler(&evt);
 #ifdef RBC_MESH_SERIAL
@@ -296,7 +332,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 
         case VH_DATA_STATUS_CONFLICTING:
 
-            prepare_event(&evt, p_packet);
+            prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
             rbc_mesh_event_handler(&evt);
 #ifdef RBC_MESH_SERIAL
