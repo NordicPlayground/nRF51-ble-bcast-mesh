@@ -39,8 +39,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_srv.h"
 #include "toolchain.h"
 
-#define MESH_PACKET_POOL_SIZE   (16)
-#define MESH_PACKET_OVERHEAD    (10)
+#define MESH_PACKET_POOL_SIZE               (16)
+#define MESH_PACKET_OVERHEAD                (10)
+#define MESH_UUID                           (0xFEE4)
+#define MESH_PACKET_ADV_OVERHEAD            (6)
+#define MESH_ADV_DATA_TYPE                  (0x16)
+#define BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH   (31)
 
 /******************************************************************************
 * Public typedefs
@@ -66,17 +70,24 @@ typedef __packed_armcc struct
   uint8_t _rfu3;
 } __packed_gcc ble_packet_header_t;
 
+
+typedef __packed_armcc struct
+{
+    uint8_t     adv_data_length;
+    uint8_t     adv_data_type;
+    uint16_t    mesh_uuid;
+    uint8_t     handle;
+    uint16_t    version;
+    uint8_t     data[MAX_VALUE_LENGTH];
+} __packed_gcc mesh_adv_data_t;
+
 typedef __packed_armcc struct 
 {
     ble_packet_header_t header;
     uint8_t addr[6];
-    __packed_armcc struct
-    {
-        uint8_t handle;
-        uint16_t version;
-        uint8_t data[MAX_VALUE_LENGTH];
-    } __packed_gcc payload;
+    uint8_t payload[BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH];
 } __packed_gcc mesh_packet_t;
+
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
