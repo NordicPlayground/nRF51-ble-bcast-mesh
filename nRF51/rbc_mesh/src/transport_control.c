@@ -188,6 +188,7 @@ uint32_t tc_tx(uint8_t handle, uint16_t version)
     TICK_PIN(PIN_MESH_TX);
     /* queue the packet for transmission */
     radio_event_t event;
+    memset(&event, 0, sizeof(radio_event_t));
     event.start_time = 0;
     event.packet_ptr = (uint8_t*) p_packet;
     event.access_address = 0;

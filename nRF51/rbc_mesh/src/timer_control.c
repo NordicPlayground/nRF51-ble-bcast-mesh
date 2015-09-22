@@ -54,7 +54,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Static globals
 *****************************************************************************/
 
-static uint8_t active_callbacks;
+static uint8_t active_callbacks = 0;
 
 /* bitmap indicating that callback should be executed in handlers interrupt
  context, instead of swi context */
@@ -78,11 +78,12 @@ void timer_event_handler(void)
         if (NRF_TIMER0->EVENTS_COMPARE[i])
         {
             NRF_TIMER0->EVENTS_COMPARE[i] = 0;
+            NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
+
             if (active_callbacks & (1 << i))
             {
                 timer_callback cb = callbacks[i];
                 active_callbacks &= ~(1 << i);
-                NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
                 handled = true;
                 if (i == TIMER_INDEX_TS_END)
                 {
