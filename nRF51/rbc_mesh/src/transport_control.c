@@ -72,13 +72,15 @@ static void tx_cb(uint8_t* data);
 static void order_search(void)
 {
     radio_event_t evt;
+    memset(&evt, 0, sizeof(radio_event_t));
     evt.event_type = RADIO_EVENT_TYPE_RX_PREEMPTABLE;
     evt.start_time = 0;
     if (!mesh_packet_acquire((mesh_packet_t**) &evt.packet_ptr))
     {
         return; /* something is hogging all the packets */
     }
-    evt.access_address = g_state.access_address;
+    TICK_PIN(1);
+    evt.access_address = 1;
     evt.channel = g_state.channel;
     evt.callback.rx = rx_cb;
     if (!radio_order(&evt))
@@ -188,9 +190,10 @@ uint32_t tc_tx(uint8_t handle, uint16_t version)
     radio_event_t event;
     event.start_time = 0;
     event.packet_ptr = (uint8_t*) p_packet;
-    event.access_address = g_state.access_address;
+    event.access_address = 0;
     event.channel = g_state.channel;
     event.callback.tx = tx_cb;
+    event.event_type = RADIO_EVENT_TYPE_TX;
     if (!radio_order(&event))
     {
         mesh_packet_free(p_packet);
