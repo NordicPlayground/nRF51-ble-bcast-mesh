@@ -571,11 +571,6 @@ void radio_event_handler(void)
         case RADIO_STATE_NEVER_USED:
             break;
     }
-
-    NRF_RADIO->EVENTS_READY = 0;
     NRF_RADIO->EVENTS_ADDRESS = 0;
-    NRF_RADIO->EVENTS_PAYLOAD = 0;
-    NRF_RADIO->EVENTS_END = 0;
-    NRF_RADIO->EVENTS_DISABLED = 0;
 }
 
