@@ -354,6 +354,7 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
 *
 * @return NRF_SUCCESS Event successfully queued.
 * @return NRF_ERROR_NO_MEM Queue full, push unsuccessful.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
 uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
@@ -366,6 +367,7 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 * @return NRF_SUCCESS An event was successfully popped and copied into the 
 *   p_evt-parameter.
 * @return NRF_ERROR_NOT_FOUND No events ready to be pulled.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
 uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt);
 
@@ -382,6 +384,7 @@ uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt);
 *   p_evt-parameter.
 * @return NRF_ERROR_NOT_FOUND No events ready to be pulled.
 * @return NRF_ERROR_NULL The p_evt parameter is NULL.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
 uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
 

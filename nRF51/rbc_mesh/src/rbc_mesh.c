@@ -295,11 +295,19 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
 
 uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
 {
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
     return fifo_push(&g_rbc_event_fifo, p_event);
 }
 
 uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt)
 {
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
     if (fifo_pop(&g_rbc_event_fifo, p_evt) != NRF_SUCCESS)
     {
         return NRF_ERROR_NOT_FOUND;
@@ -310,6 +318,10 @@ uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt)
 
 uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt)
 {
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
     if (p_evt == NULL)
     {
         return NRF_ERROR_NULL;
