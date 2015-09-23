@@ -48,7 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>
 
-#define RBC_MESH_EVENT_FIFO_LENGTH  (8)
+#define RBC_MESH_EVENT_FIFO_LENGTH  (16)
 
 /*****************************************************************************
 * Static globals
