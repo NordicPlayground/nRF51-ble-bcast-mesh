@@ -43,6 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "nrf_soc.h"
 #include "nrf_error.h"
+#include "app_error.h"
 #include "ble.h"
 #include <stdlib.h>
 #include <stdbool.h>
@@ -602,7 +603,7 @@ uint32_t mesh_srv_gatts_evt_write_handle(ble_gatts_evt_write_t* evt)
             update_evt.value_handle = i + 1;
             update_evt.data = evt->data;
 
-            rbc_mesh_event_handler(&update_evt);
+            APP_ERROR_CHECK(rbc_mesh_event_push(&update_evt));
 
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&update_evt);

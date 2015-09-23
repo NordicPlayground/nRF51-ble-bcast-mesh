@@ -45,6 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 #include "version_handler.h"
 #include "mesh_aci.h"
+#include "app_error.h"
 
 #include <string.h>
 
@@ -301,7 +302,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
-            rbc_mesh_event_handler(&evt);
+            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
@@ -316,7 +317,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-            rbc_mesh_event_handler(&evt);
+            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
@@ -334,7 +335,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
-            rbc_mesh_event_handler(&evt);
+            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif

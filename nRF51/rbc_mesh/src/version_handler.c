@@ -45,6 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 
 #include "nrf_error.h"
+#include "app_error.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
@@ -153,7 +154,7 @@ static void transmit_all_instances(uint64_t timestamp)
                         tx_event.data_len = 0;
                         tx_event.version_delta = 0;
 
-                        rbc_mesh_event_handler(&tx_event);
+                        APP_ERROR_CHECK(rbc_mesh_event_push(&tx_event));
                     }
                 }
             }
