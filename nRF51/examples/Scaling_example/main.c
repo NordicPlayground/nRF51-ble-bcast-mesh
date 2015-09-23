@@ -317,14 +317,29 @@ int main(void)
     _LOG("START\r\n");
     
 #if LOG_RTT
+    rbc_mesh_event_t evt;
     while (true)
     {
-        uint8_t c = SEGGER_RTT_WaitKey();
-        char_rx(c);
+        int8_t c = SEGGER_RTT_GetKey();
+        if (c >= 0)
+            char_rx(c);
+
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+        }
+        
+        sd_app_evt_wait();
     }
 #else      
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+        }
+        
         sd_app_evt_wait();
     }
 #endif

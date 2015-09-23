@@ -104,7 +104,7 @@ void HardFault_Handler(void)
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     switch (evt->event_type)
     {
@@ -149,9 +149,14 @@ int main(void)
     APP_ERROR_CHECK(error_code);
 #endif
     
-    /* sleep */
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+        }
+        
         sd_app_evt_wait();
     }
 }

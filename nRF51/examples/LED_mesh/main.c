@@ -110,7 +110,7 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t *file_name)
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     TICK_PIN(18);
     CLEAR_PIN(15);
@@ -234,11 +234,16 @@ int main(void)
 
     sd_nvic_EnableIRQ(SD_EVT_IRQn);
 
-    /* sleep */
+    /* fetch events */
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+        }
+        
         sd_app_evt_wait();
     }
-
 }
 

@@ -120,7 +120,7 @@ uint32_t sd_evt_handler(void)
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     TICK_PIN(28);
     switch (evt->event_type)
@@ -214,14 +214,20 @@ int main(void)
     NRF_GPIO->OUTCLR = (1 << 4);
 
 #if !(defined(BUTTONS))
-    /* sleep */
+    /* fetch events */
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+        }
+        
         sd_app_evt_wait();
-    }
-    
+    }    
 #else
     uint8_t mesh_data[16] = {0,0};
+    rbc_mesh_event_t evt;
     while (true)
     {
         // red off
@@ -249,12 +255,17 @@ int main(void)
             led_config(2, 0);
         }
         // green on
-         if(nrf_gpio_pin_read(BUTTON_4) == 0)
+        if(nrf_gpio_pin_read(BUTTON_4) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(2, mesh_data, 1);
             led_config(2, 1);
+        }
+
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
         }
     }
 #endif
