@@ -41,11 +41,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "version_handler.h"
 #include "transport_control.h"
 #include "mesh_packet.h"
+#include "fifo.h"
 
 #include "nrf_error.h"
 #include "nrf_sdm.h"
 
 #include <string.h>
+
+#define RBC_MESH_EVENT_FIFO_LENGTH  (8)
 
 /*****************************************************************************
 * Static globals
@@ -60,7 +63,8 @@ static uint32_t g_access_addr;
 static uint8_t g_channel;
 static uint8_t g_handle_count;
 static uint32_t g_interval_min_ms;
-
+static fifo_t g_rbc_event_fifo;
+static rbc_mesh_event_t g_rbc_event_buffer[RBC_MESH_EVENT_FIFO_LENGTH];
 
 /*****************************************************************************
 * Static Functions
@@ -124,7 +128,13 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     g_interval_min_ms = init_params.interval_min_ms;
 
     g_mesh_state = MESH_STATE_RUNNING;
-
+    
+    g_rbc_event_fifo.array_len = RBC_MESH_EVENT_FIFO_LENGTH;
+    g_rbc_event_fifo.elem_array = g_rbc_event_buffer;
+    g_rbc_event_fifo.elem_size = sizeof(rbc_mesh_event_t);
+    g_rbc_event_fifo.memcpy_fptr = NULL;
+    fifo_init(&g_rbc_event_fifo);
+    
     return NRF_SUCCESS;
 }
 
@@ -283,6 +293,35 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
     return NRF_SUCCESS;
 }
 
+uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
+{
+    return fifo_push(&g_rbc_event_fifo, p_event);
+}
+
+uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt)
+{
+    if (fifo_pop(&g_rbc_event_fifo, p_evt) != NRF_SUCCESS)
+    {
+        return NRF_ERROR_NOT_FOUND;
+    }
+    
+    return NRF_SUCCESS;    
+}
+
+uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt)
+{
+    if (p_evt == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+    
+    if (fifo_peek(&g_rbc_event_fifo, p_evt) != NRF_SUCCESS)
+    {
+        return NRF_ERROR_NOT_FOUND;
+    }
+    
+    return NRF_SUCCESS;
+}
 
 /***** event handler ******/
 

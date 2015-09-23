@@ -348,6 +348,44 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
 
 /**
+* @brief Internal call to push an event to the event queue.
+*
+* @param[in] p_evt Event to post to queue. Is copied in the process.
+*
+* @return NRF_SUCCESS Event successfully queued.
+* @return NRF_ERROR_NO_MEM Queue full, push unsuccessful.
+*/
+uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
+
+/**
+* @brief Get an event from the mesh.
+*
+* @param[out] p_evt A pointer to the struct the event should be copied to. 
+*   May be set to NULL if the contents of the event isn't important.
+*
+* @return NRF_SUCCESS An event was successfully popped and copied into the 
+*   p_evt-parameter.
+* @return NRF_ERROR_NOT_FOUND No events ready to be pulled.
+*/
+uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt);
+
+/**
+* @brief Get an event from the mesh, but don't remove it from the queue.
+* 
+* @note This call has the same effect as the rbc_mesh_event_get call, except
+*   it does not remove the event from the queue. Repeated calls to the peek 
+*   function will yield the same event.
+*
+* @param[out] p_evt A pointer to the struct the event should be copied to.
+*
+* @return NRF_SUCCESS An event was successfully popped and copied into the 
+*   p_evt-parameter.
+* @return NRF_ERROR_NOT_FOUND No events ready to be pulled.
+* @return NRF_ERROR_NULL The p_evt parameter is NULL.
+*/
+uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
+
+/**
 * @brief Softdevice interrupt handler, checking if there are any 
 *   incomming events related to the framework. 
 *
@@ -355,18 +393,6 @@ uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
 *   softdevice for new sd_evt.
 */
 uint32_t rbc_mesh_sd_irq_handler(void);
-
-/**
- * @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 
-*   SPACE.
-*
-* @note Does not have an implementation within the framework, but acts as a 
-*   feedback channel for the framework to notify the application of any 
-*   changes in values.
-*
-* @param evt Framework generated event presented to the application. 
-*/
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt);
 
 #endif /* _RBC_MESH_H__ */
 
