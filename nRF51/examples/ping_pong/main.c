@@ -100,6 +100,8 @@ static void cmd_rx(uint8_t* cmd, uint32_t len)
 */
 static void error_loop(void)
 {
+    nrf_gpio_pin_clear(LED_START + 1);
+    nrf_gpio_pin_set(LED_START + 2);
     while (1)
     {
         UART0_IRQHandler();
@@ -154,7 +156,7 @@ uint32_t sd_evt_handler(void)
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 { 
     static const char cmd[] = {'U', 'C', 'N', 'I', 'T'};
     switch (evt->event_type)
@@ -214,8 +216,14 @@ int main(void)
     _LOG("START\r\n");
     print_usage();
     
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+        }
+        
         sd_app_evt_wait();
     }
 }
