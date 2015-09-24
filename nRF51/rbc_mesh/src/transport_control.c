@@ -324,11 +324,11 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             break;
 
         case VH_DATA_STATUS_OLD:
-            /* do nothing */
+            mesh_packet_free(p_packet);
             break;
             
         case VH_DATA_STATUS_SAME:
-            /* do nothing */
+            mesh_packet_free(p_packet);
             break;
 
         case VH_DATA_STATUS_CONFLICTING:
@@ -345,8 +345,6 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             
             break;
     }
-
-    mesh_packet_free(p_packet);
     
     if (g_state.queue_saturation)
     {
