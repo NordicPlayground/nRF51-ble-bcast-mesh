@@ -47,8 +47,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *   service. Processes and assembles packet payloads for the mesh.
 */
 
-#define MAX_VALUE_LENGTH                (24) /* The maximum number of bytes available in one mesh value. */
-
 #define MESH_SRV_UUID                   (0x0001) /* Mesh service UUID */
 #define MESH_MD_CHAR_UUID               (0x0002) /* Mesh metadata characteristic UUID */
 #define MESH_VALUE_CHAR_UUID            (0x0003) /* Mesh value characteristic UUID */
@@ -99,13 +97,13 @@ uint32_t mesh_srv_init(uint8_t mesh_value_count,
 * @param[in] index The index of the value that is to be changed.
 * @param[in] data The data to be put in the indicated value slot.
 * @param[in] len The length of the data provided. May not exceed 
-*   MAX_VALUE_LENGTH.
+*   RBC_MESH_VALUE_MAX_LEN.
 *
 * @return NRF_SUCCESS The value was updated successfully.
 * @return NRF_ERROR_INVALID_STATE The mesh service has not been initialized.
 * @return NRF_ERROR_INVALID_ADDR The given index is not in the range of handles
 *   given in the initialization.
-* @return NRF_ERROR_INVALID_LENGTH The len parameter exce3eds MAX_VALUE_LENGTH
+* @return NRF_ERROR_INVALID_LENGTH The len parameter exceeds RBC_MESH_VALUE_MAX_LEN.
 */
 uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len);
 
@@ -114,7 +112,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len);
 *
 * @param[in] index The index of the value that is to be read
 * @param[out] data, buffer to copy value contents to. Must be at least 
-*   MAX_VALUE_LENGTH long to ensure safe operation.
+*   RBC_MESH_VALUE_MAX_LEN long to ensure safe operation.
 * @param[out] len Returns the length of the copied data
 * @param[out] origin_addr Returns the BLE GAP address at which the current 
 *   version of this handle was first broadcasted.

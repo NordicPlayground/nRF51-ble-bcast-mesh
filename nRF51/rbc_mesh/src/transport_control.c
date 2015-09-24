@@ -165,7 +165,7 @@ uint32_t tc_tx(uint8_t handle, uint16_t version)
     /* place mesh adv data at beginning of adv payload */
     mesh_adv_data_t* p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
 
-    uint16_t length = MAX_VALUE_LENGTH;
+    uint16_t length = RBC_MESH_VALUE_MAX_LEN;
     error_code = mesh_srv_char_val_get(handle, &p_mesh_adv_data->data[0], &length);
     if (error_code != NRF_SUCCESS)
     {
@@ -222,7 +222,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     SET_PIN(PIN_RX);
     mesh_packet_t* p_packet = (mesh_packet_t*) data;
 
-    if (p_packet->header.length > MESH_PACKET_OVERHEAD + MAX_VALUE_LENGTH)
+    if (p_packet->header.length > MESH_PACKET_OVERHEAD + RBC_MESH_VALUE_MAX_LEN)
     {
         /* invalid packet, ignore */
         mesh_packet_free(p_packet);
@@ -250,7 +250,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         }
     }
     
-    if (p_mesh_adv_data->adv_data_length > MESH_PACKET_ADV_OVERHEAD + MAX_VALUE_LENGTH)
+    if (p_mesh_adv_data->adv_data_length > MESH_PACKET_ADV_OVERHEAD + RBC_MESH_VALUE_MAX_LEN)
     {
         /* invalid length in one of the length fields, discard packet */
         mesh_packet_free(p_packet);

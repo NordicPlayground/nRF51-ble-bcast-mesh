@@ -181,8 +181,8 @@ static void version_increase(uint16_t* version)
 /* compare payloads, assuming version number is equal */
 static bool payload_has_conflict(uint8_t handle, uint8_t* new_data, uint8_t len)
 {
-    uint8_t old_data[MAX_VALUE_LENGTH];
-    uint16_t old_len = MAX_VALUE_LENGTH;
+    uint8_t old_data[RBC_MESH_VALUE_MAX_LEN];
+    uint16_t old_len = RBC_MESH_VALUE_MAX_LEN;
     
     if (mesh_srv_char_val_get(handle, old_data, &old_len) != NRF_SUCCESS)
         return true;

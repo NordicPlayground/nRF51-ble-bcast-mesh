@@ -43,7 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
 #define RBC_MESH_INTERVAL_MIN_MIN_MS     (5)
 #define RBC_MESH_INTERVAL_MIN_MAX_MS     (60000)
-#define RBC_MESH_VALUE_MAX_LEN           (28)
+#define RBC_MESH_VALUE_MAX_LEN           (24)
 /** 
 * @brief Rebroadcast value handle type 
 *

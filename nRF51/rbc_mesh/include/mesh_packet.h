@@ -38,6 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "mesh_srv.h"
 #include "toolchain.h"
+#include "rbc_mesh.h"
 
 #define MESH_PACKET_POOL_SIZE               (16)
 #define MESH_PACKET_OVERHEAD                (10)
@@ -78,7 +79,7 @@ typedef __packed_armcc struct
     uint16_t    mesh_uuid;
     uint8_t     handle;
     uint16_t    version;
-    uint8_t     data[MAX_VALUE_LENGTH];
+    uint8_t     data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc mesh_adv_data_t;
 
 typedef __packed_armcc struct 

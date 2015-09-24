@@ -38,6 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "serial_handler.h"
 #include "toolchain.h"
 #include "mesh_aci.h"
+#include "rbc_mesh.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -130,7 +131,7 @@ typedef __packed_armcc struct
     uint8_t handle;
     addr_type_t addr_type;
     uint8_t origin_addr[6];
-    uint8_t data[SERIAL_DATA_MAX_LEN];
+    uint8_t data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc serial_evt_params_event_new_t;
 
 typedef __packed_armcc struct
@@ -138,7 +139,7 @@ typedef __packed_armcc struct
     uint8_t handle;
     addr_type_t addr_type;
     uint8_t origin_addr[6];
-    uint8_t data[SERIAL_DATA_MAX_LEN];
+    uint8_t data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc serial_evt_params_event_update_t;
 
 typedef __packed_armcc struct 
@@ -146,7 +147,7 @@ typedef __packed_armcc struct
     uint8_t handle;
     addr_type_t addr_type;
     uint8_t origin_addr[6];
-    uint8_t data[SERIAL_DATA_MAX_LEN];
+    uint8_t data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc serial_evt_params_event_conflicting_t;
 
 typedef __packed_armcc struct 

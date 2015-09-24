@@ -273,7 +273,7 @@ static uint32_t mesh_value_char_add(uint8_t index)
 
     ble_attr.init_len = 1;
     ble_attr.init_offs = 0;
-    ble_attr.max_len = MAX_VALUE_LENGTH;
+    ble_attr.max_len = RBC_MESH_VALUE_MAX_LEN;
     ble_attr.p_attr_md = &ble_attr_md;
     ble_attr.p_uuid = &ble_uuid;
     ble_attr.p_value = &default_value;
@@ -389,7 +389,7 @@ uint32_t mesh_srv_char_val_set(uint8_t index, uint8_t* data, uint16_t len)
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    if (len > MAX_VALUE_LENGTH)
+    if (len > RBC_MESH_VALUE_MAX_LEN)
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
@@ -488,7 +488,7 @@ uint32_t mesh_srv_char_val_get(uint8_t index, uint8_t* data, uint16_t* len)
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    *len = MAX_VALUE_LENGTH;
+    *len = RBC_MESH_VALUE_MAX_LEN;
     uint8_t gatts_handle;
     vh_get_gatts_handle(index, &gatts_handle);
 
