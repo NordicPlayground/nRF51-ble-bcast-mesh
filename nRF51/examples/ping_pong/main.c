@@ -194,7 +194,6 @@ int main(void)
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel         = MESH_CHANNEL;
     init_params.handle_count    = MESH_HANDLE_COUNT;
-    init_params.packet_format   = RBC_MESH_PACKET_FORMAT_ORIGINAL;
     init_params.radio_mode      = RBC_MESH_RADIO_MODE_BLE_1MBIT;
    
     uint32_t error_code = rbc_mesh_init(init_params);

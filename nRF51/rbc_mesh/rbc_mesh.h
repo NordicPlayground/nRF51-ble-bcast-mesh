@@ -92,20 +92,6 @@ typedef enum
 } rbc_mesh_radio_mode_t;
 
 /**
-* @brief Enum for on-air packet interface format. The original packet interface
-*   provide the original max packet length of 28 bytes, but is not compatible
-*   with external devices on-air, as the payload of the advertisements does not
-*   adhere to the specification. To be able to inject packets into the mesh 
-*   without using a gateway interface, the adv_compatible version must be used. 
-*   Note that this reduces the max packet length to 26 bytes.
-*/
-typedef enum
-{
-    RBC_MESH_PACKET_FORMAT_ORIGINAL,
-    RBC_MESH_PACKET_FORMAT_ADV_COMPATIBLE
-} rbc_mesh_packet_format_t;
-
-/**
 * @brief Initialization parameter struct for the rbc_mesh_init() function.
 *
 *
@@ -141,7 +127,6 @@ typedef struct
     uint8_t handle_count;
     uint32_t interval_min_ms;
     rbc_mesh_radio_mode_t radio_mode;
-    rbc_mesh_packet_format_t packet_format;
 } rbc_mesh_init_params_t;
 
 /*****************************************************************************
