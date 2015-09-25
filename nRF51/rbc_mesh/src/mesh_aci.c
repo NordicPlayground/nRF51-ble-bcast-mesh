@@ -115,7 +115,6 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             init_params.channel = serial_cmd->params.init.channel;
             init_params.handle_count = serial_cmd->params.init.handle_count;
             init_params.interval_min_ms = serial_cmd->params.init.adv_int_min;
-            init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
             init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
 
             error_code = rbc_mesh_init(init_params);
