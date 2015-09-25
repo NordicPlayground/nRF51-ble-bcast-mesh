@@ -21,7 +21,7 @@ COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
 LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
-OUTPUT_NAME   := pingpong
+OUTPUT_NAME   := ping_pong
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
@@ -71,6 +71,7 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 # source common to all targets
 
 C_SOURCE_FILES += ../main.c
+C_SOURCE_FILES += ../cmd_if.c
 C_SOURCE_FILES += ../RTT/SEGGER_RTT.c
 C_SOURCE_FILES += ../RTT/SEGGER_RTT_printf.c
 
