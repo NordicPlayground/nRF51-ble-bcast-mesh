@@ -44,6 +44,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RBC_MESH_INTERVAL_MIN_MIN_MS     (5)
 #define RBC_MESH_INTERVAL_MIN_MAX_MS     (60000)
 #define RBC_MESH_VALUE_MAX_LEN           (28)
+#define RBC_MESH_INVALID_HANDLE          (0xFFFF)
+
+#ifndef RBC_MESH_HANDLE_CACHE_ENTRIES    
+#define RBC_MESH_HANDLE_CACHE_ENTRIES     (100)
+#endif
+
+#ifndef RBC_MESH_DATA_CACHE_ENTRIES
+#define RBC_MESH_DATA_CACHE_ENTRIES       (20)
+#endif
+
 /** 
 * @brief Rebroadcast value handle type 
 *
@@ -138,7 +148,7 @@ typedef struct
 {
     uint32_t access_addr;
     uint8_t channel;
-    uint8_t handle_count;
+    uint16_t handle_count;
     uint32_t interval_min_ms;
     rbc_mesh_radio_mode_t radio_mode;
     rbc_mesh_packet_format_t packet_format;
@@ -208,7 +218,7 @@ uint32_t rbc_mesh_stop(void);
 *    in @ref rbc_mesh_init.
 * @return NRF_ERROR_INVALID_LENGTH if len exceeds RBC_VALUE_MAX_LEN.
 */
-uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
+uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t len);
 
 /**
 * @brief Start broadcasting the handle-value pair. If the handle has not been 
@@ -226,7 +236,7 @@ uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
 *   in @ref rbc_mesh_init.
 * @return NRF_ERROR_INVALID_STATE The framework has not been initiated
 */
-uint32_t rbc_mesh_value_enable(uint8_t handle);
+uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle);
 
 /**
 * @brief Stop rebroadcasting the indicated handle-value pair. 
@@ -243,7 +253,7 @@ uint32_t rbc_mesh_value_enable(uint8_t handle);
 *   @ref rbc_mesh_init.
 * @return NRF_ERROR_INVALID_STATE The framework has not been initialized.
 */
-uint32_t rbc_mesh_value_disable(uint8_t handle);
+uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
 
 /**
 * @brief Set whether the given handle should produce TX events for each time
@@ -264,7 +274,7 @@ uint32_t rbc_mesh_value_disable(uint8_t handle);
 * @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
 *   in @ref rbc_mesh_init.
 */
-uint32_t rbc_mesh_tx_report(uint8_t handle, bool do_tx_event);
+uint32_t rbc_mesh_tx_report(rbc_mesh_value_handle_t handle, bool do_tx_event);
 
 /**
  * @brief Get the contents of the data array pointed to by the provided handle
@@ -279,7 +289,7 @@ uint32_t rbc_mesh_tx_report(uint8_t handle, bool do_tx_event);
 * @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
 *    in @ref rbc_mesh_init.
 */
-uint32_t rbc_mesh_value_get(uint8_t handle, 
+uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, 
     uint8_t* data, 
     uint16_t* len);
 
@@ -311,7 +321,7 @@ uint32_t rbc_mesh_channel_get(uint8_t* ch);
 * @return NRF_SUCCESS the value was fetched successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
 */
-uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
+uint32_t rbc_mesh_handle_count_get(uint16_t* handle_count);
 
 /**
 * @brief Get the mesh minimum transmit interval in ms
