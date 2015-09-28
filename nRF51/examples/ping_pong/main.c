@@ -48,7 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdarg.h>
 
-#define MESH_ACCESS_ADDR        (0xA541A68F)
+#define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
 #define MESH_HANDLE_COUNT       (20)
@@ -56,7 +56,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define INVALID_HANDLE          (0xFF)
 
 static uint8_t m_handle = INVALID_HANDLE;
-static uint8_t m_data[MAX_VALUE_LENGTH];
+static uint8_t m_data[RBC_MESH_VALUE_MAX_LEN];
 
 extern void UART0_IRQHandler(void);
 
@@ -84,14 +84,14 @@ static void cmd_rx(uint8_t* cmd, uint32_t len)
         m_data[6]++;
         for (uint32_t i = 0; i < MESH_HANDLE_COUNT; ++i)
         {
-            rbc_mesh_value_set(i + 1, m_data, MAX_VALUE_LENGTH);
+            rbc_mesh_value_set(i + 1, m_data, RBC_MESH_VALUE_MAX_LEN);
         }
         _LOG("Responding to all\r\n");
     }
     else
     {
         m_data[6]++;
-        rbc_mesh_value_set(m_handle, m_data, MAX_VALUE_LENGTH);
+        rbc_mesh_value_set(m_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
         _LOG("Responding to handle %d\r\n", (int) m_handle);
     }
 }
@@ -100,6 +100,8 @@ static void cmd_rx(uint8_t* cmd, uint32_t len)
 */
 static void error_loop(void)
 {
+    nrf_gpio_pin_clear(LED_START + 1);
+    nrf_gpio_pin_set(LED_START + 2);
     while (1)
     {
         UART0_IRQHandler();
@@ -149,12 +151,11 @@ uint32_t sd_evt_handler(void)
 }
 
 /**
-* @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
-*   events coming from the mesh. Propagates the event to the host via UART or RTT.
+* @brief RBC_MESH framework event handler. Handles events coming from the mesh. 
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 { 
     static const char cmd[] = {'U', 'C', 'N', 'I', 'T'};
     switch (evt->event_type)
@@ -166,7 +167,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
             {
                 nrf_gpio_pin_toggle(LED_START);
                 m_data[6]++;
-                rbc_mesh_value_set(evt->value_handle, m_data, MAX_VALUE_LENGTH);
+                rbc_mesh_value_set(evt->value_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
                 if (m_handle == 0)
                     _LOG("%c[%d] \r\n", cmd[evt->event_type], evt->value_handle);
             }
@@ -189,12 +190,11 @@ int main(void)
     /* Init the rbc_mesh */
     rbc_mesh_init_params_t init_params;
 
-    init_params.access_addr = MESH_ACCESS_ADDR;
+    init_params.access_addr     = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
-    init_params.channel = MESH_CHANNEL;
-    init_params.handle_count = MESH_HANDLE_COUNT;
-    init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
-    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
+    init_params.channel         = MESH_CHANNEL;
+    init_params.handle_count    = MESH_HANDLE_COUNT;
+    init_params.radio_mode      = RBC_MESH_RADIO_MODE_BLE_1MBIT;
    
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
@@ -214,8 +214,15 @@ int main(void)
     _LOG("START\r\n");
     print_usage();
     
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_event_free(&evt);
+        }
+        
         sd_app_evt_wait();
     }
 }
