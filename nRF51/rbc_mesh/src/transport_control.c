@@ -124,7 +124,6 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
 /* radio callback, executed in STACK_LOW */
 static void tx_cb(uint8_t* data)
 {
-    mesh_packet_free((mesh_packet_t*) data);
     vh_order_update(timer_get_timestamp()); /* tell the vh, so that it can push more updates */
 }
 
@@ -209,10 +208,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     switch (data_status)
     {
         case VH_DATA_STATUS_NEW:
-            mesh_srv_char_val_set(
-                    p_mesh_adv_data->handle, 
-                    &p_mesh_adv_data->data[0], 
-                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
+            /** @TODO: send to GATT server */
 
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
@@ -224,10 +220,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             break;
 
         case VH_DATA_STATUS_UPDATED:
-            mesh_srv_char_val_set(
-                    p_mesh_adv_data->handle, 
-                    &p_mesh_adv_data->data[0], 
-                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
+            /** @TODO: send to GATT server */
 
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
@@ -240,10 +233,12 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 
         case VH_DATA_STATUS_OLD:
             /* do nothing */
+            mesh_packet_free(p_packet);
             break;
             
         case VH_DATA_STATUS_SAME:
             /* do nothing */
+            mesh_packet_free(p_packet);
             break;
 
         case VH_DATA_STATUS_CONFLICTING:
@@ -254,6 +249,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
+            mesh_packet_free(p_packet);
             break;
 
         case VH_DATA_STATUS_UNKNOWN:
