@@ -102,7 +102,7 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet);
 
 bool mesh_packet_free(mesh_packet_t* p_packet);
 
-void mesh_packet_set_local_addr(mesh_packet_t* p_packet);
+uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet);
 
 uint32_t mesh_packet_build(mesh_packet_t* p_packet, 
         rbc_mesh_value_handle_t handle,

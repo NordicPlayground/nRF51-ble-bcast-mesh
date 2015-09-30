@@ -81,17 +81,23 @@ bool mesh_packet_free(mesh_packet_t* p_packet)
     return true;
 }
 
-void mesh_packet_set_local_addr(mesh_packet_t* p_packet)
+uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet)
 {
 #ifdef SOFTDEVICE_PRESENT
     ble_gap_addr_t my_addr;
-    sd_ble_gap_address_get(&my_addr);
+    uint32_t error_code = sd_ble_gap_address_get(&my_addr);
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
     p_packet->header.addr_type = my_addr.addr_type;
     memcpy(p_packet->addr, my_addr.addr, BLE_GAP_ADDR_LEN);
 #else
     memcpy(p_packet->addr, &NRF_FICR->DEVICEADDR[0], BLE_GAP_ADDR_LEN);
     p_packet->header.addr_type = NRF_FICR->DEVICEADDRTYPE;
 #endif
+    
+    return NRF_SUCCESS;
 }
 
 uint32_t mesh_packet_build(mesh_packet_t* p_packet, 
