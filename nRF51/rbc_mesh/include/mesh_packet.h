@@ -36,16 +36,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _MESH_PACKET_H__
 #define _MESH_PACKET_H__
 #include <stdint.h>
+#include <stdbool.h>
 #include "mesh_srv.h"
+#include "rbc_mesh.h"
 #include "toolchain.h"
 
 #define MESH_PACKET_POOL_SIZE               (16)
-#define MESH_PACKET_OVERHEAD                (10)
 #define MESH_UUID                           (0xFEE4)
-#define MESH_PACKET_ADV_OVERHEAD            (6)
 #define MESH_ADV_DATA_TYPE                  (0x16)
 #define BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH   (31)
 
+#define MESH_PACKET_BLE_OVERHEAD            (1 + BLE_GAP_ADDR_LEN)                                                  /* overhead before advertisement payload */
+#define MESH_PACKET_ADV_OVERHEAD            (1 /* adv_type */ + 2 /* UUID */ + 2 /* handle */ + 2 /* version */)    /* overhead inside adv data */
+#define MESH_PACKET_OVERHEAD                (MESH_PACKET_BLE_OVERHEAD + 1 + MESH_PACKET_ADV_OVERHEAD)               /* mesh packet total overhead */
 /******************************************************************************
 * Public typedefs
 ******************************************************************************/
@@ -73,12 +76,12 @@ typedef __packed_armcc struct
 
 typedef __packed_armcc struct
 {
-    uint8_t     adv_data_length;
-    uint8_t     adv_data_type;
-    uint16_t    mesh_uuid;
-    uint8_t     handle;
-    uint16_t    version;
-    uint8_t     data[MAX_VALUE_LENGTH];
+    uint8_t                 adv_data_length;
+    uint8_t                 adv_data_type;
+    uint16_t                mesh_uuid;
+    rbc_mesh_value_handle_t handle;
+    uint16_t                version;
+    uint8_t                 data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc mesh_adv_data_t;
 
 typedef __packed_armcc struct 
@@ -93,11 +96,30 @@ typedef __packed_armcc struct
 ******************************************************************************/
 void mesh_packet_init(void);
 
+void mesh_packet_on_ts_begin(void);
+
 bool mesh_packet_acquire(mesh_packet_t** pp_packet);
 
 bool mesh_packet_free(mesh_packet_t* p_packet);
 
-void mesh_packet_on_ts_begin(void);
+void mesh_packet_set_local_addr(mesh_packet_t* p_packet);
+
+uint32_t mesh_packet_build(mesh_packet_t* p_packet, 
+        rbc_mesh_value_handle_t handle,
+        uint16_t version,
+        uint8_t* data,
+        uint8_t length);
+
+uint32_t mesh_packet_adv_data_sanitize(mesh_packet_t* p_packet);
+
+mesh_adv_data_t* mesh_packet_adv_data_get(mesh_packet_t* p_packet);
+
+rbc_mesh_value_handle_t mesh_packet_handle_get(mesh_packet_t* p_packet);
+
+bool mesh_packet_has_additional_data(mesh_packet_t* p_packet);
+
+/** Fill address field with local addr, and sanitize adv-data */
+void mesh_packet_take_ownership(mesh_packet_t* p_packet);
 
 #endif /* _MESH_PACKET_H__ */
 
