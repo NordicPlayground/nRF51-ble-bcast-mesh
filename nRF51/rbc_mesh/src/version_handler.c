@@ -547,6 +547,34 @@ uint32_t vh_order_update(uint64_t time_now)
     return event_handler_push(&tx_event);
 }
 
+uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* length)
+{
+    if (!g_is_initialized)
+        return NRF_ERROR_INVALID_STATE;
+
+    uint16_t handle_index = handle_entry_get(handle);
+    if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
+    {
+        return NRF_ERROR_NOT_FOUND;
+    }
+    uint16_t data_index = m_handle_cache[handle_index].data_entry;
+    if (data_index == DATA_CACHE_ENTRY_INVALID || m_data_cache[data_index].p_packet == NULL)
+    {
+        return NRF_ERROR_NOT_FOUND;
+    }
+
+    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(m_data_cache[data_index].p_packet);
+
+    /* don't exceed the supplied length, as this will overflow the buffer */
+    if (*length < p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD)
+        *length = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+
+    /* make copy */
+    memcpy(data, p_adv_data->data, *length);
+
+    return NRF_SUCCESS;
+}
+
 uint32_t vh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
 {
     if (!g_is_initialized)

@@ -63,6 +63,9 @@ uint32_t vh_on_timeslot_begin(void);
 
 uint32_t vh_order_update(uint64_t time_now);
 
+/** @brief: Make copy of payload for given handle. */
+uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* length);
+
 uint32_t vh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
 
 int16_t vh_get_version_delta(uint16_t old_version, uint16_t new_version);
