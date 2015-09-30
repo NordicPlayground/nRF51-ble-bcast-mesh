@@ -46,13 +46,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_ADV_DATA_TYPE                  (0x16)
 #define BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH   (31)
 
-#define MESH_PACKET_BLE_OVERHEAD            (1 + BLE_GAP_ADDR_LEN)                                                  /* overhead before advertisement payload */
+#define MESH_PACKET_BLE_OVERHEAD            (BLE_GAP_ADDR_LEN)                                                      /* overhead before advertisement payload */
 #define MESH_PACKET_ADV_OVERHEAD            (1 /* adv_type */ + 2 /* UUID */ + 2 /* handle */ + 2 /* version */)    /* overhead inside adv data */
 #define MESH_PACKET_OVERHEAD                (MESH_PACKET_BLE_OVERHEAD + 1 + MESH_PACKET_ADV_OVERHEAD)               /* mesh packet total overhead */
 /******************************************************************************
 * Public typedefs
 ******************************************************************************/
-typedef enum 
+typedef __packed_armcc enum 
 {
   BLE_PACKET_TYPE_ADV_IND,
   BLE_PACKET_TYPE_ADV_DIRECT_IND,
@@ -61,11 +61,11 @@ typedef enum
   BLE_PACKET_TYPE_SCAN_RSP,
   BLE_PACKET_TYPE_CONN_REQ,
   BLE_PACKET_TYPE_ADV_DISCOVER_IND
-} ble_packet_type_t;
+} __packed_gcc ble_packet_type_t;
 
 typedef __packed_armcc struct
 {
-  ble_packet_type_t type : 4;
+  uint8_t type : 4;
   uint8_t _rfu1 : 2;
   uint8_t addr_type : 1;
   uint8_t _rfu2 : 1;
