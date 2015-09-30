@@ -145,7 +145,7 @@ uint32_t mesh_packet_adv_data_sanitize(mesh_packet_t* p_packet)
     {
         return NRF_ERROR_INVALID_DATA;
     }
-    if (((uint8_t*)p_mesh_adv_data) != p_packet->payload[0])
+    if (((uint8_t*)p_mesh_adv_data) != &p_packet->payload[0])
     {
         /* must move the adv data to the beginning of the advertisement payload */
         const uint8_t adv_data_length = p_mesh_adv_data->adv_data_length + 1;
@@ -153,9 +153,9 @@ uint32_t mesh_packet_adv_data_sanitize(mesh_packet_t* p_packet)
         {
             /* memcpy is unsafe for overlapping memory, memmove is slower than 
                necessary -> move it manually. */
-            p_packet->payload[i] = ((uint8_t*) p_mesh_adv_data) + i;
+            p_packet->payload[i] = *(((uint8_t*) p_mesh_adv_data) + i);
         }
-        p_mesh_adv_data = (mesh_adv_data_t*) p_packet->payload[0];
+        p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
     }
 
     /* only fit mesh adv data */
@@ -211,7 +211,7 @@ rbc_mesh_value_handle_t mesh_packet_handle_get(mesh_packet_t* p_packet)
 bool mesh_packet_has_additional_data(mesh_packet_t* p_packet)
 {
     mesh_adv_data_t* p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
-    while (((uint8_t*) p_mesh_adv_data) < &p_packet->payload[0] + ((uint8_t*)(p_packet->header->length - 7)))
+    while (((uint8_t*) p_mesh_adv_data) < &p_packet->payload[0] + (p_packet->header.length - 7))
     {
         if (p_mesh_adv_data->adv_data_type != MESH_ADV_DATA_TYPE || 
             p_mesh_adv_data->mesh_uuid != MESH_UUID)
