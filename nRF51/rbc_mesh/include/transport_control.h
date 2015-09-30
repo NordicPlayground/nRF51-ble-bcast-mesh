@@ -36,7 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _TRANSPORT_CONTROL_H__
 #define _TRANSPORT_CONTROL_H__
 #include <stdint.h>
-#include "mesh_srv.h"
+#include "mesh_packet.h"
 #include "ble.h"
 
 /**
@@ -54,7 +54,8 @@ void tc_on_ts_begin(void);
 * @brief: assemble a packet by getting data from server based on params,
 *   and place it on the radio queue
 */
-uint32_t tc_tx(uint8_t handle, uint16_t version);
+uint32_t tc_tx(mesh_packet_t* p_packet);
 
 void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp);
+
 #endif /* _TRANSPORT_CONTROL_H__ */
