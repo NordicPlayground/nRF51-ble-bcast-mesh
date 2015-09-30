@@ -85,7 +85,6 @@ static handle_entry_t m_handle_cache[RBC_MESH_HANDLE_CACHE_ENTRIES];
 static data_entry_t m_data_cache[RBC_MESH_DATA_CACHE_ENTRIES];
 static uint32_t m_handle_cache_head;
 static uint32_t m_handle_cache_tail;
-static uint32_t m_data_cache_head;
 static bool g_is_initialized = false;
 
 /******************************************************************************
@@ -101,18 +100,6 @@ static void version_increment(uint16_t* version)
     {
         (*version)++;
     }
-}
-
-static data_entry_t* data_entry_get(rbc_mesh_value_handle_t handle)
-{
-    for (uint32_t i = 0; i < RBC_MESH_DATA_CACHE_ENTRIES; ++i)
-    {
-        if (mesh_packet_handle_get(m_data_cache[i].p_packet) == handle)
-        {
-            return &m_data_cache[i];
-        }
-    }
-    return NULL;
 }
 
 /** Allocate a new data entry. Will take the least recently updated entry if all are allocated.
@@ -335,7 +322,7 @@ static void transmit_all_instances(uint64_t timestamp)
                         rbc_mesh_event_t tx_event;
                         mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(m_data_cache[data_index].p_packet);
                         tx_event.event_type = RBC_MESH_EVENT_TYPE_TX;
-                        tx_event.value_handle = handle; /* 1-indexed */
+                        tx_event.value_handle = handle;
                         tx_event.data = p_adv_data->data;
                         tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
                         tx_event.version_delta = 0;
