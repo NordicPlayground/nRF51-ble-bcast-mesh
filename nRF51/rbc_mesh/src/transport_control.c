@@ -38,7 +38,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "radio_control.h"
 #include "mesh_packet.h"
 #include "timer_control.h"
-#include "mesh_srv.h"
 #include "rbc_mesh.h"
 #include "event_handler.h"
 #include "timeslot_handler.h"
