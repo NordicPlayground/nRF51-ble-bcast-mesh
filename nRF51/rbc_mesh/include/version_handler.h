@@ -35,7 +35,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _VERSION_HANDLER_H__
 #define _VERSION_HANDLER_H__
+#include "rbc_mesh.h"
 #include "ble_gap.h"
+#include "mesh_packet.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -51,28 +53,22 @@ typedef enum
     VH_DATA_STATUS_UNKNOWN
 } vh_data_status_t;
 
-uint32_t vh_init(uint8_t handle_count, uint32_t min_interval_us);
+uint32_t vh_init(uint32_t min_interval_us);
 
-vh_data_status_t vh_compare_metadata(uint8_t handle, uint16_t version, uint8_t* incoming_data, uint8_t len);
+vh_data_status_t vh_rx_register(mesh_packet_t* p_packet, uint64_t timestamp);
 
-uint32_t vh_rx_register(vh_data_status_t status, uint8_t handle, uint16_t version, uint64_t timestamp);
-
-vh_data_status_t vh_local_update(uint8_t handle);
+vh_data_status_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length);
 
 uint32_t vh_on_timeslot_begin(void);
 
 uint32_t vh_order_update(uint64_t time_now);
 
-uint32_t vh_tx_report(uint8_t handle, bool do_tx_event);
+uint32_t vh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
 
-uint32_t vh_set_gatts_handle(uint8_t value_handle, uint8_t gatts_handle);
+int16_t vh_get_version_delta(uint16_t old_version, uint16_t new_version);
 
-uint32_t vh_get_gatts_handle(uint8_t value_handle, uint8_t* gatts_handle);
+uint32_t vh_value_enable(rbc_mesh_value_handle_t handle);
 
-uint16_t vh_get_version_delta(uint8_t handle, uint16_t version);
-
-uint32_t vh_value_enable(uint8_t handle);
-
-uint32_t vh_value_disable(uint8_t handle);
+uint32_t vh_value_disable(rbc_mesh_value_handle_t handle);
 #endif /* _VERSION_HANDLER_H__ */
 
