@@ -106,6 +106,10 @@ uint32_t mesh_packet_build(mesh_packet_t* p_packet,
         uint8_t* data,
         uint8_t length)
 {
+    if (p_packet == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
     /* place mesh adv data at beginning of adv payload */
     mesh_adv_data_t* p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
 
