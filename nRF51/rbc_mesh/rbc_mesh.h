@@ -46,12 +46,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RBC_MESH_VALUE_MAX_LEN           (23)
 #define RBC_MESH_INVALID_HANDLE          (0xFFFF)
 
+/* 
+   There are two caches in the framework: 
+   - The handle cache: keeps track of the latest version number for each handle.
+   - The data cache: contains all handles currently being retransmitted by the device.
+*/
+
+/** @brief Default value for the number of handle cache entries */
 #ifndef RBC_MESH_HANDLE_CACHE_ENTRIES    
-#define RBC_MESH_HANDLE_CACHE_ENTRIES     (100)
+    #define RBC_MESH_HANDLE_CACHE_ENTRIES     (100)
 #endif
 
+/** @brief Default value for the number of data cache entries */
 #ifndef RBC_MESH_DATA_CACHE_ENTRIES
-#define RBC_MESH_DATA_CACHE_ENTRIES       (20)
+    #define RBC_MESH_DATA_CACHE_ENTRIES       (20)
+#endif
+
+#if (RBC_MESH_HANDLE_CACHE_ENTRIES < RBC_MESH_DATA_CACHE_ENTRIES)
+    #error "The number of handle cache entries cannot be lower than the number of data entries"
 #endif
 
 /** 
