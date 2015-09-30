@@ -122,21 +122,14 @@ typedef enum
 *    to on-air collisions with WiFi channels. Separate meshes may work 
 *    concurrently without packet collision if they are assigned to different 
 *    channels. Must be between 1 and 39.
-* @param[in] handle_count The maximum number of handle-value pairs available to the
-*    application. May not be higher than 155 due to BLE namespace requirements
 * @param[in] interval_min_ms The minimum tx interval for nodes in the network in 
 *    millis. Must be between 5 and 60000.
-* @param radio_mode The radio mode the mesh shall operate on. Must be the same
-*    across all nodes in the mesh. NOT YET IMPLEMENTED
-* @param packet_format The format the packets should follow. NOT YET IMPLEMENTED
 */
 typedef struct
 {
     uint32_t access_addr;
     uint8_t channel;
-    uint16_t handle_count;
     uint32_t interval_min_ms;
-    rbc_mesh_radio_mode_t radio_mode;
 } rbc_mesh_init_params_t;
 
 /*****************************************************************************
@@ -259,14 +252,14 @@ uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
 * @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
 *   in @ref rbc_mesh_init.
 */
-uint32_t rbc_mesh_tx_report(rbc_mesh_value_handle_t handle, bool do_tx_event);
+uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
 
 /**
- * @brief Get the contents of the data array pointed to by the provided handle
+* @brief Get the contents of the data array pointed to by the provided handle
 *
 * @param[in] handle The handle of the value we want to update. Is mesh-global.
 * @param[out] data Databuffer to be copied into the value slot. Must be at least
-*    RBC_VALUE_MAX_LEN long
+*    RBC_VALUE_MAX_LEN long.
 * @param[out] len Length of the copied data. Will not exceed RBC_VALUE_MAX_LEN.
 * 
 * @return NRF_SUCCESS the value has been successfully fetched.
@@ -297,16 +290,6 @@ uint32_t rbc_mesh_access_address_get(uint32_t* access_address);
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
 */
 uint32_t rbc_mesh_channel_get(uint8_t* ch);
-
-/**
-* @brief Get the amount of allocated handle-value pairs 
-* 
-* @param[out] handle_count Pointer location to put handle count in 
-*
-* @return NRF_SUCCESS the value was fetched successfully
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
-*/
-uint32_t rbc_mesh_handle_count_get(uint16_t* handle_count);
 
 /**
 * @brief Get the mesh minimum transmit interval in ms
