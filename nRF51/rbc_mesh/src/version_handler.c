@@ -165,6 +165,9 @@ static uint16_t handle_entry_get(rbc_mesh_value_handle_t handle)
   is full of persistent handles */
 static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
 {
+    uint32_t was_masked;
+    DISABLE_IRQS(was_masked);
+    
     uint16_t i = handle_entry_get(handle);
     if (i == HANDLE_CACHE_ENTRY_INVALID)
     {
@@ -174,6 +177,7 @@ static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
             i = m_handle_cache[i].index_prev;
             if (i == HANDLE_CACHE_ENTRY_INVALID)
             {
+                if (!was_masked) ENABLE_IRQS();
                 return i; /* reached the head without hitting a non-persistent handle */
             }
         }
@@ -195,25 +199,37 @@ static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
     }
 
     /* detach and move to head */
-    if (m_handle_cache_tail != i)
+    if (i != m_handle_cache_tail)
     {
-        m_handle_cache[m_handle_cache[i].index_next].index_prev = m_handle_cache[i].index_prev;
+        if (i != m_handle_cache_head) 
+        {
+            m_handle_cache[m_handle_cache[i].index_next].index_prev = m_handle_cache[i].index_prev;
+        }
     }
     else
     {
         m_handle_cache_tail = m_handle_cache[i].index_prev;
-        m_handle_cache[m_handle_cache_tail].index_next = HANDLE_CACHE_ENTRY_INVALID;
+        m_handle_cache[i].index_next = HANDLE_CACHE_ENTRY_INVALID;
     }
+    
 
-    if (m_handle_cache_head != i)
+    if (i != m_handle_cache_head)
     {
-        m_handle_cache[m_handle_cache[i].index_prev].index_next = m_handle_cache[i].index_next;
+        if (m_handle_cache[i].index_prev != HANDLE_CACHE_ENTRY_INVALID)
+        {
+            m_handle_cache[m_handle_cache[i].index_prev].index_next = m_handle_cache[i].index_next;
+        }
 
         m_handle_cache[i].index_prev = HANDLE_CACHE_ENTRY_INVALID;
         m_handle_cache[i].index_next = m_handle_cache_head;
         m_handle_cache[m_handle_cache_head].index_prev = i;
         m_handle_cache_head = i;
     }
+    
+    m_handle_cache[m_handle_cache_head].index_prev = HANDLE_CACHE_ENTRY_INVALID;
+    m_handle_cache[m_handle_cache_tail].index_next = HANDLE_CACHE_ENTRY_INVALID;
+    
+    if (!was_masked) ENABLE_IRQS();
     return i;
 }
 
