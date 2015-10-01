@@ -48,8 +48,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* 
    There are two caches in the framework: 
-   - The handle cache: keeps track of the latest version number for each handle.
-   - The data cache: contains all handles currently being retransmitted by the device.
+   - The handle cache keeps track of the latest version number for each handle.
+   - The data cache contains all handles currently being retransmitted by the device.
+   If a handle falls out of the data cache, the device will stop broadcasting it.
+   If a handle falls out of the handle cache, the device will not know whether updates 
+   to the handle are new or old.
 */
 
 /** @brief Default value for the number of handle cache entries */
