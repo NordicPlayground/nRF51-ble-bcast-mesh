@@ -283,20 +283,22 @@ static void order_next_transmission(uint64_t time_now)
     uint64_t ts_end_time = timeslot_get_end_time();
     uint64_t earliest = UINT64_MAX;
     uint16_t handle_index = m_handle_cache_head;
-    while (handle_index != HANDLE_CACHE_ENTRY_INVALID)
+    
+    do
     {
         uint16_t data_index = m_handle_cache[handle_index].data_entry;
         if (data_index != DATA_CACHE_ENTRY_INVALID &&
             m_data_cache[data_index].p_packet != NULL && 
-            m_data_cache[data_index].trickle.t < earliest && 
-            m_data_cache[data_index].trickle.t > time_now + ts_begin_time /* expired timers should be handled in transmit_all_instances() */
+            m_data_cache[data_index].trickle.t < earliest
         )
         {
             earliest = m_data_cache[data_index].trickle.t;
         }
 
         handle_index = m_handle_cache[handle_index].index_next;
-    }
+        
+    } while (handle_index != m_handle_cache_tail);
+    
     if (earliest < ts_end_time)
     {
         timer_order_cb(TIMER_INDEX_VH, earliest - ts_begin_time, transmit_all_instances);
