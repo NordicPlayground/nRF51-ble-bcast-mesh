@@ -224,7 +224,6 @@ bool mesh_packet_has_additional_data(mesh_packet_t* p_packet)
     return false;
 }
 
-/* Fill address field with local data, and sanitize adv-data */
 void mesh_packet_take_ownership(mesh_packet_t* p_packet)
 {
     /* some packets may come with additional advertisement fields. These must be
