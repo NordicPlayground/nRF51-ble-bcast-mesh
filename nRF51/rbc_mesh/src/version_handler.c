@@ -116,9 +116,10 @@ static uint16_t data_entry_allocate(void)
         }
     }
 
-    /* no unused entries, take the least recently updated */
+    /* no unused entries, take the least recently updated (and disregard persistent handles) */
     uint32_t handle_index = m_handle_cache_tail;
-    while (m_handle_cache[handle_index].data_entry == DATA_CACHE_ENTRY_INVALID)
+    while (m_handle_cache[handle_index].data_entry == DATA_CACHE_ENTRY_INVALID || 
+            m_handle_cache[handle_index].persistent)
     {
         handle_index = m_handle_cache[handle_index].index_prev;
         if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
