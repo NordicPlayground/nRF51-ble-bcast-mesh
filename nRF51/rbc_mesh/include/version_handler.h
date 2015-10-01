@@ -73,5 +73,8 @@ int16_t vh_get_version_delta(uint16_t old_version, uint16_t new_version);
 uint32_t vh_value_enable(rbc_mesh_value_handle_t handle);
 
 uint32_t vh_value_disable(rbc_mesh_value_handle_t handle);
+
+uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persistent);
+
 #endif /* _VERSION_HANDLER_H__ */
 

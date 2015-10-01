@@ -677,3 +677,23 @@ uint32_t vh_value_disable(rbc_mesh_value_handle_t handle)
     return NRF_SUCCESS;
 }
 
+uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persistent)
+{
+    if (!g_is_initialized)
+        return NRF_ERROR_INVALID_STATE;
+    
+    if (handle == RBC_MESH_INVALID_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
+    
+    uint16_t handle_index = handle_entry_to_head(handle);
+    if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
+    {
+        return NRF_ERROR_NO_MEM;
+    }
+    
+    m_handle_cache[handle_index].persistent = persistent;
+    
+    return NRF_SUCCESS;
+}

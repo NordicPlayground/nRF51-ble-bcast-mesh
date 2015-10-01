@@ -249,6 +249,30 @@ uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle);
 uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
 
 /**
+* @brief Set whether the given handle should be persistent in the handle cache.
+*
+* @note While non-persistent values may be forgotten by the handle cache, a 
+*   persistent value will be retransmitted forever. Note that setting too many
+*   persistent values in the cache will reduce the framework's ability to 
+*   retransmit non-persistent values, leading to more packet drops and poor 
+*   throughput. It is therefore recommended to be conservative about the 
+*   usage of this flag.
+* @note If a device is known to be the lone maintainer of a particular 
+*   handle, it is recommended to let the handle be persistent in that device, 
+*   as a reset in version numbers may cause a disrupt in communication.
+*
+* @param[in] handle Handle to change the Persistent flag for.
+* @param[in] persistent Whether or not to let the value be persistent in the 
+*   cache.
+* 
+* @return NRF_SUCCESS the persistence configuration has been set successfully.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
+* @return NRF_ERROR_NO_MEM the number of persistent values in the cache exceeds
+*   the cache size.
+*/
+uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent);
+
+/**
 * @brief Set whether the given handle should produce TX events for each time
 *   the value is transmitted.
 *
@@ -264,8 +288,7 @@ uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
 *
 * @return NRF_SUCCESS the TX event configuration has been set successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
-*   in @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
 */
 uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
 

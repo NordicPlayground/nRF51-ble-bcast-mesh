@@ -163,6 +163,16 @@ uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle)
     return vh_value_disable(handle);
 }
 
+uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent)
+{
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    return vh_value_persistence_set(handle, persistent);
+}
+
 uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
 {
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
