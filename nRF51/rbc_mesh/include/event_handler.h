@@ -88,5 +88,9 @@ void event_handler_on_ts_end(void);
 /** @brief called from ts handler upon ts begin */
 void event_handler_on_ts_begin(void);
 
+void event_handler_critical_section_begin(void);
+
+void event_handler_critical_section_end(void);
+
 #endif /* _EVENT_HANDLER_H__ */
 
