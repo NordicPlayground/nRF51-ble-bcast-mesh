@@ -340,10 +340,8 @@ static void transmit_all_instances(uint64_t timestamp)
 }
 
 /* compare payloads, assuming version number is equal */
-static bool payload_has_conflict(mesh_packet_t* p_old_packet, mesh_packet_t* p_new_packet)
+static bool payload_has_conflict(mesh_adv_data_t* p_old_adv, mesh_adv_data_t* p_new_adv)
 {
-    mesh_adv_data_t* p_old_adv = mesh_packet_adv_data_get(p_old_packet);
-    mesh_adv_data_t* p_new_adv = mesh_packet_adv_data_get(p_new_packet);
     if (p_old_adv == NULL ||
         p_new_adv == NULL)
     {
@@ -427,7 +425,7 @@ vh_data_status_t vh_rx_register(mesh_packet_t* p_packet, uint64_t timestamp)
         }
 
         if (p_adv_data->version > 0 && 
-            payload_has_conflict(m_data_cache[data_index].p_packet, p_packet))
+            payload_has_conflict(mesh_packet_adv_data_get(m_data_cache[data_index].p_packet), p_adv_data))
         {
             trickle_rx_inconsistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
             vh_order_update(0);
@@ -554,7 +552,9 @@ uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* l
 
     /* don't exceed the supplied length, as this will overflow the buffer */
     if (*length < p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD)
+    {
         *length = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+    }
 
     /* make copy */
     memcpy(data, p_adv_data->data, *length);
