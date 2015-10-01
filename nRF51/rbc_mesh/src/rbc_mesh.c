@@ -181,6 +181,10 @@ uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
     {
         return NRF_ERROR_INVALID_STATE;
     }
+    if (handle == RBC_MESH_INVALID_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
     /** @TODO: notify GATT server */
     if (vh_local_update(handle, data, len) == VH_DATA_STATUS_UNKNOWN)
         return NRF_ERROR_INTERNAL; 
