@@ -166,8 +166,9 @@ static uint16_t handle_entry_get(rbc_mesh_value_handle_t handle)
   is full of persistent handles */
 static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
 {
-    uint32_t was_masked;
-    DISABLE_IRQS(was_masked);
+    /* this may be executed in main context, and we don't want an event to 
+       come in and change the linked list while we're working on it */
+    event_handler_critical_section_begin();
     
     uint16_t i = handle_entry_get(handle);
     if (i == HANDLE_CACHE_ENTRY_INVALID)
@@ -178,7 +179,7 @@ static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
             i = m_handle_cache[i].index_prev;
             if (i == HANDLE_CACHE_ENTRY_INVALID)
             {
-                if (!was_masked) ENABLE_IRQS();
+                event_handler_critical_section_end();
                 return i; /* reached the head without hitting a non-persistent handle */
             }
         }
@@ -230,7 +231,8 @@ static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
     m_handle_cache[m_handle_cache_head].index_prev = HANDLE_CACHE_ENTRY_INVALID;
     m_handle_cache[m_handle_cache_tail].index_next = HANDLE_CACHE_ENTRY_INVALID;
     
-    if (!was_masked) ENABLE_IRQS();
+    event_handler_critical_section_end();
+    
     return i;
 }
 
