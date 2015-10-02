@@ -41,7 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 #include "toolchain.h"
 
-#define MESH_PACKET_POOL_SIZE               (16)
+#define MESH_PACKET_POOL_SIZE               (RBC_MESH_DATA_CACHE_ENTRIES + 3)
 #define MESH_UUID                           (0xFEE4)
 #define MESH_ADV_DATA_TYPE                  (0x16)
 #define BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH   (31)
