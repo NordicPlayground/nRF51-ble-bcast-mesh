@@ -360,16 +360,13 @@ static void transmit_all_instances(uint64_t timestamp)
     order_next_transmission(timestamp);
 }
 
-/* compare payloads, assuming version number is equal */
+/** compare payloads, assuming version number is equal */
 static bool payload_has_conflict(mesh_adv_data_t* p_old_adv, mesh_adv_data_t* p_new_adv)
 {
     if (p_old_adv == NULL ||
-        p_new_adv == NULL)
-    {
-        return true;
-    }
-    if (p_old_adv->adv_data_length != 
-        p_new_adv->adv_data_length)
+        p_new_adv == NULL ||
+        (p_old_adv->adv_data_length != 
+        p_new_adv->adv_data_length))
     {
         return true;
     }
@@ -445,7 +442,8 @@ vh_data_status_t vh_rx_register(mesh_packet_t* p_packet, uint64_t timestamp)
             return VH_DATA_STATUS_SAME;
         }
 
-        if (p_adv_data->version > 0 && 
+        if (p_adv_data->version > 0 &&
+            cache_hit && 
             payload_has_conflict(mesh_packet_adv_data_get(m_data_cache[data_index].p_packet), p_adv_data))
         {
             trickle_rx_inconsistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
@@ -645,6 +643,7 @@ uint32_t vh_value_enable(rbc_mesh_value_handle_t handle)
     const uint64_t time_now = ts_time + timeslot_get_global_time();
     uint16_t handle_index = handle_entry_to_head(handle);
     uint16_t data_index = m_handle_cache[handle_index].data_entry;
+
     if (data_index == DATA_CACHE_ENTRY_INVALID)
     {
         data_index = data_entry_allocate();
@@ -719,3 +718,4 @@ uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persisten
     
     return NRF_SUCCESS;
 }
+
