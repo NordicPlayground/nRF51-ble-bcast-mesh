@@ -666,9 +666,12 @@ uint32_t vh_value_enable(rbc_mesh_value_handle_t handle)
         }
 
         m_handle_cache[handle_index].data_entry = data_index;
+        trickle_timer_reset(&m_data_cache[data_index].trickle, time_now);
     }
-    
-    trickle_timer_reset(&m_data_cache[data_index].trickle, time_now);
+    else
+    {
+        trickle_enable(&m_data_cache[data_index].trickle);
+    }
 
     vh_order_update(ts_time);
 
@@ -690,9 +693,7 @@ uint32_t vh_value_disable(rbc_mesh_value_handle_t handle)
 
     if (data_index != DATA_CACHE_ENTRY_INVALID)
     {
-        mesh_packet_free(m_data_cache[data_index].p_packet);
-        m_data_cache[data_index].p_packet = NULL;
-        m_handle_cache[handle_index].data_entry = DATA_CACHE_ENTRY_INVALID;
+        trickle_disable(&m_data_cache[data_index].trickle);
     }
 
     return NRF_SUCCESS;
