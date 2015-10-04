@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __CMD_IF_H__
 
 #include <stdint.h>
+#include <stdio.h>
 #include "app_uart.h"
 
 /** Logging predefines. Hides UART functions */
