@@ -100,30 +100,9 @@ typedef struct
     uint16_t version_delta;                 /** Version number increase since last update */
 } rbc_mesh_event_t;
 
-
-/** 
-* @brief Enum for radio mode used in initialization. See nRF51 Series 
-*   documentation for details on the various modes. Note that 
-*   the BLE_1MBIT mode is required to let the mesh packetsbe on-air compatible
-*   with other devices (The regular gateway interface will be compatible 
-*   regardless).
-*/
-typedef enum
-{
-    RBC_MESH_RADIO_MODE_1MBIT,
-    RBC_MESH_RADIO_MODE_2MBIT,
-    RBC_MESH_RADIO_MODE_250KBIT,
-    RBC_MESH_RADIO_MODE_BLE_1MBIT
-} rbc_mesh_radio_mode_t;
-
 /**
 * @brief Initialization parameter struct for the rbc_mesh_init() function.
 *
-*
-* @note The nRF51 Softdevice must be initialized by the application before
-*    the mesh framework intialization is called, otherwise, the function will
-*    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED.
-* 
 * @param[in] access_addr The access address the mesh will work on. This must be the 
 *    same for all nodes in the mesh. RBC_MESH_ACCESS_ADDRESS_BLE_ADV gives the mesh
 *    the same access address as regular BLE advertisements, which makes the
@@ -131,7 +110,7 @@ typedef enum
 *    does not provide any data security, the traffic is merely ignored by 
 *    regular BLE radios). Multiple meshes may in theory work concurrently in 
 *    the same area with different access addresses, but will be prone to 
-*    on-air collisions, and it is recommended to use separate channels for this
+*    on-air collisions, and it is recommended to use separate channels for this.
 * @param[in] channel The BLE channel the mesh works on. It is strongly recommended 
 *    to use one of the three adv channels 37, 38 or 39, as others may be prone
 *    to on-air collisions with WiFi channels. Separate meshes may work 
@@ -156,11 +135,11 @@ typedef struct
 *   rebroadcast function. 
 *
 * @note The nRF51 Softdevice must be initialized by the application before
-*    the mesh framework intialization is called, otherwise, the function will
+*    the mesh framework intialization is called, or the function will
 *    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED.
 * 
 * @return NRF_SUCCESS the initialization is successful 
-* @return NRF_ERROR_INVALID_PARAM a parameter does not meet its requiremented range.
+* @return NRF_ERROR_INVALID_PARAM a parameter does not meet its required range.
 * @return NRF_ERROR_INVALID_STATE the framework has already been initialized.
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
@@ -170,7 +149,8 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
 * @brief Start mesh radio activity after stopping it. 
 *
 * @details This function is called automatically in the @ref rbc_mesh_init 
-*   function, and only has to be called after a call to @ref rbc_mesh_stop.
+*   function, and only has to be explicitly called after a call to 
+*   @ref rbc_mesh_stop.
 *
 * @return NRF_SUCCESS the mesh successfully started radio operation
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized, or
@@ -224,10 +204,9 @@ uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
 *
 * @param[in] handle Handle to request a value for 
 *
-* @return NRF_SUCCESS A request was successfully scheduled for broadcast
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
-*   in @ref rbc_mesh_init.
-* @return NRF_ERROR_INVALID_STATE The framework has not been initiated
+* @return NRF_SUCCESS A request was successfully scheduled for broadcast.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initiated.
 */
 uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle);
 
@@ -242,8 +221,7 @@ uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle);
 * @param[in] handle Handle to stop broadcasting
 * 
 * @return NRF_SUCCESS The handle was successfully taken off the broadcast list
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
-*   @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
 * @return NRF_ERROR_INVALID_STATE The framework has not been initialized.
 */
 uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
@@ -269,7 +247,8 @@ uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
 * @return NRF_ERROR_INVALID_ADDR the handle is invalid.
 * @return NRF_ERROR_NO_MEM the number of persistent values in the cache exceeds
 *   the cache size.
-*/
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+ */
 uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent);
 
 /**
@@ -302,8 +281,7 @@ uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
 * 
 * @return NRF_SUCCESS the value has been successfully fetched.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
-*    in @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
 */
 uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, 
     uint8_t* data, 
@@ -343,7 +321,7 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 * @brief Event handler to be called upon external BLE event arrival.
 *   Only handles GATTS write events, all other types are ignored.
 *   Has a similar effect as @ref rbc_mesh_value_set, by refreshing version
-*   numbers and timing parameters related to the indicated characteristic.
+*   numbers and timing parameters related to the indicated handle.
 *
 * @note This event may be called regardless of if the indicated characteristic
 *   belongs to the mesh or not, the framework will filter out uninteresting 
