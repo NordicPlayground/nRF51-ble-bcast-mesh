@@ -132,6 +132,8 @@ static uint16_t data_entry_allocate(void)
 
     /* cleanup */
     m_handle_cache[handle_index].data_entry = DATA_CACHE_ENTRY_INVALID;
+
+    trickle_enable(&m_data_cache[data_index].trickle);
     trickle_timer_reset(&m_data_cache[data_index].trickle, 0);
     if (m_data_cache[data_index].p_packet != NULL)
     {
@@ -519,6 +521,8 @@ vh_data_status_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, 
     {
         return VH_DATA_STATUS_UNKNOWN;
     }
+
+    trickle_enable(&m_data_cache[data_index].trickle);
 
     if (m_handle_cache[handle_index].version == 1) /* first update */
     {
