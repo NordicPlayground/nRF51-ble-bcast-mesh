@@ -42,9 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 
 /**
-* @file Module handling all data storage related functionality.
-*   Stores the mesh values in the Softdevice GATT server, within a GATT 
-*   service. Processes and assembles packet payloads for the mesh.
+* @file Module handling all Softdevice GATT server related functionality.
 */
 
 #define MESH_SRV_UUID                   (0xFEE4) /* Mesh service UUID */
