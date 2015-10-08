@@ -32,6 +32,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
+
+/* this module will automatically disabled if the framework is setup to don't use the SD */
+#ifdef SOFTDEVICE_PRESENT
+
 #include "mesh_gatt.h"
 
 #include "rbc_mesh.h"
@@ -128,7 +132,6 @@ static uint32_t mesh_gatt_evt_push(mesh_gatt_evt_t* p_gatt_evt)
                     hvx_params.p_len = p_gatt_evt->param.data_update.data_len + 4;
                     break;
                 case MESH_GATT_EVT_OPCODE_FLAG_SET:
-                case MESH_GATT_EVT_OPCODE_FLAG_CLEAR:
                 case MESH_GATT_EVT_OPCODE_FLAG_REQ:
                 case MESH_GATT_EVT_OPCODE_FLAG_RSP:
                     hvx_params.p_len = 4;
@@ -508,4 +511,23 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
         mesh_gatt_evt_push(&rsp_evt);
     }
 }
+
+#else /* SOFTDEVICE NOT PRESENT */
+
+uint32_t mesh_gatt_init(uint32_t access_address, uint8_t channel, uint32_t interval_min_ms)
+{
+    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED;
+}
+
+uint32_t mesh_gatt_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length)
+{
+    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED;
+}
+
+void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
+{
+    /* no actions, shouldn't even be called when the SD isn't present */
+}
+
+#endif
 
