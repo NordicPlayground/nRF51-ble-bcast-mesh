@@ -45,6 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RBC_MESH_INTERVAL_MIN_MAX_MS     (60000)
 #define RBC_MESH_VALUE_MAX_LEN           (23)
 #define RBC_MESH_INVALID_HANDLE          (0xFFFF)
+#define RBC_MESH_APP_MAX_HANDLE          (0xFFF0)  
 
 /* 
    There are two caches in the framework: 
@@ -318,37 +319,24 @@ uint32_t rbc_mesh_channel_get(uint8_t* ch);
 uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 
 /**
-* @brief Event handler to be called upon external BLE event arrival.
-*   Only handles GATTS write events, all other types are ignored.
-*   Has a similar effect as @ref rbc_mesh_value_set, by refreshing version
-*   numbers and timing parameters related to the indicated handle.
+* @brief Event handler to be called upon Softdevice BLE event arrival.
+* 
+* @details Event handler taking care of all mesh behavior related to the 
+*   Softdevice. Typical events to trigger processing or local changes are 
+*   writes to the value characteristic or a change in connection status. The 
+*   framework will give events to the application if the function triggers a 
+*   write to a handle value or similar.
 *
-* @note This event may be called regardless of if the indicated characteristic
-*   belongs to the mesh or not, the framework will filter out uninteresting 
-*   events and return NRF_SUCCESS. However, if the incoming event points at 
-*   the mesh service, but the characteristic handle is out of range, the 
-*   function returns NRF_ERROR_INVALID_ADDR. 
+* @note This event may be called regardless of whether the event is relevant 
+*   to the mesh or not - the framework will filter out uninteresting 
+*   events and return NRF_SUCCESS. 
 *
-* @note This function will also trigger any update/new events in the application
-*   space 
-*   
-* @param[in] evt BLE event received from softdevice.
+* @param[in] p_evt BLE event received from softdevice.
 *
 * @return NRF_SUCCESS Event successfully handled.
-* @return NRF_ERROR_INVALID_ADDR Handle is part of service, but does not belong
-*   any valid characteristics.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
-uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
-
-/**
-* @brief Softdevice interrupt handler, checking if there are any 
-*   incomming events related to the framework. 
-*
-* @note Should be called from the SD_IRQHandler function. Will poll the 
-*   softdevice for new sd_evt.
-*/
-uint32_t rbc_mesh_sd_irq_handler(void);
+uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* p_evt);
 
 /**
  * @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 

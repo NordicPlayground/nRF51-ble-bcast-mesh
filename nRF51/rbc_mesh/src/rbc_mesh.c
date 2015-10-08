@@ -40,6 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "version_handler.h"
 #include "transport_control.h"
 #include "mesh_packet.h"
+#include "mesh_gatt.h"
 
 #include "nrf_error.h"
 #include "nrf_sdm.h"
@@ -242,42 +243,15 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
+uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
 {
-#if 0
-    if (evt->header.evt_id == BLE_GAP_EVT_CONNECTED)
-    {
-        mesh_srv_conn_handle_update(evt->evt.gap_evt.conn_handle);
-    }
-
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
 
-    /* may safely ignore all events that don't write to a value */
-    if (evt->header.evt_id != BLE_GATTS_EVT_WRITE)
-    {
-        return NRF_SUCCESS;
-    }
-    ble_gatts_evt_write_t* write_evt = &evt->evt.gatts_evt.params.write;
-
-    uint32_t error_code = mesh_srv_gatts_evt_write_handle(write_evt);
-
-    if (error_code != NRF_SUCCESS &&
-        error_code != NRF_ERROR_INVALID_ADDR)
-    {
-        if (error_code == NRF_ERROR_FORBIDDEN)
-        {
-            return NRF_SUCCESS; /* wrong service, just ignore */
-        }
-        else
-        {
-            return error_code;
-        }
-    }
-
-#endif
+    mesh_gatt_sd_ble_event_handle(p_evt);
+    
     return NRF_SUCCESS;
 }
 
