@@ -76,7 +76,11 @@ uint32_t vh_value_enable(rbc_mesh_value_handle_t handle);
 
 uint32_t vh_value_disable(rbc_mesh_value_handle_t handle);
 
+uint32_t vh_value_is_enabled(rbc_mesh_value_handle_t handle, bool* p_is_enabled);
+
 uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persistent);
+
+uint32_t vh_value_persistence_get(rbc_mesh_value_handle_t handle, bool* p_persistent);
 
 #endif /* _VERSION_HANDLER_H__ */
 
