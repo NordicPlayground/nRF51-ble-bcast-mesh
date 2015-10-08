@@ -67,7 +67,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Local type definitions
 *****************************************************************************/
-
+typedef enum
+{
+    TS_FORCED_COMMAND_NONE,
+    TS_FORCED_COMMAND_STOP,
+    TS_FORCED_COMMAND_RESTART,
+} ts_forced_command_t;
 
 
 /*****************************************************************************
@@ -117,7 +122,7 @@ static bool g_is_in_callback = false;
 static bool g_is_in_timeslot = false;
 static bool g_framework_initialized = false;
 static bool g_end_timer_triggered = false;
-static bool g_timeslot_stopped = false;
+static ts_forced_command_t g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
 static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
 
 
@@ -225,21 +230,35 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     static uint32_t successful_extensions = 0;
     static uint32_t timeslot_count = 0;
     /* handle forced stop */
-    if (g_timeslot_stopped)
+    if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START) /* first event after stop-start */
     {
-        if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START) /* first event after stop-start */
+        g_timeslot_stopped = false;
+        timeslot_count = 0;
+    }
+    else /* on forced command */
+    {
+        switch (g_timeslot_forced_command)
         {
-            g_timeslot_stopped = false;
-            timeslot_count = 0;
-        }
-        else /* on force stop */
-        {
-            g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_END;
-            g_is_in_timeslot = false;
-            g_end_timer_triggered = false;
-            CLEAR_PIN(PIN_IN_TS);
-            event_handler_on_ts_end();
-            return &g_ret_param;
+            case TS_FORCED_COMMAND_STOP:
+                g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_END;
+                g_is_in_timeslot = false;
+                g_end_timer_triggered = false;
+                CLEAR_PIN(PIN_IN_TS);
+                event_handler_on_ts_end();
+                return &g_ret_param;
+
+            case TS_FORCED_COMMAND_RESTART:
+                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+                g_is_in_timeslot = false;
+                g_end_timer_triggered = false;
+                CLEAR_PIN(PIN_IN_TS);
+                event_handler_on_ts_end();
+                radio_disable();
+
+                return &g_ret_param;
+
+            default:
+                break;
         }
     }
 
@@ -460,7 +479,13 @@ void timeslot_extend(uint32_t extra_time_us)
 
 void timeslot_stop(void)
 {
-    g_timeslot_stopped = true;
+    g_timeslot_forced_command = TS_FORCED_COMMAND_STOP;
+    NVIC_SetPendingIRQ(RADIO_IRQn);
+}
+
+void timeslot_restart(void)
+{
+    g_timeslot_forced_command = TS_FORCED_COMMAND_RESTART;
     NVIC_SetPendingIRQ(RADIO_IRQn);
 }
 

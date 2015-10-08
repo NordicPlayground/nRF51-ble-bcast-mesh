@@ -85,6 +85,9 @@ void timeslot_extend(uint32_t extra_time_us);
 /** @brief Forcibly stop the timeslot execution */
 void timeslot_stop(void);
 
+/** @brief immediately end the current timeslot, and order a new one */
+void timeslot_restart(void);
+
 /** @brief returns the timestamp sampled at the beginning of the timeslot */
 uint64_t timeslot_get_global_time(void);
 
