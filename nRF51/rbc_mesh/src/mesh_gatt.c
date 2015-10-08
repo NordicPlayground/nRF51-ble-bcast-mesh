@@ -48,7 +48,7 @@ typedef struct
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static mesh_srv_t m_mesh_service = {0, 0, {0}};
+static mesh_srv_t m_mesh_service = {0, {0}, {0}};
 
 static const ble_uuid128_t m_mesh_base_uuid = {{0x1E, 0xCD, 0x00, 0x00,
                                             0x8C, 0xB9, 0xA8, 0x8B,
@@ -79,21 +79,27 @@ typedef enum
     MESH_GATT_EVT_FLAG_DO_TX
 } mesh_gatt_evt_flag_t;
 
-typedef struct
+typedef __packed_armcc struct 
+{
+    rbc_mesh_value_handle_t handle;
+    uint8_t flag;
+    uint8_t value;
+} __packed_gcc gatt_evt_flag_update_t;
+
+typedef __packed_armcc struct 
+{
+    rbc_mesh_value_handle_t handle;
+    uint8_t data_len;
+    uint8_t data[RBC_MESH_VALUE_MAX_LEN];
+} __packed_gcc gatt_evt_data_update_t;
+
+typedef __packed_armcc struct
 {
     uint8_t opcode;
-    union {
-        struct {
-            rbc_mesh_value_handle_t handle;
-            uint8_t data_len;
-            uint8_t data[RBC_MESH_VALUE_MAX_LEN];
-        } data_update;
-        struct {
-            rbc_mesh_value_handle_t handle;
-            uint8_t flag;
-            uint8_t value;
-        } flag_update;
-    } __packed_gcc __packed_armcc param;
+    __packed_armcc union {
+        gatt_evt_flag_update_t flag_update;
+        gatt_evt_data_update_t data_update;
+    } __packed_gcc param;
 } __packed_gcc mesh_gatt_evt_t;
 
 /*****************************************************************************
@@ -333,7 +339,7 @@ uint32_t mesh_gatt_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
-    if (m_active_conn_handle)
+    if (m_active_conn_handle != CONN_HANDLE_INVALID)
     {
         mesh_gatt_evt_t gatt_evt;
         gatt_evt.opcode = MESH_GATT_EVT_OPCODE_DATA;
@@ -383,7 +389,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                 break;
 
                 case MESH_GATT_EVT_OPCODE_FLAG_SET:
-                    switch (p_gatt_evt->param.flag_update.flag)
+                    switch ((mesh_gatt_evt_flag_t) p_gatt_evt->param.flag_update.flag)
                     {
                         case MESH_GATT_EVT_FLAG_PERSISTENT:
                             if (vh_value_persistence_set(p_gatt_evt->param.flag_update.handle, 
@@ -423,7 +429,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                     break;
 
                case MESH_GATT_EVT_OPCODE_FLAG_REQ:
-                    switch (p_gatt_evt->param.flag_update.flag)
+                    switch ((mesh_gatt_evt_flag_t) p_gatt_evt->param.flag_update.flag)
                     {
                         case MESH_GATT_EVT_FLAG_PERSISTENT:
                             {
@@ -485,25 +491,21 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
         {
             mesh_metadata_char_t* p_md = (mesh_metadata_char_t*) p_ble_evt->evt.gatts_evt.write.data;
             tc_radio_params_set(p_md->mesh_access_addr, p_md->mesh_channel);
-            if (vh_min_interval_set(p_md->mesh_interval_min_ms) != NRF_SUCCESS)
-            {
-                rsp_evt.opcode = MESH_GATT_EVT_OPCODE_ERROR_UNKNOWN_FLAG;
-                send_response = true;
-            }
+            vh_min_interval_set(p_md->mesh_interval_min_ms);
         }
     }
-    mesh_gatt_evt_push(&rsp_evt);
-}
+    else if (p_ble_evt->header.evt_id == BLE_GAP_EVT_CONNECTED)
+    {
+        m_active_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+    }
+    else if (p_ble_evt->header.evt_id == BLE_GAP_EVT_DISCONNECTED)
+    {
+        m_active_conn_handle = CONN_HANDLE_INVALID;
+    }
 
-uint32_t mesh_gatt_conn_handle_update(uint16_t conn_handle)
-{
-    m_active_conn_handle = conn_handle;
-
-    return NRF_SUCCESS;
-}
-
-uint32_t mesh_gatt_evt_write_handle(ble_gatts_evt_write_t* evt)
-{
-    return NRF_SUCCESS;
+    if (send_response)
+    {
+        mesh_gatt_evt_push(&rsp_evt);
+    }
 }
 

@@ -56,7 +56,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_MD_CHAR_ADV_INT_OFFSET     (4) /* Metadata characteristic Advertisement interval offset */
 #define MESH_MD_CHAR_CH_OFFSET          (8) /* Metadata characteristic channel offset */
 
-#define MESH_VALUE_CHAR_LEN             (2+2+RBC_MESH_VALUE_MAX_LEN)
 
 /**
 * @brief Global mesh metadata characteristic type
@@ -72,9 +71,7 @@ uint32_t mesh_gatt_init(uint32_t access_address, uint8_t channel, uint32_t inter
 
 uint32_t mesh_gatt_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length);
 
-uint32_t mesh_gatt_conn_handle_update(uint16_t conn_handle);
-
-uint32_t mesh_gatt_evt_write_handle(ble_gatts_evt_write_t* evt);
+void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt);
 
 #endif /* _MESH_SRV_H__ */
 
