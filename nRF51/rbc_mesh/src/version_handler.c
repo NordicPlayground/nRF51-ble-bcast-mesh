@@ -381,7 +381,11 @@ static bool payload_has_conflict(mesh_adv_data_t* p_old_adv, mesh_adv_data_t* p_
 ******************************************************************************/
 uint32_t vh_init(uint32_t min_interval_us)
 {
-    trickle_setup(min_interval_us, MESH_TRICKLE_I_MAX, MESH_TRICKLE_K);
+    uint32_t error_code = vh_min_interval_set(min_interval_us);
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
     
     for (uint32_t i = 0; i < RBC_MESH_DATA_CACHE_ENTRIES; ++i)
     {
@@ -405,6 +409,18 @@ uint32_t vh_init(uint32_t min_interval_us)
     m_handle_cache[m_handle_cache_tail].index_next = HANDLE_CACHE_ENTRY_INVALID;
 
     g_is_initialized = true;
+    return NRF_SUCCESS;
+}
+
+uint32_t vh_min_interval_set(uint32_t min_interval_us)
+{
+    if (min_interval_us < RBC_MESH_INTERVAL_MIN_MIN_MS ||
+        min_interval_us > RBC_MESH_INTERVAL_MIN_MAX_MS)
+    {
+        return NRF_ERROR_INVALID_PARAM;
+    }
+    trickle_setup(min_interval_us, MESH_TRICKLE_I_MAX, MESH_TRICKLE_K);
+
     return NRF_SUCCESS;
 }
 
