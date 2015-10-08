@@ -144,6 +144,16 @@ void tc_init(uint32_t access_address, uint8_t channel)
     g_state.channel = channel;
 }
 
+void tc_radio_params_set(uint32_t access_address, uint8_t channel)
+{
+    if (channel < 40)
+    {
+        g_state.access_address = access_address;
+        g_state.channel = channel;
+        timeslot_restart();
+    }
+}
+
 void tc_on_ts_begin(void)
 {
     radio_init(g_state.access_address, radio_idle_callback);

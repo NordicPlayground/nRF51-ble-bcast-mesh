@@ -49,6 +49,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void tc_init(uint32_t access_address, uint8_t channel);
 
+void tc_radio_params_set(uint32_t access_address, uint8_t channel);
+
 void tc_on_ts_begin(void);
 /**
 * @brief: assemble a packet by getting data from server based on params,
