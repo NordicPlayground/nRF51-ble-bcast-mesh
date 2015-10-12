@@ -103,8 +103,7 @@ The parameters to this function are collected in a struct defined in
 _rbc_mesh.h_.
 
 All nodes within the same mesh network must be set up with the same access
-address, channel, radio mode and packet configuration, but handle_count and 
-adv_int_ms may be different. 
+address and channel, interval_min_ms and lfclksrc may be different. 
 
 '''
 
