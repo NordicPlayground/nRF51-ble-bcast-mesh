@@ -219,7 +219,7 @@ void trickle_enable(trickle_t* trickle)
     }
 }
 
-inline bool trickle_is_enabled(trickle_t* trickle)
+bool trickle_is_enabled(trickle_t* trickle)
 {
     return (trickle->c != TRICKLE_C_DISABLED);
 }

@@ -111,6 +111,6 @@ void trickle_enable(trickle_t* trickle);
 * @brief return whether the given trickle instance is enabled, and should be
 *   considered for transmission.
 */
-inline bool trickle_is_enabled(trickle_t* trickle);
+bool trickle_is_enabled(trickle_t* trickle);
 
 #endif /* _TRICKLE_H__ */
