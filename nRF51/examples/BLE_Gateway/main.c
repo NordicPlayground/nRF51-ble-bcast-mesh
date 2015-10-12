@@ -56,14 +56,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_ACCESS_ADDR        (0xA541A68F)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
-#define MESH_HANDLE_COUNT       (2)
 
 /**
 * @brief General error handler.
 */
 static void error_loop(void)
 {
-    led_config(3, 1);
+    led_config(2, 1);
+    led_config(3, 0);
     while (true)
     {
     }
@@ -104,13 +104,17 @@ void HardFault_Handler(void)
 */
 uint32_t sd_evt_handler(void)
 {
-    rbc_mesh_sd_irq_handler();
-    
     uint8_t ble_evt[sizeof(ble_evt_t) + RBC_MESH_VALUE_MAX_LEN];
     uint16_t len = sizeof(ble_evt);
     while (sd_ble_evt_get((uint8_t*) &ble_evt, &len) == NRF_SUCCESS)
     {
+        rbc_mesh_ble_evt_handler((ble_evt_t*) &ble_evt);
         nrf_adv_conn_evt_handler((ble_evt_t*) &ble_evt);
+    }
+    uint32_t sd_evt;
+    while (sd_evt_get(&sd_evt) == NRF_SUCCESS)
+    {
+        rbc_mesh_sd_evt_handler(sd_evt);
     }
     return NRF_SUCCESS;
 }
@@ -128,7 +132,7 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-            if (evt->value_handle > 2)
+            if (evt->value_handle > 1)
                 break;
 
             led_config(evt->value_handle, evt->data[0]);
@@ -187,25 +191,23 @@ int main(void)
     mesh_aci_init();
 
 #else
+
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
-    init_params.handle_count = MESH_HANDLE_COUNT;
-    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
     
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
 
     /* request values for both LEDs on the mesh */
-    for (uint32_t i = 0; i < MESH_HANDLE_COUNT; ++i)
+    for (uint32_t i = 0; i < 2; ++i)
     {
-        error_code = rbc_mesh_value_enable(i + 1);
+        error_code = rbc_mesh_value_enable(i);
         APP_ERROR_CHECK(error_code);
     }
-
-
+    
     /* init BLE gateway softdevice application: */
     nrf_adv_conn_init();
 
@@ -228,32 +230,32 @@ int main(void)
         {
             while(nrf_gpio_pin_read(BUTTON_1) == 0);
             mesh_data[0] = 0;
-            rbc_mesh_value_set(1, mesh_data, 1);
-            led_config(1, 0);
+            rbc_mesh_value_set(0, mesh_data, 1);
+            led_config(0, 0);
         }
         // red on
         if(nrf_gpio_pin_read(BUTTON_2) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_2) == 0);
             mesh_data[0] = 1;
-            rbc_mesh_value_set(1, mesh_data, 1);
-            led_config(1, 1);
+            rbc_mesh_value_set(0, mesh_data, 1);
+            led_config(0, 1);
         }
         // green off 
         if(nrf_gpio_pin_read(BUTTON_3) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_3) == 0);
             mesh_data[0] = 0;
-            rbc_mesh_value_set(2, mesh_data, 1);
-            led_config(2, 0);
+            rbc_mesh_value_set(1, mesh_data, 1);
+            led_config(1, 0);
         }
         // green on
          if(nrf_gpio_pin_read(BUTTON_4) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
-            rbc_mesh_value_set(2, mesh_data, 1);
-            led_config(2, 1);
+            rbc_mesh_value_set(1, mesh_data, 1);
+            led_config(1, 1);
         }
     }
 #endif

@@ -454,9 +454,9 @@
               <FilePath>..\..\..\rbc_mesh\src\trickle.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
+              <FileName>mesh_gatt.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
             <File>
               <FileName>transport_control.c</FileName>
@@ -1109,9 +1109,9 @@
               <FilePath>..\..\..\rbc_mesh\src\trickle.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
+              <FileName>mesh_gatt.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
             <File>
               <FileName>transport_control.c</FileName>
@@ -1356,7 +1356,7 @@
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3></Flash3>
+          <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -1635,9 +1635,9 @@
               <FilePath>..\..\..\rbc_mesh\src\trickle.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
+              <FileName>mesh_gatt.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
             <File>
               <FileName>transport_control.c</FileName>
