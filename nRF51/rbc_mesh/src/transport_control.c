@@ -187,7 +187,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     SET_PIN(PIN_RX);
     mesh_packet_t* p_packet = (mesh_packet_t*) data;
 
-    if (p_packet->header.length > MESH_PACKET_OVERHEAD + MAX_VALUE_LENGTH)
+    if (p_packet->header.length > MESH_PACKET_OVERHEAD + RBC_MESH_VALUE_MAX_LEN)
     {
         /* invalid packet, ignore */
         mesh_packet_free(p_packet);
@@ -218,7 +218,9 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     switch (data_status)
     {
         case VH_DATA_STATUS_NEW:
-            /** @TODO: send to GATT server */
+            mesh_gatt_value_set(p_mesh_adv_data->handle, 
+                p_mesh_adv_data->data, 
+                p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
 
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
@@ -230,7 +232,9 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             break;
 
         case VH_DATA_STATUS_UPDATED:
-            /** @TODO: send to GATT server */
+            mesh_gatt_value_set(p_mesh_adv_data->handle, 
+                p_mesh_adv_data->data, 
+                p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
 
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
