@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _MESH_SRV_H__
 
 #include "trickle.h"
+#include "rbc_mesh.h"
 #include "ble.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -45,15 +46,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @file Module handling all Softdevice GATT server related functionality.
 */
 
-#define MESH_SRV_UUID                   (0xFEE4) /* Mesh service UUID */
-#define MESH_MD_CHAR_UUID               (0x0004) /* Mesh metadata characteristic UUID */
-#define MESH_VALUE_CHAR_UUID            (0x0005) /* Mesh value characteristic UUID */
+#define MESH_SRV_UUID                   (0xFEE4) /* Mesh service UUID (16bit) */
+#define MESH_MD_CHAR_UUID               (0x0004) /* Mesh metadata characteristic UUID (128bit) */
+#define MESH_VALUE_CHAR_UUID            (0x0005) /* Mesh value characteristic UUID (128bit) */
 
 #define MESH_MD_CHAR_LEN                (9) /* Total length of Mesh metadata characteristic data */
 #define MESH_MD_CHAR_AA_OFFSET          (0) /* Metadata characteristic Access Address offset */
 #define MESH_MD_CHAR_ADV_INT_OFFSET     (4) /* Metadata characteristic Advertisement interval offset */
 #define MESH_MD_CHAR_CH_OFFSET          (8) /* Metadata characteristic channel offset */
 
+#define CONN_HANDLE_INVALID             (0xFFFF)
 
 /**
 * @brief Global mesh metadata characteristic type

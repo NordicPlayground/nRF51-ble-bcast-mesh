@@ -34,7 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 #ifndef _EVENT_HANDLER_H__
 #define _EVENT_HANDLER_H__
-#include "mesh_srv.h"
 #include "radio_control.h"
 #include "timer_control.h"
 #include <stdint.h>

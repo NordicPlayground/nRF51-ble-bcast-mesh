@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 
 #include "radio_control.h"
+#include "mesh_gatt.h"
 #include "mesh_packet.h"
 #include "timer_control.h"
 #include "rbc_mesh.h"

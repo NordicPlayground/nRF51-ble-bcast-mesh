@@ -37,7 +37,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _MESH_PACKET_H__
 #include <stdint.h>
 #include <stdbool.h>
-#include "mesh_srv.h"
 #include "rbc_mesh.h"
 #include "toolchain.h"
 

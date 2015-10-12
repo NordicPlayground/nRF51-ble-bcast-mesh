@@ -185,7 +185,7 @@ mesh_adv_data_t* mesh_packet_adv_data_get(mesh_packet_t* p_packet)
         }
     }
     
-    if (p_mesh_adv_data->adv_data_length > MESH_PACKET_ADV_OVERHEAD + MAX_VALUE_LENGTH)
+    if (p_mesh_adv_data->adv_data_length > MESH_PACKET_ADV_OVERHEAD + RBC_MESH_VALUE_MAX_LEN)
     {
         /* invalid length in one of the length fields, discard packet */
         return NULL;

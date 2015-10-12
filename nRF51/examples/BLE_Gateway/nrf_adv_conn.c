@@ -138,7 +138,15 @@ static void ble_gap_event_handler(ble_evt_t* evt)
 void nrf_adv_conn_init(void)
 {
     uint32_t error_code;
-    
+    ble_enable_params_t ble_enable;
+    ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
+    ble_enable.gatts_enable_params.service_changed = 0;
+    error_code = sd_ble_enable(&ble_enable);
+    if (error_code != NRF_SUCCESS && 
+        error_code != NRF_ERROR_INVALID_STATE)
+    {
+        APP_ERROR_CHECK(error_code);
+    }
     /* Fill advertisement data struct: */
     uint8_t flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED |
                     BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
@@ -174,21 +182,17 @@ void nrf_adv_conn_init(void)
 
 void nrf_adv_conn_evt_handler(ble_evt_t* evt)
 {
-    if (rbc_mesh_ble_evt_handler(evt) == NRF_SUCCESS)
+    switch (evt->header.evt_id & 0xF0)
     {
-        
-        switch (evt->header.evt_id & 0xF0)
-        {
-        case BLE_GAP_EVT_BASE:
-            ble_gap_event_handler(evt);
-            break;
+    case BLE_GAP_EVT_BASE:
+        ble_gap_event_handler(evt);
+        break;
 
-        case BLE_GATTS_EVT_BASE:
-            ble_gatts_event_handler(evt);
-            break;
+    case BLE_GATTS_EVT_BASE:
+        ble_gatts_event_handler(evt);
+        break;
 
-        default:
-            break;
-        }
+    default:
+        break;
     }
 }
