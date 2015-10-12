@@ -414,8 +414,8 @@ uint32_t vh_init(uint32_t min_interval_us)
 
 uint32_t vh_min_interval_set(uint32_t min_interval_us)
 {
-    if (min_interval_us < RBC_MESH_INTERVAL_MIN_MIN_MS ||
-        min_interval_us > RBC_MESH_INTERVAL_MIN_MAX_MS)
+    if (min_interval_us < RBC_MESH_INTERVAL_MIN_MIN_MS * 1000 ||
+        min_interval_us > RBC_MESH_INTERVAL_MIN_MAX_MS * 1000)
     {
         return NRF_ERROR_INVALID_PARAM;
     }
