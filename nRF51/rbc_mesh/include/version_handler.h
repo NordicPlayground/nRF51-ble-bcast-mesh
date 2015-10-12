@@ -70,6 +70,8 @@ uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* l
 
 uint32_t vh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
 
+uint32_t vh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event);
+
 int16_t vh_get_version_delta(uint16_t old_version, uint16_t new_version);
 
 uint32_t vh_value_enable(rbc_mesh_value_handle_t handle);

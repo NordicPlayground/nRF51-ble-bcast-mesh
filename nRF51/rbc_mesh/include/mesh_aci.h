@@ -52,9 +52,16 @@ typedef __packed_armcc enum
   ACI_STATUS_ERROR_INVALID_PARAMETER                        = 0x85,
   ACI_STATUS_ERROR_BUSY                                     = 0x86,
   ACI_STATUS_ERROR_INVALID_DATA                             = 0x87,
+  ACI_STATUS_ERROR_PIPE_INVALID                             = 0x90,
   ACI_STATUS_RESERVED_START                                 = 0xF0,
   ACI_STATUS_RESERVED_END                                   = 0xFF
 } __packed_gcc aci_status_code_t;
+
+typedef __packed_armcc enum
+{
+    ACI_FLAG_PERSISTENT = 0x00,
+    ACI_FLAG_TX_EVENT   = 0x01
+} __packed_gcc aci_flag_t;
 
 
 /** @brief Initialize serial handler */

@@ -322,6 +322,34 @@ uint32_t rbc_mesh_channel_get(uint8_t* ch);
 uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 
 /**
+* @brief get whether the given handle has its persistence flag set
+*
+* @param[in] handle The handle whose flag should be checked.
+* @param[out] is_persistent a pointer to a boolean to which the flag status will 
+*   be copied.
+*
+* @return NRF_SUCCESS The flag status was successfully copied to the parameter.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initilalized.
+* @return NRF_ERROR_NOT_FOUND The given handle is not present in the cache.
+* @return NRF_ERROR_INVALID_ADDR The given handle is invalid.
+*/
+uint32_t rbc_mesh_persistence_get(rbc_mesh_value_handle_t handle, bool* is_persistent);
+
+/**
+* @brief get whether the given handle has its tx_event flag set
+*
+* @param[in] handle The handle whose flag should be checked.
+* @param[out] is_doing_tx_event a pointer to a boolean to which the flag status will 
+*   be copied.
+*
+* @return NRF_SUCCESS The flag status was successfully copied to the parameter.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initilalized.
+* @return NRF_ERROR_NOT_FOUND The given handle is not present in the cache.
+* @return NRF_ERROR_INVALID_ADDR The given handle is invalid.
+*/
+uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event);
+
+/**
 * @brief Event handler to be called upon Softdevice BLE event arrival.
 * 
 * @details Event handler taking care of all mesh behavior related to BLE. 

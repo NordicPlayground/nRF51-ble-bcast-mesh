@@ -251,6 +251,16 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
     return NRF_SUCCESS;
 }
 
+uint32_t rbc_mesh_persistence_get(rbc_mesh_value_handle_t handle, bool* is_persistent)
+{
+    return vh_value_persistence_get(handle, is_persistent);
+}
+
+uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event)
+{
+    return vh_tx_event_flag_get(handle, is_doing_tx_event);
+}
+
 void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
 {
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)

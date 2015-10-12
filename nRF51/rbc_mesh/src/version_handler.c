@@ -618,6 +618,27 @@ uint32_t vh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
     return NRF_SUCCESS;
 }
 
+uint32_t vh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event)
+{
+    if (!g_is_initialized)
+        return NRF_ERROR_INVALID_STATE;
+
+    if (handle == RBC_MESH_INVALID_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
+
+    uint16_t handle_index = handle_entry_to_head(handle);
+    if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
+    {
+        return NRF_ERROR_NOT_FOUND;
+    }
+
+    *p_persistent = m_handle_cache[handle_index].tx_event;
+
+    return NRF_SUCCESS;
+}
+
 int16_t vh_get_version_delta(uint16_t old_version, uint16_t new_version)
 {
     if (old_version < MESH_VALUE_LOLLIPOP_LIMIT)
@@ -759,7 +780,7 @@ uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persisten
     uint16_t handle_index = handle_entry_to_head(handle);
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
-        return NRF_ERROR_NO_MEM;
+        return NRF_ERROR_NOT_FOUND;
     }
     
     m_handle_cache[handle_index].persistent = persistent;
@@ -780,7 +801,7 @@ uint32_t vh_value_persistence_get(rbc_mesh_value_handle_t handle, bool* p_persis
     uint16_t handle_index = handle_entry_to_head(handle);
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
-        return NRF_ERROR_NO_MEM;
+        return NRF_ERROR_NOT_FOUND;
     }
     
     *p_persistent = m_handle_cache[handle_index].persistent;
