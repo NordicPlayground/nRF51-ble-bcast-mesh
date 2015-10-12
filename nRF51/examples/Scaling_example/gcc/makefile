@@ -83,13 +83,12 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/rbc_mesh.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/timer_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/trickle.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_srv.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_gatt.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/version_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_packet.c
-ASM_SOURCE_FILES += gcc_startup_nrf51.s # using local startup file to cater customized heap size
 
 C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c
 C_SOURCE_FILES += $(COMPONENTS)/softdevice/common/softdevice_handler/softdevice_handler.c
@@ -99,6 +98,8 @@ C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/common/nrf_drv_common.c
 C_SOURCE_FILES += $(COMPONENTS)/libraries/fifo/app_fifo.c
 C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c
 
+# assembly files common to all targets
+ASM_SOURCE_FILES  += $(COMPONENTS)/toolchain/gcc/gcc_startup_nrf51.s
 
 # includes common to all targets
 

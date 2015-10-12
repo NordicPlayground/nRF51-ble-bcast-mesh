@@ -52,9 +52,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** Log transport medium flag. Set to 0 to use UART, 1 to use RTT */
 #define LOG_RTT                 (0)
 
-/** The number of allocated handles */
-#define HANDLE_COUNT            (100)
-
 /** Logging predefines. Hides UART/RTT functions */
 #if LOG_RTT
 
@@ -88,7 +85,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_ACCESS_ADDR        (0xA541A68F)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
-#define MESH_HANDLE_COUNT       (2)
+#define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
 typedef enum
 {
@@ -230,15 +227,6 @@ void HardFault_Handler(void)
 }
 
 /**
-* @brief Softdevice event handler 
-*/
-uint32_t sd_evt_handler(void)
-{
-    rbc_mesh_sd_irq_handler();
-    return NRF_SUCCESS;
-}
-
-/**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
 *   events coming from the mesh. Propagates the event to the host via UART or RTT.
 *
@@ -280,8 +268,10 @@ void uart_event_handler(app_uart_evt_t * p_app_uart_event)
 /** @brief main function */
 int main(void)
 {   
-    /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
+    /* Enable Softdevice (including sd_ble before framework) */
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, NULL);
+    softdevice_ble_evt_handler_set(rbc_mesh_ble_evt_handler);
+    softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
     
     /* Init the rbc_mesh */
     rbc_mesh_init_params_t init_params;
@@ -289,8 +279,7 @@ int main(void)
     init_params.access_addr = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
-    init_params.handle_count = MESH_HANDLE_COUNT;
-    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
+    init_params.lfclksrc = MESH_CLOCK_SOURCE;
    
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);

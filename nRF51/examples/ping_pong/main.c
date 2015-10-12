@@ -51,6 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_ACCESS_ADDR        (0xA521F6D3)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
+#define MESH_CLOCK_SRC          (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
 #define INVALID_HANDLE          (RBC_MESH_INVALID_HANDLE)
 
@@ -134,15 +135,6 @@ void HardFault_Handler(void)
 }
 
 /**
-* @brief Softdevice event handler 
-*/
-uint32_t sd_evt_handler(void)
-{
-    rbc_mesh_sd_irq_handler();
-    return NRF_SUCCESS;
-}
-
-/**
 * @brief RBC_MESH framework event handler. Handles events coming from the mesh. 
 *
 * @param[in] evt RBC event propagated from framework
@@ -183,7 +175,9 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 int main(void)
 {   
     /* Enable Softdevice (including sd_ble before framework) */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SRC, NULL);
+    softdevice_ble_evt_handler_set(rbc_mesh_ble_evt_handler);
+    softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
     
     /* Init the rbc_mesh */
     rbc_mesh_init_params_t init_params;
@@ -191,7 +185,8 @@ int main(void)
     init_params.access_addr     = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel         = MESH_CHANNEL;
-   
+    init_params.lfclksrc        = MESH_CLOCK_SRC;
+    
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
@@ -212,14 +207,6 @@ int main(void)
     
     while (true)
     {
-#if 0
-        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
-        {
-            rbc_mesh_event_handler(&evt);
-            rbc_mesh_event_free(&evt);
-        }
-#endif
-        
         sd_app_evt_wait();
     }
 }

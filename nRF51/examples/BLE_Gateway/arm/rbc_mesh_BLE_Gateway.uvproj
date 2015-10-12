@@ -432,11 +432,6 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
-            </File>
-            <File>
               <FileName>timer_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\timer_control.c</FilePath>
@@ -576,6 +571,11 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1085,11 +1085,6 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
-            </File>
-            <File>
               <FileName>timer_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\timer_control.c</FilePath>
@@ -1143,6 +1138,11 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1609,11 +1609,6 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
-            </File>
-            <File>
               <FileName>timer_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\timer_control.c</FilePath>
@@ -1753,6 +1748,11 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>
