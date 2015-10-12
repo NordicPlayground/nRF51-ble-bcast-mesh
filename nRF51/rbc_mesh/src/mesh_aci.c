@@ -278,7 +278,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
                     break;
 
                 case ACI_FLAG_TX_EVENT:
-                    error_code = rbc_mesh_tx_event_set(serial_cmd->params.flag_get.handle,
+                    error_code = rbc_mesh_tx_event_flag_get(serial_cmd->params.flag_get.handle,
                             &flag_status);
                     break;
                 default:
