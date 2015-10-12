@@ -18,7 +18,7 @@ As an example for how to use the _Trickle_ mechanism correctly we can take a loo
 
 Note that the rebroadcast in itself cannot serve as a heartbeat signal, as the framework will filter out repeated messages in the receiving nodes.
 
-= Structure
+== Structure
 The project is split into two parts: _/nRF51/_ and _/application_controller/_. 
 
 
@@ -31,31 +31,28 @@ The _/application_controller/_ folder contains a serial interface controller
 framework, that allows external MCUs to take part in the mesh through an
 nRF51 device.
 
-== Framework Modules
+=== Framework Modules
 
-image::architecture.png[Framework modules]
+image:structure.png["Framework modules"]
 
 The framework is split into several separate modules, each of which is
 responsible for managing various aspects of the framework.
 
-* *rbc_mesh* The top module of the framework, contains all API functions and is
+* *mesh API* The top module of the framework, contains all API functions and is
 the only module that should be accessed by the application.
 
-* *mesh_srv* The value storage module, communicates with the Softdevice's GATT
-server, and maps all handles to GATT characteristics.
+* *mesh_gatt* The mesh-to-GATT interface module. Directs all mesh event to the 
+Softdevice GATT server, so external devices may interact with the mesh.
 
 * *version_handler* Takes care of the data versioning. Uses the trickle module to 
 schedule retransmissions and manage which versions of the data is currently presented 
-by the node.
+by the node. Is also responsible for managing the handle and data cache.
 
 * *timeslot_handler* A module communicating with and abstracting the nRF51
 Softdevice Timeslot API.
 
-* *trickle* Implementation of the IETF RFC6206 "Trickle" algorithm for
-mesh-global state propagation.
-
 * *transport_control* Lower level packet handler. Abstracts the radio interface and
-packet format for the higher modules
+packet format for the higher modules.
 
 * *radio_control* Asynchronous radio abstraction. Offers a way for higher level
 modules to queue radio events and packets, and also provides callbacks on
@@ -64,12 +61,23 @@ various radio events.
 * *timer_control* Interfaces the NRF_TIMER0 hardware module by managing timer
 capture allocations and callbacks. Tightly integrated with the radio module.
 
+* *mesh_aci* Controller for the Serial interface for the mesh. Emulates nRF8001 behavior,
+with a separate set of opcodes for the Mesh.
+
+* *SPI serial* Transport control for the SPI-version of the Serial interface.
+
+* *UART serial* Transport control for the UART-version of the Serial interface.
+
 * *mesh_packet* Packet pool for mesh packets. Used exclusively by the transport interface 
 to efficiently store and manage data packets.
 
 * *event_handler* Asynchronous event handler. Manages two event queues and executes them 
 in a FIFO manner in the SWI0 interrupt.
 
+* *trickle* Implementation of the IETF RFC6206 "Trickle" algorithm for
+mesh-global state propagation.
+
+* *FIFO* Generic FIFO implementation used throughout the framework.
 == API
 
 The API is exclusively contained in the _rbc_mesh.h_ file in _rbc_mesh/_, and
@@ -83,7 +91,7 @@ safe to use the API from this context.
 === The API provides the following functions to the user:
 
 *Initialize framework*
-[source,c]
+
 ----
 uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
         
@@ -101,7 +109,7 @@ adv_int_ms may be different.
 '''
 
 *Start mesh radio activity*
-[source,c]
+
 ----
 uint32_t rbc_mesh_start(void);
 ----
@@ -112,7 +120,7 @@ It is not necessary to run this command when initializing the mesh, as the
 '''
 
 *Stop mesh radio activity*
-[source,c]
+
 ----
 uint32_t rbc_mesh_stop(void);
 ----
@@ -126,9 +134,9 @@ propagated to the rest of the mesh, while the device is stopped.
 '''
 
 *Manually enable broadcasting of a given value*
-[source,c]
+
 ----
-uint32_t rbc_mesh_value_enable(uint8_t handle);
+uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle);
 ----
 Start broadcasting the indicated value to other nodes, without updating the
 contents of the value. If the handle-value pair has never been used before, the
@@ -140,9 +148,9 @@ nodes in the mesh.
 '''
 
 *Disable broadcasting of a given value*
-[source,c]
+
 ----
-uint32_t rbc_mesh_value_disable(uint8_t handle);
+uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
 ----
 Stop broadcasting the indicated handle-value pair. Note that the framework will
 keep updating the local version of the variable when external nodes write to
@@ -152,38 +160,66 @@ take a passive role in the mesh for this handle-value pair.
 
 '''
 
-*Update value*
-[source,c]
+*Set cache persistence*
+
 ----
-uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
+uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent);
+----
+Set or clear a flag marking the given handle as persistent in the local caches.
+A non-persistent value may be forgotten by the device, leading to "cache miss"
+if trying to get the current value of the handle, and potentially strange behavior
+if the device attempts to write to the handle value. It is recommended that 
+all values that the device intends to write to later are marked as persistent,
+as writing to non-persistent values increases the risk of dropping packets in the
+mesh.
+
+'''
+
+*Set TX event*
+
+----
+uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
+----
+Set or clear a flag marking the given handle for reporting TX-events. TX-events
+are indicators that the value has been transmitted to the mesh, and can be used
+as device-local flow control.
+
+'''
+
+*Update value*
+
+----
+uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t len);
 ----
 Update the value represented by the given handle. This will bump the version
 number on the handle-value pair, and broadcast this new version to the rest of
 the nodes in the mesh. 
 
-The `data` array may at most be 28 bytes long, and an error will be returned if
+The `data` array may at most be 23 bytes long, and an error will be returned if
 the len parameter exceeds this limitation.
 
 '''
 
 *Get value*
-[source,c]
+
 ----
-uint32_t rbc_mesh_value_get(uint8_t handle, 
+uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, 
     uint8_t* data, 
     uint16_t* len,
     ble_gap_addr_t* origin_addr);
 ----
 Returns the most recent value paired with this handle. The `data` buffer must
-be at least 28 bytes long in order to ensure memory safe behavior. The actual
+be at least 23 bytes long in order to ensure memory safe behavior. The actual
 length of the data is returned in the `length` parameter. The `origin_addr`
 parameter returns the address of the node that first started broadcasting the
-current version of the message.
+current version of the message. If the value isn't present in the local
+value cache, the call returns `NRF_ERROR_NOT_FOUND`, and the contents of `data`
+remains unchanged.
 
 '''
 
 *Get operational access address*
-[source,c]
+
 ----
 uint32_t rbc_mesh_access_address_get(uint32_t* access_address);
 ----
@@ -193,7 +229,7 @@ Returns the access address specified in the initialization function in the
 '''
 
 *Get operational channel*
-[source,c]
+
 ----
 uint32_t rbc_mesh_channel_get(uint8_t* channel);
 ----
@@ -202,18 +238,8 @@ Returns the channel specified in the initialization function in the
 
 '''
 
-*Get handle count*
-[source,c]
-----
-uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
-----
-Returns the handle count specified in the initialization function in the
-`handle_count` parameter. 
-
-'''
-
 *Get minimum advertisement interval*
-[source,c]
+
 ----
 uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms);
 ----
@@ -223,7 +249,7 @@ function in the `adv_int_ms` parameter.
 '''
 
 *BLE event handler*
-[source,c]
+
 ----
 uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
 ----
@@ -237,14 +263,14 @@ softdevice.
 '''
 
 *Softdevice event handler*
-[source,c]
+
 ----
-uint32_t rbc_mesh_sd_irq_handler(void);
+uint32_t rbc_mesh_sd_evt_handler(uint32_t sd_evt);
 ----
 Handles and consumes any pure softdevice events (excluding softdevice BLE
-        events. See the official
-        https://devzone.nordicsemi.com/docs/[Softdevice documentation] for
-        details). Should be called on each call to `SD_IRQHandler()`.
+events. See the official
+https://devzone.nordicsemi.com/docs/[Softdevice documentation] for
+details). Should be called on each SD event pulled with `sd_evt_get()`
 
 === Return values
 All API functions return a 32bit status code, as defined by the nRF51 SDK. All 
@@ -304,5 +330,12 @@ stead of a physical interface. The example application starts sending
 regular connectable BLE advertisements with the Softdevice, and displays the
 Mesh service in its GATT server, so that external nodes may write to the two
 LED config values as if they were regular characteristics. 
+
+=== Scaling example
+The scaling example illustrates how the Mesh-framework behaves with a variable 
+sized handle count. The example implements a simple serial interface for interaction
+through a terminal emulator, allowing the user to transmit values on specific handles,
+and may give a good overview of the expected behavior of the system as values 
+fall out of cache or conflict.
 
 link:../README.adoc[Back to README]
