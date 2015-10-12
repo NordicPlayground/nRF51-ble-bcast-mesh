@@ -251,25 +251,18 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
+void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
 {
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
-        return NRF_ERROR_INVALID_STATE;
+        return;
     }
 
     mesh_gatt_sd_ble_event_handle(p_evt);
-    
-    return NRF_SUCCESS;
 }
 
-
-/***** event handler ******/
-
-uint32_t rbc_mesh_sd_irq_handler(void)
+void rbc_mesh_sd_evt_handler(uint32_t evt)
 {
-    /* call lower layer event handler */
-    ts_sd_event_handler();
-
-    return NRF_SUCCESS;
+    ts_sd_event_handler(evt);
 }
+

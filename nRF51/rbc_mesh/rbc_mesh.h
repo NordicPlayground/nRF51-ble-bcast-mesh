@@ -321,8 +321,8 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 /**
 * @brief Event handler to be called upon Softdevice BLE event arrival.
 * 
-* @details Event handler taking care of all mesh behavior related to the 
-*   Softdevice. Typical events to trigger processing or local changes are 
+* @details Event handler taking care of all mesh behavior related to BLE. 
+*   Typical events to trigger processing or local changes are 
 *   writes to the value characteristic or a change in connection status. The 
 *   framework will give events to the application if the function triggers a 
 *   write to a handle value or similar.
@@ -332,11 +332,22 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 *   events and return NRF_SUCCESS. 
 *
 * @param[in] p_evt BLE event received from softdevice.
-*
-* @return NRF_SUCCESS Event successfully handled.
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
-uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* p_evt);
+void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt);
+
+/**
+* @brief Event handler to be called upon regular Softdevice event arrival.
+* 
+* @details Event handler taking care of all mesh behavior related to the 
+*   Softdevice. Events are expected to be in the range
+*
+* @note This event may be called regardless of whether the event is relevant 
+*   to the mesh or not - the framework will filter out uninteresting 
+*   events and return NRF_SUCCESS. 
+*
+* @param[in] evt event received from Softdevice through the sd_evt_get() call.
+*/
+void rbc_mesh_sd_evt_handler(uint32_t evt);
 
 /**
  * @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 

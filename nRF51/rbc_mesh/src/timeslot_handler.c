@@ -143,40 +143,41 @@ static volatile uint32_t ts_count = 0;
 *   Called whenever the softdevice tries to change the original course of actions
 *   related to the timeslots
 */
-void ts_sd_event_handler(void)
+void ts_sd_event_handler(uint32_t evt)
 {
-    uint32_t evt;
     SET_PIN(PIN_SD_EVT_HANDLER);
-    while (sd_evt_get(&evt) == NRF_SUCCESS)
+    switch (evt)
     {
-        switch (evt)
-        {
-            case NRF_EVT_RADIO_SESSION_IDLE:
-                /* the idle event is triggered when rbc_mesh_stop is called */
-                break;
-
-            case NRF_EVT_RADIO_SESSION_CLOSED:
-                APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
-
-                break;
-
-            case NRF_EVT_RADIO_BLOCKED:
-                /* something in the softdevice is blocking our requests,
-                go into emergency mode, where slots are short, in order to
-                avoid complete lockout */
-                timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
-                break;
-
-            case NRF_EVT_RADIO_SIGNAL_CALLBACK_INVALID_RETURN:
-                APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
-                break;
-
-            case NRF_EVT_RADIO_CANCELED:
+        case NRF_EVT_RADIO_SESSION_IDLE:
+            /* the idle event is usually triggered when rbc_mesh_stop is called, 
+                but if this isn't the case, we have to restart the TS */
+            if (g_timeslot_forced_command != TS_FORCED_COMMAND_STOP)
+            {
                 timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
-                break;
-            default:
-                APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
-        }
+            }
+            break;
+
+        case NRF_EVT_RADIO_SESSION_CLOSED:
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
+
+            break;
+
+        case NRF_EVT_RADIO_BLOCKED:
+            /* something in the softdevice is blocking our requests,
+            go into emergency mode, where slots are short, in order to
+            avoid complete lockout */
+            timeslot_order_earliest(TIMESLOT_SLOT_EMERGENCY_LENGTH, true);
+            break;
+
+        case NRF_EVT_RADIO_SIGNAL_CALLBACK_INVALID_RETURN:
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
+            break;
+
+        case NRF_EVT_RADIO_CANCELED:
+            timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+            break;
+        default:
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
     CLEAR_PIN(PIN_SD_EVT_HANDLER);
 }

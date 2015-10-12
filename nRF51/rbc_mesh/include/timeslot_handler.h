@@ -51,7 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 /** @brief event handler for softdevice events */
-void ts_sd_event_handler(void);
+void ts_sd_event_handler(uint32_t evt);
 
 /** @brief initialize timeslot handler. Only called once */
 void timeslot_handler_init(void);
