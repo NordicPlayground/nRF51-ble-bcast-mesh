@@ -56,6 +56,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_ACCESS_ADDR        (0xA541A68F)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
+#define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
 /**
 * @brief General error handler.
@@ -176,14 +177,13 @@ void gpio_init(void)
 
 /** @brief main function */
 int main(void)
-{   
-    
+{
     NRF_POWER->RESET = 1;
     /* init leds and pins */
     gpio_init();
     NRF_GPIO->OUTSET = (1 << 4);
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, sd_evt_handler);
     
 #ifdef RBC_MESH_SERIAL
 
@@ -197,6 +197,7 @@ int main(void)
     init_params.access_addr = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
+    init_params.lfclksrc = MESH_CLOCK_SOURCE;
     
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
