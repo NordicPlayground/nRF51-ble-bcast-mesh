@@ -54,7 +54,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-#define TIMESLOT_END_SAFETY_MARGIN_US   (500)
+#define TIMESLOT_END_SAFETY_MARGIN_US   (1000)
 #define TIMESLOT_SLOT_LENGTH            (10000) /* !!! MUST BE LARGER THAN TIMESLOT_END_SAFETY_MARGIN_US */
 #define TIMESLOT_SLOT_EXTEND_LENGTH     (50000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
@@ -123,6 +123,7 @@ static bool g_framework_initialized = false;
 static bool g_end_timer_triggered = false;
 static ts_forced_command_t g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
 static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
+static uint32_t g_end_safety_margin_us;                
 
 
 static volatile uint32_t ts_count = 0;
@@ -288,7 +289,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             g_negotiate_timeslot_length = TIMESLOT_SLOT_EXTEND_LENGTH;
             g_timeslot_length = g_next_timeslot_length;
 
-            timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US,
+            timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - g_end_safety_margin_us,
                     end_timer_handler);
 
             /* attempt to extend our time right away */
@@ -323,7 +324,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 
             timer_abort(TIMER_INDEX_TS_END);
 
-            timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - TIMESLOT_END_SAFETY_MARGIN_US,
+            timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - g_end_safety_margin_us,
                     end_timer_handler);
             
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
@@ -389,7 +390,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 * Interface Functions
 *****************************************************************************/
 
-void timeslot_handler_init(void)
+void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
 {
     if (g_framework_initialized)
     {
@@ -400,8 +401,40 @@ void timeslot_handler_init(void)
 
     g_is_in_callback = false;
     g_framework_initialized = true;
-
-
+    
+    uint32_t lfclk_ppm; 
+    switch (lfclksrc)
+    {
+        case NRF_CLOCK_LFCLKSRC_XTAL_100_PPM:
+            lfclk_ppm = 100;
+            break;
+        case NRF_CLOCK_LFCLKSRC_XTAL_150_PPM:
+            lfclk_ppm = 150;
+            break;
+        case NRF_CLOCK_LFCLKSRC_XTAL_20_PPM:
+            lfclk_ppm = 20;
+            break;
+        case NRF_CLOCK_LFCLKSRC_XTAL_250_PPM:
+            lfclk_ppm = 250;
+            break;
+        case NRF_CLOCK_LFCLKSRC_XTAL_30_PPM:
+            lfclk_ppm = 30;
+            break;
+        case NRF_CLOCK_LFCLKSRC_XTAL_500_PPM:
+            lfclk_ppm = 500;
+            break;
+        case NRF_CLOCK_LFCLKSRC_XTAL_50_PPM:
+            lfclk_ppm = 50;
+            break;
+        case NRF_CLOCK_LFCLKSRC_XTAL_75_PPM:
+            lfclk_ppm = 20;
+            break;
+        default:
+            lfclk_ppm = 250;
+    }
+    
+    g_end_safety_margin_us = ((TIMESLOT_MAX_LENGTH / 1000000) * lfclk_ppm) + TIMESLOT_END_SAFETY_MARGIN_US;
+    
     error = sd_nvic_EnableIRQ(SD_EVT_IRQn);
     APP_ERROR_CHECK(error);
 

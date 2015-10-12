@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _TIMESLOT_HANDLER_H__
 #include "radio_control.h"
 #include "timer_control.h"
+#include "nrf_sdm.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -53,7 +54,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void ts_sd_event_handler(uint32_t evt);
 
 /** @brief initialize timeslot handler. Only called once */
-void timeslot_handler_init(void);
+void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc);
 
 /** 
 * @brief order a timeslot as soon as possible.

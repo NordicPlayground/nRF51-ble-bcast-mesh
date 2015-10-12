@@ -120,7 +120,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return error_code;
     }
     
-    timeslot_handler_init();
+    timeslot_handler_init(init_params.lfclksrc);
 
     g_access_addr = init_params.access_addr;
     g_channel = init_params.channel;

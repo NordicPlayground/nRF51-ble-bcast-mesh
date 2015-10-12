@@ -38,6 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 #include "nrf51.h"
+#include "nrf_sdm.h"
 #include "ble.h"
 
 #define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
@@ -119,12 +120,14 @@ typedef struct
 *    channels. Must be between 1 and 39.
 * @param[in] interval_min_ms The minimum tx interval for nodes in the network in 
 *    millis. Must be between 5 and 60000.
+* @param[in] lfclksrc The LF-clock source parameter supplied to the softdevice_enable function.
 */
 typedef struct
 {
     uint32_t access_addr;
     uint8_t channel;
     uint32_t interval_min_ms;
+    nrf_clock_lfclksrc_t lfclksrc;
 } rbc_mesh_init_params_t;
 
 /*****************************************************************************
