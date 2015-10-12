@@ -38,7 +38,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "radio_control.h"
 #include "trickle.h"
 #include "rbc_mesh_common.h"
-#include "mesh_srv.h"
 #include "timer_control.h"
 #include "transport_control.h"
 #include "version_handler.h"
@@ -230,11 +229,10 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     static uint32_t requested_extend_time = 0;
     static uint32_t successful_extensions = 0;
     static uint32_t timeslot_count = 0;
-    /* handle forced stop */
-    if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START) /* first event after stop-start */
+    
+    if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START) 
     {
-        g_timeslot_stopped = false;
-        timeslot_count = 0;
+        g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
     }
     else /* on forced command */
     {
@@ -246,6 +244,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
                 g_end_timer_triggered = false;
                 CLEAR_PIN(PIN_IN_TS);
                 event_handler_on_ts_end();
+                timeslot_count = 0;
                 return &g_ret_param;
 
             case TS_FORCED_COMMAND_RESTART:
