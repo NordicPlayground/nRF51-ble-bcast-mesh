@@ -351,11 +351,15 @@ static void transmit_all_instances(uint64_t timestamp)
                         tx_event.version_delta = 0;
 
                         rbc_mesh_event_handler(&tx_event);
+
+                        /* report to serial as well */
+#if RBC_MESH_SERIAL
+                        mesh_aci_rbc_event_handler(&tx_event);
+#endif
                     }
                 }
             }
         }
-
         data_index++;
     }
 
