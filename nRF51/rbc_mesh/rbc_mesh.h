@@ -252,7 +252,7 @@ uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
 * @return NRF_ERROR_NO_MEM the number of persistent values in the cache exceeds
 *   the cache size.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
- */
+*/
 uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent);
 
 /**

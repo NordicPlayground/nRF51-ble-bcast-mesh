@@ -59,7 +59,7 @@ typedef __packed_armcc enum
     SERIAL_CMD_OPCODE_BUILD_VERSION_GET     = 0x7B,
     SERIAL_CMD_OPCODE_ACCESS_ADDR_GET       = 0x7C,
     SERIAL_CMD_OPCODE_CHANNEL_GET           = 0x7D,
-    SERIAL_CMD_OPCODE_ADV_INT_GET           = 0x7F,
+    SERIAL_CMD_OPCODE_INTERVAL_GET          = 0x7F,
 } __packed_gcc serial_cmd_opcode_t;
 
 
@@ -72,7 +72,7 @@ typedef __packed_armcc struct
 typedef __packed_armcc struct 
 {
     uint32_t access_addr;
-    uint32_t adv_int_min;
+    uint32_t interval_min;
     uint8_t channel;
 } __packed_gcc serial_cmd_params_init_t;
 

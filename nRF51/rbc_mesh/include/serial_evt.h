@@ -89,8 +89,8 @@ typedef __packed_armcc struct
 
 typedef __packed_armcc struct
 {
-    uint32_t adv_int;
-} __packed_gcc serial_evt_cmd_rsp_params_adv_int_t;
+    uint32_t int_min;
+} __packed_gcc serial_evt_cmd_rsp_params_int_min_t;
 
 typedef __packed_armcc struct
 {
@@ -115,7 +115,7 @@ typedef __packed_armcc struct
         serial_evt_cmd_rsp_params_access_addr_t access_addr;
         serial_evt_cmd_rsp_params_channel_t channel;
         serial_evt_cmd_rsp_params_flag_get_t flag;
-        serial_evt_cmd_rsp_params_adv_int_t adv_int;
+        serial_evt_cmd_rsp_params_int_min_t int_min;
         serial_evt_cmd_rsp_params_val_get_t val_get;
     } __packed_gcc response;        
 } __packed_gcc serial_evt_params_cmd_rsp_t;

@@ -115,9 +115,8 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             rbc_mesh_init_params_t init_params;
             init_params.access_addr = serial_cmd->params.init.access_addr;
             init_params.channel = serial_cmd->params.init.channel;
-            init_params.handle_count = serial_cmd->params.init.handle_count;
-            init_params.interval_min_ms = serial_cmd->params.init.adv_int_min;
-            init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
+            init_params.interval_min_ms = serial_cmd->params.init.interval_min;
+            init_params.lfclksrc = NRF_CLOCK_LFCLKSRC_XTAL_500_PPM; /* choose worst clock, just to be safe */
 
             error_code = rbc_mesh_init(init_params);
             
@@ -310,10 +309,8 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
 
-            memset(serial_evt.params.cmd_rsp.response.val_get.origin_addr, 0, BLE_GAP_ADDR_LEN);
-            serial_evt.params.cmd_rsp.response.val_get.addr_type = ADDR_TYPE_BLE_GAP_ADV_ADDR;
             serial_evt.params.cmd_rsp.response.val_get.handle = serial_cmd->params.value_get.handle;
-            serial_evt.length += 3 + 1 + 1 + 6; /* opcode + command + status + handle + addr_type + addr */
+            serial_evt.length += 1 + 1 + 1 + 2 ; /* opcode + command + status + handle */
         }
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
 
@@ -382,7 +379,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         break;
 
-    case SERIAL_CMD_OPCODE_ADV_INT_GET:
+    case SERIAL_CMD_OPCODE_INTERVAL_GET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
         serial_evt.length = 7;
@@ -395,7 +392,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         {
             uint32_t interval_min_ms;
             uint32_t error_code = rbc_mesh_interval_min_ms_get(&interval_min_ms);
-            serial_evt.params.cmd_rsp.response.adv_int.adv_int = interval_min_ms;
+            serial_evt.params.cmd_rsp.response.int_min.int_min = interval_min_ms;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 

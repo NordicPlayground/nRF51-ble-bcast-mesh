@@ -44,6 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "trickle.h"
 #include "rbc_mesh.h"
 #include "mesh_packet.h"
+#include "mesh_aci.h"
 
 #include "app_error.h"
 #include <stdlib.h>
@@ -638,7 +639,7 @@ uint32_t vh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_
         return NRF_ERROR_NOT_FOUND;
     }
 
-    *p_persistent = m_handle_cache[handle_index].tx_event;
+    *is_doing_tx_event = m_handle_cache[handle_index].tx_event;
 
     return NRF_SUCCESS;
 }
