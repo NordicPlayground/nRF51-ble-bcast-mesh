@@ -45,8 +45,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 #include "version_handler.h"
 #include "mesh_aci.h"
+#include "app_error.h"
 
 #include <string.h>
+
+/* event push isn't present in the API header file. */
+extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
 /******************************************************************************
 * Local typedefs
@@ -85,7 +89,8 @@ static void order_search(void)
     }
     if (!radio_order(&evt))
     {
-        mesh_packet_free((mesh_packet_t*) evt.packet_ptr);
+        /* couldn't queue the packet for reception, immediately free its only ref */
+        mesh_packet_ref_count_dec((mesh_packet_t*) evt.packet_ptr);
     }
 }
 
@@ -107,23 +112,22 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
         evt.callback.packet.payload = data;
         evt.callback.packet.crc = crc;
         evt.callback.packet.timestamp = timer_get_timestamp();
+        mesh_packet_ref_count_inc((mesh_packet_t*) data); /* event handler has a ref */
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
-            /* packet will not be freed by the packet processing event */
-            mesh_packet_free((mesh_packet_t*) data);
             g_state.queue_saturation = true;
+            mesh_packet_ref_count_dec((mesh_packet_t*) data); /* event handler lost its ref */
         }
     }
-    else
-    {
-        /* packet will not be freed by the packet processing event*/
-        mesh_packet_free((mesh_packet_t*) data);
-    }
+
+    /* no longer needed in this context */
+    mesh_packet_ref_count_dec((mesh_packet_t*) data);
 }
 
 /* radio callback, executed in STACK_LOW */
 static void tx_cb(uint8_t* data)
 {
+    mesh_packet_ref_count_dec((mesh_packet_t*) data); /* radio ref removed (pushed in tc_tx) */
     vh_order_update(timer_get_timestamp()); /* tell the vh, so that it can push more updates */
 }
 
@@ -168,6 +172,7 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
     radio_event_t event;
     memset(&event, 0, sizeof(radio_event_t));
     event.start_time = 0;
+    mesh_packet_ref_count_inc(p_packet); /* queue will have a reference until tx_cb */
     event.packet_ptr = (uint8_t*) p_packet;
     event.access_address = 0;
     event.channel = g_state.channel;
@@ -175,6 +180,7 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
     event.event_type = RADIO_EVENT_TYPE_TX;
     if (!radio_order(&event))
     {
+        mesh_packet_ref_count_dec(p_packet); /* queue couldn't hold the ref */
         return NRF_ERROR_NO_MEM;
     }
     
@@ -190,8 +196,8 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     if (p_packet->header.length > MESH_PACKET_OVERHEAD + RBC_MESH_VALUE_MAX_LEN)
     {
         /* invalid packet, ignore */
-        mesh_packet_free(p_packet);
         CLEAR_PIN(PIN_RX);
+        mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
         return;
     }
     
@@ -204,7 +210,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     {
         /* invalid packet */
         CLEAR_PIN(PIN_RX);
-        mesh_packet_free(p_packet);
+        mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
         return;
     }
 
@@ -225,7 +231,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
-            rbc_mesh_event_handler(&evt);
+            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
@@ -239,7 +245,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-            rbc_mesh_event_handler(&evt);
+            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
@@ -247,29 +253,28 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 
         case VH_DATA_STATUS_OLD:
             /* do nothing */
-            mesh_packet_free(p_packet);
             break;
             
         case VH_DATA_STATUS_SAME:
             /* do nothing */
-            mesh_packet_free(p_packet);
             break;
 
         case VH_DATA_STATUS_CONFLICTING:
 
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
-            rbc_mesh_event_handler(&evt);
+            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
-            mesh_packet_free(p_packet);
             break;
 
         case VH_DATA_STATUS_UNKNOWN:
-            mesh_packet_free(p_packet);
             break;
     }
+
+    /* this packet is no longer needed in this context */
+    mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
 
     if (g_state.queue_saturation)
     {

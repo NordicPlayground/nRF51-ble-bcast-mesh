@@ -34,13 +34,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "mesh_packet.h"
+#include "app_error.h"
 #include <string.h>
 
 /******************************************************************************
 * Static globals
 ******************************************************************************/
 static mesh_packet_t g_packet_pool[MESH_PACKET_POOL_SIZE];
-static bool g_packet_alloc_array[MESH_PACKET_POOL_SIZE];
+static uint8_t g_packet_refs[MESH_PACKET_POOL_SIZE];
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
@@ -48,7 +49,8 @@ void mesh_packet_init(void)
 {
     for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
     {
-        g_packet_alloc_array[i] = false;
+        /* reset ref count field */
+        g_packet_refs[i] = 0;
     }
 }
 
@@ -61,9 +63,9 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet)
 {
     for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
     {
-        if (!g_packet_alloc_array[i])
+        if (g_packet_refs[i] == 0) /* no refs, free to use */
         {
-            g_packet_alloc_array[i] = true;
+            g_packet_refs[i] = 1;
             *pp_packet = &g_packet_pool[i];
             return true;
         }
@@ -71,13 +73,33 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet)
     return false;
 }
 
-bool mesh_packet_free(mesh_packet_t* p_packet)
+bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
+{
+    uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
+    if (index > MESH_PACKET_POOL_SIZE)
+        return false;
+
+    /* the given pointer may not be aligned, have to force alignment with index */
+    if (++g_packet_refs[index] == 0x00) /* check for rollover */
+    {
+        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
+    }
+    return true;
+}
+
+bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
 {
     uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
     if (index > MESH_PACKET_POOL_SIZE)
         return false;
     
-    g_packet_alloc_array[index] = false;
+    /* make sure that we aren't rolling over the ref count */
+    if (g_packet_refs[index] == 0x00)
+    {
+        return false;
+    }
+    g_packet_refs[index]--;
+
     return true;
 }
 

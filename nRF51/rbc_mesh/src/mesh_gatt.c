@@ -41,10 +41,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 #include "version_handler.h"
 #include "transport_control.h"
+#include "app_error.h"
 
 #include "ble_gatts.h"
 #include "ble_err.h"
 #include <string.h>
+
+extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event);
 
 typedef struct
 {
@@ -441,7 +444,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                         }
                         if (send_event)
                         {
-                            rbc_mesh_event_handler(&mesh_evt);
+                            APP_ERROR_CHECK(rbc_mesh_event_push(&mesh_evt));
                             mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_SUCCESS);
                         }
                     }

@@ -381,16 +381,57 @@ void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt);
 void rbc_mesh_sd_evt_handler(uint32_t evt);
 
 /**
- * @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 
-*   SPACE.
+* @brief Get an event from the mesh.
 *
-* @note Does not have an implementation within the framework, but acts as a 
-*   feedback channel for the framework to notify the application of any 
-*   changes in values.
+* @param[out] p_evt A pointer to the struct the event should be copied to. 
+*   May be set to NULL if the contents of the event isn't important.
 *
-* @param evt Framework generated event presented to the application. 
+* @return NRF_SUCCESS An event was successfully popped and copied into the 
+*   p_evt-parameter.
+* @return NRF_ERROR_NOT_FOUND No events ready to be pulled.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt);
+uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt);
+
+/**
+* @brief Get an event from the mesh, but don't remove it from the queue.
+* 
+* @note This call has the same effect as the rbc_mesh_event_get call, except
+*   it does not remove the event from the queue. Repeated calls to the peek 
+*   function will yield the same event.
+*
+* @param[out] p_evt A pointer to the struct the event should be copied to.
+*
+* @return NRF_SUCCESS An event was successfully popped and copied into the 
+*   p_evt-parameter.
+* @return NRF_ERROR_NOT_FOUND No events ready to be pulled.
+* @return NRF_ERROR_NULL The p_evt parameter is NULL.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+*/
+uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
+
+/** 
+* @brief Free the memory associated with the given mesh event.
+* 
+* @details: In order to reduce the amount of data copying going on for each 
+*   data packet, the data field of an rbc_mesh_event points directly to the
+*   framework packet pool. This memory is managed by the mesh_packet module, 
+*   and must be explicitly released when the contents is no longer in use. 
+*   Failure to do so will result in a NO_MEM error when the framework runs out 
+*   of available packets in the packet pool.
+*
+* @note: This function call is only necessary with events that contain any 
+*   data (the UPDATE, NEW and CONFLICTING events), all other events will be 
+*   ignored, returning NRF_SUCCESS.
+*
+* @param[in] p_evt Pointer to an event which originated from one of the 
+*   framework functions rbc_mesh_event_get and rbc_mesh_event_peek.
+*
+* @return NRF_SUCCESS The memory associated with the given event was 
+*   successfully freed.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+*/
+uint32_t rbc_mesh_event_free(rbc_mesh_event_t* p_evt);
 
 #endif /* _RBC_MESH_H__ */
 

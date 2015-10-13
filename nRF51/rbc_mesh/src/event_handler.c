@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "timeslot_handler.h"
 #include "transport_control.h"
+#include "mesh_packet.h"
 #include "fifo.h"
 #include "nrf_soc.h"
 #include "toolchain.h"

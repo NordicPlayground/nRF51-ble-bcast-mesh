@@ -46,6 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_packet.h"
 #include "mesh_aci.h"
 
+#include "nrf_error.h"
 #include "app_error.h"
 #include <stdlib.h>
 #include <stddef.h>
@@ -60,6 +61,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HANDLE_CACHE_ENTRY_INVALID      (RBC_MESH_HANDLE_CACHE_ENTRIES)
 #define DATA_CACHE_ENTRY_INVALID        (RBC_MESH_DATA_CACHE_ENTRIES)
+
+/* event push isn't present in the API header file. */
+extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
+
 /******************************************************************************
 * Local typedefs
 ******************************************************************************/
@@ -103,6 +108,20 @@ static void version_increment(uint16_t* version)
     }
 }
 
+static void data_entry_free(data_entry_t* p_data_entry)
+{
+    if (p_data_entry == NULL)
+        return;
+
+    if (p_data_entry->p_packet != NULL)
+    {
+        mesh_packet_ref_count_dec(p_data_entry->p_packet); /* data cache ref remove */
+        p_data_entry->p_packet = NULL;
+    }
+    /* reset trickle params */
+    trickle_enable(&p_data_entry->trickle);
+}
+
 /** Allocate a new data entry. Will take the least recently updated entry if all are allocated.
   Returns the index of the resulting entry. */
 static uint16_t data_entry_allocate(void)
@@ -134,13 +153,7 @@ static uint16_t data_entry_allocate(void)
     /* cleanup */
     m_handle_cache[handle_index].data_entry = DATA_CACHE_ENTRY_INVALID;
 
-    trickle_enable(&m_data_cache[data_index].trickle);
-    trickle_timer_reset(&m_data_cache[data_index].trickle, 0);
-    if (m_data_cache[data_index].p_packet != NULL)
-    {
-        mesh_packet_free(m_data_cache[data_index].p_packet); /** @TODO: !!!! IS THIS SAFE? */
-        m_data_cache[data_index].p_packet = NULL;
-    }
+    data_entry_free(&m_data_cache[data_index]);
 
     return data_index;
 }
@@ -192,14 +205,8 @@ static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
         m_handle_cache[i].version = 0;
         if (m_handle_cache[i].data_entry != DATA_CACHE_ENTRY_INVALID)
         {
-             data_entry_t* p_data_entry = &m_data_cache[m_handle_cache[i].data_entry];
-             if (p_data_entry->p_packet != NULL)
-             {
-                 mesh_packet_free(p_data_entry->p_packet); /** !!!! @TODO: IS THIS SAFE? */
-                 p_data_entry->p_packet = NULL;
-             }
-             trickle_timer_reset(&p_data_entry->trickle, 0);
-             m_handle_cache[i].data_entry = DATA_CACHE_ENTRY_INVALID;
+            data_entry_free(&m_data_cache[m_handle_cache[i].data_entry]);
+            m_handle_cache[i].data_entry = DATA_CACHE_ENTRY_INVALID;
         }
     }
 
@@ -327,13 +334,9 @@ static void transmit_all_instances(uint64_t timestamp)
             trickle_tx_timeout(&m_data_cache[data_index].trickle, &do_tx, timestamp + ts_begin_time);
             if (do_tx)
             {
-                if (tc_tx(m_data_cache[data_index].p_packet) != NRF_SUCCESS)
-                {
-                    /* the radio queue is full, tc will notify us when it's available again */
-                    TICK_PIN(PIN_TC_QUEUE_FULL);
-                    break;
-                }
-                else
+                uint32_t error_code = tc_tx(m_data_cache[data_index].p_packet);
+
+                if (error_code == NRF_SUCCESS)
                 {
                     /* the handle is queued for transmission */
                     trickle_tx_register(&m_data_cache[data_index].trickle);
@@ -351,13 +354,17 @@ static void transmit_all_instances(uint64_t timestamp)
                         tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
                         tx_event.version_delta = 0;
 
-                        rbc_mesh_event_handler(&tx_event);
-
-                        /* report to serial as well */
+                        APP_ERROR_CHECK(rbc_mesh_event_push(&tx_event));
 #if RBC_MESH_SERIAL
                         mesh_aci_rbc_event_handler(&tx_event);
 #endif
                     }
+                }
+                else 
+                {
+                    /* the radio queue is full, tc will notify us when it's available again */
+                    TICK_PIN(PIN_TC_QUEUE_FULL);
+                    break;
                 }
             }
         }
@@ -492,10 +499,12 @@ vh_data_status_t vh_rx_register(mesh_packet_t* p_packet, uint64_t timestamp)
         else
         {
             /* free old packet */
-            mesh_packet_free(m_data_cache[data_index].p_packet); /** @TODO: !!!! IS THIS SAFE? */
+            mesh_packet_ref_count_dec(m_data_cache[data_index].p_packet); /* remove data cache ref */
         }
 
+        /* store new packet in data cache */
         mesh_packet_take_ownership(p_packet);
+        mesh_packet_ref_count_inc(p_packet); /* ref in data cache */
         m_data_cache[data_index].p_packet = p_packet;
         trickle_rx_inconsistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
         vh_order_update(0);
@@ -706,7 +715,8 @@ uint32_t vh_value_enable(rbc_mesh_value_handle_t handle)
                 0);
         if (error_code != NRF_SUCCESS)
         {
-            mesh_packet_free(m_data_cache[data_index].p_packet);
+            mesh_packet_ref_count_dec(m_data_cache[data_index].p_packet); /* free the newly acquired packet */
+            m_data_cache[data_index].p_packet = NULL;
             return NRF_ERROR_INTERNAL;
         }
 

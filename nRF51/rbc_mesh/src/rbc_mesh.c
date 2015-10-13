@@ -41,11 +41,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 #include "mesh_packet.h"
 #include "mesh_gatt.h"
+#include "fifo.h"
 
 #include "nrf_error.h"
 #include "nrf_sdm.h"
 
 #include <string.h>
+
+#define RBC_MESH_EVENT_FIFO_LENGTH  (16)
 
 /*****************************************************************************
 * Static globals
@@ -59,7 +62,8 @@ static enum
 static uint32_t g_access_addr;
 static uint8_t g_channel;
 static uint32_t g_interval_min_ms;
-
+static fifo_t g_rbc_event_fifo;
+static rbc_mesh_event_t g_rbc_event_buffer[RBC_MESH_EVENT_FIFO_LENGTH];
 
 /*****************************************************************************
 * Static Functions
@@ -127,7 +131,13 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     g_interval_min_ms = init_params.interval_min_ms;
 
     g_mesh_state = MESH_STATE_RUNNING;
-
+    
+    g_rbc_event_fifo.array_len = RBC_MESH_EVENT_FIFO_LENGTH;
+    g_rbc_event_fifo.elem_array = g_rbc_event_buffer;
+    g_rbc_event_fifo.elem_size = sizeof(rbc_mesh_event_t);
+    g_rbc_event_fifo.memcpy_fptr = NULL;
+    fifo_init(&g_rbc_event_fifo);
+    
     return NRF_SUCCESS;
 }
 
@@ -271,8 +281,71 @@ void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
     mesh_gatt_sd_ble_event_handle(p_evt);
 }
 
-void rbc_mesh_sd_evt_handler(uint32_t evt)
+void rbc_mesh_sd_evt_handler(uint32_t sd_evt)
 {
-    ts_sd_event_handler(evt);
+    ts_sd_event_handler(sd_evt);
+}
+    
+
+uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
+{
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    uint32_t error_code = fifo_push(&g_rbc_event_fifo, p_event);
+
+    if (error_code == NRF_SUCCESS && p_event->data != NULL)
+    {
+        mesh_packet_ref_count_inc((mesh_packet_t*) p_event->data); /* will be aligned by packet manager */
+    }
+    return error_code;
+}
+
+uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt)
+{
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    if (fifo_pop(&g_rbc_event_fifo, p_evt) != NRF_SUCCESS)
+    {
+        return NRF_ERROR_NOT_FOUND;
+    }
+    
+    return NRF_SUCCESS;    
+}
+
+uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt)
+{
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    if (p_evt == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+    
+    if (fifo_peek(&g_rbc_event_fifo, p_evt) != NRF_SUCCESS)
+    {
+        return NRF_ERROR_NOT_FOUND;
+    }
+    
+    return NRF_SUCCESS;
+}
+
+uint32_t rbc_mesh_event_free(rbc_mesh_event_t* p_evt)
+{
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    if (p_evt->data != NULL)
+    {
+        mesh_packet_ref_count_dec((mesh_packet_t*) p_evt->data);
+    }
+    
+    return NRF_SUCCESS;
 }
 

@@ -53,23 +53,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 typedef __packed_armcc enum 
 {
-  BLE_PACKET_TYPE_ADV_IND,
-  BLE_PACKET_TYPE_ADV_DIRECT_IND,
-  BLE_PACKET_TYPE_ADV_NONCONN_IND,
-  BLE_PACKET_TYPE_SCAN_REQ,
-  BLE_PACKET_TYPE_SCAN_RSP,
-  BLE_PACKET_TYPE_CONN_REQ,
-  BLE_PACKET_TYPE_ADV_DISCOVER_IND
+    BLE_PACKET_TYPE_ADV_IND,
+    BLE_PACKET_TYPE_ADV_DIRECT_IND,
+    BLE_PACKET_TYPE_ADV_NONCONN_IND,
+    BLE_PACKET_TYPE_SCAN_REQ,
+    BLE_PACKET_TYPE_SCAN_RSP,
+    BLE_PACKET_TYPE_CONN_REQ,
+    BLE_PACKET_TYPE_ADV_DISCOVER_IND
 } __packed_gcc ble_packet_type_t;
 
 typedef __packed_armcc struct
 {
-  uint8_t type : 4;
-  uint8_t _rfu1 : 2;
-  uint8_t addr_type : 1;
-  uint8_t _rfu2 : 1;
-  uint8_t length;
-  uint8_t _rfu3;
+    uint8_t type : 4;
+    uint8_t _rfu1 : 2;
+    uint8_t addr_type : 1;
+    uint8_t _rfu2 : 1;
+    uint8_t length;
+    uint8_t _rfu3;
 } __packed_gcc ble_packet_header_t;
 
 
@@ -99,7 +99,9 @@ void mesh_packet_on_ts_begin(void);
 
 bool mesh_packet_acquire(mesh_packet_t** pp_packet);
 
-bool mesh_packet_free(mesh_packet_t* p_packet);
+bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet);
+
+bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet);
 
 uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet);
 

@@ -42,7 +42,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>
 
-
+/* event push isn't present in the API header file. */
+extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
 /*****************************************************************************
 * Static globals
@@ -123,16 +124,16 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 
-        serial_handler_event_send(&serial_evt);
-        
         if (error_code == NRF_SUCCESS)
         {            
             /* notify application */
             memset(&app_evt, 0, sizeof(app_evt));
             app_evt.event_type = RBC_MESH_EVENT_TYPE_INITIALIZED;
         
-            rbc_mesh_event_handler(&app_evt);
+            serial_evt.params.cmd_rsp.status = error_code_translate(rbc_mesh_event_push(&app_evt));
         }
+
+        serial_handler_event_send(&serial_evt);
         break;
 
     case SERIAL_CMD_OPCODE_START:
@@ -165,26 +166,30 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         if (serial_cmd->length > sizeof(serial_cmd_params_value_set_t) + 1)
         {
             serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+            error_code = NRF_ERROR_INVALID_LENGTH;
         }
         else
         {
-            uint32_t error_code = rbc_mesh_value_set(   serial_cmd->params.value_set.handle,
+            error_code = rbc_mesh_value_set(   serial_cmd->params.value_set.handle,
                                                         serial_cmd->params.value_set.value,
                                                         serial_cmd->length - 2);
 
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 
-        serial_handler_event_send(&serial_evt);
-
         /* notify application */
-        memset(&app_evt, 0, sizeof(app_evt));
-        app_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-        app_evt.data = serial_cmd->params.value_set.value;
-        app_evt.data_len = serial_cmd->length - 2;
-        app_evt.value_handle = serial_cmd->params.value_set.handle;
+        if (error_code == NRF_SUCCESS)
+        {
+            memset(&app_evt, 0, sizeof(app_evt));
+            app_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+            app_evt.data = serial_cmd->params.value_set.value;
+            app_evt.data_len = serial_cmd->length - 2;
+            app_evt.value_handle = serial_cmd->params.value_set.handle;
 
-        rbc_mesh_event_handler(&app_evt);
+            serial_evt.params.cmd_rsp.status = error_code_translate(rbc_mesh_event_push(&app_evt));
+        }
+        
+        serial_handler_event_send(&serial_evt);
         break;
 
     case SERIAL_CMD_OPCODE_VALUE_ENABLE:

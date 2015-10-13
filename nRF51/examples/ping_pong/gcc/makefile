@@ -21,7 +21,7 @@ COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
 LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
-OUTPUT_NAME   := pingpong
+OUTPUT_NAME   := ping_pong
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
