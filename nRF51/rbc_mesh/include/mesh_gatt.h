@@ -33,31 +33,45 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#include "led_config.h"
-#include "nrf_soc.h"
+#ifndef _MESH_SRV_H__
+#define _MESH_SRV_H__
+
+#include "trickle.h"
+#include "rbc_mesh.h"
+#include "ble.h"
+#include <stdint.h>
+#include <stdbool.h>
+
 /**
-* @brief configure LEDs for easily visible status check
+* @file Module handling all Softdevice GATT server related functionality.
 */
-void led_config(uint8_t led, uint8_t conf)
+
+#define MESH_SRV_UUID                   (0xFEE4) /* Mesh service UUID (16bit) */
+#define MESH_MD_CHAR_UUID               (0x0004) /* Mesh metadata characteristic UUID (128bit) */
+#define MESH_VALUE_CHAR_UUID            (0x0005) /* Mesh value characteristic UUID (128bit) */
+
+#define MESH_MD_CHAR_LEN                (9) /* Total length of Mesh metadata characteristic data */
+#define MESH_MD_CHAR_AA_OFFSET          (0) /* Metadata characteristic Access Address offset */
+#define MESH_MD_CHAR_ADV_INT_OFFSET     (4) /* Metadata characteristic Advertisement interval offset */
+#define MESH_MD_CHAR_CH_OFFSET          (8) /* Metadata characteristic channel offset */
+
+#define CONN_HANDLE_INVALID             (0xFFFF)
+
+/**
+* @brief Global mesh metadata characteristic type
+*/
+typedef struct 
 {
-#if defined(BOARD_PCA10001)
-  if (conf)
-  {
-    NRF_GPIO->OUTSET = (1 << (led - 1 + LED_START));
-  }
-  else
-  {
-    NRF_GPIO->OUTCLR = (1 << (led - 1 + LED_START));
-  }
-#else
-  if (!conf)
-  {
-    NRF_GPIO->OUTSET = (1 << (led - 1 + LED_START));
-  }
-  else
-  {
-    NRF_GPIO->OUTCLR = (1 << (led - 1 + LED_START));
-  }
-#endif
-} 
+    uint32_t mesh_access_addr; /* operating access address */
+    uint32_t mesh_interval_min_ms; /* minimum tx interval */
+    uint8_t mesh_channel; /* Mesh channel */
+} mesh_metadata_char_t;
+
+uint32_t mesh_gatt_init(uint32_t access_address, uint8_t channel, uint32_t interval_min_ms);
+
+uint32_t mesh_gatt_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length);
+
+void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt);
+
+#endif /* _MESH_SRV_H__ */
 

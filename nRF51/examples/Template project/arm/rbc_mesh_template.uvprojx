@@ -444,11 +444,6 @@
               <FilePath>..\..\..\rbc_mesh\src\trickle.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
-            </File>
-            <File>
               <FileName>transport_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\transport_control.c</FilePath>
@@ -568,6 +563,11 @@
               <FileName>mesh_packet.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1084,11 +1084,6 @@
               <FilePath>..\..\..\rbc_mesh\src\trickle.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
-            </File>
-            <File>
               <FileName>transport_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\transport_control.c</FilePath>
@@ -1122,6 +1117,11 @@
               <FileName>mesh_packet.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -1,38 +1,111 @@
 = How it works
 
-== GATT Service
-All values are stored as separate characteristics in the Softdevice GATT server. These
-characteristics are all contained within one "Mesh" GATT service, along with
-one metadata characteristic containing information about the state of the mesh.
+== Value storage
 
-The GATT service and characteristics operate with their own 128 bit base UUID,
-with the same base.  
+All data in the mesh is stored in <handle-version-data> structures, and are
+shared across the mesh. Any device in the mesh may write to any handle, and the 
+latest version of the data is flooded across the network. This flooding is 
+controlled by the Trickle Algorithm, described below. Each mesh value may 
+contain up to 23 bytes of data, and each write to a value increments the 
+version number for that value by one.
+
+There may be up to 65535 Mesh value handles in the mesh. Each mesh value will 
+operate with their own instance of the Trickle algorithm, meaning that they 
+will be rebroadcasted independently. As the nRF51 doesn't have enough RAM to
+support storing all the handles at the same time, the framework employs two 
+"caches", which store the most recently used values. The "handle" cache stores
+the current version number of each known handle, and allows the framework to 
+decide whether an incoming packet is new or old, by comparing the packet version
+number to the one in the cache entry. The "data" cache stores a Trickle instance
+and a packet to be retransmitted. The most recently used handle cache entries 
+each have a pointer to a data cache entry, which is used when the packet is 
+scheduled for retransmission.
+
+== GATT Service
+The handle values may all be accessed from a single "value" characteristic. This 
+characteristic follows a very specific opcode-handle-data format, documented below.
+
+The GATT values are stored in the framework memory, but may be accessed through
+ a Softdevice connection via the Mesh value characteristic in the Mesh service 
+in the GATT server. This characteristic acts as a two way transport for mesh data,
+and requires a specific opcode-handle-data format, documented below.
+
+While the Mesh service has its own 16bit assigned UUID, the characteristics 
+operate with their own 128 bit UUID with the same base. Note that the Mesh
+characteristics changed both format and UUID for the v0.7.0 update of the 
+framework.
 
 .Assigned UUIDs
 |===
 |Value | UUID 
 
-|Mesh service | 0x2A1E0001-FD51-D882-8BA8-B98C0000CD1E
-|Mesh metadata characteristic | 0x2A1E0002-FD51-D882-8BA8-B98C0000CD1E
-|Mesh value characteristic | 0x2A1E0003-FD51-D882-8BA8-B98C0000CD1E
+|Mesh service | 0xFEE4
+|Mesh metadata characteristic | 0x2A1E0004-FD51-D882-8BA8-B98C0000CD1E
+|Mesh value characteristic | 0x2A1E0005-FD51-D882-8BA8-B98C0000CD1E
 |===
 
 === Mesh values
-The Mesh value characteristics are the states that will be shared across the
-mesh. Each Mesh value may contain up to 28 bytes of data, and be updated from any
-node in the mesh. 
+The mesh value characteristic is the two-way interface for the mesh values.
+While the mesh-device acts as the GATT server in the connection, the external
+device is regarded as the "Master", taking control of the mesh device by a set
+of commands, given to the mesh device by the GATT write without response action. 
+The mesh device will respond by sending GATT notifications to the external device, 
+containing various events or return codes.
 
-There may be up to 155 "Mesh value" characteristics in the mesh service in each
-node, depending on configuration parameters provided to the `rbc_mesh_init()`
-function at runtime. Each mesh value will operate with their own instance of
-the Trickle algorithm, meaning that they will be rebroadcasted independently.
-The handles addressing the values are stored as standard https://developer.bluetooth.org/gatt/Pages/GattNamespaceDescriptors.aspx[Bluetooth SIG
-namespace descriptors], where the enumeration of each value is used as
-a mesh-global handle.
+The characteristic follows a strict opcode-parameter format defined below. *All
+fields are little endian*, and fields marked with "`-`" are ignored.
 
-_NOTE:_ Because the Bluetooth SIG has defined namespace descriptor 0 as
-"unknown", the handles start at 1, and trying to access handle 0 returns an
-NRF_ERROR_INVALID_ADDR error.
+[style="monospaced", options="header", halign="center", valign="center"]
+.Value characteristic commands
+|===
+|Operation      | Opcode (1 byte) | Param byte 1 | Param byte 2 | Param byte 3  | Param byte 4  | ... | Param byte N
+
+h|Value set     | 0x00          2+| HANDLE                      | DATA LENGTH 3+| DATA
+h|Flag set      | 0x01          2+| HANDLE                      | FLAG INDEX    | FLAG VALUE  2+| -
+h|Flag request  | 0x02          2+| HANDLE                      | FLAG INDEX  3+| -  
+|===
+
+[style="monospaced", options="header", halign="center", valign="center"]
+.Value characteristic events
+|===
+|Operation          | Opcode (1 byte) | Param byte 1 | Param byte 2 | Param byte 3  | Param byte 4 | ... | Param byte N
+
+h|Value update      | 0x00          2+| HANDLE                      | DATA LENGTH 3+| DATA
+h|Command response  | 0x11            | CMD OPCODE   | RESULT     4+| -
+h|Flag response     | 0x12          2+| HANDLE                      | FLAG INDEX    |FLAG VALUE  2+| -   
+|===
+
+[style="monospaced", options="header", halign="center", valign="center"]
+.Value characteristic command response results
+|===
+|Result                  | Value
+
+h|Success                | 0x00         
+h|Error BUSY             | 0xF0        
+h|Error NOT FOUND        | 0xF1       
+h|Error INVALID HANDLE   | 0xF2      
+h|Error UNKNOWN FLAG     | 0xF3     
+h|Error INVALID OPCODE   | 0xF4    
+|===
+
+All commands sent to the mesh device yield a command response notification 
+containing the corresponding OPCODE and a result, except "Flag req", which 
+returns a "Flag rsp" event, containing the value of the given flag. The 
+following flags are available for set and request for each handle:
+[style="monospaced", options="header", halign="center", valign="center"]
+.Flag indexes
+|===
+|Flag type               | Index
+
+h|Value is persistent    | 0x00         
+h|Is being retransmitted | 0x01        
+|===
+
+Note that the GATT client (the external device) is responsible for enabling 
+notifications on the characteristic, a feature which isn't enabled by default
+in all frameworks. While the mesh device would be able to recevive commands from
+the external device without notifications, they are required for two way 
+communication.
 
 === Mesh metadata
 For ease of use, the service also provides a Metadata characteristic, providing
@@ -137,7 +210,7 @@ Softdevice Specification, available on the Nordic Semiconductor homepage.
 
 == Air interface packets
 All Mesh-related packets are broadcasted as regular BLE Nonconnectable
-Advertisements, with a single exception: The Access address is set by the user,
+Advertisements, with one exception: The Access address is set by the user,
 and does not have to match the Bluetooth Specification advertisement access
 address. The packet structure is illustrated below.
 
@@ -149,7 +222,10 @@ making these unavailable to applications:
 
 * *Timeslot API* All callbacks for timeslot sessions are held by the framework,
 
-* *SWI0_IRQ* The Software interrupt is used for asynchronous packet processing 
+* *QDEC_IRQ* The Quadrature decoder interrupt is used for asynchronous packet processing.
+If the QDEC hardware module interrupt is needed for other behavior, the SWI0-IRQ
+can be used instead. All IRQ related behavior is contained inside the event_handler 
+module.
 
 * *NRF_TIMER0* HF timer 0 is reset and started by the Timeslot API at the
 beginning of each timeslot, and all capture compare slots for this timer may be
@@ -167,11 +243,10 @@ In addition, the Softdevice may block some hardware blocks not listed here.
 Please refer to the relevant Softdevice Specification for details (available at
 the Nordic Semiconductor homepage).
 
-==== Memory
-The framework allocates a metadata array on the heap, with 36bytes per
-handle-value pair. The rest of the program operates strictly on the stack, and
-compiled at Optimization level -O0, Keil reports a program size of approx.
-10kB, and stack size of 5.5kB for the Template project under `examples/`.
+=== Memory
+The program operates strictly on the stack, and compiled at Optimization level
+ -O0, Keil reports a program size of approx. 12kB, and stack size of 5.5kB 
+for the Template project under `examples/`.
 
 
 link:../README.adoc[Back to README]

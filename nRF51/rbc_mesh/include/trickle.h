@@ -44,6 +44,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *   http://tools.ietf.org/html/rfc6206
 */
 
+#define TRICKLE_C_DISABLED  (0xFF)
+
 /**
 * @brief trickle instance type. Contains all values necessary for maintaining
 *   an isolated version of the algorithm
@@ -95,8 +97,20 @@ void trickle_tx_register(trickle_t* trickle);
 void trickle_tx_timeout(trickle_t* trickle, bool* out_do_tx, uint64_t time_now);
 
 /**
-* @brief get the next time the indicated trickle instance is required to do some processing
+* @brief Disable the given trickle instance. It will always report that it is 
+*   not to perform a transmit when checked.
 */
-uint64_t trickle_next_processing_get(trickle_t* trickle, uint64_t time_now);
+void trickle_disable(trickle_t* trickle);
+
+/** 
+* @brief enable a previously disabled trickle value
+*/
+void trickle_enable(trickle_t* trickle);
+
+/**
+* @brief return whether the given trickle instance is enabled, and should be
+*   considered for transmission.
+*/
+bool trickle_is_enabled(trickle_t* trickle);
 
 #endif /* _TRICKLE_H__ */

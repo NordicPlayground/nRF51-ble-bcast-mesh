@@ -71,6 +71,7 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 # source common to all targets
 
 C_SOURCE_FILES += ../main.c
+C_SOURCE_FILES += ../cmd_if.c
 C_SOURCE_FILES += ../RTT/SEGGER_RTT.c
 C_SOURCE_FILES += ../RTT/SEGGER_RTT_printf.c
 
@@ -83,7 +84,7 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/rbc_mesh.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/timer_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/trickle.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_srv.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_gatt.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c

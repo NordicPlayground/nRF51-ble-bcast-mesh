@@ -48,22 +48,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdarg.h>
 
-#define MESH_ACCESS_ADDR        (0xA541A68F)
+#define MESH_ACCESS_ADDR        (0xA521F6D3)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
-#define MESH_HANDLE_COUNT       (20)
+#define MESH_CLOCK_SRC          (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
-#define INVALID_HANDLE          (0xFF)
+#define INVALID_HANDLE          (RBC_MESH_INVALID_HANDLE)
 
-static uint8_t m_handle = INVALID_HANDLE;
-static uint8_t m_data[MAX_VALUE_LENGTH];
+static uint16_t m_handle = INVALID_HANDLE;
+static uint8_t m_data[RBC_MESH_VALUE_MAX_LEN];
 
 extern void UART0_IRQHandler(void);
 
 static void print_usage(void)
 {
     _LOG("To configure: transmit the handle number this device responds to, \r\n"
-    "or 0 to respond to all handles. MAX: %d\r\n", MESH_HANDLE_COUNT);
+    "or 0 to respond to all handles.\r\n");
 }
 
 /** 
@@ -74,32 +74,27 @@ static void cmd_rx(uint8_t* cmd, uint32_t len)
     if (len <= 1)
         return;
     m_handle = atoi((char*) cmd);
-    if (m_handle > MESH_HANDLE_COUNT)
-    {
-        _LOG("OUT OF BOUNDS!\r\n");
-        print_usage();
-    }
-    else if (m_handle == 0)
+    if (m_handle == 0)
     {
         m_data[6]++;
-        for (uint32_t i = 0; i < MESH_HANDLE_COUNT; ++i)
-        {
-            rbc_mesh_value_set(i + 1, m_data, MAX_VALUE_LENGTH);
-        }
         _LOG("Responding to all\r\n");
     }
     else
     {
         m_data[6]++;
-        rbc_mesh_value_set(m_handle, m_data, MAX_VALUE_LENGTH);
+        rbc_mesh_value_set(m_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
+        rbc_mesh_persistence_set(m_handle, true);
         _LOG("Responding to handle %d\r\n", (int) m_handle);
     }
 }
+
 /**
 * @brief General error handler.
 */
 static void error_loop(void)
 {
+    nrf_gpio_pin_clear(LED_START + 1);
+    nrf_gpio_pin_set(LED_START + 2);
     while (1)
     {
         UART0_IRQHandler();
@@ -140,17 +135,7 @@ void HardFault_Handler(void)
 }
 
 /**
-* @brief Softdevice event handler 
-*/
-uint32_t sd_evt_handler(void)
-{
-    rbc_mesh_sd_irq_handler();
-    return NRF_SUCCESS;
-}
-
-/**
-* @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
-*   events coming from the mesh. Propagates the event to the host via UART or RTT.
+* @brief RBC_MESH framework event handler. Handles events coming from the mesh. 
 *
 * @param[in] evt RBC event propagated from framework
 */
@@ -165,14 +150,20 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
             if (evt->value_handle == m_handle || m_handle == 0)
             {
                 nrf_gpio_pin_toggle(LED_START);
-                m_data[6]++;
-                rbc_mesh_value_set(evt->value_handle, m_data, MAX_VALUE_LENGTH);
                 if (m_handle == 0)
+                {
+                    rbc_mesh_value_set(evt->value_handle, m_data, 1); /* short ack */
                     _LOG("%c[%d] \r\n", cmd[evt->event_type], evt->value_handle);
+                }
+                else
+                {
+                    m_data[6]++;
+                    rbc_mesh_value_set(evt->value_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
+                }
             }
             else
             {
-                rbc_mesh_value_disable(evt->value_handle);
+                //rbc_mesh_value_disable(evt->value_handle);
             }
             break;
         case RBC_MESH_EVENT_TYPE_INITIALIZED: break;
@@ -183,19 +174,19 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 /** @brief main function */
 int main(void)
 {   
-    /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
+    /* Enable Softdevice (including sd_ble before framework) */
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SRC, NULL);
+    softdevice_ble_evt_handler_set(rbc_mesh_ble_evt_handler);
+    softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
     
     /* Init the rbc_mesh */
     rbc_mesh_init_params_t init_params;
 
-    init_params.access_addr = MESH_ACCESS_ADDR;
+    init_params.access_addr     = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
-    init_params.channel = MESH_CHANNEL;
-    init_params.handle_count = MESH_HANDLE_COUNT;
-    init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
-    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
-   
+    init_params.channel         = MESH_CHANNEL;
+    init_params.lfclksrc        = MESH_CLOCK_SRC;
+    
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     

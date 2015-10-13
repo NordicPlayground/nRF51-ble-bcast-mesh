@@ -35,12 +35,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rbc_mesh.h"
 #include "rbc_mesh_common.h"
-#include "mesh_srv.h"
 #include "timeslot_handler.h"
 #include "event_handler.h"
 #include "version_handler.h"
 #include "transport_control.h"
 #include "mesh_packet.h"
+#include "mesh_gatt.h"
 
 #include "nrf_error.h"
 #include "nrf_sdm.h"
@@ -58,7 +58,6 @@ static enum
 } g_mesh_state;
 static uint32_t g_access_addr;
 static uint8_t g_channel;
-static uint8_t g_handle_count;
 static uint32_t g_interval_min_ms;
 
 
@@ -98,29 +97,33 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     tc_init(init_params.access_addr, init_params.channel);
 
     uint32_t error_code;
-    error_code = vh_init(init_params.handle_count, init_params.interval_min_ms * 1000);
+    error_code = vh_init(init_params.interval_min_ms * 1000);
     
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
     
-    error_code = mesh_srv_init(init_params.handle_count,
-                                init_params.access_addr,
-                                init_params.channel,
-                                init_params.interval_min_ms);
-
+    ble_enable_params_t ble_enable;
+    ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
+    ble_enable.gatts_enable_params.service_changed = 0;
+    error_code = sd_ble_enable(&ble_enable);
+    if (error_code != NRF_SUCCESS && 
+        error_code != NRF_ERROR_INVALID_STATE)
+    {
+        return error_code;
+    }
+    
+    error_code = mesh_gatt_init(init_params.access_addr, init_params.channel, init_params.interval_min_ms);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
     
-    
-    timeslot_handler_init();
+    timeslot_handler_init(init_params.lfclksrc);
 
     g_access_addr = init_params.access_addr;
     g_channel = init_params.channel;
-    g_handle_count = init_params.handle_count;
     g_interval_min_ms = init_params.interval_min_ms;
 
     g_mesh_state = MESH_STATE_RUNNING;
@@ -156,46 +159,60 @@ uint32_t rbc_mesh_stop(void)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_value_enable(uint8_t handle)
+uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle)
 {
     return vh_value_enable(handle);
 }
 
-uint32_t rbc_mesh_value_disable(uint8_t handle)
+uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle)
 {
     return vh_value_disable(handle);
 }
 
-uint32_t rbc_mesh_tx_report(uint8_t handle, bool do_tx_event)
+uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent)
+{
+    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    
+    return vh_value_persistence_set(handle, persistent);
+}
+
+uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
 {
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
 
-    return vh_tx_report(handle, do_tx_event);
+    return vh_tx_event_set(handle, do_tx_event);
 }
 
 /****** Getters and setters ******/
 
-uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len)
+uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t len)
 {
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    /* important to update data first, as the vh may choose to transmit immediately */
-    uint32_t error_code = mesh_srv_char_val_set(handle, data, len);
-    if (error_code != NRF_SUCCESS)
-        return error_code;
-    if (vh_local_update(handle) == VH_DATA_STATUS_UNKNOWN)
-        return NRF_ERROR_INTERNAL; /* The mesh_srv call should have prevented this */
+    if (handle == RBC_MESH_INVALID_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
+    
+    /* no critical errors if this call fails, ignore return */
+    mesh_gatt_value_set(handle, data, len);
+    
+    if (vh_local_update(handle, data, len) == VH_DATA_STATUS_UNKNOWN)
+        return NRF_ERROR_INTERNAL; 
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_value_get(uint8_t handle, uint8_t* data, uint16_t* len)
+uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* len)
 {
-    return mesh_srv_char_val_get(handle, data, len);
+    return vh_value_get(handle, data, len);
 }
 
 uint32_t rbc_mesh_access_address_get(uint32_t* access_address)
@@ -222,18 +239,6 @@ uint32_t rbc_mesh_channel_get(uint8_t* ch)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count)
-{
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-
-    *handle_count = g_handle_count;
-
-    return NRF_SUCCESS;
-}
-
 uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
 {
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
@@ -246,50 +251,28 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt)
+uint32_t rbc_mesh_persistence_get(rbc_mesh_value_handle_t handle, bool* is_persistent)
 {
-    if (evt->header.evt_id == BLE_GAP_EVT_CONNECTED)
-    {
-        mesh_srv_conn_handle_update(evt->evt.gap_evt.conn_handle);
-    }
+    return vh_value_persistence_get(handle, is_persistent);
+}
 
+uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event)
+{
+    return vh_tx_event_flag_get(handle, is_doing_tx_event);
+}
+
+void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
+{
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
-        return NRF_ERROR_INVALID_STATE;
+        return;
     }
 
-    /* may safely ignore all events that don't write to a value */
-    if (evt->header.evt_id != BLE_GATTS_EVT_WRITE)
-    {
-        return NRF_SUCCESS;
-    }
-    ble_gatts_evt_write_t* write_evt = &evt->evt.gatts_evt.params.write;
-
-    uint32_t error_code = mesh_srv_gatts_evt_write_handle(write_evt);
-
-    if (error_code != NRF_SUCCESS &&
-        error_code != NRF_ERROR_INVALID_ADDR)
-    {
-        if (error_code == NRF_ERROR_FORBIDDEN)
-        {
-            return NRF_SUCCESS; /* wrong service, just ignore */
-        }
-        else
-        {
-            return error_code;
-        }
-    }
-
-    return NRF_SUCCESS;
+    mesh_gatt_sd_ble_event_handle(p_evt);
 }
 
-
-/***** event handler ******/
-
-uint32_t rbc_mesh_sd_irq_handler(void)
+void rbc_mesh_sd_evt_handler(uint32_t evt)
 {
-    /* call lower layer event handler */
-    ts_sd_event_handler();
-
-    return NRF_SUCCESS;
+    ts_sd_event_handler(evt);
 }
+

@@ -59,21 +59,16 @@ bool rbc_mesh_echo(uint8_t* buffer, int len){
 bool rbc_mesh_init(
 	uint32_t accessAddr,
 	uint8_t chanNr,
-	uint8_t handleCount,
-    uint32_t advInt_ms){
-	
-	if(chanNr != 37 && chanNr != 38 && chanNr != 39)
-		return false;
+        uint32_t int_min_ms){
 	
     hal_aci_data_t msg_for_mesh;
     serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
 
-    p_cmd->length = 11;
+    p_cmd->length = 10;
     p_cmd->opcode = SERIAL_CMD_OPCODE_INIT;
     p_cmd->params.init.access_addr = accessAddr;
     p_cmd->params.init.channel = chanNr;
-    p_cmd->params.init.handle_count = handleCount;
-    p_cmd->params.init.adv_int_min = advInt_ms;
+    p_cmd->params.init.int_min = int_min_ms;
 
 	return hal_aci_tl_send(&msg_for_mesh);
 }
@@ -100,7 +95,7 @@ bool rbc_mesh_stop(void)
     return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool rbc_mesh_value_set(uint8_t handle, uint8_t* buffer, int len){
+bool rbc_mesh_value_set(uint16_t handle, uint8_t* buffer, int len){
 
 	if (len > HAL_ACI_MAX_LENGTH - 1 || len < 1)
 		return false;
@@ -117,7 +112,7 @@ bool rbc_mesh_value_set(uint8_t handle, uint8_t* buffer, int len){
 }
 
 
-bool rbc_mesh_value_enable(uint8_t handle){
+bool rbc_mesh_value_enable(uint16_t handle){
 
     hal_aci_data_t msg_for_mesh;
     serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
@@ -129,7 +124,7 @@ bool rbc_mesh_value_enable(uint8_t handle){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool rbc_mesh_value_disable(uint8_t handle){
+bool rbc_mesh_value_disable(uint16_t handle){
 
     hal_aci_data_t msg_for_mesh;
     serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
@@ -141,7 +136,7 @@ bool rbc_mesh_value_disable(uint8_t handle){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool rbc_mesh_value_get(uint8_t handle){
+bool rbc_mesh_value_get(uint16_t handle){
 
     hal_aci_data_t msg_for_mesh;
     serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
@@ -188,26 +183,65 @@ bool rbc_mesh_channel_get(){
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool rbc_mesh_handle_count_get(){
+bool rbc_mesh_interval_min_get(){
 
     hal_aci_data_t msg_for_mesh;
     serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
 
     p_cmd->length = 1;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_HANDLE_COUNT_GET;
-    
+    p_cmd->opcode = SERIAL_CMD_OPCODE_INTERVAL_GET;
+	
 	return hal_aci_tl_send(&msg_for_mesh);
 }
 
-bool rbc_mesh_adv_int_get(){
-
+bool rbc_mesh_tx_event_flag_set(uint16_t handle, bool value)
+{
     hal_aci_data_t msg_for_mesh;
     serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
+    p_cmd->length = 5;
+    p_cmd->opcode = SERIAL_CMD_OPCODE_FLAG_SET;
+    p_cmd->params.flag_set.handle = handle;
+    p_cmd->params.flag_set.flag = ACI_FLAG_TX_EVENT;
+    p_cmd->params.flag_set.value = value;
 
-    p_cmd->length = 1;
-    p_cmd->opcode = SERIAL_CMD_OPCODE_ADV_INT_GET;
-	
-	return hal_aci_tl_send(&msg_for_mesh);
+    return hal_aci_tl_send(&msg_for_mesh);
+}
+
+bool rbc_mesh_persistent_flag_set(uint16_t handle, bool value)
+{
+    hal_aci_data_t msg_for_mesh;
+    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
+    p_cmd->length = 5;
+    p_cmd->opcode = SERIAL_CMD_OPCODE_FLAG_SET;
+    p_cmd->params.flag_set.handle = handle;
+    p_cmd->params.flag_set.flag = ACI_FLAG_PERSISTENT;
+    p_cmd->params.flag_set.value = value;
+
+    return hal_aci_tl_send(&msg_for_mesh);
+}
+
+bool rbc_mesh_tx_event_flag_get(uint16_t handle)
+{
+    hal_aci_data_t msg_for_mesh;
+    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
+    p_cmd->length = 4;
+    p_cmd->opcode = SERIAL_CMD_OPCODE_FLAG_GET;
+    p_cmd->params.flag_get.handle = handle;
+    p_cmd->params.flag_get.flag = ACI_FLAG_TX_EVENT;
+
+    return hal_aci_tl_send(&msg_for_mesh);
+}
+
+bool rbc_mesh_persistent_flag_get(uint16_t handle)
+{
+    hal_aci_data_t msg_for_mesh;
+    serial_cmd_t* p_cmd = (serial_cmd_t*) msg_for_mesh.buffer;
+    p_cmd->length = 4;
+    p_cmd->opcode = SERIAL_CMD_OPCODE_FLAG_GET;
+    p_cmd->params.flag_get.handle = handle;
+    p_cmd->params.flag_get.flag = ACI_FLAG_PERSISTENT;
+
+    return hal_aci_tl_send(&msg_for_mesh);
 }
 
 bool rbc_mesh_evt_get(serial_evt_t* p_evt){

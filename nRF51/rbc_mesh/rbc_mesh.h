@@ -38,12 +38,39 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 #include "nrf51.h"
+#include "nrf_sdm.h"
 #include "ble.h"
 
 #define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
 #define RBC_MESH_INTERVAL_MIN_MIN_MS     (5)
 #define RBC_MESH_INTERVAL_MIN_MAX_MS     (60000)
-#define RBC_MESH_VALUE_MAX_LEN           (28)
+#define RBC_MESH_VALUE_MAX_LEN           (23)
+#define RBC_MESH_INVALID_HANDLE          (0xFFFF)
+#define RBC_MESH_APP_MAX_HANDLE          (0xFFF0)  
+
+/* 
+   There are two caches in the framework: 
+   - The handle cache keeps track of the latest version number for each handle.
+   - The data cache contains all handles currently being retransmitted by the device.
+   If a handle falls out of the data cache, the device will stop broadcasting it.
+   If a handle falls out of the handle cache, the device will not know whether updates 
+   to the handle are new or old.
+*/
+
+/** @brief Default value for the number of handle cache entries */
+#ifndef RBC_MESH_HANDLE_CACHE_ENTRIES    
+    #define RBC_MESH_HANDLE_CACHE_ENTRIES     (100)
+#endif
+
+/** @brief Default value for the number of data cache entries */
+#ifndef RBC_MESH_DATA_CACHE_ENTRIES
+    #define RBC_MESH_DATA_CACHE_ENTRIES       (20)
+#endif
+
+#if (RBC_MESH_HANDLE_CACHE_ENTRIES < RBC_MESH_DATA_CACHE_ENTRIES)
+    #error "The number of handle cache entries cannot be lower than the number of data entries"
+#endif
+
 /** 
 * @brief Rebroadcast value handle type 
 *
@@ -75,44 +102,9 @@ typedef struct
     uint16_t version_delta;                 /** Version number increase since last update */
 } rbc_mesh_event_t;
 
-
-/** 
-* @brief Enum for radio mode used in initialization. See nRF51 Series 
-*   documentation for details on the various modes. Note that 
-*   the BLE_1MBIT mode is required to let the mesh packetsbe on-air compatible
-*   with other devices (The regular gateway interface will be compatible 
-*   regardless).
-*/
-typedef enum
-{
-    RBC_MESH_RADIO_MODE_1MBIT,
-    RBC_MESH_RADIO_MODE_2MBIT,
-    RBC_MESH_RADIO_MODE_250KBIT,
-    RBC_MESH_RADIO_MODE_BLE_1MBIT
-} rbc_mesh_radio_mode_t;
-
-/**
-* @brief Enum for on-air packet interface format. The original packet interface
-*   provide the original max packet length of 28 bytes, but is not compatible
-*   with external devices on-air, as the payload of the advertisements does not
-*   adhere to the specification. To be able to inject packets into the mesh 
-*   without using a gateway interface, the adv_compatible version must be used. 
-*   Note that this reduces the max packet length to 26 bytes.
-*/
-typedef enum
-{
-    RBC_MESH_PACKET_FORMAT_ORIGINAL,
-    RBC_MESH_PACKET_FORMAT_ADV_COMPATIBLE
-} rbc_mesh_packet_format_t;
-
 /**
 * @brief Initialization parameter struct for the rbc_mesh_init() function.
 *
-*
-* @note The nRF51 Softdevice must be initialized by the application before
-*    the mesh framework intialization is called, otherwise, the function will
-*    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED.
-* 
 * @param[in] access_addr The access address the mesh will work on. This must be the 
 *    same for all nodes in the mesh. RBC_MESH_ACCESS_ADDRESS_BLE_ADV gives the mesh
 *    the same access address as regular BLE advertisements, which makes the
@@ -120,28 +112,22 @@ typedef enum
 *    does not provide any data security, the traffic is merely ignored by 
 *    regular BLE radios). Multiple meshes may in theory work concurrently in 
 *    the same area with different access addresses, but will be prone to 
-*    on-air collisions, and it is recommended to use separate channels for this
+*    on-air collisions, and it is recommended to use separate channels for this.
 * @param[in] channel The BLE channel the mesh works on. It is strongly recommended 
 *    to use one of the three adv channels 37, 38 or 39, as others may be prone
 *    to on-air collisions with WiFi channels. Separate meshes may work 
 *    concurrently without packet collision if they are assigned to different 
 *    channels. Must be between 1 and 39.
-* @param[in] handle_count The maximum number of handle-value pairs available to the
-*    application. May not be higher than 155 due to BLE namespace requirements
 * @param[in] interval_min_ms The minimum tx interval for nodes in the network in 
 *    millis. Must be between 5 and 60000.
-* @param radio_mode The radio mode the mesh shall operate on. Must be the same
-*    across all nodes in the mesh. NOT YET IMPLEMENTED
-* @param packet_format The format the packets should follow. NOT YET IMPLEMENTED
+* @param[in] lfclksrc The LF-clock source parameter supplied to the softdevice_enable function.
 */
 typedef struct
 {
     uint32_t access_addr;
     uint8_t channel;
-    uint8_t handle_count;
     uint32_t interval_min_ms;
-    rbc_mesh_radio_mode_t radio_mode;
-    rbc_mesh_packet_format_t packet_format;
+    nrf_clock_lfclksrc_t lfclksrc;
 } rbc_mesh_init_params_t;
 
 /*****************************************************************************
@@ -153,11 +139,11 @@ typedef struct
 *   rebroadcast function. 
 *
 * @note The nRF51 Softdevice must be initialized by the application before
-*    the mesh framework intialization is called, otherwise, the function will
+*    the mesh framework intialization is called, or the function will
 *    return NRF_ERROR_SOFTDEVICE_NOT_ENABLED.
 * 
 * @return NRF_SUCCESS the initialization is successful 
-* @return NRF_ERROR_INVALID_PARAM a parameter does not meet its requiremented range.
+* @return NRF_ERROR_INVALID_PARAM a parameter does not meet its required range.
 * @return NRF_ERROR_INVALID_STATE the framework has already been initialized.
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
@@ -167,7 +153,8 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
 * @brief Start mesh radio activity after stopping it. 
 *
 * @details This function is called automatically in the @ref rbc_mesh_init 
-*   function, and only has to be called after a call to @ref rbc_mesh_stop.
+*   function, and only has to be explicitly called after a call to 
+*   @ref rbc_mesh_stop.
 *
 * @return NRF_SUCCESS the mesh successfully started radio operation
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized, or
@@ -208,7 +195,7 @@ uint32_t rbc_mesh_stop(void);
 *    in @ref rbc_mesh_init.
 * @return NRF_ERROR_INVALID_LENGTH if len exceeds RBC_VALUE_MAX_LEN.
 */
-uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
+uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t len);
 
 /**
 * @brief Start broadcasting the handle-value pair. If the handle has not been 
@@ -221,12 +208,11 @@ uint32_t rbc_mesh_value_set(uint8_t handle, uint8_t* data, uint16_t len);
 *
 * @param[in] handle Handle to request a value for 
 *
-* @return NRF_SUCCESS A request was successfully scheduled for broadcast
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
-*   in @ref rbc_mesh_init.
-* @return NRF_ERROR_INVALID_STATE The framework has not been initiated
+* @return NRF_SUCCESS A request was successfully scheduled for broadcast.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initiated.
 */
-uint32_t rbc_mesh_value_enable(uint8_t handle);
+uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle);
 
 /**
 * @brief Stop rebroadcasting the indicated handle-value pair. 
@@ -239,11 +225,35 @@ uint32_t rbc_mesh_value_enable(uint8_t handle);
 * @param[in] handle Handle to stop broadcasting
 * 
 * @return NRF_SUCCESS The handle was successfully taken off the broadcast list
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
-*   @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
 * @return NRF_ERROR_INVALID_STATE The framework has not been initialized.
 */
-uint32_t rbc_mesh_value_disable(uint8_t handle);
+uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
+
+/**
+* @brief Set whether the given handle should be persistent in the handle cache.
+*
+* @note While non-persistent values may be forgotten by the handle cache, a 
+*   persistent value will be retransmitted forever. Note that setting too many
+*   persistent values in the cache will reduce the framework's ability to 
+*   retransmit non-persistent values, leading to more packet drops and poor 
+*   throughput. It is therefore recommended to be conservative about the 
+*   usage of this flag.
+* @note If a device is known to be the lone maintainer of a particular 
+*   handle, it is recommended to let the handle be persistent in that device, 
+*   as a reset in version numbers may cause a disrupt in communication.
+*
+* @param[in] handle Handle to change the Persistent flag for.
+* @param[in] persistent Whether or not to let the value be persistent in the 
+*   cache.
+* 
+* @return NRF_SUCCESS the persistence configuration has been set successfully.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
+* @return NRF_ERROR_NO_MEM the number of persistent values in the cache exceeds
+*   the cache size.
+* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+*/
+uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent);
 
 /**
 * @brief Set whether the given handle should produce TX events for each time
@@ -261,25 +271,23 @@ uint32_t rbc_mesh_value_disable(uint8_t handle);
 *
 * @return NRF_SUCCESS the TX event configuration has been set successfully
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided 
-*   in @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
 */
-uint32_t rbc_mesh_tx_report(uint8_t handle, bool do_tx_event);
+uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
 
 /**
- * @brief Get the contents of the data array pointed to by the provided handle
+* @brief Get the contents of the data array pointed to by the provided handle
 *
 * @param[in] handle The handle of the value we want to update. Is mesh-global.
 * @param[out] data Databuffer to be copied into the value slot. Must be at least
-*    RBC_VALUE_MAX_LEN long
+*    RBC_VALUE_MAX_LEN long.
 * @param[out] len Length of the copied data. Will not exceed RBC_VALUE_MAX_LEN.
 * 
 * @return NRF_SUCCESS the value has been successfully fetched.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-* @return NRF_ERROR_INVALID_ADDR the handle is outside the range provided
-*    in @ref rbc_mesh_init.
+* @return NRF_ERROR_INVALID_ADDR the handle is invalid.
 */
-uint32_t rbc_mesh_value_get(uint8_t handle, 
+uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, 
     uint8_t* data, 
     uint16_t* len);
 
@@ -304,16 +312,6 @@ uint32_t rbc_mesh_access_address_get(uint32_t* access_address);
 uint32_t rbc_mesh_channel_get(uint8_t* ch);
 
 /**
-* @brief Get the amount of allocated handle-value pairs 
-* 
-* @param[out] handle_count Pointer location to put handle count in 
-*
-* @return NRF_SUCCESS the value was fetched successfully
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized 
-*/
-uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
-
-/**
 * @brief Get the mesh minimum transmit interval in ms
 *
 * @param[out] interval_min_ms Pointer location to put adv int in
@@ -324,37 +322,63 @@ uint32_t rbc_mesh_handle_count_get(uint8_t* handle_count);
 uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms);
 
 /**
-* @brief Event handler to be called upon external BLE event arrival.
-*   Only handles GATTS write events, all other types are ignored.
-*   Has a similar effect as @ref rbc_mesh_value_set, by refreshing version
-*   numbers and timing parameters related to the indicated characteristic.
+* @brief get whether the given handle has its persistence flag set
 *
-* @note This event may be called regardless of if the indicated characteristic
-*   belongs to the mesh or not, the framework will filter out uninteresting 
-*   events and return NRF_SUCCESS. However, if the incoming event points at 
-*   the mesh service, but the characteristic handle is out of range, the 
-*   function returns NRF_ERROR_INVALID_ADDR. 
+* @param[in] handle The handle whose flag should be checked.
+* @param[out] is_persistent a pointer to a boolean to which the flag status will 
+*   be copied.
 *
-* @note This function will also trigger any update/new events in the application
-*   space 
-*   
-* @param[in] evt BLE event received from softdevice.
-*
-* @return NRF_SUCCESS Event successfully handled.
-* @return NRF_ERROR_INVALID_ADDR Handle is part of service, but does not belong
-*   any valid characteristics.
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
+* @return NRF_SUCCESS The flag status was successfully copied to the parameter.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initilalized.
+* @return NRF_ERROR_NOT_FOUND The given handle is not present in the cache.
+* @return NRF_ERROR_INVALID_ADDR The given handle is invalid.
 */
-uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
+uint32_t rbc_mesh_persistence_get(rbc_mesh_value_handle_t handle, bool* is_persistent);
 
 /**
-* @brief Softdevice interrupt handler, checking if there are any 
-*   incomming events related to the framework. 
+* @brief get whether the given handle has its tx_event flag set
 *
-* @note Should be called from the SD_IRQHandler function. Will poll the 
-*   softdevice for new sd_evt.
+* @param[in] handle The handle whose flag should be checked.
+* @param[out] is_doing_tx_event a pointer to a boolean to which the flag status will 
+*   be copied.
+*
+* @return NRF_SUCCESS The flag status was successfully copied to the parameter.
+* @return NRF_ERROR_INVALID_STATE The framework has not been initilalized.
+* @return NRF_ERROR_NOT_FOUND The given handle is not present in the cache.
+* @return NRF_ERROR_INVALID_ADDR The given handle is invalid.
 */
-uint32_t rbc_mesh_sd_irq_handler(void);
+uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event);
+
+/**
+* @brief Event handler to be called upon Softdevice BLE event arrival.
+* 
+* @details Event handler taking care of all mesh behavior related to BLE. 
+*   Typical events to trigger processing or local changes are 
+*   writes to the value characteristic or a change in connection status. The 
+*   framework will give events to the application if the function triggers a 
+*   write to a handle value or similar.
+*
+* @note This event may be called regardless of whether the event is relevant 
+*   to the mesh or not - the framework will filter out uninteresting 
+*   events and return NRF_SUCCESS. 
+*
+* @param[in] p_evt BLE event received from softdevice.
+*/
+void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt);
+
+/**
+* @brief Event handler to be called upon regular Softdevice event arrival.
+* 
+* @details Event handler taking care of all mesh behavior related to the 
+*   Softdevice. Events are expected to be in the range
+*
+* @note This event may be called regardless of whether the event is relevant 
+*   to the mesh or not - the framework will filter out uninteresting 
+*   events and return NRF_SUCCESS. 
+*
+* @param[in] evt event received from Softdevice through the sd_evt_get() call.
+*/
+void rbc_mesh_sd_evt_handler(uint32_t evt);
 
 /**
  * @brief Application space event handler. TO BE IMPLEMENTED IN APPLICATION 

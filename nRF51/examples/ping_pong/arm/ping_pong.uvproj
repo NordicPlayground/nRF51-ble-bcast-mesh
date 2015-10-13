@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>nRF51822 xxAA</TargetName>
+      <TargetName>ping_pong</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <TargetOption>
@@ -45,7 +45,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\_build\</OutputDirectory>
-          <OutputName>rbc_mesh_scaling</OutputName>
+          <OutputName>ping_pong</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -332,8 +332,8 @@
               </OCR_RVCT8>
               <OCR_RVCT9>
                 <Type>0</Type>
-                <StartAddress>0x20004000</StartAddress>
-                <Size>0x4000</Size>
+                <StartAddress>0x20002000</StartAddress>
+                <Size>0x6000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
@@ -361,7 +361,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>RBC_MESH_GATTS_ATTR_TABLE_SIZE=0x4100 BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10028 SOFTDEVICE_PRESENT NRF51</Define>
+              <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10028 SOFTDEVICE_PRESENT NRF51</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\RTT;..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\..\components\libraries\fifo;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\..\components\device</IncludePath>
             </VariousControls>
@@ -411,6 +411,11 @@
               <FileType>1</FileType>
               <FilePath>..\main.c</FilePath>
             </File>
+            <File>
+              <FileName>cmd_if.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\cmd_if.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -420,11 +425,6 @@
               <FileName>rbc_mesh.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
-            </File>
-            <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
             </File>
             <File>
               <FileName>radio_control.c</FileName>
@@ -566,6 +566,11 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>
