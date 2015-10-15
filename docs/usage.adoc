@@ -313,8 +313,8 @@ The framework may produce the following events:
 external node with the given address, and now contains the data array
 provided in the event-structure.
 
-* *Conflicting*: A value with the same version number, but different data or
-originator has arrived at the node, and this new, conflicting value is provided
+* *Conflicting*: A value with the same version number, but different data 
+has arrived at the node, and this new, conflicting value is provided
 within the event-structure. The value is *not* overwritten in the database, but
 the application is free to do this with a call to `rbc_mesh_value_set()`.
 
