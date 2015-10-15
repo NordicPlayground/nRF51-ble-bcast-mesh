@@ -116,14 +116,14 @@ static nrf_radio_signal_callback_return_param_t g_ret_param;
 static uint64_t g_timeslot_length;
 static uint64_t g_next_timeslot_length;
 static uint64_t g_start_time_ref = 0;
-static uint64_t g_global_time = 0;    
+static uint64_t g_global_time = 0;      
 static bool g_is_in_callback = false;            
 static bool g_is_in_timeslot = false;
 static bool g_framework_initialized = false;
 static bool g_end_timer_triggered = false;
 static ts_forced_command_t g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
 static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
-static uint32_t g_end_safety_margin_us;                
+static uint32_t g_lfclk_ppm;                            
 
 
 static volatile uint32_t ts_count = 0;
@@ -131,7 +131,10 @@ static volatile uint32_t ts_count = 0;
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
-
+static uint32_t end_timer_margin(void)
+{
+    return (g_timeslot_length * g_lfclk_ppm) / 1000000 + TIMESLOT_END_SAFETY_MARGIN_US;
+}
 
 
 /*****************************************************************************
@@ -289,7 +292,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             g_negotiate_timeslot_length = TIMESLOT_SLOT_EXTEND_LENGTH;
             g_timeslot_length = g_next_timeslot_length;
 
-            timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - g_end_safety_margin_us,
+            timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - end_timer_margin(),
                     end_timer_handler);
 
             /* attempt to extend our time right away */
@@ -324,7 +327,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 
             timer_abort(TIMER_INDEX_TS_END);
 
-            timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - g_end_safety_margin_us,
+            timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - end_timer_margin(),
                     end_timer_handler);
             
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
@@ -398,42 +401,41 @@ void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
         return;
     }
     uint32_t error;
-
-    g_is_in_callback = false;
-    g_framework_initialized = true;
     
-    uint32_t lfclk_ppm; 
+    
     switch (lfclksrc)
     {
         case NRF_CLOCK_LFCLKSRC_XTAL_100_PPM:
-            lfclk_ppm = 100;
+            g_lfclk_ppm = 100;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_150_PPM:
-            lfclk_ppm = 150;
+            g_lfclk_ppm = 150;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_20_PPM:
-            lfclk_ppm = 20;
+            g_lfclk_ppm = 20;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_250_PPM:
-            lfclk_ppm = 250;
+            g_lfclk_ppm = 250;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_30_PPM:
-            lfclk_ppm = 30;
+            g_lfclk_ppm = 30;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_500_PPM:
-            lfclk_ppm = 500;
+            g_lfclk_ppm = 500;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_50_PPM:
-            lfclk_ppm = 50;
+            g_lfclk_ppm = 50;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_75_PPM:
-            lfclk_ppm = 20;
+            g_lfclk_ppm = 20;
             break;
         default:
-            lfclk_ppm = 250;
+            g_lfclk_ppm = 250;
     }
     
-    g_end_safety_margin_us = ((TIMESLOT_MAX_LENGTH / 1000000) * lfclk_ppm) + TIMESLOT_END_SAFETY_MARGIN_US;
+
+    g_is_in_callback = false;
+    g_framework_initialized = true;
     
     error = sd_nvic_EnableIRQ(SD_EVT_IRQn);
     APP_ERROR_CHECK(error);
