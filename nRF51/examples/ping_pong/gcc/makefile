@@ -20,7 +20,7 @@ SDK_BASE      := ../../../../../..
 COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
-LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
+LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld
 OUTPUT_NAME   := ping_pong
 
 #------------------------------------------------------------------------------
