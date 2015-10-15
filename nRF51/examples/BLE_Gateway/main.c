@@ -103,21 +103,10 @@ void HardFault_Handler(void)
 /**
 * @brief Softdevice event handler 
 */
-uint32_t sd_evt_handler(void)
+void sd_ble_evt_handler(ble_evt_t* p_ble_evt)
 {
-    uint8_t ble_evt[sizeof(ble_evt_t) + RBC_MESH_VALUE_MAX_LEN];
-    uint16_t len = sizeof(ble_evt);
-    while (sd_ble_evt_get((uint8_t*) &ble_evt, &len) == NRF_SUCCESS)
-    {
-        rbc_mesh_ble_evt_handler((ble_evt_t*) &ble_evt);
-        nrf_adv_conn_evt_handler((ble_evt_t*) &ble_evt);
-    }
-    uint32_t sd_evt;
-    while (sd_evt_get(&sd_evt) == NRF_SUCCESS)
-    {
-        rbc_mesh_sd_evt_handler(sd_evt);
-    }
-    return NRF_SUCCESS;
+    rbc_mesh_ble_evt_handler(p_ble_evt);
+    nrf_adv_conn_evt_handler(p_ble_evt);
 }
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
@@ -125,7 +114,7 @@ uint32_t sd_evt_handler(void)
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     TICK_PIN(28);
     switch (evt->event_type)
@@ -183,7 +172,9 @@ int main(void)
     gpio_init();
     NRF_GPIO->OUTSET = (1 << 4);
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, sd_evt_handler);
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, NULL);
+    softdevice_ble_evt_handler_set(sd_ble_evt_handler); /* app-defined event handler, as we need to send it to the nrf_adv_conn module and the rbc_mesh */
+    softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
     
 #ifdef RBC_MESH_SERIAL
 
@@ -216,14 +207,21 @@ int main(void)
     NRF_GPIO->OUTCLR = (1 << 4);
 
 #if !(defined(BUTTONS))
-    /* sleep */
+    /* fetch events */
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_packet_release(evt.data);
+        }
+        
         sd_app_evt_wait();
-    }
-    
+    }    
 #else
     uint8_t mesh_data[16] = {0,0};
+    rbc_mesh_event_t evt;
     while (true)
     {
         // red off
@@ -251,12 +249,18 @@ int main(void)
             led_config(1, 0);
         }
         // green on
-         if(nrf_gpio_pin_read(BUTTON_4) == 0)
+        if(nrf_gpio_pin_read(BUTTON_4) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
             rbc_mesh_value_set(1, mesh_data, 1);
             led_config(1, 1);
+        }
+
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_packet_release(evt.data);
         }
     }
 #endif

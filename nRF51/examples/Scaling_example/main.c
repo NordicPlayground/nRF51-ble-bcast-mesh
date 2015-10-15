@@ -280,7 +280,7 @@ int main(void)
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
     init_params.lfclksrc = MESH_CLOCK_SOURCE;
-   
+
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
@@ -305,14 +305,30 @@ int main(void)
     _LOG("START\r\n");
     
 #if LOG_RTT
+    rbc_mesh_event_t evt;
     while (true)
     {
-        uint8_t c = SEGGER_RTT_WaitKey();
-        char_rx(c);
+        int8_t c = SEGGER_RTT_GetKey();
+        if (c >= 0)
+            char_rx(c);
+
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+        }
+        
+        sd_app_evt_wait();
     }
 #else      
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_packet_release(evt.data);
+        }
+        
         sd_app_evt_wait();
     }
 #endif

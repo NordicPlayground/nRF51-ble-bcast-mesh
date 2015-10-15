@@ -48,14 +48,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdarg.h>
 
-#define MESH_ACCESS_ADDR        (0xA521F6D3)
+#define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
 #define MESH_CLOCK_SRC          (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
 #define INVALID_HANDLE          (RBC_MESH_INVALID_HANDLE)
 
-static uint16_t m_handle = INVALID_HANDLE;
+static rbc_mesh_value_handle_t m_handle = INVALID_HANDLE;
 static uint8_t m_data[RBC_MESH_VALUE_MAX_LEN];
 
 extern void UART0_IRQHandler(void);
@@ -139,7 +139,7 @@ void HardFault_Handler(void)
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 { 
     static const char cmd[] = {'U', 'C', 'N', 'I', 'T'};
     switch (evt->event_type)
@@ -205,8 +205,15 @@ int main(void)
     _LOG("START\r\n");
     print_usage();
     
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_packet_release(evt.data);
+        }
+        
         sd_app_evt_wait();
     }
 }
