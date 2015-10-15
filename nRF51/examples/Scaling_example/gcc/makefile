@@ -125,7 +125,6 @@ INC_PATHS += -I$(COMPONENTS)/drivers_nrf/hal
 INC_PATHS += -I$(COMPONENTS)/drivers_nrf/uart
 INC_PATHS += -I$(COMPONENTS)/drivers_nrf/gpiote
 INC_PATHS += -I$(COMPONENTS)/drivers_nrf/common
-INC_PATHS += -I$(COMPONENTS)/drivers_nrf/config
 INC_PATHS += -I$(COMPONENTS)/libraries/fifo
 
 OBJECT_DIRECTORY = _build
