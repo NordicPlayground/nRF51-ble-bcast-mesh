@@ -129,10 +129,14 @@ static void tx_cb(uint8_t* data)
 {
     rbc_mesh_event_t tx_event;
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) data);
-    if (p_adv_data != NULL && vh_tx_event_flag_get(p_adv_data->handle))
+    bool doing_tx_event = false;
+    if (p_adv_data != NULL && 
+        vh_tx_event_flag_get(p_adv_data->handle, &doing_tx_event) == NRF_SUCCESS 
+        && doing_tx_event
+    )
     {
         tx_event.event_type = RBC_MESH_EVENT_TYPE_TX;
-        tx_event.value_handle = handle;
+        tx_event.value_handle = p_adv_data->handle;
         tx_event.data = p_adv_data->data;
         tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
         tx_event.version_delta = 0;
