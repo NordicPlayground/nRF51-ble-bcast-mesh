@@ -340,25 +340,6 @@ static void transmit_all_instances(uint64_t timestamp)
                 {
                     /* the handle is queued for transmission */
                     trickle_tx_register(&m_data_cache[data_index].trickle);
-
-                    uint16_t handle = mesh_packet_handle_get(m_data_cache[data_index].p_packet);
-                    uint16_t handle_index = handle_entry_get(handle);
-                    if (handle_index != HANDLE_CACHE_ENTRY_INVALID &&
-                            m_handle_cache[handle_index].tx_event)
-                    {
-                        rbc_mesh_event_t tx_event;
-                        mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(m_data_cache[data_index].p_packet);
-                        tx_event.event_type = RBC_MESH_EVENT_TYPE_TX;
-                        tx_event.value_handle = handle;
-                        tx_event.data = p_adv_data->data;
-                        tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
-                        tx_event.version_delta = 0;
-
-                        APP_ERROR_CHECK(rbc_mesh_event_push(&tx_event));
-#if RBC_MESH_SERIAL
-                        mesh_aci_rbc_event_handler(&tx_event);
-#endif
-                    }
                 }
                 else 
                 {

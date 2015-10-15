@@ -127,6 +127,22 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
 /* radio callback, executed in STACK_LOW */
 static void tx_cb(uint8_t* data)
 {
+    rbc_mesh_event_t tx_event;
+    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) data);
+    if (p_adv_data != NULL && vh_tx_event_flag_get(p_adv_data->handle))
+    {
+        tx_event.event_type = RBC_MESH_EVENT_TYPE_TX;
+        tx_event.value_handle = handle;
+        tx_event.data = p_adv_data->data;
+        tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+        tx_event.version_delta = 0;
+
+        APP_ERROR_CHECK(rbc_mesh_event_push(&tx_event));
+#if RBC_MESH_SERIAL
+        mesh_aci_rbc_event_handler(&tx_event);
+#endif
+    }
+
     mesh_packet_ref_count_dec((mesh_packet_t*) data); /* radio ref removed (pushed in tc_tx) */
     vh_order_update(timer_get_timestamp()); /* tell the vh, so that it can push more updates */
 }
