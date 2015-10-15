@@ -411,7 +411,7 @@ uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt);
 uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
 
 /** 
-* @brief Free the memory associated with the given mesh event.
+* @brief Free the memory associated with the given mesh packet.
 * 
 * @details: In order to reduce the amount of data copying going on for each 
 *   data packet, the data field of an rbc_mesh_event points directly to the
@@ -420,18 +420,14 @@ uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
 *   Failure to do so will result in a NO_MEM error when the framework runs out 
 *   of available packets in the packet pool.
 *
-* @note: This function call is only necessary with events that contain any 
-*   data (the UPDATE, NEW and CONFLICTING events), all other events will be 
-*   ignored, returning NRF_SUCCESS.
+* @param[in] p_data Pointer to a data array which originated from an event 
+*   in the framework functions rbc_mesh_event_get and rbc_mesh_event_peek.
 *
-* @param[in] p_evt Pointer to an event which originated from one of the 
-*   framework functions rbc_mesh_event_get and rbc_mesh_event_peek.
-*
-* @return NRF_SUCCESS The memory associated with the given event was 
+* @return NRF_SUCCESS The memory associated with the given data pointer was 
 *   successfully freed.
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
-uint32_t rbc_mesh_event_free(rbc_mesh_event_t* p_evt);
+uint32_t rbc_mesh_packet_release(uint8_t* p_data);
 
 #endif /* _RBC_MESH_H__ */
 

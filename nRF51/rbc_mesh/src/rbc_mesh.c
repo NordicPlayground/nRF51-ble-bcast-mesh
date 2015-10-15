@@ -335,15 +335,15 @@ uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt)
     return NRF_SUCCESS;
 }
 
-uint32_t rbc_mesh_event_free(rbc_mesh_event_t* p_evt)
+uint32_t rbc_mesh_packet_release(uint8_t* p_data)
 {
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    if (p_evt->data != NULL)
+    if (p_data != NULL)
     {
-        mesh_packet_ref_count_dec((mesh_packet_t*) p_evt->data);
+        mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
     }
     
     return NRF_SUCCESS;
