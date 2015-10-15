@@ -6,6 +6,9 @@ S120 and S130 SoftDevices (not tested). Support for both SDK6.x.x and SDK7.x.x a
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
+*NOTE:* The master branch is currently parked, and lacks some critical features compared to the latest version of the mesh
+framework. Currently, the link:../../tree/sdk-8-support[sdk-8-support] branch contains the latest updates, but you can always check the "Releases" tab above to keep track of all the latest versions. We will move back into the master branch in the future.
+
 == About
 This project was created in collaboration with The Norwegian University of 
 Science and Technology (NTNU), as part of a master thesis. The project is not
