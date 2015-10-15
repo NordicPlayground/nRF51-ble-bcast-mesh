@@ -70,6 +70,7 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet)
             return true;
         }
     }
+    APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     return false;
 }
 
