@@ -43,20 +43,20 @@ void led_config(uint8_t led, uint8_t conf)
 #if defined(BOARD_PCA10001)
   if (conf)
   {
-    NRF_GPIO->OUTSET = (1 << (led - 1 + LED_START));
+    NRF_GPIO->OUTSET = (1 << (led + LED_START));
   }
   else
   {
-    NRF_GPIO->OUTCLR = (1 << (led - 1 + LED_START));
+    NRF_GPIO->OUTCLR = (1 << (led + LED_START));
   }
 #else /* All other boards are the other way around */
   if (!conf)
   {
-    NRF_GPIO->OUTSET = (1 << (led - 1 + LED_START));
+    NRF_GPIO->OUTSET = (1 << (led + LED_START));
   }
   else
   {
-    NRF_GPIO->OUTCLR = (1 << (led - 1 + LED_START));
+    NRF_GPIO->OUTCLR = (1 << (led + LED_START));
   }
 #endif
 } 

@@ -34,7 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 #ifndef _EVENT_HANDLER_H__
 #define _EVENT_HANDLER_H__
-#include "mesh_srv.h"
 #include "radio_control.h"
 #include "timer_control.h"
 #include <stdint.h>
@@ -87,6 +86,10 @@ void event_handler_on_ts_end(void);
 
 /** @brief called from ts handler upon ts begin */
 void event_handler_on_ts_begin(void);
+
+void event_handler_critical_section_begin(void);
+
+void event_handler_critical_section_end(void);
 
 #endif /* _EVENT_HANDLER_H__ */
 

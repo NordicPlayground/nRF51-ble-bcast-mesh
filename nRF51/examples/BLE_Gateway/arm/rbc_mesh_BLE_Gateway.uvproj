@@ -72,6 +72,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -141,7 +143,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -362,7 +363,7 @@
               <MiscControls>--c99</MiscControls>
               <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT __WEAK=__weak</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\..\components\device</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -429,11 +430,6 @@
               <FileName>rbc_mesh.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
-            </File>
-            <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
             </File>
             <File>
               <FileName>timer_control.c</FileName>
@@ -575,6 +571,11 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -724,6 +725,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -793,7 +796,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -1014,7 +1016,7 @@
               <MiscControls>--c99</MiscControls>
               <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT RBC_MESH_SERIAL __WEAK=__weak</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\..\components\device</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1083,11 +1085,6 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
-            </File>
-            <File>
               <FileName>timer_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\timer_control.c</FilePath>
@@ -1141,6 +1138,11 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1247,6 +1249,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -1316,7 +1320,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -1537,7 +1540,7 @@
               <MiscControls>--c99</MiscControls>
               <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT BUTTONS __WEAK=__weak</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\..\components\device</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1604,11 +1607,6 @@
               <FileName>rbc_mesh.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
-            </File>
-            <File>
-              <FileName>mesh_srv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
             </File>
             <File>
               <FileName>timer_control.c</FileName>
@@ -1750,6 +1748,11 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_gatt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
           </Files>
         </Group>

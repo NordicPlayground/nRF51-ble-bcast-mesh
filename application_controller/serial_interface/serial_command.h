@@ -18,84 +18,99 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 #ifndef _SERIAL_COMMAND_H__
 #define _SERIAL_COMMAND_H__
 
 #include "serial_internal.h"
 #include <stdint.h>
 
+
 typedef enum
 {
     SERIAL_CMD_OPCODE_ECHO                  = 0x02,
     SERIAL_CMD_OPCODE_RADIO_RESET           = 0x0E,
-
+    
     SERIAL_CMD_OPCODE_INIT                  = 0x70,
     SERIAL_CMD_OPCODE_VALUE_SET             = 0x71,
     SERIAL_CMD_OPCODE_VALUE_ENABLE          = 0x72,
     SERIAL_CMD_OPCODE_VALUE_DISABLE         = 0x73,
     SERIAL_CMD_OPCODE_START                 = 0x74,
     SERIAL_CMD_OPCODE_STOP                  = 0x75,
-    
+    SERIAL_CMD_OPCODE_FLAG_SET              = 0x76,
+    SERIAL_CMD_OPCODE_FLAG_GET              = 0x77,
+
     SERIAL_CMD_OPCODE_VALUE_GET             = 0x7A,
     SERIAL_CMD_OPCODE_BUILD_VERSION_GET     = 0x7B,
     SERIAL_CMD_OPCODE_ACCESS_ADDR_GET       = 0x7C,
     SERIAL_CMD_OPCODE_CHANNEL_GET           = 0x7D,
-    SERIAL_CMD_OPCODE_HANDLE_COUNT_GET      = 0x7E,
-    SERIAL_CMD_OPCODE_ADV_INT_GET           = 0x7F
+    SERIAL_CMD_OPCODE_INTERVAL_GET          = 0x7F,
 } __packed serial_cmd_opcode_t;
 
 
 /****** CMD PARAMS ******/
-typedef struct
+typedef struct 
 {
 	uint8_t data[29];
 } __packed serial_cmd_params_echo_t;
 
-typedef struct
+typedef struct 
 {
     uint32_t access_addr;
+    uint32_t int_min;
     uint8_t channel;
-    uint8_t handle_count;
-    uint32_t adv_int_min;
 } __packed serial_cmd_params_init_t;
 
-typedef struct
+typedef struct 
 {
-    uint8_t handle;
+    uint16_t handle;
+    uint8_t flag; 
+    uint8_t value;
+} __packed serial_cmd_params_flag_set_t;
+
+typedef struct 
+{
+    uint16_t handle;
+    uint8_t flag; 
+} __packed serial_cmd_params_flag_get_t;
+
+typedef struct 
+{
+    uint16_t handle;
     uint8_t value[RBC_MESH_VALUE_MAX_LEN];
 } __packed serial_cmd_params_value_set_t;
 
-typedef struct
+typedef struct 
 {
-    uint8_t handle;
+    uint16_t handle;
 } __packed serial_cmd_params_value_enable_t;
 
-typedef struct
+typedef struct 
 {
-    uint8_t handle;
+    uint16_t handle;
 } __packed serial_cmd_params_value_disable_t;
 
-typedef struct
+typedef struct 
 {
-    uint8_t handle;
+    uint16_t handle;
 } __packed serial_cmd_params_value_get_t;
 
 
-typedef struct
+typedef struct 
 {
-	uint8_t length;
-	uint8_t opcode;
-    union
+    uint8_t length;
+    serial_cmd_opcode_t opcode;
+    union 
     {
         serial_cmd_params_echo_t            echo;
         serial_cmd_params_init_t            init;
         serial_cmd_params_value_set_t       value_set;
+        serial_cmd_params_flag_set_t        flag_set;
+        serial_cmd_params_flag_get_t        flag_get;
         serial_cmd_params_value_enable_t    value_enable;
         serial_cmd_params_value_disable_t   value_disable;
         serial_cmd_params_value_get_t       value_get;
     } __packed params;
-} __packed serial_cmd_t;
+} __packed  serial_cmd_t;
 
 
 #endif /* _SERIAL_COMMAND_H__ */

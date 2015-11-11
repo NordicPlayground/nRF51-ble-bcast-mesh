@@ -35,9 +35,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _TIMESLOT_HANDLER_H__
 #define _TIMESLOT_HANDLER_H__
-#include "mesh_srv.h"
 #include "radio_control.h"
 #include "timer_control.h"
+#include "nrf_sdm.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -51,10 +51,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 /** @brief event handler for softdevice events */
-void ts_sd_event_handler(void);
+void ts_sd_event_handler(uint32_t evt);
 
 /** @brief initialize timeslot handler. Only called once */
-void timeslot_handler_init(void);
+void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc);
 
 /** 
 * @brief order a timeslot as soon as possible.
@@ -84,6 +84,9 @@ void timeslot_extend(uint32_t extra_time_us);
 
 /** @brief Forcibly stop the timeslot execution */
 void timeslot_stop(void);
+
+/** @brief immediately end the current timeslot, and order a new one */
+void timeslot_restart(void);
 
 /** @brief returns the timestamp sampled at the beginning of the timeslot */
 uint64_t timeslot_get_global_time(void);

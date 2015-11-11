@@ -54,7 +54,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_ACCESS_ADDR        (0xA541A68F)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
-#define MESH_HANDLE_COUNT       (2)
+#define MESH_CLOCK_SRC          (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
 /**
 * @brief General error handler.
@@ -104,7 +104,7 @@ void HardFault_Handler(void)
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     switch (evt->event_type)
     {
@@ -122,7 +122,8 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 int main(void)
 {
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, rbc_mesh_sd_irq_handler);
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SRC, NULL);
+    softdevice_ble_evt_handler_set(rbc_mesh_ble_evt_handler);
     
 #ifdef RBC_MESH_SERIAL
     
@@ -135,9 +136,7 @@ int main(void)
     init_params.access_addr = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
-    init_params.handle_count = MESH_HANDLE_COUNT;
-    init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
-    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
+    init_params.lfclksrc = MESH_CLOCK_SRC;
 
     uint32_t error_code;
     error_code = rbc_mesh_init(init_params);
@@ -149,9 +148,15 @@ int main(void)
     APP_ERROR_CHECK(error_code);
 #endif
     
-    /* sleep */
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_packet_release(evt.data);
+        }
+        
         sd_app_evt_wait();
     }
 }

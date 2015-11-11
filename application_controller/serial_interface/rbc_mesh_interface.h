@@ -48,8 +48,7 @@ bool rbc_mesh_echo(uint8_t* buffer, int len);
 bool rbc_mesh_init(
 	uint32_t accessAddr,
 	uint8_t chanNr,
-	uint8_t handleCount,
-    uint32_t advInt_ms);
+        uint32_t int_min_ms);
 
 /** @brief Start mesh radio operation.
  * @note calling this function as part of the initialization procedure is 
@@ -76,7 +75,7 @@ bool rbc_mesh_stop(void);
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool rbc_mesh_value_set(uint8_t handle, uint8_t* buffer, int len);
+bool rbc_mesh_value_set(uint16_t handle, uint8_t* buffer, int len);
 
 /** @brief read value of a handle
  *  @details
@@ -85,7 +84,7 @@ bool rbc_mesh_value_set(uint8_t handle, uint8_t* buffer, int len);
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool rbc_mesh_value_get(uint8_t handle);
+bool rbc_mesh_value_get(uint16_t handle);
 
 /** @brief start broadcasting value of a handle
  *  @details
@@ -94,7 +93,7 @@ bool rbc_mesh_value_get(uint8_t handle);
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool rbc_mesh_value_enable(uint8_t handle);
+bool rbc_mesh_value_enable(uint16_t handle);
 
 /** @brief stop broadcasting value of a handle
  *  @details
@@ -103,7 +102,7 @@ bool rbc_mesh_value_enable(uint8_t handle);
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool rbc_mesh_value_disable(uint8_t handle);
+bool rbc_mesh_value_disable(uint16_t handle);
 
 /** @brief read the build_version
  *  @details
@@ -129,13 +128,14 @@ bool rbc_mesh_access_addr_get();
  */
 bool rbc_mesh_channel_get();
 
-/** @brief read the amount of handles
+/** @brief read the advertising intervall
  *  @details
- *  promts the slave to return the amount of handles specified in the initialization
+ *  promts the slave to return the advertising intervall
+ *  it is by default set to 100 ms in this interface
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool rbc_mesh_handle_count_get();
+bool rbc_mesh_interval_min_get();
 
 /** @brief read the advertising intervall
  *  @details
@@ -144,7 +144,34 @@ bool rbc_mesh_handle_count_get();
  *  @return True if the data was successfully queued for sending, 
  *  false if there is no more space to store messages to send.
  */
-bool rbc_mesh_adv_int_get();
+bool rbc_mesh_tx_event_flag_set(uint16_t handle, bool value);
+
+/** @brief read the advertising intervall
+ *  @details
+ *  promts the slave to return the advertising intervall
+ *  it is by default set to 100 ms in this interface
+ *  @return True if the data was successfully queued for sending, 
+ *  false if there is no more space to store messages to send.
+ */
+bool rbc_mesh_persistent_flag_set(uint16_t handle, bool value);
+
+/** @brief read the tx_event flag
+ *  @details
+ *  promts the slave to return the advertising intervall
+ *  it is by default set to 100 ms in this interface
+ *  @return True if the data was successfully queued for sending, 
+ *  false if there is no more space to store messages to send.
+ */
+bool rbc_mesh_tx_event_flag_get(uint16_t handle);
+
+/** @brief read the persistence flag
+ *  @details
+ *  promts the slave to return the advertising intervall
+ *  it is by default set to 100 ms in this interface
+ *  @return True if the data was successfully queued for sending, 
+ *  false if there is no more space to store messages to send.
+ */
+bool rbc_mesh_persistent_flag_get(uint16_t handle);
 
 /** @brief checkes if new events arrived
  *  @details

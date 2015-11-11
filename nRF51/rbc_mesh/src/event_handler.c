@@ -37,19 +37,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "timeslot_handler.h"
 #include "transport_control.h"
+#include "mesh_packet.h"
 #include "fifo.h"
 #include "nrf_soc.h"
-#include "log.h"
+#include "toolchain.h"
 #include <string.h>
-
-#define LOG_EH      (1 && defined(LOGGING))
-
-#if LOG_EH
-#define LOG(str) log_push(str)
-static const char m_log_queue_full[] = "EH: Event dropped\n";
-#else
-#define LOG(str)
-#endif
 
 #define EVENT_HANDLER_IRQ       (QDEC_IRQn)
 
@@ -60,9 +52,10 @@ static async_event_t g_async_evt_fifo_buffer[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 static fifo_t g_async_evt_fifo_ts;
 static async_event_t g_async_evt_fifo_buffer_ts[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 static bool g_is_initialized;
+static uint32_t g_critical = 0; 
 
 /**
- * @brief execute asynchronous event, based on type
+* @brief execute asynchronous event, based on type
 */
 static void async_event_execute(async_event_t* evt)
 {
@@ -101,7 +94,7 @@ static bool event_fifo_pop(fifo_t* evt_fifo)
     return false;
 }
 
-/**
+/** 
 * @brief Async event dispatcher, works in APP LOW
 */
 void QDEC_IRQHandler(void)
@@ -166,7 +159,6 @@ uint32_t event_handler_push(async_event_t* evt)
     uint32_t result = fifo_push(p_fifo, evt);
     if (result != NRF_SUCCESS)
     {
-        LOG(m_log_queue_full);
         return result;
     }
 
@@ -189,5 +181,27 @@ void event_handler_on_ts_begin(void)
     {
         NVIC_SetPendingIRQ(EVENT_HANDLER_IRQ);
     }
+}
+
+void event_handler_critical_section_begin(void)
+{
+    uint32_t was_masked;
+    DISABLE_IRQS(was_masked);
+    if (!g_critical++)
+    {
+        NVIC_DisableIRQ(QDEC_IRQn);
+    }
+    if (!was_masked) ENABLE_IRQS();
+}
+
+void event_handler_critical_section_end(void)
+{
+    uint32_t was_masked;
+    DISABLE_IRQS(was_masked);
+    if (!--g_critical)
+    {
+        NVIC_EnableIRQ(QDEC_IRQn);
+    }
+    if (!was_masked) ENABLE_IRQS();
 }
 

@@ -19,7 +19,7 @@ SDK_BASE      := ../../../../../..
 COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
-LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
+LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld
 
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
 	SERIAL_STRING := "_serial"
@@ -96,7 +96,7 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/rbc_mesh.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/timer_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/trickle.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_srv.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_gatt.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c

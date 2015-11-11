@@ -33,20 +33,26 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#ifndef _LED_CONFIG_H__
-#define _LED_CONFIG_H__
+#ifndef __CMD_IF_H__
+#define __CMD_IF_H__
 
-#include "boards.h"
 #include <stdint.h>
+#include <stdio.h>
+#include "app_uart.h"
 
-/* Aliases for LEDs */
-#ifdef BOARD_PCA10000
-    #define LED_0 LED_RGB_RED
-    #define LED_1 LED_RGB_GREEN
-#endif
+/** Logging predefines. Hides UART functions */
+#define _LOG(str, ...) do{\
+        char tx_str[128];\
+        sprintf(tx_str, str, ##__VA_ARGS__);\
+        char* c = tx_str;\
+        while (*c)\
+            app_uart_put(*(c++));\
+    } while(0)
+
+typedef void (*cmd_rx_cb_t)(uint8_t* cmd, uint32_t len);
+
+void cmd_init(cmd_rx_cb_t rx_cb);
 
 
-void led_config(uint8_t led, uint8_t conf);
 
-
-#endif /* _LED_CONFIG_H__ */
+#endif /* __CMD_IF_H__ */

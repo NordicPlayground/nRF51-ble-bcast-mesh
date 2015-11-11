@@ -72,6 +72,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -141,7 +143,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -362,7 +363,7 @@
               <MiscControls>--c99</MiscControls>
               <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10031 SOFTDEVICE_PRESENT NRF51 __WEAK=__weak</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\..\components\device</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -709,6 +710,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -778,7 +781,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -999,7 +1001,7 @@
               <MiscControls>--c99</MiscControls>
               <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10031 SOFTDEVICE_PRESENT NRF51 __WEAK=__weak RBC_MESH_SERIAL</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
+              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\..\components\device</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>

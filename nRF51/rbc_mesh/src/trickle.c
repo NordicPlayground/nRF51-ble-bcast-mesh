@@ -48,6 +48,7 @@ typedef struct
     uint32_t c; 
     uint32_t d; 
 } rand_t;
+
 #define rot(x,k) (((x)<<(k))|((x)>>(32-(k))))
 /*****************************************************************************
 * Static Globals
@@ -115,16 +116,17 @@ static void rand_init(void)
     }
 }
 
-
 /**
 * @brief Do calculations for beginning of a trickle interval. Is called from
 *   trickle_step function.
 */
 static void trickle_interval_begin(trickle_t* trickle)
 {
-    trickle->c = 0;
-
-    trickle->i += trickle->i_relative;
+    if (trickle_is_enabled(trickle))
+    {
+        trickle->c = 0;
+        trickle->i += trickle->i_relative;
+    }
 }
 
 static void refresh_t(trickle_t* trickle)
@@ -135,10 +137,9 @@ static void refresh_t(trickle_t* trickle)
     trickle->t = trickle->i + i_half + (rand_number % i_half);
 }
 
-
 static void check_interval(trickle_t* trickle, uint64_t time_now)
 {
-    if (time_now >= trickle->i)
+    if (time_now >= trickle->i && trickle_is_enabled(trickle))
     {
         if (trickle->i_relative < g_i_max * g_i_min)
             trickle->i_relative *= 2;
@@ -148,15 +149,12 @@ static void check_interval(trickle_t* trickle, uint64_t time_now)
         trickle->c = 0;
         uint32_t delta = (time_now - trickle->i) / trickle->i_relative;
         trickle->i += trickle->i_relative * (delta + 1);
-        
     }
 }
 
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
-
-
 void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k)
 {
     g_i_min = i_min;
@@ -168,9 +166,15 @@ void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k)
 
 void trickle_rx_consistent(trickle_t* trickle, uint64_t time_now)
 {
-    TICK_PIN(PIN_CONSISTENT);
-    check_interval(trickle, time_now);
-    ++trickle->c;
+    if (trickle_is_enabled(trickle))
+    {
+        TICK_PIN(PIN_CONSISTENT);
+        check_interval(trickle, time_now);
+        if (trickle->c + 1 != TRICKLE_C_DISABLED)
+        {
+            ++trickle->c;
+        }
+    }
 }
 
 void trickle_rx_inconsistent(trickle_t* trickle, uint64_t time_now)
@@ -198,17 +202,37 @@ void trickle_tx_register(trickle_t* trickle)
 
 void trickle_tx_timeout(trickle_t* trickle, bool* out_do_tx, uint64_t time_now)
 {
-    *out_do_tx = (trickle->c < g_k);
-    check_interval(trickle, time_now);
-    if (!(*out_do_tx))
+    if (!trickle_is_enabled(trickle))
     {
-        /* will never get a call to tx_register, order next t manually */
-        refresh_t(trickle);
+        *out_do_tx = false;
+    }
+    else
+    {
+        *out_do_tx = (trickle->c < g_k);
+        check_interval(trickle, time_now);
+        if (!(*out_do_tx))
+        {
+            /* will never get a call to tx_register, order next t manually */
+            refresh_t(trickle);
+        }
     }
 }
 
-uint64_t trickle_next_processing_get(trickle_t* trickle, uint64_t time_now)
+void trickle_disable(trickle_t* trickle)
 {
-    check_interval(trickle, time_now);
-    return trickle->t;
+    trickle->c = TRICKLE_C_DISABLED;
+}
+
+void trickle_enable(trickle_t* trickle)
+{
+    if (trickle->c == TRICKLE_C_DISABLED)
+    {
+        trickle->c = 0;
+        trickle_timer_reset(trickle, 0);
+    }
+}
+
+bool trickle_is_enabled(trickle_t* trickle)
+{
+    return (trickle->c != TRICKLE_C_DISABLED);
 }

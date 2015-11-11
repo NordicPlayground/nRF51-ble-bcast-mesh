@@ -36,57 +36,91 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _MESH_PACKET_H__
 #define _MESH_PACKET_H__
 #include <stdint.h>
-#include "mesh_srv.h"
+#include <stdbool.h>
+#include "rbc_mesh.h"
 #include "toolchain.h"
 
-#define MESH_PACKET_POOL_SIZE   (16)
-#define MESH_PACKET_OVERHEAD    (10)
+#define MESH_PACKET_POOL_SIZE               (RBC_MESH_DATA_CACHE_ENTRIES + 3)
+#define MESH_UUID                           (0xFEE4)
+#define MESH_ADV_DATA_TYPE                  (0x16)
+#define BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH   (31)
 
+#define MESH_PACKET_BLE_OVERHEAD            (BLE_GAP_ADDR_LEN)                                                      /* overhead before advertisement payload */
+#define MESH_PACKET_ADV_OVERHEAD            (1 /* adv_type */ + 2 /* UUID */ + 2 /* handle */ + 2 /* version */)    /* overhead inside adv data */
+#define MESH_PACKET_OVERHEAD                (MESH_PACKET_BLE_OVERHEAD + 1 + MESH_PACKET_ADV_OVERHEAD)               /* mesh packet total overhead */
 /******************************************************************************
 * Public typedefs
 ******************************************************************************/
-typedef enum 
+typedef __packed_armcc enum 
 {
-  BLE_PACKET_TYPE_ADV_IND,
-  BLE_PACKET_TYPE_ADV_DIRECT_IND,
-  BLE_PACKET_TYPE_ADV_NONCONN_IND,
-  BLE_PACKET_TYPE_SCAN_REQ,
-  BLE_PACKET_TYPE_SCAN_RSP,
-  BLE_PACKET_TYPE_CONN_REQ,
-  BLE_PACKET_TYPE_ADV_DISCOVER_IND
-} ble_packet_type_t;
+    BLE_PACKET_TYPE_ADV_IND,
+    BLE_PACKET_TYPE_ADV_DIRECT_IND,
+    BLE_PACKET_TYPE_ADV_NONCONN_IND,
+    BLE_PACKET_TYPE_SCAN_REQ,
+    BLE_PACKET_TYPE_SCAN_RSP,
+    BLE_PACKET_TYPE_CONN_REQ,
+    BLE_PACKET_TYPE_ADV_DISCOVER_IND
+} __packed_gcc ble_packet_type_t;
 
 typedef __packed_armcc struct
 {
-  ble_packet_type_t type : 4;
-  uint8_t _rfu1 : 2;
-  uint8_t addr_type : 1;
-  uint8_t _rfu2 : 1;
-  uint8_t length;
-  uint8_t _rfu3;
+    uint8_t type : 4;
+    uint8_t _rfu1 : 2;
+    uint8_t addr_type : 1;
+    uint8_t _rfu2 : 1;
+    uint8_t length;
+    uint8_t _rfu3;
 } __packed_gcc ble_packet_header_t;
+
+
+typedef __packed_armcc struct
+{
+    uint8_t                 adv_data_length;
+    uint8_t                 adv_data_type;
+    uint16_t                mesh_uuid;
+    rbc_mesh_value_handle_t handle;
+    uint16_t                version;
+    uint8_t                 data[RBC_MESH_VALUE_MAX_LEN];
+} __packed_gcc mesh_adv_data_t;
 
 typedef __packed_armcc struct 
 {
     ble_packet_header_t header;
     uint8_t addr[6];
-    __packed_armcc struct
-    {
-        uint8_t handle;
-        uint16_t version;
-        uint8_t data[MAX_VALUE_LENGTH];
-    } __packed_gcc payload;
+    uint8_t payload[BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH];
 } __packed_gcc mesh_packet_t;
+
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
 void mesh_packet_init(void);
 
+void mesh_packet_on_ts_begin(void);
+
 bool mesh_packet_acquire(mesh_packet_t** pp_packet);
 
-bool mesh_packet_free(mesh_packet_t* p_packet);
+bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet);
 
-void mesh_packet_on_ts_begin(void);
+bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet);
+
+uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet);
+
+uint32_t mesh_packet_build(mesh_packet_t* p_packet, 
+        rbc_mesh_value_handle_t handle,
+        uint16_t version,
+        uint8_t* data,
+        uint8_t length);
+
+uint32_t mesh_packet_adv_data_sanitize(mesh_packet_t* p_packet);
+
+mesh_adv_data_t* mesh_packet_adv_data_get(mesh_packet_t* p_packet);
+
+rbc_mesh_value_handle_t mesh_packet_handle_get(mesh_packet_t* p_packet);
+
+bool mesh_packet_has_additional_data(mesh_packet_t* p_packet);
+
+/** Fill address field with local addr, and sanitize adv-data */
+void mesh_packet_take_ownership(mesh_packet_t* p_packet);
 
 #endif /* _MESH_PACKET_H__ */
 

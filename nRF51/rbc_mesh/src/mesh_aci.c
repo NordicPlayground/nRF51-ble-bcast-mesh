@@ -39,11 +39,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "event_handler.h"
 #include "timeslot_handler.h"
 #include "version.h"
-#include "dfu_mesh.h"
 
 #include <string.h>
 
-
+/* event push isn't present in the API header file. */
+extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
 /*****************************************************************************
 * Static globals
@@ -65,14 +65,12 @@ static aci_status_code_t error_code_translate(uint32_t nrf_error_code)
             return ACI_STATUS_ERROR_INVALID_PARAMETER;
         case NRF_ERROR_INVALID_STATE:
             return ACI_STATUS_ERROR_DEVICE_STATE_INVALID;
-        case NRF_ERROR_INVALID_DATA:
-            return ACI_STATUS_ERROR_INVALID_DATA;
-        case NRF_ERROR_INVALID_ADDR:
-            return ACI_STATUS_ERROR_INVALID_DATA;
         case NRF_ERROR_SOFTDEVICE_NOT_ENABLED:
             return ACI_STATUS_ERROR_BUSY;
         case NRF_ERROR_INVALID_LENGTH:
             return ACI_STATUS_ERROR_INVALID_LENGTH;
+        case NRF_ERROR_NOT_FOUND:
+            return ACI_STATUS_ERROR_PIPE_INVALID;
         default:
             return ACI_STATUS_ERROR_UNKNOWN;
     }
@@ -98,7 +96,6 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         serial_handler_event_send(&serial_evt);
         break;
-#ifndef BOOTLOADER
     case SERIAL_CMD_OPCODE_RADIO_RESET:
         /* brute force kill :) */
         NVIC_SystemReset();
@@ -119,26 +116,24 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             rbc_mesh_init_params_t init_params;
             init_params.access_addr = serial_cmd->params.init.access_addr;
             init_params.channel = serial_cmd->params.init.channel;
-            init_params.handle_count = serial_cmd->params.init.handle_count;
-            init_params.interval_min_ms = serial_cmd->params.init.adv_int_min;
-            init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
-            init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
+            init_params.interval_min_ms = serial_cmd->params.init.interval_min;
+            init_params.lfclksrc = NRF_CLOCK_LFCLKSRC_XTAL_500_PPM; /* choose worst clock, just to be safe */
 
             error_code = rbc_mesh_init(init_params);
             
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 
-        serial_handler_event_send(&serial_evt);
-        
         if (error_code == NRF_SUCCESS)
         {            
             /* notify application */
             memset(&app_evt, 0, sizeof(app_evt));
             app_evt.event_type = RBC_MESH_EVENT_TYPE_INITIALIZED;
         
-            rbc_mesh_event_handler(&app_evt);
+            serial_evt.params.cmd_rsp.status = error_code_translate(rbc_mesh_event_push(&app_evt));
         }
+
+        serial_handler_event_send(&serial_evt);
         break;
 
     case SERIAL_CMD_OPCODE_START:
@@ -171,26 +166,30 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         if (serial_cmd->length > sizeof(serial_cmd_params_value_set_t) + 1)
         {
             serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+            error_code = NRF_ERROR_INVALID_LENGTH;
         }
         else
         {
-            uint32_t error_code = rbc_mesh_value_set(   serial_cmd->params.value_set.handle,
+            error_code = rbc_mesh_value_set(   serial_cmd->params.value_set.handle,
                                                         serial_cmd->params.value_set.value,
                                                         serial_cmd->length - 2);
 
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 
-        serial_handler_event_send(&serial_evt);
-
         /* notify application */
-        memset(&app_evt, 0, sizeof(app_evt));
-        app_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-        app_evt.data = serial_cmd->params.value_set.value;
-        app_evt.data_len = serial_cmd->length - 2;
-        app_evt.value_handle = serial_cmd->params.value_set.handle;
+        if (error_code == NRF_SUCCESS)
+        {
+            memset(&app_evt, 0, sizeof(app_evt));
+            app_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+            app_evt.data = serial_cmd->params.value_set.value;
+            app_evt.data_len = serial_cmd->length - 2;
+            app_evt.value_handle = serial_cmd->params.value_set.handle;
 
-        rbc_mesh_event_handler(&app_evt);
+            serial_evt.params.cmd_rsp.status = error_code_translate(rbc_mesh_event_push(&app_evt));
+        }
+        
+        serial_handler_event_send(&serial_evt);
         break;
 
     case SERIAL_CMD_OPCODE_VALUE_ENABLE:
@@ -231,10 +230,77 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         serial_handler_event_send(&serial_evt);
         break;
 
-    case SERIAL_CMD_OPCODE_VALUE_GET:
+    case SERIAL_CMD_OPCODE_FLAG_SET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
         serial_evt.length = 3;
+
+        if (serial_cmd->length != sizeof(serial_cmd_params_flag_set_t) + 1)
+        {
+            serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+        } 
+        else
+        {
+            uint32_t error_code;
+            switch ((aci_flag_t) serial_cmd->params.flag_set.flag)
+            {
+                case ACI_FLAG_PERSISTENT:
+                    error_code = rbc_mesh_persistence_set(serial_cmd->params.flag_set.handle,
+                            serial_cmd->params.flag_set.value);
+
+                    break;
+
+                case ACI_FLAG_TX_EVENT:
+                    error_code = rbc_mesh_tx_event_set(serial_cmd->params.flag_set.handle,
+                            serial_cmd->params.flag_set.value);
+                    break;
+                default:
+                    error_code = NRF_ERROR_INVALID_PARAM;
+            }
+            serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+        }
+        break;
+
+    case SERIAL_CMD_OPCODE_FLAG_GET:
+        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+        serial_evt.length = 7;
+
+        if (serial_cmd->length != sizeof(serial_cmd_params_flag_get_t) + 1)
+        {
+            serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+        } 
+        else
+        {
+            uint32_t error_code;
+            bool flag_status = false;
+            switch ((aci_flag_t) serial_cmd->params.flag_set.flag)
+            {
+                case ACI_FLAG_PERSISTENT:
+                    error_code = rbc_mesh_persistence_get(serial_cmd->params.flag_get.handle,
+                            &flag_status);
+
+                    break;
+
+                case ACI_FLAG_TX_EVENT:
+                    error_code = rbc_mesh_tx_event_flag_get(serial_cmd->params.flag_get.handle,
+                            &flag_status);
+                    break;
+                default:
+                    error_code = NRF_ERROR_INVALID_PARAM;
+                    serial_evt.length = 3;
+            }
+            serial_evt.params.cmd_rsp.response.flag.handle = serial_cmd->params.flag_get.handle;
+            serial_evt.params.cmd_rsp.response.flag.flag = serial_cmd->params.flag_get.flag;
+            serial_evt.params.cmd_rsp.response.flag.value = flag_status;
+            serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+        }
+        break;
+
+    case SERIAL_CMD_OPCODE_VALUE_GET:
+        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+        serial_evt.length = RBC_MESH_VALUE_MAX_LEN; /* signal to the framework that we can fit the entire payload in our buffer */
 
         if (serial_cmd->length != sizeof(serial_cmd_params_value_get_t) + 1)
         {
@@ -242,22 +308,20 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         }
         else
         {
-            error_code = rbc_mesh_value_get(serial_cmd->params.value_get.handle,
+            uint32_t error_code = rbc_mesh_value_get(serial_cmd->params.value_get.handle,
                                                         serial_evt.params.cmd_rsp.response.val_get.data,
                                                         (uint16_t*) &serial_evt.length);
 
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
 
-            memset(serial_evt.params.cmd_rsp.response.val_get.origin_addr, 0, BLE_GAP_ADDR_LEN);
-            serial_evt.params.cmd_rsp.response.val_get.addr_type = ADDR_TYPE_BLE_GAP_ADV_ADDR;
             serial_evt.params.cmd_rsp.response.val_get.handle = serial_cmd->params.value_get.handle;
-            serial_evt.length += 3 + 1 + 1 + 6; /* opcode + command + status + handle + addr_type + addr */
+            serial_evt.length += 1 + 1 + 1 + 2 ; /* opcode + command + status + handle */
         }
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
 
         serial_handler_event_send(&serial_evt);
         break;
-#endif
+
     case SERIAL_CMD_OPCODE_BUILD_VERSION_GET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
@@ -277,7 +341,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         serial_handler_event_send(&serial_evt);
         break;
-#ifndef BOOTLOADER
+
     case SERIAL_CMD_OPCODE_ACCESS_ADDR_GET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
@@ -291,7 +355,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         {
             uint32_t access_addr;
 
-            error_code = rbc_mesh_access_address_get(&access_addr);
+            uint32_t error_code = rbc_mesh_access_address_get(&access_addr);
             serial_evt.params.cmd_rsp.response.access_addr.access_addr = access_addr;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
@@ -311,7 +375,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         else
         {
             uint8_t channel;
-            error_code = rbc_mesh_channel_get(&channel);
+            uint32_t error_code = rbc_mesh_channel_get(&channel);
             serial_evt.params.cmd_rsp.response.channel.channel = channel;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
@@ -320,27 +384,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         break;
 
-    case SERIAL_CMD_OPCODE_HANDLE_COUNT_GET:
-        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
-        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
-        serial_evt.length = 4;
-
-        if (serial_cmd->length != 1)
-        {
-            serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
-        }
-        else
-        {
-            uint8_t handle_count;
-            error_code = rbc_mesh_handle_count_get(&handle_count);
-            serial_evt.params.cmd_rsp.response.handle_count.handle_count = handle_count;
-            serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-        }
-
-        serial_handler_event_send(&serial_evt);
-        break;
-
-    case SERIAL_CMD_OPCODE_ADV_INT_GET:
+    case SERIAL_CMD_OPCODE_INTERVAL_GET:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
         serial_evt.length = 7;
@@ -352,54 +396,14 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         else
         {
             uint32_t interval_min_ms;
-            error_code = rbc_mesh_interval_min_ms_get(&interval_min_ms);
-            serial_evt.params.cmd_rsp.response.adv_int.adv_int = interval_min_ms;
+            uint32_t error_code = rbc_mesh_interval_min_ms_get(&interval_min_ms);
+            serial_evt.params.cmd_rsp.response.int_min.int_min = interval_min_ms;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 
         serial_handler_event_send(&serial_evt);
         break;
 
-    case SERIAL_CMD_OPCODE_DFU_BEGIN:
-        {
-            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
-            serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
-
-            dfu_bootloader_info_t bl_info;
-            bl_info.size = serial_cmd->params.dfu_begin.length;
-            bl_info.dfu_type = (dfu_type_t) serial_cmd->params.dfu_begin.dfu_type;
-            bl_info.start_addr = serial_cmd->params.dfu_begin.start_addr;
-            bl_info.app_id = serial_cmd->params.dfu_begin.version.app_id;
-            bl_info.image_crc = serial_cmd->params.dfu_begin.crc16;
-
-            error_code = dfu_transfer_begin(&bl_info);
-
-            serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-            serial_handler_event_send(&serial_evt);
-        }
-        break;
-#endif
-#ifdef BOOTLOADER    
-    case SERIAL_CMD_OPCODE_DFU_PACKET:
-        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
-        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
-
-        error_code = dfu_transfer_data(serial_cmd->params.dfu_packet.start_addr, serial_cmd->length - 6, serial_cmd->params.dfu_packet.data);
-
-        serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-        serial_handler_event_send(&serial_evt);
-        break;
-
-    case SERIAL_CMD_OPCODE_DFU_END:
-        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
-        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
-
-        error_code = dfu_end();
-    
-        serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-        serial_handler_event_send(&serial_evt);
-        break;
-#endif
     default:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
@@ -448,16 +452,18 @@ void mesh_aci_rbc_event_handler(rbc_mesh_event_t* evt)
             serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_UPDATE;
             break;
 
+        case RBC_MESH_EVENT_TYPE_TX:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_TX;
+            break;
+
         default:
             break;
     }
 
-    /* opcode + handle + addr type + addr = 9 */
-    serial_evt.length = 9 + evt->data_len;
+    /* serial overhead: opcode + handle = 3 */
+    serial_evt.length = 3 + evt->data_len;
 
     /* all event parameter types are the same, just use event_update for all */
-    serial_evt.params.event_update.addr_type = ADDR_TYPE_BLE_GAP_ADV_ADDR;
-    memset(serial_evt.params.event_update.origin_addr, 0, BLE_GAP_ADDR_LEN);
     serial_evt.params.event_update.handle = evt->value_handle;
     memcpy(serial_evt.params.event_update.data, evt->data, evt->data_len);
 

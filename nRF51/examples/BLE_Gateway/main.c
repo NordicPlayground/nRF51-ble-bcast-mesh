@@ -43,7 +43,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "boards.h"
-#include "log.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -57,20 +56,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_ACCESS_ADDR        (0xA541A68F)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
-#define MESH_HANDLE_COUNT       (2)
-
-const char m_log_start[] = "START\n";
+#define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
 /**
 * @brief General error handler.
 */
 static void error_loop(void)
 {
-    led_config(3, 1);
+    led_config(2, 1);
+    led_config(3, 0);
     while (true)
     {
-        log_process();
-        __WFE();
     }
 }
 
@@ -83,8 +79,6 @@ static void error_loop(void)
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    static const char assert_str[] = "ERROR: SD assert handler\n";
-    log_push(assert_str);
     error_loop();
 }
 
@@ -98,33 +92,21 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    static char error_str[64];
-    sprintf(error_str, "ERROR: %X, %s:L%d\n", (unsigned int) error_code, p_file_name, (int) line_num);
-    log_push(error_str);
     error_loop();
 }
 
 void HardFault_Handler(void)
 {
-    static const char error_str[] = "ERROR: HARDFAULT\n";
-    log_push(error_str);
     error_loop();
 }
 
 /**
 * @brief Softdevice event handler 
 */
-uint32_t sd_evt_handler(void)
+void sd_ble_evt_handler(ble_evt_t* p_ble_evt)
 {
-    rbc_mesh_sd_irq_handler();
-    
-    uint8_t ble_evt[sizeof(ble_evt_t) + RBC_MESH_VALUE_MAX_LEN];
-    uint16_t len = sizeof(ble_evt);
-    while (sd_ble_evt_get((uint8_t*) &ble_evt, &len) == NRF_SUCCESS)
-    {
-        nrf_adv_conn_evt_handler((ble_evt_t*) &ble_evt);
-    }
-    return NRF_SUCCESS;
+    rbc_mesh_ble_evt_handler(p_ble_evt);
+    nrf_adv_conn_evt_handler(p_ble_evt);
 }
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
@@ -132,21 +114,15 @@ uint32_t sd_evt_handler(void)
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     TICK_PIN(28);
-    static char evt_log[] = "EVENT:[x]:0x\n";
-    evt_log[7] = '0' + evt->event_type;
-    evt_log[10] = '0' + evt->value_handle / 10;
-    evt_log[11] = '0' + evt->value_handle % 10;
-
-    log_push(evt_log);
     switch (evt->event_type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-            if (evt->value_handle > 2)
+            if (evt->value_handle > 1)
                 break;
 
             led_config(evt->value_handle, evt->data[0]);
@@ -190,16 +166,15 @@ void gpio_init(void)
 
 /** @brief main function */
 int main(void)
-{   
-    
+{
     NRF_POWER->RESET = 1;
     /* init leds and pins */
     gpio_init();
     NRF_GPIO->OUTSET = (1 << 4);
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_evt_handler);
-    
-    log_init(UART_BAUDRATE_BAUDRATE_Baud460800, false);
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, NULL);
+    softdevice_ble_evt_handler_set(sd_ble_evt_handler); /* app-defined event handler, as we need to send it to the nrf_adv_conn module and the rbc_mesh */
+    softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
     
 #ifdef RBC_MESH_SERIAL
 
@@ -207,44 +182,46 @@ int main(void)
     mesh_aci_init();
 
 #else
+
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
-    init_params.handle_count = MESH_HANDLE_COUNT;
-    init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
-    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
+    init_params.lfclksrc = MESH_CLOCK_SOURCE;
     
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
 
     /* request values for both LEDs on the mesh */
-    for (uint32_t i = 0; i < MESH_HANDLE_COUNT; ++i)
+    for (uint32_t i = 0; i < 2; ++i)
     {
-        error_code = rbc_mesh_value_enable(i + 1);
+        error_code = rbc_mesh_value_enable(i);
         APP_ERROR_CHECK(error_code);
     }
-
-
+    
     /* init BLE gateway softdevice application: */
     nrf_adv_conn_init();
 
 #endif
     NRF_GPIO->OUTCLR = (1 << 4);
-    
-    log_push(m_log_start);
 
 #if !(defined(BUTTONS))
-    /* sleep */
+    /* fetch events */
+    rbc_mesh_event_t evt;
     while (true)
     {
-        //sd_app_evt_wait();
-        log_process();
-    }
-    
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_packet_release(evt.data);
+        }
+        
+        sd_app_evt_wait();
+    }    
 #else
     uint8_t mesh_data[16] = {0,0};
+    rbc_mesh_event_t evt;
     while (true)
     {
         // red off
@@ -252,35 +229,39 @@ int main(void)
         {
             while(nrf_gpio_pin_read(BUTTON_1) == 0);
             mesh_data[0] = 0;
-            rbc_mesh_value_set(1, mesh_data, 1);
-            led_config(1, 0);
+            rbc_mesh_value_set(0, mesh_data, 1);
+            led_config(0, 0);
         }
         // red on
         if(nrf_gpio_pin_read(BUTTON_2) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_2) == 0);
             mesh_data[0] = 1;
-            rbc_mesh_value_set(1, mesh_data, 1);
-            led_config(1, 1);
+            rbc_mesh_value_set(0, mesh_data, 1);
+            led_config(0, 1);
         }
         // green off 
         if(nrf_gpio_pin_read(BUTTON_3) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_3) == 0);
             mesh_data[0] = 0;
-            rbc_mesh_value_set(2, mesh_data, 1);
-            led_config(2, 0);
+            rbc_mesh_value_set(1, mesh_data, 1);
+            led_config(1, 0);
         }
         // green on
         if(nrf_gpio_pin_read(BUTTON_4) == 0)
         {
             while(nrf_gpio_pin_read(BUTTON_4) == 0);
             mesh_data[0] = 1;
-            rbc_mesh_value_set(2, mesh_data, 1);
-            led_config(2, 1);
+            rbc_mesh_value_set(1, mesh_data, 1);
+            led_config(1, 1);
         }
-        
-        log_process();
+
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_packet_release(evt.data);
+        }
     }
 #endif
 

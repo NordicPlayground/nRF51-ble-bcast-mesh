@@ -69,8 +69,6 @@ inline uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
 
     if (p_fifo->memcpy_fptr)
         p_fifo->memcpy_fptr(p_dest, p_elem);
-    else if (p_fifo->elem_size == 4) /* faster */
-        *((uint32_t*) p_dest) = *((uint32_t*) p_elem);
     else
         memcpy(p_dest, p_elem, p_fifo->elem_size);
 
@@ -85,13 +83,16 @@ uint32_t fifo_pop(fifo_t* p_fifo, void* p_elem)
     {
         return NRF_ERROR_NULL;
     }
+    
+    if (p_elem != NULL)
+    {
+        void* p_src = FIFO_ELEM_AT(p_fifo, p_fifo->tail & (p_fifo->array_len - 1));
 
-    void* p_src = FIFO_ELEM_AT(p_fifo, p_fifo->tail & (p_fifo->array_len - 1));
-
-    if (p_fifo->memcpy_fptr)
-        p_fifo->memcpy_fptr(p_elem, p_src);
-    else
-        memcpy(p_elem, p_src, p_fifo->elem_size);
+        if (p_fifo->memcpy_fptr)
+            p_fifo->memcpy_fptr(p_elem, p_src);
+        else
+            memcpy(p_elem, p_src, p_fifo->elem_size);
+    }
 
     ++p_fifo->tail;
 

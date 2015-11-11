@@ -6,10 +6,11 @@
 
 #TARGET_BOARD         ?= BOARD_PCA10000
 #TARGET_BOARD         ?= BOARD_PCA10001
-#TARGET_BOARD         ?= BOARD_PCA10028
-TARGET_BOARD         ?= BOARD_PCA10031
+TARGET_BOARD         ?= BOARD_PCA10028
+#TARGET_BOARD         ?= BOARD_PCA10031
 
-USE_RBC_MESH_SERIAL  ?= "no"
+
+ATTR_TABLE_SIZE      ?= 0x2700
 
 #------------------------------------------------------------------------------
 # Define relative paths to SDK components
@@ -19,15 +20,8 @@ SDK_BASE      := ../../../../../..
 COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
-LINKER_SCRIPT := ./gcc_nrf51_s110_xxaa.ld
-
-ifeq ($(USE_RBC_MESH_SERIAL), "yes")
-	SERIAL_STRING ="_serial"
-else
-	SERIAL_STRING =""
-endif
-
-OUTPUT_NAME := rbc_mesh$(SERIAL_STRING)_$(TARGET_BOARD)
+LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld
+OUTPUT_NAME   := ping_pong
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
@@ -70,10 +64,6 @@ SIZE     := "$(GNU_INSTALL_ROOT)/bin/$(GNU_PREFIX)-size"
 MK       := mkdir
 RM       := rm -rf
 CP       := cp
-GENDAT   := ./gen_dat
-GENZIP   := zip
-
-BUILDMETRICS  := ./buildmetrics.py
 
 # function for removing duplicates in a list
 remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-out $(firstword $1),$1))))
@@ -81,14 +71,12 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 # source common to all targets
 
 C_SOURCE_FILES += ../main.c
-C_SOURCE_FILES += ../led_config.c
+C_SOURCE_FILES += ../cmd_if.c
+C_SOURCE_FILES += ../RTT/SEGGER_RTT.c
+C_SOURCE_FILES += ../RTT/SEGGER_RTT_printf.c
 
-ifeq ($(USE_RBC_MESH_SERIAL), "yes")
-	CFLAGS += -D RBC_MESH_SERIAL=1
-
-	C_SOURCE_FILES += ../../../rbc_mesh/src/serial_handler_spi.c
-	C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_aci.c
-	C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/spi_slave/spi_slave.c
+ifeq ($(USE_BUTTONS), "yes")
+	CFLAGS += -D BUTTONS=1
 endif
 
 C_SOURCE_FILES += ../../../rbc_mesh/src/radio_control.c
@@ -96,25 +84,27 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/rbc_mesh.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/timer_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/trickle.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_srv.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_gatt.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/version_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_packet.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/log.c
+ASM_SOURCE_FILES += gcc_startup_nrf51.s # using local startup file to cater customized heap size
 
 C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c
-C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c
 C_SOURCE_FILES += $(COMPONENTS)/softdevice/common/softdevice_handler/softdevice_handler.c
+C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/uart/app_uart_fifo.c
+C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/gpiote/nrf_drv_gpiote.c
+C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/common/nrf_drv_common.c
+C_SOURCE_FILES += $(COMPONENTS)/libraries/fifo/app_fifo.c
+C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c
 
-
-# assembly files common to all targets
-ASM_SOURCE_FILES  += $(COMPONENTS)/toolchain/gcc/gcc_startup_nrf51.s
 
 # includes common to all targets
 
 INC_PATHS += -I../include
+INC_PATHS += -I../RTT
 INC_PATHS += -I../../../rbc_mesh
 INC_PATHS += -I../../../rbc_mesh/include
 INC_PATHS += -I../../../SDK/bsp
@@ -132,7 +122,11 @@ INC_PATHS += -I$(COMPONENTS)/toolchain
 INC_PATHS += -I$(COMPONENTS)/device
 INC_PATHS += -I$(COMPONENTS)/softdevice/s110/headers
 INC_PATHS += -I$(COMPONENTS)/drivers_nrf/hal
-INC_PATHS += -I$(COMPONENTS)/drivers_nrf/spi_slave
+INC_PATHS += -I$(COMPONENTS)/drivers_nrf/uart
+INC_PATHS += -I$(COMPONENTS)/drivers_nrf/gpiote
+INC_PATHS += -I$(COMPONENTS)/drivers_nrf/common
+INC_PATHS += -I$(COMPONENTS)/drivers_nrf/config
+INC_PATHS += -I$(COMPONENTS)/libraries/fifo
 
 OBJECT_DIRECTORY = _build
 LISTING_DIRECTORY = $(OBJECT_DIRECTORY)
@@ -144,13 +138,14 @@ BUILD_DIRECTORIES := $(sort $(OBJECT_DIRECTORY) $(OUTPUT_BINARY_DIRECTORY) $(LIS
 ifeq ($(BUILD_TYPE),debug)
   DEBUG_FLAGS += -D DEBUG -g -O0
 else
-  DEBUG_FLAGS += -D NDEBUG -O3
+  DEBUG_FLAGS += -D NDEBUG -g -O0
 endif
 
 # flags common to all targets
 #CFLAGS += -save-temps
 CFLAGS += $(DEBUG_FLAGS)
 CFLAGS += -D NRF51
+CFLAGS += -D RBC_MESH_GATTS_ATTR_TABLE_SIZE=$(ATTR_TABLE_SIZE)
 CFLAGS += -D BLE_STACK_SUPPORT_REQD
 CFLAGS += -D S110
 CFLAGS += -D SOFTDEVICE_PRESENT
@@ -164,6 +159,7 @@ CFLAGS += -ffunction-sections
 CFLAGS += -fdata-sections -fno-strict-aliasing
 CFLAGS += -fno-builtin
 
+# Linker flags
 LDFLAGS += -Xlinker -Map=$(LISTING_DIRECTORY)/$(OUTPUT_NAME).map
 LDFLAGS += -mthumb -mabi=aapcs -L $(TEMPLATE_PATH) -T$(LINKER_SCRIPT)
 LDFLAGS += -mcpu=cortex-m0
@@ -207,8 +203,6 @@ all: $(BUILD_DIRECTORIES) $(OBJECTS)
 	@echo "build type:    $(BUILD_TYPE)"
 	@echo "build with:    $(TOOLCHAIN_BASE)"
 	@echo "build target:  $(TARGET_BOARD)"
-	@echo "build options  --"
-	@echo "               USE_RBC_MESH_SERIAL $(USE_RBC_MESH_SERIAL)"
 	@echo "build products --"
 	@echo "               $(OUTPUT_NAME).elf"
 	@echo "               $(OUTPUT_NAME).hex"
@@ -225,13 +219,13 @@ $(BUILD_DIRECTORIES):
 
 # Create objects from C SRC files
 $(OBJECT_DIRECTORY)/%.o: %.c
-	@echo Compiling file: $(notdir $<)
+	@echo Compiling file: $<
 	$(NO_ECHO)$(CC) $(CFLAGS) $(INC_PATHS) \
 	-c $< -o $@ > $(OUTPUT_BINARY_DIRECTORY)/$*.lst
 
 # Assemble files
 $(OBJECT_DIRECTORY)/%.o: %.s
-	@echo Compiling file: $(notdir $<)
+	@echo Compiling file: $<
 	$(NO_ECHO)$(CC) $(ASMFLAGS) $(INC_PATHS) -c -o $@ $<
 
 # Link
