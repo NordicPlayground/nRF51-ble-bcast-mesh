@@ -111,7 +111,7 @@ void RADIO_IRQHandler(void)
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
-void timeslot_handler_init(void)
+void timeslot_handler_init(nrf_clock_lfclksrc_t clock_source)
 {
     g_global_time = 0;
     s_timer_init();
@@ -120,7 +120,7 @@ void timeslot_handler_init(void)
     s_timeslot_begin();
 }
 
-void ts_sd_event_handler(void)
+void ts_sd_event_handler(uint32_t event)
 {
     /* no implementation needed */
 }
@@ -133,6 +133,12 @@ uint64_t timeslot_get_global_time(void)
 uint64_t timeslot_get_end_time(void)
 {
     return g_global_time + TS_LENGTH;
+}
+
+void timeslot_restart(void)
+{
+    s_timeslot_end(0);
+    s_timeslot_begin();
 }
 
 bool timeslot_is_in_ts(void)

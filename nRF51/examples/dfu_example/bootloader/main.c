@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rbc_mesh.h"
 #include "timeslot_handler.h"
-
+#include "uECC.h"
 #include "app_uart.h"
 #include "app_error.h"
 #include "dfu_mesh.h"
@@ -74,11 +74,11 @@ int main(void)
     
     tc_init(DFU_ACCESS_ADDR, 38);
     event_handler_init();
-    vh_init(DFU_HANDLE_COUNT, 100000);
-    timeslot_handler_init();
+    vh_init(100000);
+    timeslot_handler_init(NRF_CLOCK_LFCLKSRC_XTAL_150_PPM);
     records_init(MISSING_POOL_SIZE);
-    mesh_aci_init();
-    
+    //mesh_aci_init();
+    uECC_verify(NULL, NULL, NULL);
     while (1)
     {
         __WFE();

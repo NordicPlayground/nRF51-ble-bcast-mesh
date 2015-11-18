@@ -42,7 +42,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "rbc_mesh.h"
 #include "records.h"
-#include "mesh_srv.h"
 #include "version_handler.h"
 
 #include "nrf51.h"
@@ -143,8 +142,7 @@ static void seed_record(void)
     if (m_tx_counts[m_next_index] >= TX_COUNT_MARGIN && m_next_record_ready)
     {
         m_tx_counts[m_next_index] = 0;
-        mesh_srv_char_val_set(m_next_index, (uint8_t*) &(m_next_record.short_addr), DFU_RECORD_SIZE + 2);
-        vh_local_update(m_next_index);
+        //vh_local_update(m_next_index);
         m_next_record_ready = false;
         
         if (++m_next_index == DATA_HANDLE_STOP)
@@ -160,7 +158,7 @@ static void request_next_record(void)
     
 }
 
-void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
+uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt)
 {
     if (p_evt->event_type == RBC_MESH_EVENT_TYPE_NEW_VAL ||
         p_evt->event_type == RBC_MESH_EVENT_TYPE_UPDATE_VAL || 
@@ -200,8 +198,8 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
             dfu_packet_t rsp_packet;
             if (records_record_get(p_evt->data[0], &rsp_packet.rsp))
             {
-                mesh_srv_char_val_set(RECOVERY_RSP_HANDLE, (uint8_t*) &rsp_packet, sizeof(rsp_packet));
-                vh_local_update(RECOVERY_RSP_HANDLE);
+                //mesh_srv_char_val_set(RECOVERY_RSP_HANDLE, (uint8_t*) &rsp_packet, sizeof(rsp_packet));
+                //vh_local_update(RECOVERY_RSP_HANDLE);
             }
         }
         else if (p_evt->value_handle == RECOVERY_RSP_HANDLE)

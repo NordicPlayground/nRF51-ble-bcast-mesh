@@ -458,26 +458,6 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\components\libraries\bootloader_dfu\bootloader_util.c</FilePath>
             </File>
-            <File>
-              <FileName>app_uart_fifo.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\uart\app_uart_fifo.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_drv_common.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\common\nrf_drv_common.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_drv_gpiote.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\gpiote\nrf_drv_gpiote.c</FilePath>
-            </File>
-            <File>
-              <FileName>app_fifo.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\components\libraries\fifo\app_fifo.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
@@ -1132,26 +1112,6 @@
               <FileName>bootloader_util.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\components\libraries\bootloader_dfu\bootloader_util.c</FilePath>
-            </File>
-            <File>
-              <FileName>app_uart_fifo.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\uart\app_uart_fifo.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_drv_common.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\common\nrf_drv_common.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_drv_gpiote.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\components\drivers_nrf\gpiote\nrf_drv_gpiote.c</FilePath>
-            </File>
-            <File>
-              <FileName>app_fifo.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\components\libraries\fifo\app_fifo.c</FilePath>
             </File>
           </Files>
         </Group>
