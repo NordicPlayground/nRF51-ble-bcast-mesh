@@ -427,7 +427,7 @@ void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
             g_lfclk_ppm = 50;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_75_PPM:
-            g_lfclk_ppm = 20;
+            g_lfclk_ppm = 75;
             break;
         default:
             g_lfclk_ppm = 250;
