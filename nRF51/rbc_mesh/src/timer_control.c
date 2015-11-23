@@ -44,8 +44,28 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "nrf51_bitfields.h"
 
-#define TIMER_SAFE_START()    NVIC_DisableIRQ(TIMER0_IRQn) 
-#define TIMER_SAFE_END()      NVIC_EnableIRQ(TIMER0_IRQn)   
+#define TIMER_SAFE_START()    do\
+    {\
+        uint32_t was_masked;\
+        _DISABLE_IRQS(was_masked);\
+        if (!m_mut++ && is_in_ts)\
+        {\
+            NVIC_DisableIRQ(TIMER0_IRQn);\
+        }\
+        _ENABLE_IRQS(was_masked);\
+    } while (0)
+    
+#define TIMER_SAFE_END()    do\
+    {\
+        uint32_t was_masked;\
+        _DISABLE_IRQS(was_masked);\
+        if (!--m_mut && is_in_ts)\
+        {\
+            NVIC_EnableIRQ(TIMER0_IRQn);\
+        }\
+        _ENABLE_IRQS(was_masked);\
+    } while (0)
+    
 
 #define TIMER_COMPARE_COUNT     (3)
 #define TIMEOUT_MARGIN_US       (200)
@@ -63,6 +83,7 @@ static uint8_t sync_exec_bitmap = 0;
 static timer_callback callbacks[3];
 
 static bool is_in_ts = false;
+static uint8_t m_mut = 0;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
@@ -116,7 +137,7 @@ void timer_event_handler(void)
 
 void timer_order_cb(uint8_t timer, uint32_t time, timer_callback callback)
 {
-    TIMER_SAFE_START(); 
+    TIMER_SAFE_START();
     if (is_in_ts)
     {
         uint64_t time_now = timer_get_timestamp();
@@ -142,16 +163,24 @@ void timer_order_cb(uint8_t timer, uint32_t time, timer_callback callback)
 
 void timer_order_cb_sync_exec(uint8_t timer, uint32_t time, timer_callback callback)
 {
-    TIMER_SAFE_START();    
+    TIMER_SAFE_START();
     if (is_in_ts)
     {
-        sync_exec_bitmap |= (1 << timer);
+        uint64_t time_now = timer_get_timestamp();
+        if (time > time_now + TIMEOUT_MARGIN_US)
+        {
+            sync_exec_bitmap |= (1 << timer);
 
-        callbacks[timer] = callback;
-        active_callbacks |= (1 << timer);
-        NRF_TIMER0->CC[timer] = time;
-        NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
-        NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
+            callbacks[timer] = callback;
+            active_callbacks |= (1 << timer);
+            NRF_TIMER0->CC[timer] = time;
+            NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
+            NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
+        }
+        else
+        {
+            callback(time_now);
+        }
     }
     TIMER_SAFE_END();
 }
@@ -206,7 +235,7 @@ void timer_order_ppi(uint8_t timer, uint32_t time, uint32_t* task)
 
 void timer_abort(uint8_t timer)
 {
-    TIMER_SAFE_START(); 
+    TIMER_SAFE_START();
     if (is_in_ts)
     {
         if (timer < TIMER_COMPARE_COUNT)
