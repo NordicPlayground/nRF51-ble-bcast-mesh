@@ -99,6 +99,9 @@ void mesh_packet_on_ts_begin(void);
 
 bool mesh_packet_acquire(mesh_packet_t** pp_packet);
 
+/** Get pointer to start of packet which p_buf_pointer is pointing into */
+mesh_packet_t* mesh_packet_get_aligned(void* p_buf_pointer);
+
 bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet);
 
 bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet);

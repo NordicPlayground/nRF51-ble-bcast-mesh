@@ -59,6 +59,14 @@ void mesh_packet_on_ts_begin(void)
     /* do nothing */
 }
 
+mesh_packet_t* mesh_packet_get_aligned(void* p_buf_pointer)
+{
+    uint32_t index = (((uint32_t) p_buf_pointer) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
+    if (index > RBC_MESH_PACKET_POOL_SIZE)
+        return NULL;
+    return &g_packet_pool[index];
+}
+
 bool mesh_packet_acquire(mesh_packet_t** pp_packet)
 {
     for (uint32_t i = 0; i < RBC_MESH_PACKET_POOL_SIZE; ++i)
