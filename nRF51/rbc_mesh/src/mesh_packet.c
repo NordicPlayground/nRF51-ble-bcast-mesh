@@ -192,29 +192,29 @@ uint32_t mesh_packet_adv_data_sanitize(mesh_packet_t* p_packet)
 
 mesh_adv_data_t* mesh_packet_adv_data_get(mesh_packet_t* p_packet)
 {
-    if (p_packet == NULL)
-        return NULL;
-    /* run through advertisement data to find mesh data */
     mesh_adv_data_t* p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
-    while (p_mesh_adv_data->adv_data_type != MESH_ADV_DATA_TYPE || 
-            p_mesh_adv_data->mesh_uuid != MESH_UUID)
+    if (p_packet->header.length <= MESH_PACKET_BLE_OVERHEAD ||
+        p_packet->header.length > MESH_PACKET_BLE_OVERHEAD + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
     {
-        p_mesh_adv_data += p_mesh_adv_data->adv_data_length + 1;
-        
-        if (((uint8_t*) p_mesh_adv_data) >= &p_packet->payload[BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH])
-        {
-            /* couldn't find mesh data */
-            return NULL;
-        }
-    }
-    
-    if (p_mesh_adv_data->adv_data_length > MESH_PACKET_ADV_OVERHEAD + RBC_MESH_VALUE_MAX_LEN)
-    {
-        /* invalid length in one of the length fields, discard packet */
         return NULL;
     }
 
-    return p_mesh_adv_data;
+    /* loop through all ad data structures */
+    while (p_mesh_adv_data->adv_data_type != MESH_ADV_DATA_TYPE || 
+            p_mesh_adv_data->mesh_uuid != MESH_UUID)
+    {
+        if (p_mesh_adv_data->adv_data_length + ((uint32_t) p_mesh_adv_data - (uint32_t) (p_packet->payload))
+               > p_packet->header.length - MESH_PACKET_BLE_OVERHEAD)
+        {
+            /* invalid ad length */
+            return NULL;
+        }
+        p_mesh_adv_data += p_mesh_adv_data->adv_data_length + 1; /* length field in ad data is not considered */
+    }
+
+    /* The network packet overlaps with AD-data */
+    return (mesh_adv_data_t*) p_mesh_adv_data;
+
 }
 
 rbc_mesh_value_handle_t mesh_packet_handle_get(mesh_packet_t* p_packet)
