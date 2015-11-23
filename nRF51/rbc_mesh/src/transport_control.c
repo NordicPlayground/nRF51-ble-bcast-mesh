@@ -244,28 +244,32 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     switch (data_status)
     {
         case VH_DATA_STATUS_NEW:
-            mesh_gatt_value_set(p_mesh_adv_data->handle, 
-                p_mesh_adv_data->data, 
-                p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
 
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
-            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
+            if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
+            {                
+                mesh_gatt_value_set(p_mesh_adv_data->handle, 
+                    p_mesh_adv_data->data, 
+                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
+            }
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
             break;
 
         case VH_DATA_STATUS_UPDATED:
-            mesh_gatt_value_set(p_mesh_adv_data->handle, 
-                p_mesh_adv_data->data, 
-                p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
 
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
+            if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
+            {
+                mesh_gatt_value_set(p_mesh_adv_data->handle, 
+                    p_mesh_adv_data->data, 
+                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
+            }
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
@@ -283,7 +287,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 
             prepare_event(&evt, p_mesh_adv_data);
             evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
-            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
+            rbc_mesh_event_push(&evt); /* ignore error - will be a normal packet drop */
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
