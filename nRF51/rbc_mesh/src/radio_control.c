@@ -508,11 +508,11 @@ bool radio_order(radio_event_t* radio_event)
 {
     /* trigger radio callback */
     uint32_t was_masked;
-    DISABLE_IRQS(was_masked);
+    _DISABLE_IRQS(was_masked);
     
     if (fifo_push(&radio_fifo, radio_event) != NRF_SUCCESS)
     {
-        if (!was_masked) ENABLE_IRQS();
+        _ENABLE_IRQS(was_masked);
         return false;
     }
     
@@ -523,8 +523,7 @@ bool radio_order(radio_event_t* radio_event)
         NVIC_SetPendingIRQ(RADIO_IRQn);
     }
     
-    if (!was_masked) ENABLE_IRQS();
-    
+    _ENABLE_IRQS(was_masked);
     return true;
 }
 

@@ -58,13 +58,14 @@ void fifo_init(fifo_t* p_fifo)
 
 inline uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
 {
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
 	if (FIFO_IS_FULL(p_fifo))
 	{
-		return NRF_ERROR_NO_MEM;
+        _ENABLE_IRQS(was_masked);
+        return NRF_ERROR_NO_MEM;
 	}
-    uint32_t was_masked;
-    DISABLE_IRQS(was_masked);
-    
+
     void* p_dest = FIFO_ELEM_AT(p_fifo, p_fifo->head & (p_fifo->array_len - 1));
 
     if (p_fifo->memcpy_fptr)
@@ -73,17 +74,20 @@ inline uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
         memcpy(p_dest, p_elem, p_fifo->elem_size);
 
     ++p_fifo->head;
-    if (!was_masked) ENABLE_IRQS();
+    _ENABLE_IRQS(was_masked);
     return NRF_SUCCESS;
 }
 
 uint32_t fifo_pop(fifo_t* p_fifo, void* p_elem)
 {
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
     if (fifo_is_empty(p_fifo))
     {
+        _ENABLE_IRQS(was_masked);
         return NRF_ERROR_NULL;
     }
-    
+
     if (p_elem != NULL)
     {
         void* p_src = FIFO_ELEM_AT(p_fifo, p_fifo->tail & (p_fifo->array_len - 1));
@@ -96,13 +100,17 @@ uint32_t fifo_pop(fifo_t* p_fifo, void* p_elem)
 
     ++p_fifo->tail;
 
+    _ENABLE_IRQS(was_masked);
     return NRF_SUCCESS;
 }
 
 uint32_t fifo_peek_at(fifo_t* p_fifo, void* p_elem, uint32_t elem)
 {
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
     if (fifo_get_len(p_fifo) <= elem)
     {
+        _ENABLE_IRQS(was_masked);
         return NRF_ERROR_NULL;
     }
 
@@ -113,6 +121,7 @@ uint32_t fifo_peek_at(fifo_t* p_fifo, void* p_elem, uint32_t elem)
     else
         memcpy(p_elem, p_src, p_fifo->elem_size);
 
+    _ENABLE_IRQS(was_masked);
     return NRF_SUCCESS;
 }
 
