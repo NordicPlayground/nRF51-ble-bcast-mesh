@@ -92,4 +92,9 @@ uint32_t timer_get_timestamp(void);
 */
 void timer_init(void);
 
+
+void timer_on_ts_begin(void);
+
+void timer_on_ts_end(void);
+
 #endif /* _TIMER_CONTROL_H__ */

@@ -286,7 +286,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             }
             mesh_packet_on_ts_begin();
             event_handler_on_ts_begin();
-            timer_init();
+            timer_on_ts_begin();
             tc_on_ts_begin();
             
             g_negotiate_timeslot_length = TIMESLOT_SLOT_EXTEND_LENGTH;
@@ -373,6 +373,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         CLEAR_PIN(PIN_IN_TS);
         event_handler_on_ts_end();
         radio_disable();
+        timer_on_ts_end();
     }
     else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND)
     {
@@ -442,6 +443,8 @@ void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
 
     error = sd_radio_session_open(&radio_signal_callback);
     APP_ERROR_CHECK(error);
+    
+    timer_init();
     g_start_time_ref = NRF_RTC0->COUNTER;
     g_timeslot_length = TIMESLOT_SLOT_LENGTH;
     timeslot_order_earliest(g_timeslot_length, true);
