@@ -40,14 +40,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /******************************************************************************
 * Static globals
 ******************************************************************************/
-static mesh_packet_t g_packet_pool[MESH_PACKET_POOL_SIZE];
-static uint8_t g_packet_refs[MESH_PACKET_POOL_SIZE];
+static mesh_packet_t g_packet_pool[RBC_MESH_PACKET_POOL_SIZE];
+static uint8_t g_packet_refs[RBC_MESH_PACKET_POOL_SIZE];
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
 void mesh_packet_init(void)
 {
-    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
+    for (uint32_t i = 0; i < RBC_MESH_PACKET_POOL_SIZE; ++i)
     {
         /* reset ref count field */
         g_packet_refs[i] = 0;
@@ -61,7 +61,7 @@ void mesh_packet_on_ts_begin(void)
 
 bool mesh_packet_acquire(mesh_packet_t** pp_packet)
 {
-    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
+    for (uint32_t i = 0; i < RBC_MESH_PACKET_POOL_SIZE; ++i)
     {
         if (g_packet_refs[i] == 0) /* no refs, free to use */
         {
@@ -77,7 +77,7 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet)
 bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 {
     uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
-    if (index > MESH_PACKET_POOL_SIZE)
+    if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
 
     /* the given pointer may not be aligned, have to force alignment with index */
@@ -91,7 +91,7 @@ bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
 {
     uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
-    if (index > MESH_PACKET_POOL_SIZE)
+    if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
     
     /* make sure that we aren't rolling over the ref count */
