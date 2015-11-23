@@ -32,11 +32,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
+#include "mesh_gatt.h"
 
 /* this module will automatically disabled if the framework is setup to don't use the SD */
 #ifdef SOFTDEVICE_PRESENT
 
-#include "mesh_gatt.h"
 
 #include "rbc_mesh.h"
 #include "version_handler.h"
