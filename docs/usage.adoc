@@ -224,16 +224,13 @@ the len parameter exceeds this limitation.
 ----
 uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, 
     uint8_t* data, 
-    uint16_t* len,
-    ble_gap_addr_t* origin_addr);
+    uint16_t* len);
 ----
 Returns the most recent value paired with this handle. The `data` buffer must
 be at least 23 bytes long in order to ensure memory safe behavior. The actual
-length of the data is returned in the `length` parameter. The `origin_addr`
-parameter returns the address of the node that first started broadcasting the
-current version of the message. If the value isn't present in the local
-value cache, the call returns `NRF_ERROR_NOT_FOUND`, and the contents of `data`
-remains unchanged.
+length of the data is returned in the `length` parameter. If the value isn't 
+present in the local value cache, the call returns `NRF_ERROR_NOT_FOUND`, and 
+the contents of `data` remains unchanged.
 
 '''
 
@@ -304,8 +301,8 @@ In addition to the provided API functions, the framework provides an event
 queue for the application. These events are generated in the framework and
 should be handled by the application in an implementation of the
 `rbc_mesh_event_handler()` function defined in _rbc_mesh.h_. The events come in
-the shape of `rbc_mesh_event_t*` structs, with an event type, a handle number,
-    a data array and an originator address.
+the shape of `rbc_mesh_event_t*` structs, with an event type, a handle number and
+    a data array.
 
 The framework may produce the following events:
 
