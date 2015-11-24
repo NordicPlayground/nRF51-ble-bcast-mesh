@@ -40,7 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 #include "toolchain.h"
 
-#define MESH_PACKET_POOL_SIZE               (RBC_MESH_DATA_CACHE_ENTRIES + 3)
+                                             
 #define MESH_UUID                           (0xFEE4)
 #define MESH_ADV_DATA_TYPE                  (0x16)
 #define BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH   (31)
@@ -98,6 +98,9 @@ void mesh_packet_init(void);
 void mesh_packet_on_ts_begin(void);
 
 bool mesh_packet_acquire(mesh_packet_t** pp_packet);
+
+/** Get pointer to start of packet which p_buf_pointer is pointing into */
+mesh_packet_t* mesh_packet_get_aligned(void* p_buf_pointer);
 
 bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet);
 

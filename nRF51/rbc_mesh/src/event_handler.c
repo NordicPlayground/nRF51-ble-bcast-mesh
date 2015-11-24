@@ -52,7 +52,7 @@ static async_event_t g_async_evt_fifo_buffer[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 static fifo_t g_async_evt_fifo_ts;
 static async_event_t g_async_evt_fifo_buffer_ts[ASYNC_EVENT_FIFO_QUEUE_SIZE];
 static bool g_is_initialized;
-static uint32_t g_critical = 0; 
+static uint32_t g_critical = 0;
 
 /**
 * @brief execute asynchronous event, based on type
@@ -71,8 +71,8 @@ static void async_event_execute(async_event_t* evt)
             (*evt->callback.generic)();
             break;
         case EVENT_TYPE_PACKET:
-            tc_packet_handler(evt->callback.packet.payload, 
-                                evt->callback.packet.crc, 
+            tc_packet_handler(evt->callback.packet.payload,
+                                evt->callback.packet.crc,
                                 evt->callback.packet.timestamp);
         default:
             break;
@@ -94,7 +94,7 @@ static bool event_fifo_pop(fifo_t* evt_fifo)
     return false;
 }
 
-/** 
+/**
 * @brief Async event dispatcher, works in APP LOW
 */
 void QDEC_IRQHandler(void)
@@ -102,14 +102,14 @@ void QDEC_IRQHandler(void)
     while (true)
     {
         bool got_evt = false;
-        
+
         got_evt |= event_fifo_pop(&g_async_evt_fifo);
-        
+
         if (timeslot_get_end_time() > 0) /* in timeslot */
         {
             got_evt |= event_fifo_pop(&g_async_evt_fifo_ts);
         }
-        
+
         if (!got_evt)
         {
             break;
@@ -130,13 +130,13 @@ void event_handler_init(void)
     g_async_evt_fifo.elem_size = sizeof(async_event_t);
     g_async_evt_fifo.memcpy_fptr = NULL;
     fifo_init(&g_async_evt_fifo);
-    
+
     g_async_evt_fifo_ts.array_len = ASYNC_EVENT_FIFO_QUEUE_SIZE;
     g_async_evt_fifo_ts.elem_array = g_async_evt_fifo_buffer_ts;
     g_async_evt_fifo_ts.elem_size = sizeof(async_event_t);
     g_async_evt_fifo_ts.memcpy_fptr = NULL;
     fifo_init(&g_async_evt_fifo_ts);
-    
+
     NVIC_EnableIRQ(EVENT_HANDLER_IRQ);
     NVIC_SetPriority(EVENT_HANDLER_IRQ, 3);
     g_is_initialized = true;
@@ -146,7 +146,7 @@ void event_handler_init(void)
 uint32_t event_handler_push(async_event_t* evt)
 {
     fifo_t* p_fifo = NULL;
-    switch (evt->type)   
+    switch (evt->type)
     {
     case EVENT_TYPE_GENERIC:
     case EVENT_TYPE_PACKET:
@@ -164,9 +164,10 @@ uint32_t event_handler_push(async_event_t* evt)
 
     /* trigger IRQ */
     NVIC_SetPendingIRQ(EVENT_HANDLER_IRQ);
-    
+
     return NRF_SUCCESS;
 }
+
 
 
 void event_handler_on_ts_end(void)
@@ -176,7 +177,7 @@ void event_handler_on_ts_end(void)
 
 void event_handler_on_ts_begin(void)
 {
-    if (!fifo_is_empty(&g_async_evt_fifo) || 
+    if (!fifo_is_empty(&g_async_evt_fifo) ||
         !fifo_is_empty(&g_async_evt_fifo_ts))
     {
         NVIC_SetPendingIRQ(EVENT_HANDLER_IRQ);
@@ -186,22 +187,22 @@ void event_handler_on_ts_begin(void)
 void event_handler_critical_section_begin(void)
 {
     uint32_t was_masked;
-    DISABLE_IRQS(was_masked);
+    _DISABLE_IRQS(was_masked);
     if (!g_critical++)
     {
         NVIC_DisableIRQ(QDEC_IRQn);
     }
-    if (!was_masked) ENABLE_IRQS();
+    _ENABLE_IRQS(was_masked);
 }
 
 void event_handler_critical_section_end(void)
 {
     uint32_t was_masked;
-    DISABLE_IRQS(was_masked);
+    _DISABLE_IRQS(was_masked);
     if (!--g_critical)
     {
         NVIC_EnableIRQ(QDEC_IRQn);
     }
-    if (!was_masked) ENABLE_IRQS();
+    _ENABLE_IRQS(was_masked);
 }
 

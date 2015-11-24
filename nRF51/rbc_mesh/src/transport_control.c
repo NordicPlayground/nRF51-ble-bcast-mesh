@@ -159,6 +159,72 @@ static void radio_idle_callback(void)
         order_search();
 }
 
+static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t timestamp)
+{
+    
+    int16_t delta = vh_get_version_delta(p_mesh_adv_data->handle, p_mesh_adv_data->version);
+    vh_data_status_t data_status = vh_rx_register(p_mesh_adv_data, timestamp);
+   
+    /* prepare app event */
+    rbc_mesh_event_t evt;
+    evt.version_delta = delta;
+
+    switch (data_status)
+    {
+        case VH_DATA_STATUS_NEW:
+
+            /* notify application */
+            prepare_event(&evt, p_mesh_adv_data);
+            evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
+            if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
+            {                
+                mesh_gatt_value_set(p_mesh_adv_data->handle, 
+                    p_mesh_adv_data->data, 
+                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
+            }
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
+            break;
+
+        case VH_DATA_STATUS_UPDATED:
+
+            /* notify application */
+            prepare_event(&evt, p_mesh_adv_data);
+            evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+            if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
+            {
+                mesh_gatt_value_set(p_mesh_adv_data->handle, 
+                    p_mesh_adv_data->data, 
+                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
+            }
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
+            break;
+
+        case VH_DATA_STATUS_OLD:
+            /* do nothing */
+            break;
+            
+        case VH_DATA_STATUS_SAME:
+            /* do nothing */
+            break;
+
+        case VH_DATA_STATUS_CONFLICTING:
+
+            prepare_event(&evt, p_mesh_adv_data);
+            evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
+            rbc_mesh_event_push(&evt); /* ignore error - will be a normal packet drop */
+#ifdef RBC_MESH_SERIAL
+            mesh_aci_rbc_event_handler(&evt);
+#endif
+            break;
+
+        case VH_DATA_STATUS_UNKNOWN:
+            break;
+    }
+}
 
 /******************************************************************************
 * Interface functions
@@ -226,73 +292,17 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     addr.addr_type = p_packet->header.addr_type;
     
     mesh_adv_data_t* p_mesh_adv_data = mesh_packet_adv_data_get(p_packet);
-    if (p_mesh_adv_data == NULL)
+    
+    
+    if (p_mesh_adv_data != NULL)
     {
-        /* invalid packet */
-        CLEAR_PIN(PIN_RX);
-        mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
-        return;
+        /* filter mesh packets on handle range */
+        if (p_mesh_adv_data->handle <= RBC_MESH_APP_MAX_HANDLE)
+        {
+            mesh_app_packet_handle(p_mesh_adv_data, timestamp);
+        }
     }
-
-    int16_t delta = vh_get_version_delta(p_mesh_adv_data->handle, p_mesh_adv_data->version);
-    vh_data_status_t data_status = vh_rx_register(p_packet, timestamp);
-   
-    /* prepare app event */
-    rbc_mesh_event_t evt;
-    evt.version_delta = delta;
-
-    switch (data_status)
-    {
-        case VH_DATA_STATUS_NEW:
-            mesh_gatt_value_set(p_mesh_adv_data->handle, 
-                p_mesh_adv_data->data, 
-                p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
-
-            /* notify application */
-            prepare_event(&evt, p_mesh_adv_data);
-            evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
-            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&evt);
-#endif
-            break;
-
-        case VH_DATA_STATUS_UPDATED:
-            mesh_gatt_value_set(p_mesh_adv_data->handle, 
-                p_mesh_adv_data->data, 
-                p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
-
-            /* notify application */
-            prepare_event(&evt, p_mesh_adv_data);
-            evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&evt);
-#endif
-            break;
-
-        case VH_DATA_STATUS_OLD:
-            /* do nothing */
-            break;
-            
-        case VH_DATA_STATUS_SAME:
-            /* do nothing */
-            break;
-
-        case VH_DATA_STATUS_CONFLICTING:
-
-            prepare_event(&evt, p_mesh_adv_data);
-            evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
-            APP_ERROR_CHECK(rbc_mesh_event_push(&evt));
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&evt);
-#endif
-            break;
-
-        case VH_DATA_STATUS_UNKNOWN:
-            break;
-    }
-
+    
     /* this packet is no longer needed in this context */
     mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
 

@@ -41,12 +41,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_sdm.h"
 #include "ble.h"
 
-#define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6)
-#define RBC_MESH_INTERVAL_MIN_MIN_MS     (5)
-#define RBC_MESH_INTERVAL_MIN_MAX_MS     (60000)
-#define RBC_MESH_VALUE_MAX_LEN           (23)
-#define RBC_MESH_INVALID_HANDLE          (0xFFFF)
-#define RBC_MESH_APP_MAX_HANDLE          (0xFFF0)  
+#define RBC_MESH_ACCESS_ADDRESS_BLE_ADV  (0x8E89BED6) /**< BLE spec defined access address. */
+#define RBC_MESH_INTERVAL_MIN_MIN_MS     (5) /**< Lowest min-interval allowed. */
+#define RBC_MESH_INTERVAL_MIN_MAX_MS     (60000) /**< Highest min-interval allowed. */
+#define RBC_MESH_VALUE_MAX_LEN           (23) /**< Longest legal payload. */
+#define RBC_MESH_INVALID_HANDLE          (0xFFFF) /**< Designated "invalid" handle, may never be used */
+#define RBC_MESH_APP_MAX_HANDLE          (0xFFEF) /**< Upper limit to application defined handles. The last 16 handles are reserved for mesh-maintenance. */
 
 /* 
    There are two caches in the framework: 
@@ -59,18 +59,42 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /** @brief Default value for the number of handle cache entries */
 #ifndef RBC_MESH_HANDLE_CACHE_ENTRIES    
-    #define RBC_MESH_HANDLE_CACHE_ENTRIES     (100)
+    #define RBC_MESH_HANDLE_CACHE_ENTRIES           (100)
 #endif
 
 /** @brief Default value for the number of data cache entries */
 #ifndef RBC_MESH_DATA_CACHE_ENTRIES
-    #define RBC_MESH_DATA_CACHE_ENTRIES       (20)
+    #define RBC_MESH_DATA_CACHE_ENTRIES             (20)
+#endif
+
+/** @brief Length of app-event FIFO. Must be power of two. */
+#ifndef RBC_MESH_APP_EVENT_QUEUE_LENGTH     
+    #define RBC_MESH_APP_EVENT_QUEUE_LENGTH         (16)
+#endif
+
+/** @brief Length of low level radio event FIFO. Must be power of two. */
+#ifndef RBC_MESH_RADIO_QUEUE_LENGTH
+    #define RBC_MESH_RADIO_QUEUE_LENGTH             (8)
+#endif
+
+/** @brief Length of internal async-event FIFO. Must be power of two. */
+#ifndef RBC_MESH_INTERNAL_EVENT_QUEUE_LENGTH    
+    #define RBC_MESH_INTERNAL_EVENT_QUEUE_LENGTH    (8)
+#endif
+
+/** @brief Size of packet pool. Only accounts for one packet in the app-space at a time. */
+#ifndef RBC_MESH_PACKET_POOL_SIZE
+    #define RBC_MESH_PACKET_POOL_SIZE               (RBC_MESH_DATA_CACHE_ENTRIES +\
+                                                     RBC_MESH_APP_EVENT_QUEUE_LENGTH + \
+                                                     RBC_MESH_RADIO_QUEUE_LENGTH + \
+                                                     RBC_MESH_INTERNAL_EVENT_QUEUE_LENGTH +\
+                                                     3)
 #endif
 
 #if (RBC_MESH_HANDLE_CACHE_ENTRIES < RBC_MESH_DATA_CACHE_ENTRIES)
     #error "The number of handle cache entries cannot be lower than the number of data entries"
 #endif
-
+    
 /** 
 * @brief Rebroadcast value handle type 
 *

@@ -417,13 +417,13 @@ uint32_t vh_min_interval_set(uint32_t min_interval_us)
     return NRF_SUCCESS;
 }
 
-vh_data_status_t vh_rx_register(mesh_packet_t* p_packet, uint64_t timestamp)
+vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
 {
     if (!g_is_initialized)
         return VH_DATA_STATUS_UNKNOWN;
 
-    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
-    if (p_adv_data == NULL)
+    mesh_packet_t* p_packet = mesh_packet_get_aligned(p_adv_data);
+    if (p_packet == NULL)
     {
         return VH_DATA_STATUS_UNKNOWN;
     }
@@ -484,6 +484,7 @@ vh_data_status_t vh_rx_register(mesh_packet_t* p_packet, uint64_t timestamp)
         }
 
         /* store new packet in data cache */
+        
         mesh_packet_take_ownership(p_packet);
         mesh_packet_ref_count_inc(p_packet); /* ref in data cache */
         m_data_cache[data_index].p_packet = p_packet;

@@ -48,8 +48,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>
 
-#define RBC_MESH_EVENT_FIFO_LENGTH  (16)
-
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
@@ -63,7 +61,7 @@ static uint32_t g_access_addr;
 static uint8_t g_channel;
 static uint32_t g_interval_min_ms;
 static fifo_t g_rbc_event_fifo;
-static rbc_mesh_event_t g_rbc_event_buffer[RBC_MESH_EVENT_FIFO_LENGTH];
+static rbc_mesh_event_t g_rbc_event_buffer[RBC_MESH_APP_EVENT_QUEUE_LENGTH];
 
 /*****************************************************************************
 * Static Functions
@@ -132,7 +130,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
 
     g_mesh_state = MESH_STATE_RUNNING;
     
-    g_rbc_event_fifo.array_len = RBC_MESH_EVENT_FIFO_LENGTH;
+    g_rbc_event_fifo.array_len = RBC_MESH_APP_EVENT_QUEUE_LENGTH;
     g_rbc_event_fifo.elem_array = g_rbc_event_buffer;
     g_rbc_event_fifo.elem_size = sizeof(rbc_mesh_event_t);
     g_rbc_event_fifo.memcpy_fptr = NULL;
@@ -171,11 +169,19 @@ uint32_t rbc_mesh_stop(void)
 
 uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle)
 {
+    if (handle > RBC_MESH_APP_MAX_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
     return vh_value_enable(handle);
 }
 
 uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle)
 {
+    if (handle > RBC_MESH_APP_MAX_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
     return vh_value_disable(handle);
 }
 
@@ -184,6 +190,10 @@ uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persisten
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
+    }
+    if (handle > RBC_MESH_APP_MAX_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
     }
     
     return vh_value_persistence_set(handle, persistent);
@@ -194,6 +204,10 @@ uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
+    }
+    if (handle > RBC_MESH_APP_MAX_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
     }
 
     return vh_tx_event_set(handle, do_tx_event);
@@ -207,7 +221,7 @@ uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    if (handle == RBC_MESH_INVALID_HANDLE)
+    if (handle > RBC_MESH_APP_MAX_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
@@ -222,6 +236,10 @@ uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
 
 uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* len)
 {
+    if (handle > RBC_MESH_APP_MAX_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
     return vh_value_get(handle, data, len);
 }
 
@@ -263,11 +281,19 @@ uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
 
 uint32_t rbc_mesh_persistence_get(rbc_mesh_value_handle_t handle, bool* is_persistent)
 {
+    if (handle > RBC_MESH_APP_MAX_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
     return vh_value_persistence_get(handle, is_persistent);
 }
 
 uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event)
 {
+    if (handle > RBC_MESH_APP_MAX_HANDLE)
+    {
+        return NRF_ERROR_INVALID_ADDR;
+    }
     return vh_tx_event_flag_get(handle, is_doing_tx_event);
 }
 

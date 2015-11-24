@@ -40,14 +40,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /******************************************************************************
 * Static globals
 ******************************************************************************/
-static mesh_packet_t g_packet_pool[MESH_PACKET_POOL_SIZE];
-static uint8_t g_packet_refs[MESH_PACKET_POOL_SIZE];
+static mesh_packet_t g_packet_pool[RBC_MESH_PACKET_POOL_SIZE];
+static uint8_t g_packet_refs[RBC_MESH_PACKET_POOL_SIZE];
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
 void mesh_packet_init(void)
 {
-    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
+    for (uint32_t i = 0; i < RBC_MESH_PACKET_POOL_SIZE; ++i)
     {
         /* reset ref count field */
         g_packet_refs[i] = 0;
@@ -59,9 +59,17 @@ void mesh_packet_on_ts_begin(void)
     /* do nothing */
 }
 
+mesh_packet_t* mesh_packet_get_aligned(void* p_buf_pointer)
+{
+    uint32_t index = (((uint32_t) p_buf_pointer) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
+    if (index > RBC_MESH_PACKET_POOL_SIZE)
+        return NULL;
+    return &g_packet_pool[index];
+}
+
 bool mesh_packet_acquire(mesh_packet_t** pp_packet)
 {
-    for (uint32_t i = 0; i < MESH_PACKET_POOL_SIZE; ++i)
+    for (uint32_t i = 0; i < RBC_MESH_PACKET_POOL_SIZE; ++i)
     {
         if (g_packet_refs[i] == 0) /* no refs, free to use */
         {
@@ -77,7 +85,7 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet)
 bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 {
     uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
-    if (index > MESH_PACKET_POOL_SIZE)
+    if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
 
     /* the given pointer may not be aligned, have to force alignment with index */
@@ -91,7 +99,7 @@ bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
 {
     uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
-    if (index > MESH_PACKET_POOL_SIZE)
+    if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
     
     /* make sure that we aren't rolling over the ref count */
@@ -192,29 +200,29 @@ uint32_t mesh_packet_adv_data_sanitize(mesh_packet_t* p_packet)
 
 mesh_adv_data_t* mesh_packet_adv_data_get(mesh_packet_t* p_packet)
 {
-    if (p_packet == NULL)
-        return NULL;
-    /* run through advertisement data to find mesh data */
     mesh_adv_data_t* p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
-    while (p_mesh_adv_data->adv_data_type != MESH_ADV_DATA_TYPE || 
-            p_mesh_adv_data->mesh_uuid != MESH_UUID)
+    if (p_packet->header.length <= MESH_PACKET_BLE_OVERHEAD ||
+        p_packet->header.length > MESH_PACKET_BLE_OVERHEAD + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
     {
-        p_mesh_adv_data += p_mesh_adv_data->adv_data_length + 1;
-        
-        if (((uint8_t*) p_mesh_adv_data) >= &p_packet->payload[BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH])
-        {
-            /* couldn't find mesh data */
-            return NULL;
-        }
-    }
-    
-    if (p_mesh_adv_data->adv_data_length > MESH_PACKET_ADV_OVERHEAD + RBC_MESH_VALUE_MAX_LEN)
-    {
-        /* invalid length in one of the length fields, discard packet */
         return NULL;
     }
 
-    return p_mesh_adv_data;
+    /* loop through all ad data structures */
+    while (p_mesh_adv_data->adv_data_type != MESH_ADV_DATA_TYPE || 
+            p_mesh_adv_data->mesh_uuid != MESH_UUID)
+    {
+        if (p_mesh_adv_data->adv_data_length + ((uint32_t) p_mesh_adv_data - (uint32_t) (p_packet->payload))
+               > p_packet->header.length - MESH_PACKET_BLE_OVERHEAD)
+        {
+            /* invalid ad length */
+            return NULL;
+        }
+        p_mesh_adv_data += p_mesh_adv_data->adv_data_length + 1; /* length field in ad data is not considered */
+    }
+
+    /* The network packet overlaps with AD-data */
+    return (mesh_adv_data_t*) p_mesh_adv_data;
+
 }
 
 rbc_mesh_value_handle_t mesh_packet_handle_get(mesh_packet_t* p_packet)

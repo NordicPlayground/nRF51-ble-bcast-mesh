@@ -56,7 +56,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define TIMESLOT_END_SAFETY_MARGIN_US   (1000)
 #define TIMESLOT_SLOT_LENGTH            (10000) /* !!! MUST BE LARGER THAN TIMESLOT_END_SAFETY_MARGIN_US */
-#define TIMESLOT_SLOT_EXTEND_LENGTH     (50000)
+#define TIMESLOT_SLOT_EXTEND_LENGTH     (500000)
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH  (3000) /* will fit between two conn events */
 #define TIMESLOT_DISTANCE_DEFAULT       (10000)
 #define TIMESLOT_TIMEOUT_DEFAULT        (50000)
@@ -286,7 +286,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             }
             mesh_packet_on_ts_begin();
             event_handler_on_ts_begin();
-            timer_init();
+            timer_on_ts_begin();
             tc_on_ts_begin();
             
             g_negotiate_timeslot_length = TIMESLOT_SLOT_EXTEND_LENGTH;
@@ -373,6 +373,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
         CLEAR_PIN(PIN_IN_TS);
         event_handler_on_ts_end();
         radio_disable();
+        timer_on_ts_end();
     }
     else if (g_ret_param.callback_action == NRF_RADIO_SIGNAL_CALLBACK_ACTION_EXTEND)
     {
@@ -427,7 +428,7 @@ void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
             g_lfclk_ppm = 50;
             break;
         case NRF_CLOCK_LFCLKSRC_XTAL_75_PPM:
-            g_lfclk_ppm = 20;
+            g_lfclk_ppm = 75;
             break;
         default:
             g_lfclk_ppm = 250;
@@ -442,6 +443,8 @@ void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
 
     error = sd_radio_session_open(&radio_signal_callback);
     APP_ERROR_CHECK(error);
+    
+    timer_init();
     g_start_time_ref = NRF_RTC0->COUNTER;
     g_timeslot_length = TIMESLOT_SLOT_LENGTH;
     timeslot_order_earliest(g_timeslot_length, true);
@@ -515,13 +518,13 @@ void timeslot_extend(uint32_t extra_time_us)
 void timeslot_stop(void)
 {
     g_timeslot_forced_command = TS_FORCED_COMMAND_STOP;
-    NVIC_SetPendingIRQ(RADIO_IRQn);
+    NVIC_SetPendingIRQ(TIMER0_IRQn);
 }
 
 void timeslot_restart(void)
 {
     g_timeslot_forced_command = TS_FORCED_COMMAND_RESTART;
-    NVIC_SetPendingIRQ(RADIO_IRQn);
+    NVIC_SetPendingIRQ(TIMER0_IRQn);
 }
 
 uint64_t timeslot_get_global_time(void)

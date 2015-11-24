@@ -57,7 +57,7 @@ uint32_t vh_init(uint32_t min_interval_us);
 
 uint32_t vh_min_interval_set(uint32_t min_interval_us);
 
-vh_data_status_t vh_rx_register(mesh_packet_t* p_packet, uint64_t timestamp);
+vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp);
 
 vh_data_status_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length);
 

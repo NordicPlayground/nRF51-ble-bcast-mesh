@@ -43,11 +43,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_sdm.h"
 #include "app_error.h"
 #include "toolchain.h"
+#include "rbc_mesh.h"
 
 #include <stdbool.h>
 #include <string.h>
-
-#define RADIO_FIFO_QUEUE_SIZE           (8) /* must be power of two */
 
 #define RADIO_RX_TIMEOUT                (150 + 80)
 
@@ -85,7 +84,7 @@ typedef enum
 static radio_state_t radio_state = RADIO_STATE_NEVER_USED;
 
 static fifo_t radio_fifo;
-static radio_event_t radio_fifo_queue[RADIO_FIFO_QUEUE_SIZE];
+static radio_event_t radio_fifo_queue[RBC_MESH_RADIO_QUEUE_LENGTH];
 static radio_idle_cb g_idle_cb;
 
 static bool forced_wakeup = false;
@@ -276,13 +275,10 @@ static void radio_transition_end(bool successful_transmission)
     if (prev_evt.callback.tx != NULL)
     {
         CHECK_FP(prev_evt.callback.rx);
-        if (prev_evt.event_type == RADIO_EVENT_TYPE_RX || 
+        if (prev_evt.event_type == RADIO_EVENT_TYPE_RX ||
             prev_evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
-            (*prev_evt.callback.rx)(prev_evt.packet_ptr, successful_transmission && crc_status, crc);
-            
-            if (successful_transmission && crc_status)
-                NRF_RADIO->EVENTS_END = 0;
+            (*prev_evt.callback.rx)(prev_evt.packet_ptr, crc_status, crc);
         }
         else
         {
@@ -314,12 +310,12 @@ static void radio_wakeup(void)
     while (events_in_queue > 1)
     {
         radio_event_t current_evt;
-        if (fifo_peek(&radio_fifo, &current_evt) == NRF_SUCCESS && 
+        if (fifo_peek(&radio_fifo, &current_evt) == NRF_SUCCESS &&
             current_evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
             /* event is preemptable, stop it */
             fifo_pop(&radio_fifo, &current_evt);
-            
+
             /* propagate failed rx event */
             (*current_evt.callback.rx)(current_evt.packet_ptr, false, 0xFFFFFFFF);
             radio_disable();
@@ -351,7 +347,7 @@ static void radio_wakeup(void)
         }
 
         NRF_RADIO->PACKETPTR = (uint32_t) &radio_event.packet_ptr[0];
-        if (radio_event.event_type == RADIO_EVENT_TYPE_RX || 
+        if (radio_event.event_type == RADIO_EVENT_TYPE_RX ||
             radio_event.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
             NRF_RADIO->TASKS_RXEN = 1;
@@ -472,30 +468,30 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_cb)
 
     /* init radio packet fifo */
     if (radio_state == RADIO_STATE_NEVER_USED)
-    {        
-        /* this flushes the queue */ 
-        radio_fifo.array_len = RADIO_FIFO_QUEUE_SIZE;
+    {
+        /* this flushes the queue */
+        radio_fifo.array_len = RBC_MESH_RADIO_QUEUE_LENGTH;
         radio_fifo.elem_array = radio_fifo_queue;
         radio_fifo.elem_size = sizeof(radio_event_t);
         radio_fifo.memcpy_fptr = NULL;
         fifo_init(&radio_fifo);
     }
-
-    radio_state = RADIO_STATE_DISABLED;
     
+    radio_state = RADIO_STATE_DISABLED;
+
     NVIC_ClearPendingIRQ(RADIO_IRQn);
     NVIC_EnableIRQ(RADIO_IRQn);
     g_idle_cb = idle_cb;
-    
+
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_RX);
     DEBUG_RADIO_CLEAR_PIN(PIN_RADIO_STATE_TX);
-    
+
     if (fifo_is_empty(&radio_fifo))
     {
         (*g_idle_cb)();
     }
     else
-    {        
+    {
         if (timeslot_is_in_ts())
         {
             forced_wakeup = true;
@@ -508,23 +504,22 @@ bool radio_order(radio_event_t* radio_event)
 {
     /* trigger radio callback */
     uint32_t was_masked;
-    DISABLE_IRQS(was_masked);
-    
+    _DISABLE_IRQS(was_masked);
+
     if (fifo_push(&radio_fifo, radio_event) != NRF_SUCCESS)
     {
-        if (!was_masked) ENABLE_IRQS();
+        _ENABLE_IRQS(was_masked);
         return false;
     }
-    
-    
+
+
     if (timeslot_is_in_ts())
     {
         forced_wakeup = true;
         NVIC_SetPendingIRQ(RADIO_IRQn);
     }
-    
-    if (!was_masked) ENABLE_IRQS();
-    
+
+    _ENABLE_IRQS(was_masked);
     return true;
 }
 
