@@ -518,13 +518,13 @@ void timeslot_extend(uint32_t extra_time_us)
 void timeslot_stop(void)
 {
     g_timeslot_forced_command = TS_FORCED_COMMAND_STOP;
-    NVIC_SetPendingIRQ(RADIO_IRQn);
+    NVIC_SetPendingIRQ(TIMER0_IRQn);
 }
 
 void timeslot_restart(void)
 {
     g_timeslot_forced_command = TS_FORCED_COMMAND_RESTART;
-    NVIC_SetPendingIRQ(RADIO_IRQn);
+    NVIC_SetPendingIRQ(TIMER0_IRQn);
 }
 
 uint64_t timeslot_get_global_time(void)
