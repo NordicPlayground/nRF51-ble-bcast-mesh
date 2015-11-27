@@ -37,12 +37,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 
+#ifndef PAGE_SIZE
 #define PAGE_SIZE                   (0x400)
+#endif
+
+#define PAGE_COUNT                  (NRF_FICR->CODESIZE)
+#define FLASH_SIZE                  (PAGE_SIZE * PAGE_COUNT)
+
+#define SEGMENT_ADDR(segment_id, start_addr) (((start_addr) & 0xFFFFFFF0) + ((segment_id) - 1) * 16)
 
 #define SOFTDEVICE_INFORMATION_BASE     0x0003000                                                       /**< Location in the SoftDevice image which holds the SoftDevice informations. */
 #define SOFTDEVICE_INFORMATION          ((SOFTDEVICE_INFORMATION_Type *) SOFTDEVICE_INFORMATION_BASE)   /**< Make SoftDevice information accessible through the structure. */
 
-#define APP_START_ADDRESS           SOFTDEVICE_INFORMATION->softdevice_size    
+#define APP_START_ADDRESS           SOFTDEVICE_INFORMATION->softdevice_size
 
 #define BOOTLOADER_START_ADDRESS    (0x0003C000)
 #define BOOTLOADER_INFO_ADDRESS     (0x0003FC00)
@@ -63,11 +70,11 @@ typedef enum
     DFU_TYPE_SOFTDEVICE,
     DFU_TYPE_BOOTLOADER
 } dfu_type_t;
- 
+
 typedef struct
 {
     uint32_t size;
-    dfu_type_t dfu_type; 
+    dfu_type_t dfu_type;
     uint32_t start_addr;
     uint32_t app_id;
     uint32_t bank_addr; /* ignored by fw */

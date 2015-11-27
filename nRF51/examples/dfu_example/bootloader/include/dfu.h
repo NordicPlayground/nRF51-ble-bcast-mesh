@@ -23,9 +23,9 @@ typedef enum
 
 typedef enum
 {
-    DFU_TYPE_APP,
-    DFU_TYPE_SD,
-    DFU_TYPE_BOOTLOADER
+    DFU_TYPE_SD         = 0x01,
+    DFU_TYPE_BOOTLOADER = 0x02,
+    DFU_TYPE_APP        = 0x03,
 } dfu_type_t;
 
 typedef struct __attribute((packed))
@@ -34,6 +34,7 @@ typedef struct __attribute((packed))
     uint16_t app_id;
     uint32_t app_version;
 } app_id_t;
+
 typedef union __attribute((packed))
 {
     app_id_t app;
@@ -150,8 +151,8 @@ typedef struct __attribute((packed))
 } dfu_packet_t;
 
 void dfu_init(void);
-void dfu_start(uint32_t* p_start_addr, uint32_t* p_end_addr, dfu_type_t type, uint16_t segment_count, bool final_transfer);
-bool dfu_data(uint32_t* p_addr, uint8_t* p_data, uint16_t length);
+void dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint16_t segment_count, bool final_transfer);
+uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length);
 void dfu_sha256(uint8_t* p_hash);
 void dfu_end(void);
 
