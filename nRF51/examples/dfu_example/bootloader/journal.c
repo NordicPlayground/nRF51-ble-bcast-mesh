@@ -40,41 +40,38 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "boards.h"
 
-#define JOURNAL_INVALIDATE_ADDR  ((uint32_t*) 0x3FF00)
-#define JOURNAL_COMPLETED_ADDR   ((uint32_t*) 0x3FF80)
-
 #define TO_WORD(index) ((index) / 32)
-#define TO_OFFSET(index) ((index & 0x1F))
+#define TO_OFFSET(index) ((index) & 0x1F)
 #define GET_FLAG(index, bitfield) !!(*(bitfield + TO_WORD(index)) & (1 << TO_OFFSET(index)))
 
-static uint32_t g_start_addr;
-static uint32_t g_size;
+static uint32_t* mp_invalidate_field;
+static uint32_t* mp_complete_field;
 
-void journal_init(uint32_t start_address, uint32_t size)
+void journal_init(uint32_t* p_invalidate_field, uint32_t* p_complete_field)
 {
-    g_start_addr = start_address;
-    g_size = size;
+    mp_invalidate_field = p_invalidate_field;
+    mp_complete_field = p_complete_field;
 }
 
-void journal_invalidate(uint16_t page_index)
+void journal_invalidate(uint32_t* p_page)
 {
-    page_index -= g_start_addr / PAGE_SIZE;
+    uint32_t page_index = ((uint32_t) p_page) / PAGE_SIZE;
     uint32_t field = ~(1 << TO_OFFSET(page_index));
-    nrf_flash_store(JOURNAL_INVALIDATE_ADDR, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
+    nrf_flash_store(mp_invalidate_field, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
 }
 
-void journal_complete(uint16_t page_index)
+void journal_complete(uint32_t* p_page)
 {
-    page_index -= g_start_addr / PAGE_SIZE;
+    uint32_t page_index = ((uint32_t) p_page) / PAGE_SIZE;
     uint32_t field = ~(1 << TO_OFFSET(page_index));
-    nrf_flash_store(JOURNAL_COMPLETED_ADDR, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
+    nrf_flash_store(mp_complete_field, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
 }
 
-bool journal_is_finished(void)
+bool journal_is_complete(void)
 {
-    for (uint32_t i = 0; i <= g_size / PAGE_SIZE; ++i)
+    for (uint32_t i = 0; i < PAGE_COUNT; ++i)
     {
-        if (GET_FLAG(i, JOURNAL_COMPLETED_ADDR))
+        if (GET_FLAG(i, mp_complete_field))
         {
             return false;
         }
@@ -84,9 +81,9 @@ bool journal_is_finished(void)
 
 bool journal_is_invalid(void)
 {
-    for (uint32_t i = 0; i <= g_size / PAGE_SIZE; ++i)
+    for (uint32_t i = 0; i < PAGE_COUNT; ++i)
     {
-        if (!GET_FLAG(i, JOURNAL_INVALIDATE_ADDR))
+        if (!GET_FLAG(i, mp_invalidate_field))
         {
             return true;
         }
