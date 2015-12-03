@@ -61,11 +61,13 @@ void nrf_flash_store(uint32_t * p_dest, uint8_t * p_src, uint32_t size, uint32_t
 {
     static uint8_t buffer[4]  __attribute__((aligned (4)));
     uint8_t cnt = 0;
+    uint8_t has_content = 0;
     
     p_dest += offset / 4;
     
     for(uint32_t i=0; i < size ; i++)
     {
+        has_content |= ~(*p_src);
         buffer[cnt++]  = *p_src;
         
         p_src++;
@@ -73,30 +75,32 @@ void nrf_flash_store(uint32_t * p_dest, uint8_t * p_src, uint32_t size, uint32_t
         if(cnt == 4)
         {   
             cnt = 0;
-            
-            // Turn on flash write enable and wait until the NVMC is ready:
-            NRF_NVMC->CONFIG = (NVMC_CONFIG_WEN_Wen << NVMC_CONFIG_WEN_Pos);
-
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy)
+            if (has_content)
             {
-            // Do nothing.
-            }
+                // Turn on flash write enable and wait until the NVMC is ready:
+                NRF_NVMC->CONFIG = (NVMC_CONFIG_WEN_Wen << NVMC_CONFIG_WEN_Pos);
 
-            *p_dest = *(uint32_t *)buffer;
-
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy)
-            {
+                while (NRF_NVMC->READY == NVMC_READY_READY_Busy)
+                {
                 // Do nothing.
-            }
+                }
 
-            // Turn off flash write enable and wait until the NVMC is ready:
-            NRF_NVMC->CONFIG = (NVMC_CONFIG_WEN_Ren << NVMC_CONFIG_WEN_Pos);
+                *p_dest = *(uint32_t *)buffer;
 
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy)
-            {
-                // Do nothing.
+                while (NRF_NVMC->READY == NVMC_READY_READY_Busy)
+                {
+                    // Do nothing.
+                }
+
+                // Turn off flash write enable and wait until the NVMC is ready:
+                NRF_NVMC->CONFIG = (NVMC_CONFIG_WEN_Ren << NVMC_CONFIG_WEN_Pos);
+
+                while (NRF_NVMC->READY == NVMC_READY_READY_Busy)
+                {
+                    // Do nothing.
+                }
             }
-            
+            has_content = 0;
             p_dest++;
         }
     }
