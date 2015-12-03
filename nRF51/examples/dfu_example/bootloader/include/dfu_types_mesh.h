@@ -53,6 +53,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define BOOTLOADER_START_ADDRESS    (0x0003C000)
 #define BOOTLOADER_INFO_ADDRESS     (0x0003FC00)
+#define BOOTLOADER_INFO_BANK_ADDRESS (0x0003F800)
 #define BOOTLOADER_MAX_SIZE         (BOOTLOADER_INFO_ADDRESS - BOOTLOADER_START_ADDRESS)
 
 #define DFU_SD_BANK_ADDRESS         (BOOTLOADER_START_ADDRESS / 2)
@@ -64,22 +65,122 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_BL_BANK_ADDRESS         (DFU_APP_BANK_ADDRESS)
 #define DFU_BL_MAX_SIZE             (BOOTLOADER_MAX_SIZE)
 
+#define SEGMENT_LENGTH              (16)
+#define SIGNCHUNK_LENGTH            (32)
+
+#define DATA_SEQ_END                (0xFFFF)
+
+#define DFU_AUTHORITY_MAX           (0x07)
+
+#define DFU_PACKET_LEN_FWID         (2 + 2 + 2 + 4 + 2 + 4)
+#define DFU_PACKET_LEN_REQ_SD       (2 + 1 + 2)
+#define DFU_PACKET_LEN_REQ_BL       (2 + 1 + 2)
+#define DFU_PACKET_LEN_REQ_APP      (2 + 1 + 4 + 2 + 4)
+#define DFU_PACKET_LEN_READY_SD     (2 + 1 + 4 + 2 + 4)
+#define DFU_PACKET_LEN_READY_BL     (2 + 1 + 4 + 2 + 4)
+#define DFU_PACKET_LEN_READY_APP    (2 + 1 + 4 + 4 + 2 + 4 + 4)
+#define DFU_PACKET_LEN_START        (2 + 2 + 4 + 4 + 2 + 2 + 1)
+#define DFU_PACKET_LEN_DATA         (2 + 2 + 4 + SEGMENT_LENGTH)
+#define DFU_PACKET_LEN_REQ_DATA     (2 + 2 + 4)
+#define DFU_PACKET_LEN_RSP_DATA     (2 + 2 + 4 + SEGMENT_LENGTH)
+
+typedef uint16_t segment_t;
+typedef uint16_t seq_t;
+
 typedef enum
 {
-    DFU_TYPE_APP,
-    DFU_TYPE_SOFTDEVICE,
-    DFU_TYPE_BOOTLOADER
+    DFU_PACKET_TYPE_DATA_RSP    = 0xFFFA,
+    DFU_PACKET_TYPE_DATA_REQ    = 0xFFFB,
+    DFU_PACKET_TYPE_DATA        = 0xFFFC,
+    DFU_PACKET_TYPE_STATE       = 0xFFFD,
+    DFU_PACKET_TYPE_FWID        = 0xFFFE,
+} dfu_packet_type_t;
+
+typedef enum
+{
+    DFU_TYPE_SD         = 0x01,
+    DFU_TYPE_BOOTLOADER = 0x02,
+    DFU_TYPE_APP        = 0x03,
 } dfu_type_t;
 
-typedef struct
+typedef struct __attribute((packed))
 {
-    uint32_t size;
-    dfu_type_t dfu_type;
-    uint32_t start_addr;
-    uint32_t app_id;
-    uint32_t bank_addr; /* ignored by fw */
-    uint16_t image_crc;
-    uint8_t using_crc; /* flag for whether or not the image_crc is actually used */
-} dfu_bootloader_info_t;
+    uint32_t company_id;
+    uint32_t app_version;
+    uint16_t app_id;
+} app_id_t;
+
+
+typedef struct __attribute((packed))
+{
+    uint16_t sd;
+    uint16_t bootloader;
+    app_id_t app;
+} fwid_t;
+
+typedef union __attribute((packed))
+{
+    app_id_t app;
+    uint16_t bootloader;
+    uint16_t sd;
+} id_t;
+
+typedef struct __attribute((packed))
+{
+    uint16_t packet_type;
+    union __attribute((packed))
+    {
+        fwid_t fwid;
+        struct __attribute((packed))
+        {
+            uint8_t dfu_type    : 3;
+            uint8_t _rfu        : 2;
+            uint8_t authority   : 3;
+            union __attribute((packed))
+            {
+                struct __attribute((packed))
+                {
+                    uint32_t transaction_id;
+                    uint32_t MIC;
+                    id_t id;
+                } ready;
+                struct __attribute((packed))
+                {
+                    id_t id;
+                } req;
+            } params;
+        } state;
+        struct __attribute((packed))
+        {
+            uint16_t segment;
+            uint32_t transaction_id;
+            uint32_t start_address;
+            uint16_t segment_count;
+            uint16_t signature_length;
+            uint8_t diff        : 1;
+            uint8_t single_bank : 1;
+            uint8_t first       : 1;
+            uint8_t last        : 1;
+            uint8_t _rfu        : 4;
+        } start;
+        struct __attribute((packed))
+        {
+            uint16_t segment;
+            uint32_t transaction_id;
+            uint8_t data[SEGMENT_LENGTH];
+        } data;
+        struct __attribute((packed))
+        {
+            uint16_t segment;
+            uint32_t transaction_id;
+        } req_data;
+        struct __attribute((packed))
+        {
+            uint16_t segment;
+            uint32_t transaction_id;
+            uint8_t data[SEGMENT_LENGTH];
+        } rsp_data;
+    } payload;
+} dfu_packet_t;
 
 #endif /* _DFU_TYPES_H__ */
