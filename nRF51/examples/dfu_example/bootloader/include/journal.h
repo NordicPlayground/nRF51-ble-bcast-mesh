@@ -39,9 +39,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-void journal_init(uint32_t start_address, uint32_t size);
-void journal_invalidate(uint16_t page_index);
-void journal_complete(uint16_t page_index);
+void journal_init(uint32_t* p_invalidate_field, uint32_t* p_complete_field);
+void journal_invalidate(uint32_t* p_page);
+void journal_complete(uint32_t* p_page);
 bool journal_is_finished(void);
 bool journal_is_invalid(void);
 
