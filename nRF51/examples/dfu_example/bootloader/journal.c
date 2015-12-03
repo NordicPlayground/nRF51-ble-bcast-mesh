@@ -34,7 +34,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "journal.h"
-#include "dfu.h"
+#include "dfu_mesh.h"
+
 
 #include "nrf_flash.h"
 #include "dfu_types_mesh.h"
