@@ -72,6 +72,12 @@ typedef __packed_armcc struct
     uint8_t _rfu3;
 } __packed_gcc ble_packet_header_t;
 
+typedef __packed_armcc struct
+{
+    uint8_t                 adv_data_length;
+    uint8_t                 adv_data_type;
+    uint8_t                 data[];
+} __packed_gcc ble_ad_t;
 
 typedef __packed_armcc struct
 {
