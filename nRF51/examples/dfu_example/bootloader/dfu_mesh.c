@@ -172,7 +172,7 @@ static bool flash_page(void)
 
     m_current_transfer.p_current_page = (uint32_t*)((uint32_t) m_current_transfer.p_current_page + PAGE_SIZE);
     m_current_transfer.first_invalid_byte_on_page = 0;
-    
+
     return true;
 }
 
@@ -222,11 +222,9 @@ void dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint16_t segment_c
     }
     else /* double bank */
     {
-
         uint32_t page_count = 1 + (segment_count * 16) / 1024;
         nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_bank_addr), page_count * PAGE_SIZE); /* This breaks the app */
         m_current_transfer.p_bank_addr = p_bank_addr;
-        NRF_UICR->BOOTLOADERADDR = (uint32_t) p_start_addr;
     }
     m_current_transfer.p_start_addr = p_start_addr;
     m_current_transfer.segment_count = segment_count;
@@ -261,7 +259,6 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         length -= first_length;
     }
 
-
     bool buffer_incoming_entry;
     if (PAGE_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_current_page)
     {
@@ -270,6 +267,15 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         {
             entry_mark_as_missing(m_current_transfer.first_invalid_byte_on_page,
                     PAGE_ALIGN(p_addr) - m_current_transfer.first_invalid_byte_on_page);
+        }
+        else if (m_current_transfer.first_invalid_byte_on_page > PAGE_ALIGN(p_addr))
+        {
+            dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr);
+            if (p_backlog_entry == NULL)
+            {
+                /* already have this entry buffered */
+                return NRF_ERROR_INVALID_STATE;
+            }
         }
     }
     else if (PAGE_ALIGN(p_addr) > (uint32_t) m_current_transfer.p_current_page)
@@ -285,13 +291,22 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
     }
     else
     {
-        /* Recovering an old entry, flash it individually. */
-        nrf_flash_store((uint32_t*) p_addr, p_data, length, 0);
-        buffer_incoming_entry = false;
+        dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr);
+        if (p_backlog_entry != NULL)
+        {
+            /* Recovering an old entry, flash it individually. */
+            nrf_flash_store((uint32_t*) p_addr, p_data, length, 0);
+            buffer_incoming_entry = false;
+        }
+        else
+        {
+            /* already have this entry buffered */
+            return NRF_ERROR_INVALID_STATE;
+        }
     }
-    
+
     entry_mark_as_not_missing(p_addr, length);
-    
+
     if (buffer_incoming_entry)
     {
         memcpy(&mp_page_buffer[PAGE_OFFSET(p_addr)], p_data, length);
