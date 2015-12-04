@@ -44,7 +44,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PAGE_COUNT                  (NRF_FICR->CODESIZE)
 #define FLASH_SIZE                  (PAGE_SIZE * PAGE_COUNT)
 
-#define SEGMENT_ADDR(segment_id, start_addr) (((start_addr) & 0xFFFFFFF0) + ((segment_id) - 1) * 16)
+#define SEGMENT_ADDR(segment_id, start_addr) ((segment_id == 1)? \
+                                                start_addr : \
+                                                ((start_addr) & 0xFFFFFFF0) + ((segment_id) - 1) * 16)
 
 #define SOFTDEVICE_INFORMATION_BASE     0x0003000                                                       /**< Location in the SoftDevice image which holds the SoftDevice informations. */
 #define SOFTDEVICE_INFORMATION          ((SOFTDEVICE_INFORMATION_Type *) SOFTDEVICE_INFORMATION_BASE)   /**< Make SoftDevice information accessible through the structure. */
