@@ -124,7 +124,7 @@ uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet)
     p_packet->header.addr_type = my_addr.addr_type;
     memcpy(p_packet->addr, my_addr.addr, BLE_GAP_ADDR_LEN);
 #else
-    memcpy(p_packet->addr, &NRF_FICR->DEVICEADDR[0], BLE_GAP_ADDR_LEN);
+    memcpy(p_packet->addr, (uint32_t*) &NRF_FICR->DEVICEADDR[0], BLE_GAP_ADDR_LEN);
     p_packet->header.addr_type = NRF_FICR->DEVICEADDRTYPE;
 #endif
     
