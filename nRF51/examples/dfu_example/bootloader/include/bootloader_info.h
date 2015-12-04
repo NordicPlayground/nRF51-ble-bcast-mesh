@@ -19,11 +19,11 @@ typedef enum
     BL_INFO_TYPE_VERSION            = 0x02,
     BL_INFO_TYPE_JOURNAL            = 0x03,
     BL_INFO_TYPE_FLAGS              = 0x04,
-    
+
     BL_INFO_TYPE_SEGMENT_SD         = 0x10,
     BL_INFO_TYPE_SEGMENT_BL         = 0x11,
     BL_INFO_TYPE_SEGMENT_APP        = 0x12,
-    
+
     BL_INFO_TYPE_LAST8              = 0x7F,
     BL_INFO_TYPE_LAST16             = 0x7FFF,
 } bl_info_type_t;
@@ -44,7 +44,7 @@ typedef struct
     uint32_t page_is_invalid    :  1;
 } bl_info_flags_t;
 
-typedef struct
+typedef union
 {
     uint8_t             public_key[BL_INFO_LEN_PUBLIC_KEY];
     bl_info_segment_t   segment;
@@ -55,7 +55,7 @@ typedef struct
 
 typedef struct
 {
-    struct 
+    struct
     {
         uint8_t metadata_len; /* in bytes */
         uint16_t len_length;  /* in bits */
