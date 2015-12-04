@@ -27,11 +27,12 @@ typedef enum
     BL_END_ERROR_TIMEOUT,
     BL_END_ERROR_NO_MEM,
     BL_END_ERROR_INVALID_PERSISTANT_STORAGE,
+    BL_END_ERROR_SEGMENT_VIOLATION,
 } bl_end_t;
 
 void bootloader_init(void);
 
-void bootloader_rx(dfu_packet_t* p_packet);
+void bootloader_rx(dfu_packet_t* p_packet, uint16_t length);
 void bootloader_abort(bl_end_t end_reason);
 void bootloader_rtc_irq_handler(void);
 

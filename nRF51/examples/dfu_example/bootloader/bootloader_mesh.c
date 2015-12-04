@@ -27,6 +27,9 @@
 
 #define STATE_TIMEOUT_FIND_FWID     (US_TO_RTC_TICKS(500000)) /* 0.5s */
 
+/* important that req-cache isn't too big - might lead to starvation in req-device */
+#define REQ_CACHE_SIZE              (4)
+
 typedef enum
 {
     BEACON_TYPE_FWID,
@@ -56,29 +59,38 @@ typedef struct
     bl_info_segment_t*  p_segment_sd;
     bl_info_segment_t*  p_segment_bl;
     bl_info_segment_t*  p_segment_app;
-    bl_info_flags_t*    p_flags; 
+    bl_info_flags_t*    p_flags;
+    uint8_t*            p_ecdsa_public_key;
 } bl_info_pointers_t;
 
 
 static transaction_t        m_transaction;
 static bl_state_t           m_state = BL_STATE_FIND_FWID;
 static bl_info_pointers_t   m_bl_info_pointers;
+static uint16_t             m_req_cache[REQ_CACHE_SIZE];
+static uint8_t              m_req_index;
 
 static mesh_packet_t*       mp_beacon;
 
 static struct
 {
-    uint8_t signature[64];
-    bool valid[4];
+    uint8_t signature[uECC_BYTES * 2];
+    uint8_t received_length;
 } m_signkeys;
 static uint32_t m_start_addr;
 
 static bool signature_check(void)
 {
-    uint8_t hash[32];
+    /* if we don't have a public key we will accept all firmware upgrades. */
+    if (m_bl_info_pointers.p_ecdsa_public_key == NULL)
+    {
+        return true;
+    }
+
+    uint8_t hash[uECC_BYTES];
     dfu_sha256(hash);
-    //TODO: check signature
-    return true;
+
+    return (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, m_signkeys.signature));
 }
 
 static uint32_t upper_addr_limit_get(dfu_type_t type)
@@ -89,7 +101,7 @@ static uint32_t upper_addr_limit_get(dfu_type_t type)
             return m_bl_info_pointers.p_segment_app->start + m_bl_info_pointers.p_segment_app->length;
         case DFU_TYPE_SD:
             return m_bl_info_pointers.p_segment_sd->start + m_bl_info_pointers.p_segment_sd->length;
-        case DFU_TYPE_BOOTLOADER: 
+        case DFU_TYPE_BOOTLOADER:
             return m_bl_info_pointers.p_segment_bl->start + m_bl_info_pointers.p_segment_bl->length;
     }
     return 0;
@@ -104,11 +116,13 @@ static bool ready_packet_matches_our_req(dfu_packet_t* p_packet)
     switch (m_transaction.type)
     {
         case DFU_TYPE_APP:
-            return (memcmp(&p_packet->payload.state.params.ready.id.app, 
+            return (memcmp(&p_packet->payload.state.params.ready.id.app,
                 &m_transaction.target_fwid.app, sizeof(app_id_t)) == 0);
+
         case DFU_TYPE_BOOTLOADER:
-            return (p_packet->payload.state.params.ready.id.bootloader == 
+            return (p_packet->payload.state.params.ready.id.bootloader ==
                     m_transaction.target_fwid.bootloader);
+
         case DFU_TYPE_SD:
             return (p_packet->payload.state.params.ready.id.sd ==
                     m_transaction.target_fwid.sd);
@@ -140,7 +154,7 @@ static void beacon_set(beacon_type_t type)
         bootloader_abort(BL_END_ERROR_NO_MEM);
     }
     dfu_packet_t* p_dfu = (dfu_packet_t*) &(((ble_ad_t*) mp_beacon->payload)->data[2]);
-    
+
     switch (type)
     {
         case BEACON_TYPE_FWID:
@@ -153,7 +167,7 @@ static void beacon_set(beacon_type_t type)
             p_dfu->payload.fwid.sd              = m_bl_info_pointers.p_fwid->sd;
             transport_tx(mp_beacon, TX_REPEATS_FWID, TX_INTERVAL_TYPE_FWID);
             break;
-        
+
         case BEACON_TYPE_DFU_REQ_APP:
             packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_REQ_APP);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
@@ -162,7 +176,7 @@ static void beacon_set(beacon_type_t type)
             memcpy(&p_dfu->payload.state.params.req.id.app, &m_transaction.target_fwid.app, sizeof(app_id_t));
             transport_tx(mp_beacon, TX_REPEATS_REQ, TX_INTERVAL_TYPE_REQ);
             break;
-        
+
         case BEACON_TYPE_DFU_REQ_SD:
             packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_REQ_SD);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
@@ -171,7 +185,7 @@ static void beacon_set(beacon_type_t type)
             p_dfu->payload.state.params.req.id.sd = m_transaction.target_fwid.sd;
             transport_tx(mp_beacon, TX_REPEATS_REQ, TX_INTERVAL_TYPE_REQ);
             break;
-        
+
         case BEACON_TYPE_DFU_REQ_BL:
             packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_REQ_BL);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
@@ -180,7 +194,7 @@ static void beacon_set(beacon_type_t type)
             p_dfu->payload.state.params.req.id.bootloader = m_transaction.target_fwid.bootloader;
             transport_tx(mp_beacon, TX_REPEATS_REQ, TX_INTERVAL_TYPE_REQ);
             break;
-        
+
         case BEACON_TYPE_READY_APP:
             packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_READY_APP);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
@@ -191,7 +205,7 @@ static void beacon_set(beacon_type_t type)
             memcpy(&p_dfu->payload.state.params.ready.id.app, &m_transaction.target_fwid.app, sizeof(app_id_t));
             transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
             break;
-        
+
         case BEACON_TYPE_READY_SD:
             packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_READY_SD);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
@@ -202,7 +216,7 @@ static void beacon_set(beacon_type_t type)
             p_dfu->payload.state.params.ready.id.app = m_transaction.target_fwid.app;
             transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
             break;
-        
+
         case BEACON_TYPE_READY_BL:
             packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_READY_BL);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
@@ -215,7 +229,6 @@ static void beacon_set(beacon_type_t type)
             break;
     }
 }
-
 
 static inline uint32_t* addr_from_seg(uint16_t segment)
 {
@@ -245,9 +258,11 @@ static void start_find_fwid(void)
 {
     beacon_set(BEACON_TYPE_FWID);
     m_state = BL_STATE_FIND_FWID;
-    
+
     NRF_RTC0->CC[RTC_BL_STATE_CH] = (NRF_RTC0->COUNTER + STATE_TIMEOUT_FIND_FWID) & RTC_MASK;
     NRF_RTC0->INTENSET = (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos));
+
+    /* TODO: add serial-request for fwid */
 }
 
 static void start_req(dfu_type_t type)
@@ -271,8 +286,8 @@ static void start_req(dfu_type_t type)
 
 static void start_ready(dfu_packet_t* p_ready_packet)
 {
-    if (p_ready_packet->packet_type != DFU_PACKET_TYPE_STATE || 
-        p_ready_packet->payload.state.authority == 0 || 
+    if (p_ready_packet->packet_type != DFU_PACKET_TYPE_STATE ||
+        p_ready_packet->payload.state.authority == 0 ||
         p_ready_packet->payload.state.dfu_type != m_transaction.type)
     {
         APP_ERROR_CHECK(NRF_ERROR_INVALID_PARAM);
@@ -282,22 +297,24 @@ static void start_ready(dfu_packet_t* p_ready_packet)
     m_transaction.ready_mic = p_ready_packet->payload.state.params.ready.MIC;
     m_state = BL_STATE_DFU_READY;
     memset(&m_signkeys, 0, sizeof(m_signkeys));
-    
+
     switch (m_transaction.type)
     {
         case DFU_TYPE_APP:
             beacon_set(BEACON_TYPE_READY_APP);
             break;
+
         case DFU_TYPE_SD:
             beacon_set(BEACON_TYPE_READY_SD);
             break;
+
         case DFU_TYPE_BOOTLOADER:
             beacon_set(BEACON_TYPE_READY_BL);
             break;
     }
 }
 
-static void handle_data_packet(dfu_packet_t* p_packet)
+static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
 {
     if (p_packet->payload.data.transaction_id == m_transaction.transaction_id)
     {
@@ -307,10 +324,31 @@ static void handle_data_packet(dfu_packet_t* p_packet)
             {
                 //TODO: add boundary checks to this
                 //TODO: Journal changes
+                bl_info_segment_t* p_segment = NULL;
+                switch (m_transaction.type)
+                {
+                    case DFU_TYPE_APP:
+                        p_segment = m_bl_info_pointers.p_segment_app;
+                        break;
+                    case DFU_TYPE_SD:
+                        p_segment = m_bl_info_pointers.p_segment_sd;
+                        break;
+                    case DFU_TYPE_BOOTLOADER:
+                        p_segment = m_bl_info_pointers.p_segment_bl;
+                        break;
+                }
                 m_transaction.segments_remaining = p_packet->payload.start.segment_count;
                 m_transaction.segment_count      = p_packet->payload.start.segment_count;
                 m_start_addr = p_packet->payload.start.start_address;
-                if ((uint32_t) addr_from_seg(p_packet->payload.start.segment_count) < upper_addr_limit_get(m_transaction.type))
+                if (m_start_addr < p_segment->start ||
+                    SEGMENT_ADDR(m_transaction.segment_count, m_start_addr) > p_segment->start + p_segment->size)
+                {
+                    /* out of bounds */
+                    bootloader_abort(BL_END_ERROR_SEGMENT_VIOLATION);
+                }
+
+                if ((uint32_t) addr_from_seg(p_packet->payload.start.segment_count) <
+                    upper_addr_limit_get(m_transaction.type))
                 {
                     dfu_start(
                             (uint32_t*) p_packet->payload.start.start_address,
@@ -334,25 +372,32 @@ static void handle_data_packet(dfu_packet_t* p_packet)
                     break;
 
                 default:
-                    m_transaction.segments_remaining--;
                     if (p_packet->payload.data.segment < m_transaction.segment_count)
                     {
                         uint32_t* p_addr = addr_from_seg(p_packet->payload.data.segment);
-                        dfu_data((uint32_t) p_addr,
-                                p_packet->payload.data.data, 0x10 - ((uint32_t) p_addr) & 0x0F);
+                        if (dfu_data((uint32_t) p_addr,
+                                p_packet->payload.data.data,
+                                length - (DFU_PACKET_LEN_DATA - SEGMENT_LENGTH)) == NRF_SUCCESS)
+                        {
+                            m_transaction.segments_remaining--;
+                        }
                     }
             }
-        }
 
-        if (m_transaction.segments_remaining == 0 &&
-                m_signkeys.valid[0] &&
-                m_signkeys.valid[1] &&
-                m_signkeys.valid[2] &&
-                m_signkeys.valid[3] &&
-                signature_check())
-        {
-            dfu_end();
-            bootloader_abort(BL_END_SUCCESS);
+            if (m_transaction.segments_remaining == 0)
+            {
+                if (signature_check())
+                {
+                    dfu_end();
+                    bootloader_abort(BL_END_SUCCESS);
+                }
+                else
+                {
+                    /* someone gave us anauthorized firmware, and we're broken.
+                       need to reboot and try to request a new transfer */
+                    bootloader_abort(BL_END_ERROR_UNAUTHORIZED);
+                }
+            }
         }
     }
 }
@@ -376,7 +421,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                     m_transaction.authority = p_packet->payload.state.authority;
                     m_transaction.transaction_id = p_packet->payload.state.params.ready.transaction_id;
                 }
-                else if (p_packet->payload.state.authority == m_transaction.authority && 
+                else if (p_packet->payload.state.authority == m_transaction.authority &&
                          p_packet->payload.state.params.ready.transaction_id > m_transaction.transaction_id)
                 {
                     m_transaction.authority = p_packet->payload.state.authority;
@@ -410,14 +455,12 @@ static void handle_fwid_packet(dfu_packet_t* p_packet)
                 start_req(DFU_TYPE_APP);
             }
         }
-        
         else if (bootloader_is_newer(p_packet->payload.fwid.bootloader))
         {
             m_transaction.target_fwid.bootloader = p_packet->payload.fwid.bootloader;
             NRF_RTC0->INTENCLR = (1 << RTC_BL_STATE_CH);
             start_req(DFU_TYPE_BOOTLOADER);
         }
-        
     }
 }
 
@@ -427,16 +470,29 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
     {
         mesh_packet_t* p_rsp;
         if (mesh_packet_acquire(&p_rsp))
-        {            
+        {
+            /* check that we haven't served this request before. */
+            for (uint32_t i = 0; i < REQ_CACHE_SIZE; ++i)
+            {
+                if (m_req_cache[i] == p_packet->payload.req_data.segment)
+                {
+                    return;
+                }
+            }
+            /* serve request */
             if (
-                dfu_has_entry((uint32_t*) SEGMENT_ADDR(p_packet->payload.req_data.segment, m_start_addr), 
+                dfu_has_entry(
+                    (uint32_t*) SEGMENT_ADDR(p_packet->payload.req_data.segment, m_start_addr),
                     ((dfu_packet_t*) p_rsp->payload)->payload.rsp_data.data, SEGMENT_LENGTH)
                )
             {
                 packet_set_local_fields(p_rsp, DFU_PACKET_LEN_RSP_DATA);
-                transport_tx(p_rsp, TX_REPEATS_RSP, TX_INTERVAL_TYPE_RSP); 
+                transport_tx(p_rsp, TX_REPEATS_RSP, TX_INTERVAL_TYPE_RSP);
             }
             mesh_packet_ref_count_dec(p_rsp);
+
+            /* log our attempt at responding */
+            m_req_cache[(m_req_index++) & (REQ_CACHE_SIZE - 1)] = p_packet->payload.req_data.segment;
         }
     }
 }
@@ -445,7 +501,7 @@ static void handle_data_rsp_packet(dfu_packet_t* p_packet)
 {
     if (p_packet->payload.rsp_data.transaction_id == m_transaction.transaction_id)
     {
-        dfu_data(SEGMENT_ADDR(p_packet->payload.rsp_data.segment, m_start_addr), 
+        dfu_data(SEGMENT_ADDR(p_packet->payload.rsp_data.segment, m_start_addr),
             p_packet->payload.rsp_data.data, SEGMENT_LENGTH);
     }
 }
@@ -458,14 +514,15 @@ void bootloader_init(void)
     mp_beacon = NULL;
     m_state = BL_STATE_FIND_FWID;
     m_transaction.transaction_id = 0;
-    
+
     /* fetch persistent entries */
-    m_bl_info_pointers.p_flags          = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS)->flags;
-    m_bl_info_pointers.p_fwid           = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION)->version;
-    m_bl_info_pointers.p_segment_app    = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_APP)->segment;
-    m_bl_info_pointers.p_segment_bl     = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_BL)->segment;
-    m_bl_info_pointers.p_segment_sd     = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_SD)->segment;
-    
+    m_bl_info_pointers.p_flags              = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS)->flags;
+    m_bl_info_pointers.p_fwid               = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION)->version;
+    m_bl_info_pointers.p_segment_app        = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_APP)->segment;
+    m_bl_info_pointers.p_segment_bl         = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_BL)->segment;
+    m_bl_info_pointers.p_segment_sd         = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_SD)->segment;
+    m_bl_info_pointers.p_ecdsa_public_key   = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_ECDSA_PUBLIC_KEY)->public_key[0];
+
     if (
         ((uint32_t) m_bl_info_pointers.p_flags          < BOOTLOADER_INFO_ADDRESS) ||
         ((uint32_t) m_bl_info_pointers.p_fwid           < BOOTLOADER_INFO_ADDRESS) ||
@@ -477,7 +534,7 @@ void bootloader_init(void)
         bootloader_abort(BL_END_ERROR_INVALID_PERSISTANT_STORAGE);
     }
 
-    if (!m_bl_info_pointers.p_flags->sd_intact || 
+    if (!m_bl_info_pointers.p_flags->sd_intact ||
         m_bl_info_pointers.p_fwid->sd == SD_VERSION_INVALID)
     {
         start_req(DFU_TYPE_SD);
@@ -493,7 +550,7 @@ void bootloader_init(void)
     }
 }
 
-void bootloader_rx(dfu_packet_t* p_packet)
+void bootloader_rx(dfu_packet_t* p_packet, uint16_t length)
 {
     switch (p_packet->packet_type)
     {
@@ -506,7 +563,7 @@ void bootloader_rx(dfu_packet_t* p_packet)
             break;
 
         case DFU_PACKET_TYPE_DATA:
-            handle_data_packet(p_packet);
+            handle_data_packet(p_packet, length);
             break;
 
         case DFU_PACKET_TYPE_DATA_REQ:
@@ -525,7 +582,16 @@ void bootloader_rx(dfu_packet_t* p_packet)
 
 void bootloader_abort(bl_end_t end_reason)
 {
-    bootloader_util_app_start(m_bl_info_pointers.p_segment_app->start);
+    switch (end_reason)
+    {
+        case BL_END_ERROR_UNAUTHORIZED:
+            bootloader_util_app_start(m_bl_info_pointers.p_segment_bl->start);
+            break;
+        default:
+            /* TODO: add more granularity here, not all error conditions are recoverable */
+            bootloader_util_app_start(m_bl_info_pointers.p_segment_app->start);
+            break;
+    }
 }
 
 void bootloader_rtc_irq_handler(void)
@@ -540,3 +606,4 @@ void bootloader_rtc_irq_handler(void)
             break;
     }
 }
+
