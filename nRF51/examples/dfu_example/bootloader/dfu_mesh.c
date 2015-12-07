@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdio.h>
 #include "dfu_mesh.h"
 #include "dfu_types_mesh.h"
 #include "bootloader_mesh.h"
@@ -10,9 +11,6 @@
 #ifndef MISSING_ENTRY_BACKLOG_COUNT
 #define MISSING_ENTRY_BACKLOG_COUNT (64)
 #endif
-
-#define PAGE_ALIGN(p_pointer)       (((uint32_t) p_pointer) & (~((uint32_t) (PAGE_SIZE - 1))))
-#define PAGE_OFFSET(p_pointer)      (((uint32_t) p_pointer) & (PAGE_SIZE - 1))
 
 /*****************************************************************************
 * Local typedefs
@@ -45,50 +43,48 @@ static uint32_t         mp_page_buffer[PAGE_SIZE / 4];
 * Static Functions
 *****************************************************************************/
 static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length);
+static void entry_mark_as_missing(uint32_t p_start, uint16_t length);
 
 static void entry_mark_as_not_missing(uint32_t p_start, uint16_t length)
 {
     uint32_t found_entries = 0;
-    for (uint32_t i = 0; i < MISSING_ENTRY_BACKLOG_COUNT && found_entries < m_current_transfer.missing_entry_count; ++i)
+    for (uint32_t i = 0; i < MISSING_ENTRY_BACKLOG_COUNT; ++i)
     {
         dfu_entry_t* p_entry = &m_current_transfer.p_missing_entry_backlog[i];
 
         if (p_entry->addr != 0)
         {
             found_entries++;
-            /* perfect match */
-            if (p_entry->addr == p_start && p_entry->length == length)
+            /* existing entry starts at same point as new */
+            if (p_entry->addr == p_start)
             {
-                p_entry->addr = 0;
-                p_entry->length = 0;
-                m_current_transfer.missing_entry_count--;
-                return;
-            }
-
-            /* existing entry starts inside new */
-            if (p_entry->addr > p_start &&
-                p_entry->addr < p_start + length)
-            {
-                if (p_entry->addr + p_entry->length > p_start + length)
+                if (length >= p_entry->length)
                 {
-                    p_entry->length = p_entry->addr + p_entry->length - p_start;
+                    p_entry->addr = 0;
+                    p_entry->length = 0;
+                    m_current_transfer.missing_entry_count--;
                 }
                 else
                 {
-                    p_entry->length = length;
+                    p_entry->length -= length;
+                    p_entry->addr = p_start + length;
                 }
-                p_entry->addr = p_start;
                 return;
             }
-
-            /* new entry starts inside original */
-            if (p_entry->addr + p_entry->length > p_start &&
-                p_entry->addr + p_entry->length < p_start + length)
+            else if (p_entry->addr + p_entry->length == p_start + length)
             {
-                if (p_entry->length < p_start + length - p_entry->addr)
-                {
-                    p_entry->length = p_start + length - p_entry->addr;
-                }
+                /* found at end of a larger entry */
+                p_entry->length = p_start - p_entry->addr;
+                return;
+            }
+            else if (p_start > p_entry->addr &&
+                     p_start < p_entry->addr + p_entry->length)
+            {
+                /* found in the middle of entry */
+                uint32_t old_end = p_entry->addr + p_entry->length;
+                p_entry->length = p_start - p_entry->addr;
+                entry_mark_as_missing(p_start + length,
+                        old_end - (p_start + length));
                 return;
             }
         }
@@ -106,6 +102,9 @@ static void entry_mark_as_missing(uint32_t p_start, uint16_t length)
             if (p_existing_entry->length < p_start + length - p_existing_entry->addr)
             {
                 p_existing_entry->length = p_start + length - p_existing_entry->addr;
+            }
+            else
+            {
             }
         }
         else
@@ -134,7 +133,7 @@ static void entry_mark_as_missing(uint32_t p_start, uint16_t length)
 static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
 {
     uint32_t entries_encountered = 0;
-    for (uint32_t i = 0; i < MISSING_ENTRY_BACKLOG_COUNT && entries_encountered < m_current_transfer.missing_entry_count; ++i)
+    for (uint32_t i = 0; i < MISSING_ENTRY_BACKLOG_COUNT; ++i)
     {
         dfu_entry_t* p_entry = &m_current_transfer.p_missing_entry_backlog[i];
 
@@ -149,8 +148,8 @@ static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
                  )
                  ||
                  (
-                  p_entry->addr + p_entry->length > p_start &&
-                  p_entry->addr + p_entry->length < p_start + length
+                  p_start >= p_entry->addr &&
+                  p_start <= p_entry->addr + p_entry->length
                  )
                )
             {
@@ -161,7 +160,7 @@ static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
     return NULL;
 }
 
-static bool flash_page(void)
+static void flash_page(void)
 {
     nrf_flash_store(m_current_transfer.p_current_page, (uint8_t*) mp_page_buffer, PAGE_SIZE, 0);
 
@@ -170,10 +169,7 @@ static bool flash_page(void)
         mp_page_buffer[i] = 0xFFFFFFFF;
     }
 
-    m_current_transfer.p_current_page = (uint32_t*)((uint32_t) m_current_transfer.p_current_page + PAGE_SIZE);
     m_current_transfer.first_invalid_byte_on_page = 0;
-
-    return true;
 }
 
 /*****************************************************************************
@@ -181,48 +177,81 @@ static bool flash_page(void)
 *****************************************************************************/
 void dfu_init(void)
 {
-    m_current_transfer.first_invalid_byte_on_page = 0;
-    m_current_transfer.p_current_page = NULL;
-    memset(m_current_transfer.p_missing_entry_backlog, 0, sizeof(m_current_transfer.p_missing_entry_backlog));
-    m_current_transfer.missing_entry_count = 0;
+    memset(&m_current_transfer, 0, sizeof(m_current_transfer));
+    memset(mp_page_buffer, 0xFF, PAGE_SIZE);
 }
 
-void dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint16_t segment_count, bool final_transfer)
+uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, bool final_transfer)
 {
     dfu_init();
-    uint32_t* p_end_addr = (uint32_t*) SEGMENT_ADDR(segment_count, (uint32_t) p_start_addr);
+    uint16_t segment_count = (((size + (uint32_t) p_start_addr) & 0xFFFFFFF0) - ((uint32_t) p_start_addr & 0xFFFFFFF0)) / 16;
+    uint32_t* p_end_addr = p_start_addr + size / 4;
     if (p_bank_addr == p_start_addr || p_bank_addr == NULL)
     {
+        memset(mp_page_buffer, 0xFF, PAGE_SIZE);
+        bool reflash_front = false;
+        bool single_page = false;
+
+        /* buffer front */
         if (PAGE_OFFSET(p_start_addr) != 0)
         {
-            memcpy(mp_page_buffer, (void*) PAGE_ALIGN(p_start_addr), (uint32_t) PAGE_OFFSET(p_start_addr));
+            reflash_front = true;
+            memcpy(mp_page_buffer,
+                   (void*) PAGE_ALIGN(p_start_addr),
+                   (uint32_t) PAGE_OFFSET(p_start_addr));
+        }
+
+        /* single page transfer */
+        if (PAGE_ALIGN(p_start_addr) == PAGE_ALIGN(p_end_addr))
+        {
+            single_page = true;
+            memcpy(&mp_page_buffer[PAGE_OFFSET(p_end_addr)],
+                    (uint32_t*) p_end_addr, PAGE_SIZE - PAGE_OFFSET(p_end_addr));
         }
 
         /* Wipe all but the last page. This operation is super slow */
-        nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_start_addr), PAGE_ALIGN(p_end_addr) - PAGE_ALIGN(p_start_addr));
+        if (single_page)
+        {
+            nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_start_addr),
+                            PAGE_SIZE);
+        }
+        else
+        {
+            nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_start_addr),
+                    PAGE_ALIGN(p_end_addr) - PAGE_ALIGN(p_start_addr));
+        }
 
         /* Restore the beginning of the first page */
-        if (PAGE_OFFSET(p_start_addr) != 0)
+        if (reflash_front)
         {
-            nrf_flash_store((uint32_t*) PAGE_ALIGN(p_start_addr), (uint8_t*) mp_page_buffer, (uint32_t) PAGE_OFFSET(p_start_addr), 0);
+            nrf_flash_store((uint32_t*) PAGE_ALIGN(p_start_addr),
+                            (uint8_t*) mp_page_buffer,
+                            PAGE_OFFSET(p_start_addr), 0);
         }
 
-        /* Erase last page, but retain unaffected data. */
-        if (PAGE_OFFSET(p_end_addr) != 0)
+        /* Restore the end of a single-page transfer */
+        if (single_page)
         {
-            memcpy(mp_page_buffer, p_end_addr, PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr));
+            nrf_flash_store(p_end_addr,
+                            (uint8_t*) &mp_page_buffer[PAGE_OFFSET(p_end_addr)],
+                            PAGE_SIZE - PAGE_OFFSET(p_end_addr), 0);
         }
-        nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_end_addr), PAGE_SIZE);
-        if (PAGE_OFFSET(p_end_addr) != 0)
+        else if (PAGE_OFFSET(p_end_addr) != 0)
         {
-            nrf_flash_store(p_end_addr, (uint8_t*) mp_page_buffer, PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr), 0);
+            /* Erase last page, but retain unaffected data. */
+            memcpy(mp_page_buffer, p_end_addr, PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr));
+            nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_end_addr), PAGE_SIZE);
+
+            nrf_flash_store(p_end_addr,
+                    (uint8_t*) mp_page_buffer,
+                    PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr), 0);
         }
 
         m_current_transfer.p_bank_addr = p_start_addr;
     }
     else /* double bank */
     {
-        uint32_t page_count = 1 + (segment_count * 16) / 1024;
+        uint32_t page_count = 1 + (segment_count * 16) / PAGE_SIZE;
         nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_bank_addr), page_count * PAGE_SIZE); /* This breaks the app */
         m_current_transfer.p_bank_addr = p_bank_addr;
     }
@@ -230,6 +259,10 @@ void dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint16_t segment_c
     m_current_transfer.segment_count = segment_count;
     m_current_transfer.final_transfer = final_transfer;
     m_current_transfer.p_current_page = (uint32_t*) (PAGE_ALIGN(m_current_transfer.p_start_addr));
+    m_current_transfer.first_invalid_byte_on_page = PAGE_OFFSET(p_start_addr);
+
+    memset(mp_page_buffer, 0xFF, PAGE_SIZE);
+    return NRF_SUCCESS;
 }
 
 uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
@@ -245,7 +278,7 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
     }
 
     /* if entry stretches over several pages, take them one at a time, recursively */
-    if (PAGE_OFFSET(p_addr) + length >= PAGE_SIZE)
+    if (PAGE_OFFSET(p_addr) + length > PAGE_SIZE)
     {
         uint16_t first_length = PAGE_SIZE - PAGE_OFFSET(p_addr) + length;
         uint32_t error_code = dfu_data(p_addr, p_data, first_length);
@@ -263,14 +296,15 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
     if (PAGE_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_current_page)
     {
         buffer_incoming_entry = true;
-        if (m_current_transfer.first_invalid_byte_on_page < PAGE_ALIGN(p_addr))
+        if (m_current_transfer.first_invalid_byte_on_page < PAGE_OFFSET(p_addr))
         {
-            entry_mark_as_missing(m_current_transfer.first_invalid_byte_on_page,
-                    PAGE_ALIGN(p_addr) - m_current_transfer.first_invalid_byte_on_page);
+            entry_mark_as_missing(
+                PAGE_ALIGN(m_current_transfer.p_current_page) + m_current_transfer.first_invalid_byte_on_page,
+                PAGE_OFFSET(p_addr) - m_current_transfer.first_invalid_byte_on_page);
         }
         else if (m_current_transfer.first_invalid_byte_on_page > PAGE_ALIGN(p_addr))
         {
-            dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr);
+            dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr, length);
             if (p_backlog_entry == NULL)
             {
                 /* already have this entry buffered */
@@ -282,16 +316,18 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
     {
         /* This only happens if we miss the last entry on the previous page, mark that entry as
            invalid. */
-        entry_mark_as_missing(m_current_transfer.first_invalid_byte_on_page,
+        entry_mark_as_missing(
+                PAGE_ALIGN(m_current_transfer.p_current_page) + m_current_transfer.first_invalid_byte_on_page,
                 PAGE_SIZE - m_current_transfer.first_invalid_byte_on_page);
 
         /* moving to next page */
         flash_page();
         buffer_incoming_entry = true;
+        m_current_transfer.p_current_page = (uint32_t*)((uint32_t) m_current_transfer.p_current_page + PAGE_SIZE);
     }
     else
     {
-        dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr);
+        dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr, length);
         if (p_backlog_entry != NULL)
         {
             /* Recovering an old entry, flash it individually. */
@@ -309,7 +345,7 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
 
     if (buffer_incoming_entry)
     {
-        memcpy(&mp_page_buffer[PAGE_OFFSET(p_addr)], p_data, length);
+        memcpy(&mp_page_buffer[PAGE_OFFSET(p_addr) / 4], p_data, length);
 
         m_current_transfer.first_invalid_byte_on_page = PAGE_OFFSET(p_addr) + length;
 
@@ -317,6 +353,7 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         {
             /* last entry in page */
             flash_page();
+            m_current_transfer.p_current_page = (uint32_t*)((uint32_t) m_current_transfer.p_current_page + PAGE_SIZE);
         }
     }
     return NRF_SUCCESS;

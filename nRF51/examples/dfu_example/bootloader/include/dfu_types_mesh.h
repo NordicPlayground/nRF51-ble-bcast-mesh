@@ -40,13 +40,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef PAGE_SIZE
 #define PAGE_SIZE                   (0x400)
 #endif
+#ifndef PAGE_COUNT
+#define PAGE_COUNT                   (128)
+#endif
 
-#define PAGE_COUNT                  (NRF_FICR->CODESIZE)
 #define FLASH_SIZE                  (PAGE_SIZE * PAGE_COUNT)
 
 #define SEGMENT_ADDR(segment_id, start_addr) ((segment_id == 1)? \
-                                                start_addr : \
-                                                ((start_addr) & 0xFFFFFFF0) + ((segment_id) - 1) * 16)
+                                                (uint32_t) start_addr : \
+                                                (((uint32_t) start_addr) & 0xFFFFFFF0) + ((segment_id) - 1) * 16)
+
+#define PAGE_ALIGN(p_pointer)       (((uint32_t) p_pointer) & (~((uint32_t) (PAGE_SIZE - 1))))
+#define PAGE_OFFSET(p_pointer)      (((uint32_t) p_pointer) & (PAGE_SIZE - 1))
 
 #define SOFTDEVICE_INFORMATION_BASE     0x0003000                                                       /**< Location in the SoftDevice image which holds the SoftDevice informations. */
 #define SOFTDEVICE_INFORMATION          ((SOFTDEVICE_INFORMATION_Type *) SOFTDEVICE_INFORMATION_BASE)   /**< Make SoftDevice information accessible through the structure. */
