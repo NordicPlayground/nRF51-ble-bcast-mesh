@@ -94,7 +94,7 @@ static void entry_mark_as_not_missing(uint32_t p_start, uint16_t length)
 static void entry_mark_as_missing(uint32_t p_start, uint16_t length)
 {
     /* first, check for entries which can be merged with this */
-    dfu_entry_t* p_existing_entry = entry_in_missing_backlog(p_start - 1, length + 2);
+    dfu_entry_t* p_existing_entry = entry_in_missing_backlog(p_start - 1, length + 1 + 1);
     if (p_existing_entry)
     {
         if (p_existing_entry->addr <= p_start)
@@ -102,9 +102,6 @@ static void entry_mark_as_missing(uint32_t p_start, uint16_t length)
             if (p_existing_entry->length < p_start + length - p_existing_entry->addr)
             {
                 p_existing_entry->length = p_start + length - p_existing_entry->addr;
-            }
-            else
-            {
             }
         }
         else
@@ -132,24 +129,22 @@ static void entry_mark_as_missing(uint32_t p_start, uint16_t length)
 
 static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
 {
-    uint32_t entries_encountered = 0;
     for (uint32_t i = 0; i < MISSING_ENTRY_BACKLOG_COUNT; ++i)
     {
         dfu_entry_t* p_entry = &m_current_transfer.p_missing_entry_backlog[i];
 
         if (p_entry->addr != 0)
         {
-            entries_encountered++;
             /* overlap: */
             if (
                  (
                   p_entry->addr >= p_start &&
-                  p_entry->addr <= p_start + length
+                  p_entry->addr < p_start + length
                  )
                  ||
                  (
                   p_start >= p_entry->addr &&
-                  p_start <= p_entry->addr + p_entry->length
+                  p_start < p_entry->addr + p_entry->length
                  )
                )
             {
@@ -162,7 +157,10 @@ static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
 
 static void flash_page(void)
 {
-    nrf_flash_store(m_current_transfer.p_current_page, (uint8_t*) mp_page_buffer, PAGE_SIZE, 0);
+    nrf_flash_store((uint32_t*) ((uint32_t) PAGE_ALIGN(m_current_transfer.p_bank_addr)
+            - (uint32_t) PAGE_ALIGN(m_current_transfer.p_start_addr)
+            + (uint32_t) m_current_transfer.p_current_page),
+            (uint8_t*) mp_page_buffer, PAGE_SIZE, 0);
 
     for (uint32_t i = 0; i < PAGE_SIZE / 4; ++i)
     {
@@ -251,6 +249,11 @@ uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size,
     }
     else /* double bank */
     {
+        /* dual banked transfers must be page-aligned to fit MBR */
+        if ((uint32_t) p_start_addr & (PAGE_SIZE - 1))
+        {
+            return NRF_ERROR_INVALID_ADDR;
+        }
         uint32_t page_count = 1 + (segment_count * 16) / PAGE_SIZE;
         nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_bank_addr), page_count * PAGE_SIZE); /* This breaks the app */
         m_current_transfer.p_bank_addr = p_bank_addr;
@@ -277,6 +280,7 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         return NRF_ERROR_INVALID_LENGTH;
     }
 
+#if 0 //not supported
     /* if entry stretches over several pages, take them one at a time, recursively */
     if (PAGE_OFFSET(p_addr) + length > PAGE_SIZE)
     {
@@ -291,6 +295,7 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         p_data += first_length;
         length -= first_length;
     }
+#endif
 
     bool buffer_incoming_entry;
     if (PAGE_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_current_page)
@@ -302,7 +307,7 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
                 PAGE_ALIGN(m_current_transfer.p_current_page) + m_current_transfer.first_invalid_byte_on_page,
                 PAGE_OFFSET(p_addr) - m_current_transfer.first_invalid_byte_on_page);
         }
-        else if (m_current_transfer.first_invalid_byte_on_page > PAGE_ALIGN(p_addr))
+        else if (m_current_transfer.first_invalid_byte_on_page > PAGE_OFFSET(p_addr))
         {
             dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr, length);
             if (p_backlog_entry == NULL)
@@ -373,11 +378,13 @@ bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len)
             return false;
         }
 
-        p_storage_addr = m_current_transfer.p_current_page + PAGE_OFFSET(p_addr);
+        p_storage_addr = (uint32_t*) ((uint32_t) mp_page_buffer + (uint32_t) PAGE_OFFSET(p_addr));
     }
     else /* old page */
     {
-        p_storage_addr = p_addr;
+        p_storage_addr = (uint32_t*) ((uint32_t) p_addr
+                - (uint32_t) m_current_transfer.p_start_addr
+                + (uint32_t) m_current_transfer.p_bank_addr);
     }
 
     if (entry_in_missing_backlog((uint32_t) p_addr, len))
@@ -407,8 +414,19 @@ void dfu_end(void)
     if (m_current_transfer.p_bank_addr != m_current_transfer.p_start_addr &&
         m_current_transfer.p_bank_addr != NULL)
     {
-        /* move the bank with MBR */
-        //TODO
+#if 0
+        /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must have been set. */
+        sd_mbr_command_t sd_mbr_cmd;
+
+        sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
+        sd_mbr_cmd.params.copy_bl.bl_src = (uint32_t *)(bl_image_start);
+        sd_mbr_cmd.params.copy_bl.bl_len = bootloader_settings.bl_image_size / sizeof(uint32_t);
+
+        if (sd_mbr_command(&sd_mbr_cmd) != NRF_SUCCESS)
+        {
+            bootloader_abort(BL_END_ERROR_MBR_FAIL);
+        }
+#endif
     }
 }
 
