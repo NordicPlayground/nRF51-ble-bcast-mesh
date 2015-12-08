@@ -58,21 +58,20 @@ typedef struct
     struct
     {
         uint8_t metadata_len; /* in bytes */
-        uint16_t len_length;  /* in bits */
-        uint16_t type_length; /* in bits */
+        uint8_t len_length;  /* in bits */
+        uint8_t type_length; /* in bits */
+        uint8_t _padding;
     } metadata;
     uint8_t data[];
 } bootloader_info_t;
 
 
 
-inline bootloader_info_t* bootloader_info_get(void)
-{
-    return (bootloader_info_t*) (BOOTLOADER_INFO_ADDRESS + DFU_PUBLIC_KEY_LEN);
-}
 
-void bootloader_info_init(void);
-bl_info_entry_t* bootloader_info_entry_get(uint32_t page_address, bl_info_type_t type);
+
+uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank_page);
+bootloader_info_t* bootloader_info_get(void);
+bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_type_t type);
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type, bl_info_entry_t* p_entry, uint32_t length); /* p_entry must point to RAM */
 void bootloader_info_reset(void);
 
