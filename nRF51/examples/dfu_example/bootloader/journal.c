@@ -33,13 +33,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
+#include <stdio.h>
 #include "journal.h"
 #include "dfu_mesh.h"
-
-
 #include "nrf_flash.h"
 #include "dfu_types_mesh.h"
-#include "boards.h"
 
 #define TO_WORD(index) ((index) / 32)
 #define TO_OFFSET(index) ((index) & 0x1F)
@@ -68,9 +66,10 @@ void journal_complete(uint32_t* p_page)
     nrf_flash_store(mp_complete_field, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
 }
 
-bool journal_is_complete(void)
+bool journal_is_complete(uint32_t* p_start, uint16_t length)
 {
-    for (uint32_t i = 0; i < PAGE_COUNT; ++i)
+    /* complete if all pages are tagged as complete */
+    for (uint32_t i = (uint32_t) p_start / PAGE_SIZE; i <= length / PAGE_SIZE; ++i)
     {
         if (GET_FLAG(i, mp_complete_field))
         {
@@ -80,13 +79,14 @@ bool journal_is_complete(void)
     return true;
 }
 
-bool journal_is_invalid(void)
+bool journal_is_invalid(uint32_t* p_start, uint16_t length)
 {
-    for (uint32_t i = 0; i < PAGE_COUNT; ++i)
+    /* invalid if at least one page is invalid, and the entire thing isn't complete. */
+    for (uint32_t i = (uint32_t) p_start / PAGE_SIZE; i <= length / PAGE_SIZE; ++i)
     {
         if (!GET_FLAG(i, mp_invalidate_field))
         {
-            return true;
+            return !journal_is_complete(p_start, length);
         }
     }
     return false;
