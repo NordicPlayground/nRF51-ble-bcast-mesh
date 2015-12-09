@@ -66,11 +66,13 @@ static uint32_t put_info_entry(uint8_t type, uint32_t length, uint8_t* p_data, u
     if (p_data)
     {
         uint32_t i = 0;
-        uint32_t actual_length = length + 2;
+        uint32_t actual_length = length + 4;
         if (actual_length & 0x03) actual_length = (actual_length + 4) & 0xFFFFFFFC;
         memset(&p_dest[i + actual_length - 3], 0xFF, 3);
         p_dest[i++] = actual_length / 4;
         p_dest[i++] = type;
+        p_dest[i++] = 0xFF; /* padding */
+        p_dest[i++] = 0xFF; /* padding */
         memcpy(&p_dest[i], p_data, length);
         return actual_length;
     }
@@ -252,6 +254,13 @@ static uint32_t create_info(char* p_file_name, uint8_t* p_data_buf)
     if (!p_entry || sscanf(p_entry, "%hx", &id.bootloader) == 0) missing_entry("BL_VERSION");
 
     i += put_info_entry(BL_INFO_TYPE_VERSION, 14, (uint8_t*) &id, &p_data_buf[i]);
+
+    /* flags */
+    uint8_t flags[4];
+    memset(flags, 0xFF, 4);
+    i += put_info_entry(BL_INFO_TYPE_FLAGS, 4, flags, &p_data_buf[i]);
+
+    /* end-of-entries */
     memset(&p_data_buf[i], 0xFF, 4);
     p_data_buf[i + 1] = BL_INFO_TYPE_LAST8;
 
