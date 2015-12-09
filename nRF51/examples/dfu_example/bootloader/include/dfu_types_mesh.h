@@ -107,7 +107,7 @@ typedef enum
 {
     DFU_TYPE_SD         = 0x01,
     DFU_TYPE_BOOTLOADER = 0x02,
-    DFU_TYPE_APP        = 0x03,
+    DFU_TYPE_APP        = 0x04,
 } dfu_type_t;
 
 typedef struct __attribute((packed))
