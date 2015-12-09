@@ -33,33 +33,38 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#include "rbc_mesh.h"
-#include "timeslot_handler.h"
-#include "uECC.h"
-#include "app_uart.h"
-#include "app_error.h"
-#include "dfu_mesh.h"
-#include "dfu_types_mesh.h"
-#include "nrf_gpio.h"
-#include "boards.h"
-#include "records.h"
-#include "timeslot_handler.h"
-#include "version_handler.h"
-#include "rbc_mesh.h"
-#include "event_handler.h"
-#include "transport_control.h"
-#include "mesh_aci.h"
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
-    
+
+#include "bootloader_mesh.h"
+#include "bootloader_info.h"
+#include "bootloader_rtc.h"
+#include "dfu_types_mesh.h"
+#include "rbc_mesh.h"
+#include "transport.h"
+
+#include "app_error.h"
+#include "nrf_gpio.h"
 
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
+    __disable_irq();
     __BKPT(0);
+    while (1);
+}
+
+static void rx_cb(mesh_packet_t* p_packet)
+{
+    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
+    if (p_adv_data->handle > RBC_MESH_APP_MAX_HANDLE)
+    {
+        NRF_GPIO->OUTSET = (1 << 21);
+        bootloader_rx((dfu_packet_t*) &p_adv_data->handle, p_adv_data->adv_data_length - 3);
+        NRF_GPIO->OUTCLR = (1 << 21);
+    }
 }
 
 static void init_leds(void)
@@ -71,14 +76,11 @@ static void init_leds(void)
 int main(void)
 {
     init_leds();
-    
-    tc_init(DFU_ACCESS_ADDR, 38);
-    event_handler_init();
-    vh_init(100000);
-    timeslot_handler_init(NRF_CLOCK_LFCLKSRC_XTAL_150_PPM);
-    records_init(MISSING_POOL_SIZE);
-    //mesh_aci_init();
-    uECC_verify(NULL, NULL, NULL);
+    rtc_init();
+    transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
+    bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE));
+    bootloader_init();
+
     while (1)
     {
         __WFE();
