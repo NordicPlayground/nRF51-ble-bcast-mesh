@@ -269,6 +269,5 @@ int main(int argc, char** argv)
 
     uint8_t data_buf[PAGE_SIZE];
     generate_hex_file(argv[1], data_buf, create_info(argv[1], data_buf));
-
-
 }
+

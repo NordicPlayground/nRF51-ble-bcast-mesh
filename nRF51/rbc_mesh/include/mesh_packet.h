@@ -40,7 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 #include "toolchain.h"
 
-                                             
+
 #define MESH_UUID                           (0xFEE4)
 #define MESH_ADV_DATA_TYPE                  (0x16)
 #define BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH   (31)
@@ -51,7 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /******************************************************************************
 * Public typedefs
 ******************************************************************************/
-typedef __packed_armcc enum 
+typedef __packed_armcc enum
 {
     BLE_PACKET_TYPE_ADV_IND,
     BLE_PACKET_TYPE_ADV_DIRECT_IND,
@@ -89,7 +89,7 @@ typedef __packed_armcc struct
     uint8_t                 data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc mesh_adv_data_t;
 
-typedef __packed_armcc struct 
+typedef __packed_armcc struct
 {
     ble_packet_header_t header;
     uint8_t addr[6];
@@ -114,7 +114,7 @@ bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet);
 
 uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet);
 
-uint32_t mesh_packet_build(mesh_packet_t* p_packet, 
+uint32_t mesh_packet_build(mesh_packet_t* p_packet,
         rbc_mesh_value_handle_t handle,
         uint16_t version,
         uint8_t* data,
