@@ -41,6 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void journal_init(uint32_t* p_invalidate_field, uint32_t* p_complete_field);
 void journal_invalidate(uint32_t* p_page);
+void journal_invalidate_multiple(uint32_t* p_first, uint32_t count);
 void journal_complete(uint32_t* p_page);
 bool journal_is_complete(uint32_t* p_start, uint16_t length);
 bool journal_is_invalid(uint32_t* p_start, uint16_t length);

@@ -33,7 +33,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#include <stdio.h>
+#include <string.h>
 #include "journal.h"
 #include "dfu_mesh.h"
 #include "nrf_flash.h"
@@ -57,6 +57,18 @@ void journal_invalidate(uint32_t* p_page)
     uint32_t page_index = ((uint32_t) p_page) / PAGE_SIZE;
     uint32_t field = ~(1 << TO_OFFSET(page_index));
     nrf_flash_store(mp_invalidate_field, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
+}
+
+void journal_invalidate_multiple(uint32_t* p_first, uint32_t count)
+{
+    uint32_t page_index = ((uint32_t) p_first) / PAGE_SIZE;
+    uint32_t fields[32];
+    memset(fields, 0xFF, 32 * 4);
+    for (uint32_t page = 0; page < count; ++page)
+    {
+        fields[TO_WORD(page_index + page)] &= ~(1 << TO_OFFSET(page_index + page));
+    }
+    nrf_flash_store(mp_invalidate_field, (uint8_t*) fields, 4 + TO_WORD(page_index + count), TO_WORD(page_index) * 4);
 }
 
 void journal_complete(uint32_t* p_page)
