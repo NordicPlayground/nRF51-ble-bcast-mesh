@@ -3,12 +3,14 @@
 #include "sha256.h"
 #include "dfu_mesh.h"
 #include "dfu_types_mesh.h"
+#include "mesh_packet.h"
 #include "uECC.h"
 #include "transport.h"
 #include "bootloader_util.h"
 #include "bootloader_rtc.h"
 #include "bootloader_info.h"
 #include "app_error.h"
+#include "journal.h"
 
 #define TX_REPEATS_DEFAULT          (5)
 #define TX_REPEATS_FWID             (TX_REPEATS_INF)
@@ -61,8 +63,8 @@ typedef struct
     bl_info_segment_t*  p_segment_app;
     bl_info_flags_t*    p_flags;
     uint8_t*            p_ecdsa_public_key;
+    uint8_t*            p_journal;
 } bl_info_pointers_t;
-
 
 static transaction_t        m_transaction;
 static bl_state_t           m_state = BL_STATE_FIND_FWID;
@@ -341,7 +343,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 m_transaction.segment_count      = p_packet->payload.start.segment_count;
                 m_start_addr = p_packet->payload.start.start_address;
                 if (m_start_addr < p_segment->start ||
-                    SEGMENT_ADDR(m_transaction.segment_count, m_start_addr) > p_segment->start + p_segment->size)
+                    SEGMENT_ADDR(m_transaction.segment_count, m_start_addr) > p_segment->start + p_segment->length)
                 {
                     /* out of bounds */
                     bootloader_abort(BL_END_ERROR_SEGMENT_VIOLATION);
@@ -516,23 +518,28 @@ void bootloader_init(void)
     m_transaction.transaction_id = 0;
 
     /* fetch persistent entries */
-    m_bl_info_pointers.p_flags              = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS)->flags;
-    m_bl_info_pointers.p_fwid               = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION)->version;
-    m_bl_info_pointers.p_segment_app        = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_APP)->segment;
-    m_bl_info_pointers.p_segment_bl         = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_BL)->segment;
-    m_bl_info_pointers.p_segment_sd         = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_SD)->segment;
-    m_bl_info_pointers.p_ecdsa_public_key   = &bootloader_info_entry_get(BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_ECDSA_PUBLIC_KEY)->public_key[0];
+    m_bl_info_pointers.p_flags              = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS)->flags;
+    m_bl_info_pointers.p_fwid               = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION)->version;
+    m_bl_info_pointers.p_segment_app        = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_APP)->segment;
+    m_bl_info_pointers.p_segment_bl         = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_BL)->segment;
+    m_bl_info_pointers.p_segment_sd         = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_SD)->segment;
+    m_bl_info_pointers.p_ecdsa_public_key   = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_ECDSA_PUBLIC_KEY)->public_key[0];
+    m_bl_info_pointers.p_journal            = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_JOURNAL)->journal[0];
 
     if (
-        ((uint32_t) m_bl_info_pointers.p_flags          < BOOTLOADER_INFO_ADDRESS) ||
-        ((uint32_t) m_bl_info_pointers.p_fwid           < BOOTLOADER_INFO_ADDRESS) ||
-        ((uint32_t) m_bl_info_pointers.p_segment_app    < BOOTLOADER_INFO_ADDRESS) ||
-        ((uint32_t) m_bl_info_pointers.p_segment_sd     < BOOTLOADER_INFO_ADDRESS) ||
-        ((uint32_t) m_bl_info_pointers.p_segment_bl     < BOOTLOADER_INFO_ADDRESS)
+        ((uint32_t) m_bl_info_pointers.p_flags              < BOOTLOADER_INFO_ADDRESS) ||
+        ((uint32_t) m_bl_info_pointers.p_fwid               < BOOTLOADER_INFO_ADDRESS) ||
+        ((uint32_t) m_bl_info_pointers.p_segment_app        < BOOTLOADER_INFO_ADDRESS) ||
+        ((uint32_t) m_bl_info_pointers.p_segment_sd         < BOOTLOADER_INFO_ADDRESS) ||
+        ((uint32_t) m_bl_info_pointers.p_segment_bl         < BOOTLOADER_INFO_ADDRESS)
        )
     {
         bootloader_abort(BL_END_ERROR_INVALID_PERSISTANT_STORAGE);
     }
+
+    journal_init((uint32_t*) &m_bl_info_pointers.p_journal[0],
+                 (uint32_t*) &m_bl_info_pointers.p_journal[BL_INFO_LEN_JOURNAL / 2]);
+    NRF_UICR->BOOTLOADERADDR = m_bl_info_pointers.p_segment_bl->start;
 
     if (!m_bl_info_pointers.p_flags->sd_intact ||
         m_bl_info_pointers.p_fwid->sd == SD_VERSION_INVALID)
