@@ -162,7 +162,7 @@ typedef struct __attribute((packed))
             uint16_t segment;
             uint32_t transaction_id;
             uint32_t start_address;
-            uint16_t segment_count;
+            uint32_t length; /* in words */
             uint16_t signature_length;
             uint8_t diff        : 1;
             uint8_t single_bank : 1;
