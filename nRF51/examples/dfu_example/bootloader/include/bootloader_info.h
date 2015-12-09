@@ -9,7 +9,7 @@
 #define BL_INFO_LEN_PUBLIC_KEY  (DFU_PUBLIC_KEY_LEN)
 #define BL_INFO_LEN_SEGMENT     (9)
 #define BL_INFO_LEN_FWID        (14)
-#define BL_INFO_LEN_JOURNAL     ((2 * PAGE_SIZE) / 8)
+#define BL_INFO_LEN_JOURNAL     ((2 * PAGE_COUNT) / 8)
 #define BL_INFO_LEN_FLAGS       (1)
 
 typedef enum
