@@ -62,14 +62,14 @@ static void set_next_tx(tx_t* p_tx)
         uint32_t offset         = (INTERVAL <<  p_tx->count) - INTERVAL;
         uint32_t offset_next    = (INTERVAL << (p_tx->count + 1)) - INTERVAL;
         uint32_t diff = (offset_next & RTC_MASK - offset & RTC_MASK) & RTC_MASK;
-        
-        p_tx->ticks_next = (p_tx->ticks_start + offset + 
+
+        p_tx->ticks_next = (p_tx->ticks_start + offset +
             (rand_prng_get(&m_prng) % (diff / 2)) + diff / 2) & RTC_MASK;
     }
     else
     {
         /* double interval for regulars */
-        p_tx->ticks_next = (p_tx->ticks_start + (2 * INTERVAL * p_tx->count) + 
+        p_tx->ticks_next = (p_tx->ticks_start + (2 * INTERVAL * p_tx->count) +
             (rand_prng_get(&m_prng) % (INTERVAL)) + INTERVAL) & RTC_MASK;
     }
 }
@@ -149,6 +149,7 @@ void SWI0_IRQHandler(void)
     while (fifo_pop(&m_rx_fifo, &p_packet) == NRF_SUCCESS)
     {
         m_rx_cb(p_packet);
+        mesh_packet_ref_count_dec(p_packet);
     }
 }
 
@@ -177,7 +178,7 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
     m_rx_fifo.memcpy_fptr = NULL;
     fifo_init(&m_rx_fifo);
     radio_init(access_addr, idle_cb);
-    
+
     APP_ERROR_CHECK(rand_prng_seed(&m_prng));
 
     NVIC_SetPriority(SWI0_IRQn, 3);
@@ -192,13 +193,13 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t t
     {
         return false;
     }
-    
+
     tx_t* p_tx = find_tx_entry(NULL);
     if (p_tx == NULL)
     {
         return false;
     }
-    
+
     mesh_packet_ref_count_inc(p_packet);
     p_tx->p_packet = p_packet;
     p_tx->repeats = repeats;
@@ -225,14 +226,14 @@ void transport_tx_reset(mesh_packet_t* p_packet)
 void transport_tx_abort(mesh_packet_t* p_packet)
 {
     NVIC_DisableIRQ(RTC0_IRQn);
-    
+
     tx_t* p_tx = find_tx_entry(p_packet);
     if (p_tx != NULL)
     {
         mesh_packet_ref_count_dec(p_tx->p_packet);
         memset(p_tx, 0, sizeof(tx_t));
     }
-    
+
     order_next_rtc();
     NVIC_EnableIRQ(RTC0_IRQn);
 }
@@ -252,18 +253,18 @@ void transport_rtc_irq_handler(void)
             radio_evt.packet_ptr = (uint8_t*) m_tx[i].p_packet;
             radio_evt.access_address = 0;
             radio_evt.callback.tx = tx_cb;
-            
+
             for (radio_evt.channel = 37; radio_evt.channel <= 39; ++radio_evt.channel)
             {
                 mesh_packet_ref_count_inc(m_tx[i].p_packet);
                 radio_order(&radio_evt);
             }
-            
+
             if (m_tx[i].count++ == 0xFF)
             {
                 m_tx[i].ticks_start = (m_tx[i].ticks_start + INTERVAL * 2 * 0x100) & RTC_MASK;
             }
-            
+
             if (m_tx[i].count < m_tx[i].repeats || m_tx[i].repeats == TX_REPEATS_INF)
             {
                 /* exponentially increasing intervals, geometric series. */
