@@ -334,7 +334,7 @@ bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_typ
         (bootloader_info_header_t*)
         ((uint32_t) p_bl_info_page + ((bootloader_info_t*) p_bl_info_page)->metadata.metadata_len);
     uint32_t iterations = 0;
-    bl_info_type_t iter_type = info_header_get_type(p_header);
+    bl_info_type_t iter_type = (bl_info_type_t) info_header_get_type(p_header);
     while (iter_type != type)
     {
         p_header = bootloader_info_iterate(p_header);
@@ -347,7 +347,7 @@ bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_typ
         {
             return NULL; /* out of bounds */
         }
-        iter_type = info_header_get_type(p_header);
+        iter_type = (bl_info_type_t) info_header_get_type(p_header);
     }
     return (bl_info_entry_t*) info_header_get_data(p_header);
 }
