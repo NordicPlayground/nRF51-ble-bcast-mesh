@@ -56,14 +56,20 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     while (1);
 }
 
+void HardFault_Handler(uint32_t pc, uint32_t lr)
+{
+    NRF_GPIO->OUTSET = (1 << 7);
+    __BKPT(0);
+}
+
 static void rx_cb(mesh_packet_t* p_packet)
 {
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
     if (p_adv_data->handle > RBC_MESH_APP_MAX_HANDLE)
     {
-        NRF_GPIO->OUTSET = (1 << 21);
-        bootloader_rx((dfu_packet_t*) &p_adv_data->handle, p_adv_data->adv_data_length - 3);
         NRF_GPIO->OUTCLR = (1 << 21);
+        bootloader_rx((dfu_packet_t*) &p_adv_data->handle, p_adv_data->adv_data_length - 3);
+        NRF_GPIO->OUTSET = (1 << 21);
     }
 }
 
@@ -71,15 +77,61 @@ static void init_leds(void)
 {
     nrf_gpio_range_cfg_output(0, 32);
     NRF_GPIO->OUTCLR = 0xFFFFFFFF;
+    NRF_GPIO->OUTSET = (1 << 21) | (1 << 22) | (1 << 23) | (1 << 24);
 }
 
 int main(void)
 {
+    NRF_CLOCK->TASKS_HFCLKSTART = 1;
+    while (!NRF_CLOCK->EVENTS_HFCLKSTARTED);
+    NRF_CLOCK->TASKS_LFCLKSTART = 1;
+    while (!NRF_CLOCK->EVENTS_LFCLKSTARTED);
+    
+    NRF_CLOCK->TASKS_CAL = 1;
+    while (!NRF_CLOCK->EVENTS_DONE);
+    
     init_leds();
     rtc_init();
     transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
     bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE));
     bootloader_init();
+    
+    dfu_packet_t dfu;
+    dfu.packet_type = DFU_PACKET_TYPE_FWID;
+    dfu.payload.fwid.app.company_id = 0x59;
+    dfu.payload.fwid.app.app_id = 0x01;
+    dfu.payload.fwid.app.app_version = 0x02;
+    dfu.payload.fwid.sd = 0x0064;
+    dfu.payload.fwid.bootloader = 0x02;
+    
+    bootloader_rx(&dfu, DFU_PACKET_LEN_FWID);
+    
+    /* DFU_REQ */
+#if 1
+    dfu.packet_type = DFU_PACKET_TYPE_STATE;
+    dfu.payload.state.authority = 1;
+    dfu.payload.state.dfu_type = DFU_TYPE_APP;
+    dfu.payload.state.params.ready.id.app.company_id = 0x59;
+    dfu.payload.state.params.ready.id.app.app_id = 0x01;
+    dfu.payload.state.params.ready.id.app.app_version = 0x02;
+    dfu.payload.state.params.ready.MIC = 0xBBBBBBBB;
+    dfu.payload.state.params.ready.transaction_id = 0x12345678;
+    
+    bootloader_rx(&dfu, DFU_PACKET_LEN_READY_APP);
+#endif
+
+    /* DFU START */
+    dfu.packet_type = DFU_PACKET_TYPE_DATA;
+    dfu.payload.start.diff = 0;
+    dfu.payload.start.first = 1;
+    dfu.payload.start.last = 1;
+    dfu.payload.start.segment = 0;
+    dfu.payload.start.length = 8; // 8 * 4
+    dfu.payload.start.signature_length = 0;
+    dfu.payload.start.single_bank = 1;
+    dfu.payload.start.start_address = 0x18000;
+    dfu.payload.start.transaction_id = 0x12345678;
+    bootloader_rx(&dfu, DFU_PACKET_LEN_READY_APP);
 
     while (1)
     {
