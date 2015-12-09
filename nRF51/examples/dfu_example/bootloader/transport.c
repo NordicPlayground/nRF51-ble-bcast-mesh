@@ -193,6 +193,10 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t t
     {
         return false;
     }
+    if (p_packet == NULL)
+    {
+        return false;
+    }
 
     tx_t* p_tx = find_tx_entry(NULL);
     if (p_tx == NULL)
