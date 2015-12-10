@@ -184,6 +184,10 @@ static bootloader_info_header_t* bootloader_info_header_get(bl_info_entry_t* p_e
     }
     uint8_t offset = mp_bl_info_page->metadata.len_length / 8
         + mp_bl_info_page->metadata.type_length / 8;
+    if (offset & 0x03)
+    {
+        WORD_ALIGN(offset);
+    }
     return (bootloader_info_header_t*) ((uint8_t*) p_entry - offset);
 }
 
