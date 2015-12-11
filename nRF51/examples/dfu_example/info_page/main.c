@@ -45,11 +45,49 @@ typedef struct __attribute((packed))
     app_id_t app;
 } fwid_t;
 
+static uint32_t parse_byte_string(char* string, uint8_t* p_dest, uint32_t max_length)
+{
+    if (string == NULL)
+    {
+        return 0;
+    }
+    uint32_t count = 0;
+    while (1)
+    {
+        p_dest[count] = 0;
+        for (uint8_t i = 0; i < 2; ++i)
+        {
+            char c = string[count * 2 + i];
+            if (c >= '0' && c <= '9')
+            {
+                p_dest[count] |= (c - '0') << (4 - i * 4);
+            }
+            else if (c >= 'A' && c <= 'F')
+            {
+                p_dest[count] |= (c - 'A' + 10) << (4 - i * 4);
+            }
+            else if (c >= 'a' && c <= 'f')
+            {
+                p_dest[count] |= (c - 'a' + 10) << (4 - i * 4);
+            }
+            else
+            {
+                return count;
+            }
+        }
+        if (count++ == max_length)
+        {
+            return max_length;
+        }
+    }
+}
+
 static void missing_entry(char* entry)
 {
-    printf("Info file missing entry %s, exiting.\n", entry);
+    printf("Info file missing entry \"%s\", exiting.\n", entry);
     exit(1);
 }
+
 static void missing_segment(char* segment_name)
 {
     printf("Info file missing segment %s, exiting.\n", segment_name);
@@ -61,7 +99,7 @@ static void print_usage(char* exec_name)
     printf("Usage: %s <info file>\n", exec_name);
 }
 
-static uint32_t put_info_entry(uint8_t type, uint32_t length, uint8_t* p_data, uint8_t* p_dest)
+static uint32_t put_info_entry(uint16_t type, uint32_t length, uint8_t* p_data, uint8_t* p_dest)
 {
     if (p_data)
     {
@@ -69,10 +107,10 @@ static uint32_t put_info_entry(uint8_t type, uint32_t length, uint8_t* p_data, u
         uint32_t actual_length = length + 4;
         if (actual_length & 0x03) actual_length = (actual_length + 4) & 0xFFFFFFFC;
         memset(&p_dest[i + actual_length - 3], 0xFF, 3);
-        p_dest[i++] = actual_length / 4;
-        p_dest[i++] = type;
-        p_dest[i++] = 0xFF; /* padding */
-        p_dest[i++] = 0xFF; /* padding */
+        p_dest[i++] = (actual_length / 4) & 0xFF;
+        p_dest[i++] = (actual_length / 4) >> 8;
+        p_dest[i++] = (type & 0xFF);
+        p_dest[i++] = (type >> 8);
         memcpy(&p_dest[i], p_data, length);
         return actual_length;
     }
@@ -196,44 +234,41 @@ static uint32_t create_info(char* p_file_name, uint8_t* p_data_buf)
     /* create metadata */
     uint32_t i = 0;
     p_data_buf[i++] = 4;
+    p_data_buf[i++] = 1;
     p_data_buf[i++] = 8;
     p_data_buf[i++] = 8;
-    p_data_buf[i++] = 0xFF; /* padding */
 
     char* p_entry;
     /* public key */
     p_entry = get_file_entry(lines, line_count, "PUBLIC_KEY");
     if (p_entry)
     {
-        uint8_t public_key[512];
-        for (uint32_t key_byte = 0; key_byte < 512; ++key_byte)
+        uint8_t public_key[64];
+        uint32_t key_len = parse_byte_string(p_entry, public_key, 64);
+        i += put_info_entry(BL_INFO_TYPE_ECDSA_PUBLIC_KEY, key_len, public_key, &p_data_buf[i]);
+    }
+    else
+    {
+        p_entry = get_file_entry(lines, line_count, "Verification key Qx");
+        uint8_t public_key[256];
+        uint32_t key_len = 0;
+        if (p_entry)
         {
-            char byte_str[2];
-            public_key[key_byte] = 0;
-            for (uint8_t i = 0; i < 2; ++i)
+            key_len = parse_byte_string(p_entry, public_key, 256);
+            p_entry = get_file_entry(lines, line_count, "Verification key Qy");
+            key_len += parse_byte_string(p_entry, &public_key[key_len], 256 - key_len);
+
+            if (p_entry)
             {
-                char c = p_entry[key_byte * 2 + i];
-                if (c >= '0' && c <= '9')
-                {
-                    public_key[key_byte] |= (c - '0') << (4 - i * 4);
-                }
-                else if (c >= 'A' && c <= 'F')
-                {
-                    public_key[key_byte] |= (c - 'A' + 10) << (4 - i * 4);
-                }
-                else if (c >= 'a' && c <= 'f')
-                {
-                    public_key[key_byte] |= (c - 'a' + 10) << (4 - i * 4);
-                }
-                else
-                {
-                    printf("ILLEGAL PUBLIC KEY (byte %d) -> '%c'\n", key_byte, c);
-                    exit(1);
-                }
+                i += put_info_entry(BL_INFO_TYPE_ECDSA_PUBLIC_KEY, key_len, public_key, &p_data_buf[i]);
+            }
+            else
+            {
+                missing_entry("Verification key Qy");
             }
         }
-        i += put_info_entry(BL_INFO_TYPE_ECDSA_PUBLIC_KEY, 512, public_key, &p_data_buf[i]);
     }
+
 
     i += put_segment(lines, line_count, BL_INFO_TYPE_SEGMENT_APP, &p_data_buf[i]);
     i += put_segment(lines, line_count, BL_INFO_TYPE_SEGMENT_SD, &p_data_buf[i]);

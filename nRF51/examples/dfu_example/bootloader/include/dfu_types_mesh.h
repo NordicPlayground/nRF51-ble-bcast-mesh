@@ -41,7 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PAGE_SIZE                   (0x400)
 #endif
 #ifndef PAGE_COUNT
-#define PAGE_COUNT                   (128)
+#define PAGE_COUNT                   (256)
 #endif
 
 #define FLASH_SIZE                  (PAGE_SIZE * PAGE_COUNT)
@@ -49,6 +49,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define SEGMENT_ADDR(segment_id, start_addr) ((segment_id == 1)? \
                                                 (uint32_t) start_addr : \
                                                 (((uint32_t) start_addr) & 0xFFFFFFF0) + ((segment_id) - 1) * 16)
+
+#define ADDR_SEGMENT(addr, start_addr) (uint32_t)(((((uint32_t) addr) - ((uint32_t) start_addr & 0xFFFFFFFF0)) >> 4) + 1)
 
 #define PAGE_ALIGN(p_pointer)       (((uint32_t) p_pointer) & (~((uint32_t) (PAGE_SIZE - 1))))
 #define PAGE_OFFSET(p_pointer)      (((uint32_t) p_pointer) & (PAGE_SIZE - 1))
@@ -58,9 +60,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define APP_START_ADDRESS           SOFTDEVICE_INFORMATION->softdevice_size
 
-#define BOOTLOADER_START_ADDRESS    (0x0003C000)
-#define BOOTLOADER_INFO_ADDRESS     (0x0003FC00)
-#define BOOTLOADER_INFO_BANK_ADDRESS (0x0003F800)
+#define BOOTLOADER_START_ADDRESS    (FLASH_SIZE - 16 * PAGE_SIZE)
+#define BOOTLOADER_INFO_ADDRESS     (FLASH_SIZE - 1 * PAGE_SIZE)
+#define BOOTLOADER_INFO_BANK_ADDRESS (FLASH_SIZE - 2 * PAGE_SIZE)
 #define BOOTLOADER_MAX_SIZE         (BOOTLOADER_INFO_ADDRESS - BOOTLOADER_START_ADDRESS)
 
 #define DFU_SD_BANK_ADDRESS         (BOOTLOADER_START_ADDRESS / 2)
@@ -73,7 +75,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_BL_MAX_SIZE             (BOOTLOADER_MAX_SIZE)
 
 #define SEGMENT_LENGTH              (16)
-#define SIGNCHUNK_LENGTH            (32)
 
 #define DATA_SEQ_END                (0xFFFF)
 

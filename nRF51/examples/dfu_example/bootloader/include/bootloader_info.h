@@ -3,14 +3,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "dfu_types_mesh.h"
+#include "uECC.h"
 
-#define DFU_PUBLIC_KEY_LEN      (512)
+#define DFU_PUBLIC_KEY_LEN      (2 * uECC_BYTES)
+#define DFU_SIGNATURE_LEN       (2 * uECC_BYTES)
 
 #define BL_INFO_LEN_PUBLIC_KEY  (DFU_PUBLIC_KEY_LEN)
 #define BL_INFO_LEN_SEGMENT     (9)
 #define BL_INFO_LEN_FWID        (14)
 #define BL_INFO_LEN_JOURNAL     ((2 * PAGE_COUNT) / 8)
 #define BL_INFO_LEN_FLAGS       (1)
+#define BL_INFO_LEN_SIGNATURE   (DFU_SIGNATURE_LEN)
 
 typedef enum
 {
@@ -23,9 +26,13 @@ typedef enum
     BL_INFO_TYPE_SEGMENT_SD         = 0x10,
     BL_INFO_TYPE_SEGMENT_BL         = 0x11,
     BL_INFO_TYPE_SEGMENT_APP        = 0x12,
+    
+    BL_INFO_TYPE_SIGNATURE_SD       = 0x1A,
+    BL_INFO_TYPE_SIGNATURE_BL       = 0x1B,
+    BL_INFO_TYPE_SIGNATURE_APP      = 0x1C,
+    BL_INFO_TYPE_SIGNATURE_BL_INFO  = 0x1D,
 
-    BL_INFO_TYPE_LAST8              = 0x7F,
-    BL_INFO_TYPE_LAST16             = 0x7FFF,
+    BL_INFO_TYPE_LAST               = 0x7FFF,
 } bl_info_type_t;
 
 typedef struct
@@ -47,6 +54,7 @@ typedef struct
 typedef union
 {
     uint8_t             public_key[BL_INFO_LEN_PUBLIC_KEY];
+    uint8_t             signature[BL_INFO_LEN_SIGNATURE];
     bl_info_segment_t   segment;
     bl_info_version_t   version;
     uint8_t             journal[BL_INFO_LEN_JOURNAL];
@@ -58,9 +66,9 @@ typedef struct
     struct
     {
         uint8_t metadata_len; /* in bytes */
-        uint8_t len_length;  /* in bits */
-        uint8_t type_length; /* in bits */
-        uint8_t _padding;
+        uint8_t entry_header_length; /* in bytes */
+        uint8_t entry_len_length;  /* in bits */
+        uint8_t entry_type_length; /* in bits */
     } metadata;
     uint8_t data[];
 } bootloader_info_t;
