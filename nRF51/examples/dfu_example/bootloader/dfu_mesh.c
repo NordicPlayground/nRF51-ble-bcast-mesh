@@ -405,8 +405,31 @@ bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len)
         return false;
     }
 
-    memcpy(p_out_buffer, p_storage_addr, len);
+    if (p_out_buffer && len)
+    {
+        memcpy(p_out_buffer, p_storage_addr, len);
+    }
     return true;
+}
+
+bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, uint32_t* p_len)
+{
+    *pp_entry = NULL;
+    *p_len = 0;
+    for (uint32_t i = 0; i < MISSING_ENTRY_BACKLOG_COUNT; ++i)
+    {
+        if (m_current_transfer.p_missing_entry_backlog[i].addr >= (uint32_t) p_start_addr && 
+            (
+             m_current_transfer.p_missing_entry_backlog[i].addr < (uint32_t) *pp_entry || 
+             *pp_entry == NULL
+            )
+           )
+        {
+            *pp_entry = (uint32_t*) m_current_transfer.p_missing_entry_backlog[i].addr;
+            *p_len = m_current_transfer.p_missing_entry_backlog[i].length;
+        }
+    }
+    return (*pp_entry != NULL);
 }
 
 void dfu_sha256(uint8_t* p_hash)
