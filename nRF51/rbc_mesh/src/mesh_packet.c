@@ -200,6 +200,11 @@ uint32_t mesh_packet_adv_data_sanitize(mesh_packet_t* p_packet)
 
 mesh_adv_data_t* mesh_packet_adv_data_get(mesh_packet_t* p_packet)
 {
+    if (p_packet == NULL)
+    {
+        return NULL;
+    }
+
     mesh_adv_data_t* p_mesh_adv_data = (mesh_adv_data_t*) &p_packet->payload[0];
     if (p_packet->header.length <= MESH_PACKET_BLE_OVERHEAD ||
         p_packet->header.length > MESH_PACKET_BLE_OVERHEAD + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
