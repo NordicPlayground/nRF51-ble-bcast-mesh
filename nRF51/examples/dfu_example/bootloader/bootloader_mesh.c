@@ -12,7 +12,7 @@
 #include "app_error.h"
 #include "journal.h"
 
-#define TX_REPEATS_DEFAULT          (5)
+#define TX_REPEATS_DEFAULT          (4)
 #define TX_REPEATS_FWID             (TX_REPEATS_INF)
 #define TX_REPEATS_DFU_REQ          (TX_REPEATS_INF)
 #define TX_REPEATS_READY            (TX_REPEATS_INF)
@@ -24,8 +24,8 @@
 #define TX_INTERVAL_TYPE_FWID       (TX_INTERVAL_TYPE_REGULAR)
 #define TX_INTERVAL_TYPE_DFU_REQ    (TX_INTERVAL_TYPE_REGULAR)
 #define TX_INTERVAL_TYPE_READY      (TX_INTERVAL_TYPE_REGULAR)
-#define TX_INTERVAL_TYPE_DATA       (TX_INTERVAL_TYPE_REGULAR)
-#define TX_INTERVAL_TYPE_RSP        (TX_INTERVAL_TYPE_REGULAR)
+#define TX_INTERVAL_TYPE_DATA       (TX_INTERVAL_TYPE_EXPONENTIAL)
+#define TX_INTERVAL_TYPE_RSP        (TX_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_REQ        (TX_INTERVAL_TYPE_REGULAR)
 
 #define STATE_TIMEOUT_FIND_FWID     (US_TO_RTC_TICKS( 500000)) /* 0.5s */
@@ -51,18 +51,19 @@ typedef enum
 
 typedef struct
 {
-    uint32_t transaction_id;
-    uint8_t authority;
-    dfu_type_t type;
-    uint32_t* p_start_addr;
-    uint32_t* p_bank_addr;
-    uint32_t length;
-    uint32_t signature_length;
-    uint16_t segments_remaining;
-    uint16_t segment_count;
-    id_t target_fwid_union;
-    uint32_t ready_mic;
-    bool segment_is_valid_after_transfer; 
+    uint32_t        transaction_id;
+    uint8_t         authority;
+    dfu_type_t      type;
+    uint32_t*       p_start_addr;
+    uint32_t*       p_bank_addr;
+    uint32_t*       p_last_requested_entry;
+    uint32_t        length;
+    uint32_t        signature_length;
+    uint16_t        segments_remaining;
+    uint16_t        segment_count;
+    id_t            target_fwid_union;
+    uint32_t        ready_mic;
+    bool            segment_is_valid_after_transfer; 
 } transaction_t;
 
 typedef struct
@@ -74,6 +75,10 @@ typedef struct
     bl_info_flags_t*    p_flags;
     uint8_t*            p_ecdsa_public_key;
     uint8_t*            p_journal;
+    uint8_t*            p_signature_sd;
+    uint8_t*            p_signature_bl;
+    uint8_t*            p_signature_app;
+    uint8_t*            p_signature_bl_info;
 } bl_info_pointers_t;
 
 static transaction_t        m_transaction;
@@ -400,6 +405,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 m_transaction.length                            = p_packet->payload.start.length * 4;
                 m_transaction.signature_length                  = p_packet->payload.start.signature_length;
                 m_transaction.segment_is_valid_after_transfer   = p_packet->payload.start.last;
+                m_transaction.p_last_requested_entry            = NULL;
                 
                 if (m_transaction.type == DFU_TYPE_BOOTLOADER)
                 {
@@ -446,7 +452,32 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                         {
                             m_transaction.segments_remaining--;
                             do_relay = true;
+                            /* check whether we've lost any entries, and request them */
+                            uint32_t* p_req_entry = NULL;
+                            uint32_t req_entry_len = 0;
+                            mesh_packet_t* p_req_packet;
+                            if (dfu_get_oldest_missing_entry(
+                                    m_transaction.p_last_requested_entry, 
+                                    &p_req_entry, 
+                                    &req_entry_len))
+                            {
+                                if(!mesh_packet_acquire(&p_req_packet))
+                                {
+                                    break;
+                                }
+                                if (mesh_packet_build(p_req_packet,
+                                        DFU_PACKET_TYPE_DATA_REQ,
+                                        ADDR_SEGMENT(p_req_entry, m_transaction.p_start_addr),
+                                        (uint8_t*) &m_transaction.transaction_id,
+                                        4) == NRF_SUCCESS &&
+                                    transport_tx(p_req_packet, TX_REPEATS_REQ, TX_INTERVAL_TYPE_REQ))
+                                {
+                                    m_transaction.p_last_requested_entry = p_req_entry;
+                                }
+                            }
+                                
                         }
+                        
                     }
             }
 
@@ -591,13 +622,9 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
     }
 }
 
-static void handle_data_rsp_packet(dfu_packet_t* p_packet)
+static void handle_data_rsp_packet(dfu_packet_t* p_packet, uint16_t length)
 {
-    if (p_packet->payload.rsp_data.transaction_id == m_transaction.transaction_id)
-    {
-        dfu_data(SEGMENT_ADDR(p_packet->payload.rsp_data.segment, m_transaction.p_start_addr),
-            p_packet->payload.rsp_data.data, SEGMENT_LENGTH);
-    }
+    handle_data_packet(p_packet, length);
 }
 
 /*****************************************************************************
@@ -688,7 +715,7 @@ void bootloader_rx(dfu_packet_t* p_packet, uint16_t length)
             break;
 
         case DFU_PACKET_TYPE_DATA_RSP:
-            handle_data_rsp_packet(p_packet);
+            handle_data_rsp_packet(p_packet, length);
             break;
 
         default:
