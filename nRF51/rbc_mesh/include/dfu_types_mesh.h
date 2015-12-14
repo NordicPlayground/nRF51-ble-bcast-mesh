@@ -80,17 +80,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define DFU_AUTHORITY_MAX           (0x07)
 
+#define DFU_FWID_LEN_APP            (10)
+#define DFU_FWID_LEN_BL             (2)
+#define DFU_FWID_LEN_SD             (2)
+
 #define DFU_PACKET_LEN_FWID         (2 + 2 + 2 + 4 + 2 + 4)
-#define DFU_PACKET_LEN_REQ_SD       (2 + 1 + 2)
-#define DFU_PACKET_LEN_REQ_BL       (2 + 1 + 2)
-#define DFU_PACKET_LEN_REQ_APP      (2 + 1 + 4 + 2 + 4)
-#define DFU_PACKET_LEN_READY_SD     (2 + 1 + 4 + 2 + 4)
-#define DFU_PACKET_LEN_READY_BL     (2 + 1 + 4 + 2 + 4)
-#define DFU_PACKET_LEN_READY_APP    (2 + 1 + 4 + 4 + 2 + 4 + 4)
+#define DFU_PACKET_LEN_STATE_SD     (2 + 1 + 1 + 4 + DFU_FWID_LEN_SD)
+#define DFU_PACKET_LEN_STATE_BL     (2 + 1 + 1 + 4 + DFU_FWID_LEN_BL)
+#define DFU_PACKET_LEN_STATE_APP    (2 + 1 + 1 + 4 + DFU_FWID_LEN_APP)
 #define DFU_PACKET_LEN_START        (2 + 2 + 4 + 4 + 2 + 2 + 1)
 #define DFU_PACKET_LEN_DATA         (2 + 2 + 4 + SEGMENT_LENGTH)
-#define DFU_PACKET_LEN_REQ_DATA     (2 + 2 + 4)
-#define DFU_PACKET_LEN_RSP_DATA     (2 + 2 + 4 + SEGMENT_LENGTH)
+#define DFU_PACKET_LEN_DATA_REQ     (2 + 2 + 4)
+#define DFU_PACKET_LEN_DATA_RSP     (2 + 2 + 4 + SEGMENT_LENGTH)
 
 typedef uint16_t segment_t;
 typedef uint16_t seq_t;
@@ -106,9 +107,11 @@ typedef enum
 
 typedef enum
 {
-    DFU_TYPE_SD         = 0x01,
-    DFU_TYPE_BOOTLOADER = 0x02,
-    DFU_TYPE_APP        = 0x04,
+    DFU_TYPE_NONE       = 0,
+    DFU_TYPE_SD         = (1 << 0),
+    DFU_TYPE_BOOTLOADER = (1 << 1),
+    DFU_TYPE_APP        = (1 << 2),
+    DFU_TYPE_BL_INFO    = (1 << 3),
 } dfu_type_t;
 
 typedef struct __attribute((packed))
@@ -131,7 +134,7 @@ typedef union __attribute((packed))
     app_id_t app;
     uint16_t bootloader;
     uint16_t sd;
-} id_t;
+} fwid_union_t;
 
 typedef struct __attribute((packed))
 {
@@ -141,22 +144,14 @@ typedef struct __attribute((packed))
         fwid_t fwid;
         struct __attribute((packed))
         {
-            uint8_t dfu_type    : 3;
-            uint8_t _rfu        : 2;
+            uint8_t dfu_type    : 4;
+            uint8_t _rfu1       : 4;
             uint8_t authority   : 3;
-            union __attribute((packed))
-            {
-                struct __attribute((packed))
-                {
-                    uint32_t transaction_id;
-                    uint32_t MIC;
-                    id_t id;
-                } ready;
-                struct __attribute((packed))
-                {
-                    id_t id;
-                } req;
-            } params;
+            uint8_t flood       : 1;
+            uint8_t is_target   : 1;
+            uint8_t _rfu2       : 3;
+            uint32_t transaction_id;
+            fwid_union_t fwid;
         } state;
         struct __attribute((packed))
         {
