@@ -41,8 +41,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MAX_VALUE_COUNT                 (155) /* The highest possible number of values stored in the mesh. */
-
 typedef enum
 {
     VH_DATA_STATUS_NEW,
