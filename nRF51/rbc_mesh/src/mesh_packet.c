@@ -266,3 +266,15 @@ void mesh_packet_take_ownership(mesh_packet_t* p_packet)
     mesh_packet_set_local_addr(p_packet);
 }
 
+mesh_packet_t* mesh_packet_get_start_pointer(void* p_content)
+{
+    uint32_t index = ((((uint32_t) p_content) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t));
+    if (index < RBC_MESH_PACKET_POOL_SIZE)
+    {
+        return &g_packet_pool[index];
+    }
+    else
+    {
+        return NULL;
+    }
+}
