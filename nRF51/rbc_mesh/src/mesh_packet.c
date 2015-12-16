@@ -88,11 +88,14 @@ bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
     if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
 
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
     /* the given pointer may not be aligned, have to force alignment with index */
     if (++g_packet_refs[index] == 0x00) /* check for rollover */
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
+    _ENABLE_IRQS(was_masked);
     return true;
 }
 
@@ -102,14 +105,19 @@ bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
     if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
 
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
     /* make sure that we aren't rolling over the ref count */
     if (g_packet_refs[index] == 0x00)
     {
+        APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
+        _ENABLE_IRQS(was_masked);
         return false;
     }
     g_packet_refs[index]--;
+    _ENABLE_IRQS(was_masked);
 
-    return true;
+    return (g_packet_refs[index] > 0);
 }
 
 uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet)
