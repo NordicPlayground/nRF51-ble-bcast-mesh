@@ -35,10 +35,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "mesh_dfu.h"
 #include "rand.h"
+#include "transport.h"
 #include <string.h>
 
-#define SEGMENT_CACHE_SIZE  (32)
+#define SEGMENT_CACHE_SIZE      (32)
 #define RETRANSMIT_ENTRY_COUNT  (8)
+#define DFU_CHANNELS            ((1ULL << 37ULL) | (1ULL << 38ULL) | (1ULL << 39ULL))
+
+#define TX_INTERVAL_FWID        (100000)
+#define TX_INTERVAL_STATE       (100000)
+#define TX_INTERVAL_DATA        ( 50000)
+#define TX_INTERVAL_DATA_RSP    ( 50000)
+
+#define TX_REPEATS_DEFAULT      (4)
 
 typedef struct
 {
@@ -76,6 +85,10 @@ static uint8_t m_authority;
 static prng_t m_rand;
 static uint16_t m_segment_cache[SEGMENT_CACHE_SIZE];
 static uint32_t m_segment_cache_index;
+static tx_config_t m_fwid_config;
+static tx_config_t m_state_config;
+static tx_config_t m_data_config;
+static tx_config_t m_data_rsp_config;
 
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t*);
 
@@ -108,6 +121,17 @@ static uint32_t dfu_packet_len_get(uint16_t packet_type, dfu_type_t dfu_type)
     }
 }
 
+static void dfu_packet_build(mesh_packet_t* p_packet,
+                             dfu_packet_t* p_dfu_packet)
+{
+    mesh_packet_build(p_packet,
+            p_dfu_packet->packet_type,
+            p_dfu_packet->payload.raw.version,
+            p_dfu_packet->payload.raw.data,
+            dfu_packet_len_get(p_dfu_packet->packet_type,
+                               p_dfu_packet->payload.state.dfu_type));
+}
+
 static bool notify_app_of_source(void)
 {
         rbc_mesh_event_t event;
@@ -137,33 +161,12 @@ static void packet_handle_fwid(dfu_packet_t* p_dfu_packet)
     }
 }
 
-static mesh_packet_t* dfu_respond(dfu_packet_t* p_dfu_packet)
+static void dfu_respond(dfu_packet_t* p_dfu_packet)
 {
-    mesh_packet_t* p_packet = mesh_packet_get_aligned(p_dfu_packet);
-    if (!p_packet)
-    {
-        if (!mesh_packet_acquire(&p_packet))
-        {
-            return NULL;
-        }
-
-        uint32_t dfu_packet_len = dfu_packet_len_get(p_dfu_packet->packet_type,
-                p_dfu_packet->payload.state.dfu_type);
-        mesh_packet_build(p_packet,
-            DFU_PACKET_TYPE_STATE,
-            0,
-            (uint8_t*) &p_dfu_packet->payload.state.transaction_id,
-            dfu_packet_len);
-        p_dfu_packet = (dfu_packet_t*) &p_packet->payload[4];
-    }
-
-    mesh_packet_set_local_addr(p_packet);
     p_dfu_packet->payload.state.authority = m_authority;
     p_dfu_packet->payload.state.transaction_id = rand_prng_get(&m_rand);
     p_dfu_packet->payload.state.flood = 1;
     p_dfu_packet->payload.state.is_target = false;
-
-    return p_packet;
 }
 
 static void packet_handle_state(dfu_packet_t* p_dfu_packet)
@@ -203,7 +206,8 @@ static void packet_handle_state(dfu_packet_t* p_dfu_packet)
 
     if (i_have_requested_fw && m_authority > p_dfu_packet->payload.state.authority)
     {
-        p_mesh_packet = dfu_respond(p_dfu_packet);
+        /* update data in packet */
+        dfu_respond(p_dfu_packet);
         m_current_transfer.role = DFU_ROLE_SOURCE_CANDIDATE;
         update_packet = true;
     }
@@ -239,6 +243,8 @@ static void packet_handle_state(dfu_packet_t* p_dfu_packet)
                     update_packet = true;
                 }
                 break;
+            default:
+                break;
         }
 
         if (update_parent)
@@ -259,6 +265,25 @@ static void packet_handle_state(dfu_packet_t* p_dfu_packet)
     {
         /* TODO */
         /* TODO: set fwid */
+        if (mp_state_beacon)
+        {
+            transport_tx_abort(mp_state_beacon);
+            mesh_packet_ref_count_dec(mp_state_beacon);
+        }
+        if (mesh_packet_acquire(&mp_state_beacon))
+        {
+            m_current_transfer.authority        = p_dfu_packet->payload.state.authority;
+            m_current_transfer.type             = p_dfu_packet->payload.state.dfu_type;
+            m_current_transfer.transaction_id   = p_dfu_packet->payload.state.transaction_id;
+            memcpy(&m_current_transfer.fwid,
+                   &p_dfu_packet->payload.state.fwid,
+                   sizeof(fwid_union_t));
+
+            /* adopt the packet */
+            dfu_packet_build(mp_state_beacon,
+                             p_dfu_packet);
+            transport_tx(mp_state_beacon, &m_state_config);
+        }
     }
 }
 
@@ -304,6 +329,30 @@ void mesh_dfu_init(void)
     m_segment_cache_index = 0;
     memset(m_retransmit_entries, 0, sizeof(retransmit_entry_t) * RETRANSMIT_ENTRY_COUNT);
     m_retransmit_index = 0;
+
+    m_fwid_config.tx_callback = NULL;
+    m_fwid_config.channel_map = DFU_CHANNELS;
+    m_fwid_config.interval_us = TX_INTERVAL_FWID;
+    m_fwid_config.interval_type = TX_INTERVAL_TYPE_REGULAR;
+    m_fwid_config.repeats = TX_REPEATS_INF;
+
+    m_state_config.tx_callback = NULL;
+    m_state_config.channel_map = DFU_CHANNELS;
+    m_state_config.interval_us = TX_INTERVAL_STATE;
+    m_state_config.interval_type = TX_INTERVAL_TYPE_REGULAR;
+    m_state_config.repeats = TX_REPEATS_INF;
+
+    m_data_config.tx_callback = NULL;
+    m_data_config.channel_map = DFU_CHANNELS;
+    m_data_config.interval_us = TX_INTERVAL_DATA;
+    m_data_config.interval_type = TX_INTERVAL_TYPE_EXPONENTIAL;
+    m_data_config.repeats = TX_REPEATS_DEFAULT;
+
+    m_data_rsp_config.tx_callback = NULL;
+    m_data_rsp_config.channel_map = DFU_CHANNELS;
+    m_data_rsp_config.interval_us = TX_INTERVAL_DATA_RSP;
+    m_data_rsp_config.interval_type = TX_INTERVAL_TYPE_EXPONENTIAL;
+    m_data_rsp_config.repeats = TX_REPEATS_DEFAULT;
 }
 
 void mesh_dfu_packet_handle(dfu_packet_t* p_dfu_packet, uint32_t timestamp)
