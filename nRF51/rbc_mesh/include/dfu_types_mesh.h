@@ -141,6 +141,11 @@ typedef struct __attribute((packed))
     uint16_t packet_type;
     union __attribute((packed))
     {
+        struct __attribute((packed))
+        {
+            uint16_t version;
+            uint8_t data[RBC_MESH_VALUE_MAX_LEN];
+        } raw;
         fwid_t fwid;
         struct __attribute((packed))
         {
