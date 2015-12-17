@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _DFU_TYPES_H__
 
 #include <stdint.h>
+#include "rbc_mesh.h"
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE                   (0x400)
