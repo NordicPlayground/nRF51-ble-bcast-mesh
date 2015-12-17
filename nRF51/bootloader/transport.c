@@ -181,7 +181,7 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 
     APP_ERROR_CHECK(rand_prng_seed(&m_prng));
 
-    NVIC_SetPriority(SWI0_IRQn, 3);
+    NVIC_SetPriority(SWI0_IRQn, 2);
     NVIC_EnableIRQ(SWI0_IRQn);
 
     order_scan();
