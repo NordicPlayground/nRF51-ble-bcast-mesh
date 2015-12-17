@@ -26,6 +26,6 @@ void rtc_init(void)
                         | (1 << (RTC_BL_STATE_CH  + RTC_EVTEN_COMPARE0_Pos));
     NRF_RTC0->TASKS_CLEAR = 1;
     NRF_RTC0->TASKS_START = 1;
-    NVIC_SetPriority(RTC0_IRQn, 2);
+    NVIC_SetPriority(RTC0_IRQn, 1);
     NVIC_EnableIRQ(RTC0_IRQn);
 }
