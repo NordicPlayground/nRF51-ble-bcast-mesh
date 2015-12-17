@@ -36,7 +36,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _SERIAL_COMMAND_H__
 
 #include <stdint.h>
-#include "serial_handler.h"
 #include "rbc_mesh.h"
 #include "toolchain.h"
 #include "dfu_types_mesh.h"

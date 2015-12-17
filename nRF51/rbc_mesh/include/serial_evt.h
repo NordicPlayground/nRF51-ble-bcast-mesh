@@ -37,7 +37,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "serial_handler.h"
 #include "toolchain.h"
 #include "mesh_aci.h"
 #include "dfu_types_mesh.h"
