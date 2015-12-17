@@ -41,9 +41,6 @@
 typedef enum
 {
     BEACON_TYPE_FWID,
-    BEACON_TYPE_DFU_REQ_APP,
-    BEACON_TYPE_DFU_REQ_SD,
-    BEACON_TYPE_DFU_REQ_BL,
     BEACON_TYPE_READY_APP,
     BEACON_TYPE_READY_SD,
     BEACON_TYPE_READY_BL
@@ -61,8 +58,7 @@ typedef struct
     uint32_t        signature_length;
     uint16_t        segments_remaining;
     uint16_t        segment_count;
-    id_t            target_fwid_union;
-    uint32_t        ready_mic;
+    fwid_union_t    target_fwid_union;
     bool            segment_is_valid_after_transfer; 
 } transaction_t;
 
@@ -129,7 +125,7 @@ static bool ready_packet_matches_our_req(dfu_packet_t* p_packet)
     
     for (uint32_t i = 0; i < TRANSACTION_ID_CACHE_SIZE; ++i)
     {
-        if (m_tid_cache[i] == p_packet->payload.state.params.ready.transaction_id)
+        if (m_tid_cache[i] == p_packet->payload.state.transaction_id)
         {
             return false;
         }
@@ -137,15 +133,15 @@ static bool ready_packet_matches_our_req(dfu_packet_t* p_packet)
     switch (m_transaction.type)
     {
         case DFU_TYPE_APP:
-            return (memcmp(&p_packet->payload.state.params.ready.id.app,
+            return (memcmp(&p_packet->payload.state.fwid.app,
                 &m_transaction.target_fwid_union.app, sizeof(app_id_t)) == 0);
 
         case DFU_TYPE_BOOTLOADER:
-            return (p_packet->payload.state.params.ready.id.bootloader ==
+            return (p_packet->payload.state.fwid.bootloader ==
                 m_transaction.target_fwid_union.bootloader);
 
         case DFU_TYPE_SD:
-            return (p_packet->payload.state.params.ready.id.sd ==
+            return (p_packet->payload.state.fwid.sd ==
                     m_transaction.target_fwid_union.sd);
         default:
             return false;
@@ -189,63 +185,33 @@ static void beacon_set(beacon_type_t type)
             transport_tx(mp_beacon, TX_REPEATS_FWID, TX_INTERVAL_TYPE_FWID);
             break;
 
-        case BEACON_TYPE_DFU_REQ_APP:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_REQ_APP);
-            p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
-            p_dfu->payload.state.dfu_type = DFU_TYPE_APP;
-            p_dfu->payload.state.authority = m_transaction.authority;
-            memcpy(&p_dfu->payload.state.params.req.id.app, &m_transaction.target_fwid_union.app, sizeof(app_id_t));
-            transport_tx(mp_beacon, TX_REPEATS_DFU_REQ, TX_INTERVAL_TYPE_DFU_REQ);
-            break;
-
-        case BEACON_TYPE_DFU_REQ_SD:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_REQ_SD);
-            p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
-            p_dfu->payload.state.dfu_type = DFU_TYPE_SD;
-            p_dfu->payload.state.authority = m_transaction.authority;
-            p_dfu->payload.state.params.req.id.sd = m_transaction.target_fwid_union.sd;
-            transport_tx(mp_beacon, TX_REPEATS_DFU_REQ, TX_INTERVAL_TYPE_DFU_REQ);
-            break;
-
-        case BEACON_TYPE_DFU_REQ_BL:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_REQ_BL);
-            p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
-            p_dfu->payload.state.dfu_type = DFU_TYPE_BOOTLOADER;
-            p_dfu->payload.state.authority = m_transaction.authority;
-            p_dfu->payload.state.params.req.id.bootloader = m_transaction.target_fwid_union.bootloader;
-            transport_tx(mp_beacon, TX_REPEATS_DFU_REQ, TX_INTERVAL_TYPE_DFU_REQ);
-            break;
-
         case BEACON_TYPE_READY_APP:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_READY_APP);
+            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_APP);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
             p_dfu->payload.state.dfu_type = DFU_TYPE_APP;
             p_dfu->payload.state.authority = m_transaction.authority;
-            p_dfu->payload.state.params.ready.transaction_id = m_transaction.transaction_id;
-            p_dfu->payload.state.params.ready.MIC = m_transaction.ready_mic;
-            memcpy(&p_dfu->payload.state.params.ready.id.app, &m_transaction.target_fwid_union.app, sizeof(app_id_t));
+            p_dfu->payload.state.transaction_id = m_transaction.transaction_id;
+            memcpy(&p_dfu->payload.state.fwid.app, &m_transaction.target_fwid_union.app, sizeof(app_id_t));
             transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
             break;
 
         case BEACON_TYPE_READY_SD:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_READY_SD);
+            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_SD);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
             p_dfu->payload.state.dfu_type = DFU_TYPE_SD;
             p_dfu->payload.state.authority = m_transaction.authority;
-            p_dfu->payload.state.params.ready.transaction_id = m_transaction.transaction_id;
-            p_dfu->payload.state.params.ready.MIC = m_transaction.ready_mic;
-            p_dfu->payload.state.params.ready.id.app = m_transaction.target_fwid_union.app;
+            p_dfu->payload.state.transaction_id = m_transaction.transaction_id;
+            p_dfu->payload.state.fwid.app = m_transaction.target_fwid_union.app;
             transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
             break;
 
         case BEACON_TYPE_READY_BL:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_READY_BL);
+            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_BL);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
             p_dfu->payload.state.dfu_type = DFU_TYPE_BOOTLOADER;
             p_dfu->payload.state.authority = m_transaction.authority;
-            p_dfu->payload.state.params.ready.transaction_id = m_transaction.transaction_id;
-            p_dfu->payload.state.params.ready.MIC = m_transaction.ready_mic;
-            p_dfu->payload.state.params.ready.id.bootloader = m_transaction.target_fwid_union.bootloader;
+            p_dfu->payload.state.transaction_id = m_transaction.transaction_id;
+            p_dfu->payload.state.fwid.bootloader = m_transaction.target_fwid_union.bootloader;
             transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
             break;
     }
@@ -292,7 +258,6 @@ static void start_req(dfu_type_t type)
     m_transaction.length = 0;
     m_transaction.p_bank_addr = NULL;
     m_transaction.p_start_addr = NULL;
-    m_transaction.ready_mic = 0;
     m_transaction.segments_remaining = 0xFFFF;
     m_transaction.segment_count = 0;
     m_transaction.segment_is_valid_after_transfer = false;
@@ -305,14 +270,16 @@ static void start_req(dfu_type_t type)
     switch (type)
     {
         case DFU_TYPE_APP:
-            beacon_set(BEACON_TYPE_DFU_REQ_APP);
+            beacon_set(BEACON_TYPE_READY_APP);
             break;
         case DFU_TYPE_SD:
-            beacon_set(BEACON_TYPE_DFU_REQ_SD);
+            beacon_set(BEACON_TYPE_READY_SD);
             break;
         case DFU_TYPE_BOOTLOADER:
-            beacon_set(BEACON_TYPE_DFU_REQ_BL);
+            beacon_set(BEACON_TYPE_READY_BL);
             break;
+        default:
+            APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
     }
 }
 
@@ -324,9 +291,8 @@ static void start_ready(dfu_packet_t* p_ready_packet)
     {
         APP_ERROR_CHECK(NRF_ERROR_INVALID_PARAM);
     }
-    m_transaction.transaction_id = p_ready_packet->payload.state.params.ready.transaction_id;
+    m_transaction.transaction_id = p_ready_packet->payload.state.transaction_id;
     m_transaction.authority = p_ready_packet->payload.state.authority;
-    m_transaction.ready_mic = p_ready_packet->payload.state.params.ready.MIC;
     set_timeout(STATE_TIMEOUT_READY);
     m_state = BL_STATE_DFU_READY;
 
@@ -344,6 +310,8 @@ static void start_ready(dfu_packet_t* p_ready_packet)
         case DFU_TYPE_BOOTLOADER:
             beacon_set(BEACON_TYPE_READY_BL);
             break;
+        default:
+            APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
     }
 }
 
@@ -366,7 +334,7 @@ static void start_target(void)
 static void start_rampdown(void)
 {
     set_timeout(STATE_TIMEOUT_RAMPDOWN);
-    m_state = BL_STATE_RAMPDOWN;
+    m_state = BL_STATE_VALIDATE;
 }
 
 static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
@@ -390,6 +358,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                     case DFU_TYPE_BOOTLOADER:
                         p_segment = m_bl_info_pointers.p_segment_bl;
                         break;
+                    default:
+                        APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
                 }
                 
                 uint32_t segment_count = ((p_packet->payload.start.length * 4) + (p_packet->payload.start.start_address & 0x0F) - 1) / 16 + 1;
@@ -544,13 +514,13 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                 if (p_packet->payload.state.authority > m_transaction.authority)
                 {
                     m_transaction.authority = p_packet->payload.state.authority;
-                    m_transaction.transaction_id = p_packet->payload.state.params.ready.transaction_id;
+                    m_transaction.transaction_id = p_packet->payload.state.transaction_id;
                 }
                 else if (p_packet->payload.state.authority == m_transaction.authority &&
-                         p_packet->payload.state.params.ready.transaction_id > m_transaction.transaction_id)
+                         p_packet->payload.state.transaction_id > m_transaction.transaction_id)
                 {
                     m_transaction.authority = p_packet->payload.state.authority;
-                    m_transaction.transaction_id = p_packet->payload.state.params.ready.transaction_id;
+                    m_transaction.transaction_id = p_packet->payload.state.transaction_id;
                 }
             }
             break;
@@ -611,7 +581,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
                     ((dfu_packet_t*) p_rsp->payload)->payload.rsp_data.data, SEGMENT_LENGTH)
                )
             {
-                packet_set_local_fields(p_rsp, DFU_PACKET_LEN_RSP_DATA);
+                packet_set_local_fields(p_rsp, DFU_PACKET_LEN_DATA);
                 transport_tx(p_rsp, TX_REPEATS_RSP, TX_INTERVAL_TYPE_RSP);
             }
             mesh_packet_ref_count_dec(p_rsp);
@@ -694,7 +664,7 @@ void bootloader_init(void)
     }
 }
 
-void bootloader_rx(dfu_packet_t* p_packet, uint16_t length)
+uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length)
 {
     switch (p_packet->packet_type)
     {
@@ -722,6 +692,7 @@ void bootloader_rx(dfu_packet_t* p_packet, uint16_t length)
             /* don't care */
             break;
     }
+    return NRF_SUCCESS;
 }
 
 void bootloader_abort(bl_end_t end_reason)
@@ -757,7 +728,7 @@ void bootloader_rtc_irq_handler(void)
             start_req(m_transaction.type);
             break;
         
-        case BL_STATE_RAMPDOWN:
+        case BL_STATE_VALIDATE:
             bootloader_abort(BL_END_SUCCESS);
             break;
         
