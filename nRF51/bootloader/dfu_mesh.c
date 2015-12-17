@@ -28,6 +28,7 @@ typedef struct
     uint32_t*       p_bank_addr;
     uint16_t        segment_count;
     bool            final_transfer;
+    uint32_t        size;
     uint32_t*       p_current_page;
     uint32_t        first_invalid_byte_on_page;
     dfu_entry_t     p_missing_entry_backlog[MISSING_ENTRY_BACKLOG_COUNT];
@@ -270,6 +271,7 @@ uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size,
     m_current_transfer.final_transfer = final_transfer;
     m_current_transfer.p_current_page = (uint32_t*) (PAGE_ALIGN(m_current_transfer.p_start_addr));
     m_current_transfer.first_invalid_byte_on_page = PAGE_OFFSET(p_start_addr);
+    m_current_transfer.size = size;
 
     memset(mp_page_buffer, 0xFF, PAGE_SIZE);
     return NRF_SUCCESS;
@@ -418,9 +420,9 @@ bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, u
     *p_len = 0;
     for (uint32_t i = 0; i < MISSING_ENTRY_BACKLOG_COUNT; ++i)
     {
-        if (m_current_transfer.p_missing_entry_backlog[i].addr >= (uint32_t) p_start_addr && 
+        if (m_current_transfer.p_missing_entry_backlog[i].addr >= (uint32_t) p_start_addr &&
             (
-             m_current_transfer.p_missing_entry_backlog[i].addr < (uint32_t) *pp_entry || 
+             m_current_transfer.p_missing_entry_backlog[i].addr < (uint32_t) *pp_entry ||
              *pp_entry == NULL
             )
            )
@@ -432,13 +434,11 @@ bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, u
     return (*pp_entry != NULL);
 }
 
-void dfu_sha256(uint8_t* p_hash)
+void dfu_sha256(sha256_context_t* p_hash_context)
 {
-    sha256_context_t sha256_context;
-    sha256_init(&sha256_context);
-    sha256_update(&sha256_context, (uint8_t*) m_current_transfer.p_start_addr,
-            SEGMENT_ADDR(m_current_transfer.segment_count, (uint32_t) m_current_transfer.p_start_addr) - (uint32_t) m_current_transfer.p_start_addr);
-    sha256_final(&sha256_context, p_hash);
+    sha256_update(p_hash_context,
+                  (uint8_t*) m_current_transfer.p_bank_addr,
+                  m_current_transfer.size);
 }
 
 void dfu_end(void)
