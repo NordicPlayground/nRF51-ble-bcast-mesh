@@ -70,6 +70,16 @@ static uint8_t* tx_ptr;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
+static void do_transmit(void);
+
+#ifdef BOOTLOADER
+void SWI1_IRQHandler(void)
+{
+    do_transmit();
+}
+#endif
+
+
 /** @brief Process packet queue, always done in the async context */
 static void do_transmit(void)
 {
@@ -90,6 +100,9 @@ static void schedule_transmit(void)
     if (serial_state != SERIAL_STATE_TRANSMIT)
     {
         serial_state = SERIAL_STATE_TRANSMIT;
+#ifdef BOOTLOADER
+        NVIC_SetPendingIRQ(SWI1_IRQn);
+#else
         async_event_t evt;
         evt.type = EVENT_TYPE_GENERIC;
         evt.callback.generic = do_transmit;
@@ -97,6 +110,7 @@ static void schedule_transmit(void)
         {
             serial_state = SERIAL_STATE_IDLE;
         }
+#endif        
     }
 }
 
@@ -195,7 +209,7 @@ void serial_handler_init(void)
     NRF_UART0->PSELCTS       = CTS_PIN_NUMBER;
     NRF_UART0->PSELRTS       = RTS_PIN_NUMBER;
     NRF_UART0->CONFIG        = (UART_CONFIG_HWFC_Enabled << UART_CONFIG_HWFC_Pos);
-    NRF_UART0->BAUDRATE      = (UART_BAUDRATE_BAUDRATE_Baud38400 << UART_BAUDRATE_BAUDRATE_Pos);
+    NRF_UART0->BAUDRATE      = (UART_BAUDRATE_BAUDRATE_Baud1M << UART_BAUDRATE_BAUDRATE_Pos);
     NRF_UART0->ENABLE        = (UART_ENABLE_ENABLE_Enabled << UART_ENABLE_ENABLE_Pos);
     NRF_UART0->TASKS_STARTTX = 1;
     NRF_UART0->TASKS_STARTRX = 1;

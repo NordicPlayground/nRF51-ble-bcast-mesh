@@ -35,10 +35,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _SERIAL_COMMAND_H__
 #define _SERIAL_COMMAND_H__
 
+#include <stdint.h>
 #include "serial_handler.h"
 #include "rbc_mesh.h"
 #include "toolchain.h"
-#include <stdint.h>
+#include "dfu_types_mesh.h"
 
 
 typedef __packed_armcc enum
@@ -54,12 +55,13 @@ typedef __packed_armcc enum
     SERIAL_CMD_OPCODE_STOP                  = 0x75,
     SERIAL_CMD_OPCODE_FLAG_SET              = 0x76,
     SERIAL_CMD_OPCODE_FLAG_GET              = 0x77,
+    SERIAL_CMD_OPCODE_DFU                   = 0x78,
 
     SERIAL_CMD_OPCODE_VALUE_GET             = 0x7A,
     SERIAL_CMD_OPCODE_BUILD_VERSION_GET     = 0x7B,
     SERIAL_CMD_OPCODE_ACCESS_ADDR_GET       = 0x7C,
     SERIAL_CMD_OPCODE_CHANNEL_GET           = 0x7D,
-    SERIAL_CMD_OPCODE_INTERVAL_GET          = 0x7F,
+    SERIAL_CMD_OPCODE_INTERVAL_GET          = 0x7F,    
 } __packed_gcc serial_cmd_opcode_t;
 
 
@@ -110,6 +112,13 @@ typedef __packed_armcc struct
     rbc_mesh_value_handle_t handle;
 } __packed_gcc serial_cmd_params_value_get_t;
 
+typedef __packed_armcc struct 
+{
+    dfu_packet_t packet;
+} __packed_gcc serial_cmd_params_dfu_t;
+
+
+
 
 typedef __packed_armcc struct 
 {
@@ -125,6 +134,7 @@ typedef __packed_armcc struct
         serial_cmd_params_value_enable_t    value_enable;
         serial_cmd_params_value_disable_t   value_disable;
         serial_cmd_params_value_get_t       value_get;
+        serial_cmd_params_dfu_t             dfu;
     } __packed_gcc params;
 } __packed_gcc  serial_cmd_t;
 

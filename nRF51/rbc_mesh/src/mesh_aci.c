@@ -32,6 +32,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
+#include <string.h>
 #include "mesh_aci.h"
 #include "rbc_mesh_common.h"
 
@@ -40,7 +41,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "timeslot_handler.h"
 #include "version.h"
 
-#include <string.h>
+#ifdef BOOTLOADER
+#include "bootloader_mesh.h"
+#endif
+
 
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
@@ -84,6 +88,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 	serial_evt_t serial_evt;
     uint32_t error_code;
     rbc_mesh_event_t app_evt;
+    (void) app_evt;
     switch (serial_cmd->opcode)
     {
     case SERIAL_CMD_OPCODE_ECHO:
@@ -96,11 +101,12 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
         serial_handler_event_send(&serial_evt);
         break;
+        
     case SERIAL_CMD_OPCODE_RADIO_RESET:
         /* brute force kill :) */
         NVIC_SystemReset();
         break;
-
+#ifndef BOOTLOADER
     case SERIAL_CMD_OPCODE_INIT:        
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
@@ -203,7 +209,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         }
         else
         {
-            uint32_t error_code = rbc_mesh_value_enable(serial_cmd->params.value_enable.handle);
+            error_code = rbc_mesh_value_enable(serial_cmd->params.value_enable.handle);
 
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
@@ -222,7 +228,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         }
         else
         {
-            uint32_t error_code = rbc_mesh_value_disable(serial_cmd->params.value_enable.handle);
+            error_code = rbc_mesh_value_disable(serial_cmd->params.value_enable.handle);
 
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
@@ -241,7 +247,6 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         } 
         else
         {
-            uint32_t error_code;
             switch ((aci_flag_t) serial_cmd->params.flag_set.flag)
             {
                 case ACI_FLAG_PERSISTENT:
@@ -355,7 +360,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         {
             uint32_t access_addr;
 
-            uint32_t error_code = rbc_mesh_access_address_get(&access_addr);
+            error_code = rbc_mesh_access_address_get(&access_addr);
             serial_evt.params.cmd_rsp.response.access_addr.access_addr = access_addr;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
@@ -396,14 +401,37 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         else
         {
             uint32_t interval_min_ms;
-            uint32_t error_code = rbc_mesh_interval_min_ms_get(&interval_min_ms);
+            error_code = rbc_mesh_interval_min_ms_get(&interval_min_ms);
             serial_evt.params.cmd_rsp.response.int_min.int_min = interval_min_ms;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         }
 
         serial_handler_event_send(&serial_evt);
         break;
+        
+#else /* BOOTLOADER */
+        
+    case SERIAL_CMD_OPCODE_DFU:
+        serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+        serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
+        serial_evt.length = 6;
 
+        if (serial_cmd->length != 1)
+        {
+            serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+        }
+        else
+        {
+            error_code = bootloader_rx(&serial_cmd->params.dfu.packet, serial_cmd->length - 2);
+            serial_evt.params.cmd_rsp.response.dfu.packet_type = serial_cmd->params.dfu.packet.packet_type;
+            serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+        }
+
+        serial_handler_event_send(&serial_evt);
+        break;
+        
+#endif        
+        
     default:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
@@ -420,7 +448,12 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
 void mesh_aci_init(void)
 {
+#ifdef BOOTLOADER
+    NVIC_SetPriority(SWI1_IRQn, 3);
+    NVIC_EnableIRQ(SWI1_IRQn);
+#else
     event_handler_init();
+#endif
 	serial_handler_init();
 }
 
