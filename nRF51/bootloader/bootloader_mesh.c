@@ -11,6 +11,8 @@
 #include "bootloader_info.h"
 #include "app_error.h"
 #include "journal.h"
+#include "serial_handler.h"
+#include "serial_evt.h"
 
 #define TX_REPEATS_DEFAULT          (4)
 #define TX_REPEATS_FWID             (TX_REPEATS_INF)
@@ -33,6 +35,8 @@
 #define STATE_TIMEOUT_READY         (US_TO_RTC_TICKS(3000000)) /* 3.0s */
 #define STATE_TIMEOUT_TARGET        (US_TO_RTC_TICKS(5000000)) /* 5.0s */
 #define STATE_TIMEOUT_RAMPDOWN      (US_TO_RTC_TICKS(1000000)) /* 1.0s */
+
+#define SERIAL_PACKET_OVERHEAD      (2)
 
 /* important that req-cache isn't too big - might lead to starvation in req-device */
 #define REQ_CACHE_SIZE              (4)
@@ -59,7 +63,7 @@ typedef struct
     uint16_t        segments_remaining;
     uint16_t        segment_count;
     fwid_union_t    target_fwid_union;
-    bool            segment_is_valid_after_transfer; 
+    bool            segment_is_valid_after_transfer;
 } transaction_t;
 
 typedef struct
@@ -88,6 +92,22 @@ static volatile uint32_t    m_key_len = uECC_BYTES * 2;
 
 static mesh_packet_t*       mp_beacon;
 
+static void serial_tx(dfu_packet_t* p_packet, uint16_t len)
+{
+#ifdef SERIAL
+    serial_evt_t evt;
+    if (len > RBC_MESH_VALUE_MAX_LEN)
+    {
+        APP_ERROR_CHECK(NRF_ERROR_INVALID_LENGTH);
+    }
+    evt.opcode = SERIAL_EVT_OPCODE_DFU;
+    evt.length = SERIAL_PACKET_OVERHEAD + len;
+    memcpy(&evt.params.dfu.packet, p_packet, len);
+    serial_handler_event_send(&evt);
+#endif
+}
+
+
 static void set_timeout(uint32_t time)
 {
     NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH] = 0;
@@ -97,13 +117,12 @@ static void set_timeout(uint32_t time)
 
 static bool signature_check(void)
 {
-    
     /* if we don't have a public key we will accept all firmware upgrades. */
     if (m_bl_info_pointers.p_ecdsa_public_key == NULL)
     {
         return true;
     }
-    
+
     /* if we have a key, but the transfer isn't signed, we will fail */
     if (m_transaction.signature_length == 0)
     {
@@ -111,7 +130,29 @@ static bool signature_check(void)
     }
 
     uint8_t hash[uECC_BYTES];
-    dfu_sha256(hash);
+    sha256_context_t hash_context;
+    sha256_init(&hash_context);
+    sha256_update(&hash_context, &m_transaction.type, 1);
+    sha256_update(&hash_context, &((uint32_t) m_transaction.p_start_addr), 4);
+    sha256_update(&hash_context, &m_transaction.length, 4);
+    switch (m_transaction.type)
+    {
+        case DFU_TYPE_APP:
+            sha256_update(&hash_context, &m_transaction.target_fwid_union, DFU_FWID_LEN_APP);
+            break;
+        case DFU_TYPE_SD:
+            sha256_update(&hash_context, &m_transaction.target_fwid_union, DFU_FWID_LEN_SD);
+            break;
+        case DFU_TYPE_BOOTLOADER:
+            sha256_update(&hash_context, &m_transaction.target_fwid_union, DFU_FWID_LEN_BL);
+            break;
+        default:
+            break;
+    }
+
+    dfu_sha256(&hash_context);
+
+    sha256_final(&hash_context, hash);
 
     return (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, (uint8_t*) ((uint32_t) m_transaction.p_bank_addr + m_transaction.length - m_transaction.signature_length)));
 }
@@ -122,7 +163,7 @@ static bool ready_packet_matches_our_req(dfu_packet_t* p_packet)
     {
         return false;
     }
-    
+
     for (uint32_t i = 0; i < TRANSACTION_ID_CACHE_SIZE; ++i)
     {
         if (m_tid_cache[i] == p_packet->payload.state.transaction_id)
@@ -159,7 +200,7 @@ static void packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_
     ((ble_ad_t*) p_packet->payload)->adv_data_length = DFU_PACKET_ADV_OVERHEAD + dfu_packet_len;
 }
 
-static void beacon_set(beacon_type_t type)
+static dfu_packet_t* beacon_set(beacon_type_t type)
 {
     if (mp_beacon)
     {
@@ -215,6 +256,8 @@ static void beacon_set(beacon_type_t type)
             transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
             break;
     }
+
+    return p_dfu;
 }
 
 static inline uint32_t* addr_from_seg(uint16_t segment)
@@ -241,15 +284,45 @@ static bool bootloader_is_newer(uint16_t bl_id)
     return (bl_id > m_bl_info_pointers.p_fwid->bootloader);
 }
 
+static void update_state_beacon(void)
+{
+    dfu_packet_t* p_beacon = NULL;
+    uint16_t beacon_len = 0;
+    switch (m_transaction.dfu_type)
+    {
+        case DFU_TYPE_APP:
+            p_beacon = beacon_set(BEACON_TYPE_READY_APP);
+            beacon_len = DFU_PACKET_LEN_STATE_APP;
+            break;
+
+        case DFU_TYPE_SD:
+            p_beacon = beacon_set(BEACON_TYPE_READY_SD);
+            beacon_len = DFU_PACKET_LEN_STATE_SD;
+            break;
+
+        case DFU_TYPE_BOOTLOADER:
+            p_beacon = beacon_set(BEACON_TYPE_READY_BL);
+            beacon_len = DFU_PACKET_LEN_STATE_BL;
+            break;
+        default:
+            APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
+    }
+
+    if (p_beacon)
+    {
+        serial_tx(p_beacon, beacon_len);
+    }
+}
+
 /********** STATE MACHINE ENTRY POINTS ***********/
 static void start_find_fwid(void)
 {
-    beacon_set(BEACON_TYPE_FWID);
+    dfu_packet_t* p_fwid = beacon_set(BEACON_TYPE_FWID);
     set_timeout(STATE_TIMEOUT_FIND_FWID);
     m_state = BL_STATE_FIND_FWID;
     memset(&m_transaction, 0, sizeof(transaction_t));
-    
-    /* TODO: add serial-request for fwid */
+
+    serial_tx(p_fwid, DFU_PACKET_LEN_FWID);
 }
 
 static void start_req(dfu_type_t type)
@@ -266,21 +339,8 @@ static void start_req(dfu_type_t type)
     m_transaction.type = type;
     set_timeout(STATE_TIMEOUT_REQ);
     m_state = BL_STATE_DFU_REQ;
-    
-    switch (type)
-    {
-        case DFU_TYPE_APP:
-            beacon_set(BEACON_TYPE_READY_APP);
-            break;
-        case DFU_TYPE_SD:
-            beacon_set(BEACON_TYPE_READY_SD);
-            break;
-        case DFU_TYPE_BOOTLOADER:
-            beacon_set(BEACON_TYPE_READY_BL);
-            break;
-        default:
-            APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
-    }
+
+    update_state_beacon();
 }
 
 static void start_ready(dfu_packet_t* p_ready_packet)
@@ -296,30 +356,14 @@ static void start_ready(dfu_packet_t* p_ready_packet)
     set_timeout(STATE_TIMEOUT_READY);
     m_state = BL_STATE_DFU_READY;
 
-
-    switch (m_transaction.type)
-    {
-        case DFU_TYPE_APP:
-            beacon_set(BEACON_TYPE_READY_APP);
-            break;
-
-        case DFU_TYPE_SD:
-            beacon_set(BEACON_TYPE_READY_SD);
-            break;
-
-        case DFU_TYPE_BOOTLOADER:
-            beacon_set(BEACON_TYPE_READY_BL);
-            break;
-        default:
-            APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
-    }
+    update_state_beacon();
 }
 
 static void start_target(void)
 {
     set_timeout(STATE_TIMEOUT_TARGET);
     m_state = BL_STATE_DFU_TARGET;
-    
+
     if (dfu_start(
             m_transaction.p_start_addr,
             m_transaction.p_bank_addr,
@@ -361,14 +405,14 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                     default:
                         APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
                 }
-                
+
                 uint32_t segment_count = ((p_packet->payload.start.length * 4) + (p_packet->payload.start.start_address & 0x0F) - 1) / 16 + 1;
                 if (segment_count > 0xFFFF)
                 {
                     /* can't have more than 65536 segments in a transmission */
                     segment_count = 0xFFFF;
                 }
-                
+
                 m_transaction.segments_remaining                = segment_count;
                 m_transaction.segment_count                     = segment_count;
                 m_transaction.p_start_addr                      = (uint32_t*) p_packet->payload.start.start_address;
@@ -376,13 +420,13 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 m_transaction.signature_length                  = p_packet->payload.start.signature_length;
                 m_transaction.segment_is_valid_after_transfer   = p_packet->payload.start.last;
                 m_transaction.p_last_requested_entry            = NULL;
-                
+
                 if (m_transaction.type == DFU_TYPE_BOOTLOADER)
                 {
                     m_transaction.p_bank_addr = (uint32_t*) (
-                        (m_bl_info_pointers.p_segment_app->start) + 
-                        (m_bl_info_pointers.p_segment_app->length) - 
-                        (m_transaction.length & ((uint32_t) ~(PAGE_SIZE - 1))) - 
+                        (m_bl_info_pointers.p_segment_app->start) +
+                        (m_bl_info_pointers.p_segment_app->length) -
+                        (m_transaction.length & ((uint32_t) ~(PAGE_SIZE - 1))) -
                         (PAGE_SIZE)
                     );
                 }
@@ -390,7 +434,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 {
                     m_transaction.p_bank_addr = m_transaction.p_start_addr;
                 }
-                
+
                 if ((uint32_t) m_transaction.p_start_addr >= p_segment->start &&
                     (uint32_t) m_transaction.p_start_addr + m_transaction.length <= p_segment->start + p_segment->length)
                 {
@@ -427,8 +471,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                             uint32_t req_entry_len = 0;
                             mesh_packet_t* p_req_packet;
                             if (dfu_get_oldest_missing_entry(
-                                    m_transaction.p_last_requested_entry, 
-                                    &p_req_entry, 
+                                    m_transaction.p_last_requested_entry,
+                                    &p_req_entry,
                                     &req_entry_len))
                             {
                                 if(!mesh_packet_acquire(&p_req_packet))
@@ -445,9 +489,9 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                                     m_transaction.p_last_requested_entry = p_req_entry;
                                 }
                             }
-                                
+
                         }
-                        
+
                     }
             }
 
@@ -468,7 +512,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             }
         }
     }
-    
+
     if (do_relay)
     {
         mesh_packet_t* p_mesh_packet = mesh_packet_get_start_pointer(p_packet);
@@ -479,19 +523,19 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
             }
             mesh_packet_build(
-                p_mesh_packet, 
-                p_packet->packet_type, 
-                p_packet->payload.data.segment, 
-                (uint8_t*) &p_packet->payload.data.transaction_id, 
+                p_mesh_packet,
+                p_packet->packet_type,
+                p_packet->payload.data.segment,
+                (uint8_t*) &p_packet->payload.data.transaction_id,
                 length - 4);
         }
         else
         {
             mesh_packet_ref_count_inc(p_mesh_packet);
         }
-        
+
         mesh_packet_set_local_addr(p_mesh_packet);
-        
+
         transport_tx(p_mesh_packet, TX_REPEATS_DATA, TX_INTERVAL_TYPE_DATA);
         mesh_packet_ref_count_dec(p_mesh_packet);
     }
@@ -511,16 +555,16 @@ static void handle_state_packet(dfu_packet_t* p_packet)
         case BL_STATE_DFU_READY:
             if (ready_packet_matches_our_req(p_packet))
             {
-                if (p_packet->payload.state.authority > m_transaction.authority)
+                if (p_packet->payload.state.authority > m_transaction.authority ||
+                    (
+                     p_packet->payload.state.authority == m_transaction.authority &&
+                     p_packet->payload.state.transaction_id > m_transaction.transaction_id
+                    )
+                   )
                 {
                     m_transaction.authority = p_packet->payload.state.authority;
                     m_transaction.transaction_id = p_packet->payload.state.transaction_id;
-                }
-                else if (p_packet->payload.state.authority == m_transaction.authority &&
-                         p_packet->payload.state.transaction_id > m_transaction.transaction_id)
-                {
-                    m_transaction.authority = p_packet->payload.state.authority;
-                    m_transaction.transaction_id = p_packet->payload.state.transaction_id;
+                    update_state_beacon();
                 }
             }
             break;
@@ -609,7 +653,7 @@ void bootloader_init(void)
     memset(m_tid_cache, 0, TRANSACTION_ID_CACHE_SIZE);
     m_tid_index = 0;
     m_req_index = 0;
-    
+
 
     /* fetch persistent entries */
     m_bl_info_pointers.p_flags              = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS)->flags;
@@ -630,14 +674,14 @@ void bootloader_init(void)
     {
         bootloader_abort(BL_END_ERROR_INVALID_PERSISTANT_STORAGE);
     }
-    
+
     /* create journal */
     if ((uint32_t) m_bl_info_pointers.p_journal < BOOTLOADER_INFO_ADDRESS)
     {
         bl_info_entry_t journal_buffer;
         memset(&journal_buffer, 0xFF, BL_INFO_LEN_JOURNAL);
         m_bl_info_pointers.p_journal = &bootloader_info_entry_put(BL_INFO_TYPE_JOURNAL, &journal_buffer, BL_INFO_LEN_JOURNAL)->journal[0];
-        
+
         if ((uint32_t) m_bl_info_pointers.p_journal < BOOTLOADER_INFO_ADDRESS)
         {
             bootloader_abort(BL_END_ERROR_INVALID_PERSISTANT_STORAGE);
@@ -718,20 +762,20 @@ void bootloader_rtc_irq_handler(void)
         case BL_STATE_FIND_FWID:
             bootloader_abort(BL_END_FWID_VALID);
             break;
-        
+
         case BL_STATE_DFU_REQ:
         case BL_STATE_DFU_READY:
             bootloader_abort(BL_END_ERROR_NO_START);
             break;
-        
+
         case BL_STATE_DFU_TARGET:
             start_req(m_transaction.type);
             break;
-        
+
         case BL_STATE_VALIDATE:
             bootloader_abort(BL_END_SUCCESS);
             break;
-        
+
         default:
             break;
     }
