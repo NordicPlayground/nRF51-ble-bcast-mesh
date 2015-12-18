@@ -190,17 +190,6 @@ static bool ready_packet_matches_our_req(dfu_packet_t* p_packet)
     }
 }
 
-static void packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len)
-{
-    mesh_packet_set_local_addr(p_packet);
-    p_packet->header.type = BLE_PACKET_TYPE_ADV_NONCONN_IND;
-    p_packet->header.length = DFU_PACKET_OVERHEAD + dfu_packet_len;
-    ((ble_ad_t*) p_packet->payload)->adv_data_type = MESH_ADV_DATA_TYPE;
-    ((ble_ad_t*) p_packet->payload)->data[0] = (MESH_UUID & 0xFF);
-    ((ble_ad_t*) p_packet->payload)->data[1] = (MESH_UUID >> 8) & 0xFF;
-    ((ble_ad_t*) p_packet->payload)->adv_data_length = DFU_PACKET_ADV_OVERHEAD + dfu_packet_len;
-}
-
 static dfu_packet_t* beacon_set(beacon_type_t type)
 {
     if (mp_beacon)
@@ -218,7 +207,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
     switch (type)
     {
         case BEACON_TYPE_FWID:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_FWID);
+            bootloader_packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_FWID);
             p_dfu->packet_type = DFU_PACKET_TYPE_FWID;
             p_dfu->payload.fwid.app.app_id      = m_bl_info_pointers.p_fwid->app.app_id;
             p_dfu->payload.fwid.app.app_version = m_bl_info_pointers.p_fwid->app.app_version;
@@ -229,7 +218,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
             break;
 
         case BEACON_TYPE_READY_APP:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_APP);
+            bootloader_packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_APP);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
             p_dfu->payload.state.dfu_type = DFU_TYPE_APP;
             p_dfu->payload.state.authority = m_transaction.authority;
@@ -239,7 +228,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
             break;
 
         case BEACON_TYPE_READY_SD:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_SD);
+            bootloader_packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_SD);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
             p_dfu->payload.state.dfu_type = DFU_TYPE_SD;
             p_dfu->payload.state.authority = m_transaction.authority;
@@ -249,7 +238,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
             break;
 
         case BEACON_TYPE_READY_BL:
-            packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_BL);
+            bootloader_packet_set_local_fields(mp_beacon, DFU_PACKET_LEN_STATE_BL);
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
             p_dfu->payload.state.dfu_type = DFU_TYPE_BOOTLOADER;
             p_dfu->payload.state.authority = m_transaction.authority;
@@ -379,8 +368,18 @@ static void start_target(void)
 
 static void start_rampdown(void)
 {
-    set_timeout(STATE_TIMEOUT_RAMPDOWN);
+    /* the final timeout should be setup regardless of NO_TIMEOUTS flag. */
+    NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH] = 0;
+    NRF_RTC0->CC[RTC_BL_STATE_CH] = (NRF_RTC0->COUNTER + STATE_TIMEOUT_RAMPDOWN) & RTC_MASK;
+    NRF_RTC0->INTENSET = (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos));
+    
     m_state = BL_STATE_VALIDATE;
+    dfu_packet_t* p_beacon = beacon_set(BEACON_TYPE_FWID);
+    
+    if (p_beacon)
+    {
+        serial_tx(p_beacon, DFU_PACKET_LEN_FWID);
+    }
 }
 
 static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
@@ -501,8 +500,32 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             if (m_transaction.segments_remaining == 0)
             {
                 dfu_end();
+                
                 if (signature_check())
                 {
+                    /* write new version in bl info: */
+                    bl_info_entry_t new_version_entry;
+                    memcpy(&new_version_entry.version, m_bl_info_pointers.p_fwid, sizeof(fwid_t));
+                    switch (m_transaction.type)
+                    {
+                        case DFU_TYPE_APP:
+                            memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
+                            break;
+                        case DFU_TYPE_SD:
+                            memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
+                            break;
+                        case DFU_TYPE_BOOTLOADER:
+                            memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
+                            break;
+                        default:
+                            break;
+                    }
+                    m_bl_info_pointers.p_fwid = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
+                    
+                    /* remove finished journal */
+                    bootloader_info_entry_invalidate((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_JOURNAL);
+                    
+                    /* prepare to reboot */
                     start_rampdown();
                 }
                 else
@@ -627,7 +650,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
                     ((dfu_packet_t*) p_rsp->payload)->payload.rsp_data.data, SEGMENT_LENGTH)
                )
             {
-                packet_set_local_fields(p_rsp, DFU_PACKET_LEN_DATA);
+                bootloader_packet_set_local_fields(p_rsp, DFU_PACKET_LEN_DATA);
                 transport_tx(p_rsp, TX_REPEATS_RSP, TX_INTERVAL_TYPE_RSP);
             }
             mesh_packet_ref_count_dec(p_rsp);
@@ -739,13 +762,12 @@ uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial
             /* don't care */
             break;
     }
-    NRF_GPIO->OUTCLR = (1 << 22);
+    NRF_GPIO->OUTSET = (1 << 22);
     return NRF_SUCCESS;
 }
 
 void bootloader_abort(bl_end_t end_reason)
 {
-    __BKPT(0);
     switch (end_reason)
     {
         case BL_END_ERROR_UNAUTHORIZED:
@@ -783,4 +805,15 @@ void bootloader_rtc_irq_handler(void)
         default:
             break;
     }
+}
+
+void bootloader_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len)
+{
+    mesh_packet_set_local_addr(p_packet);
+    p_packet->header.type = BLE_PACKET_TYPE_ADV_NONCONN_IND;
+    p_packet->header.length = DFU_PACKET_OVERHEAD + dfu_packet_len;
+    ((ble_ad_t*) p_packet->payload)->adv_data_type = MESH_ADV_DATA_TYPE;
+    ((ble_ad_t*) p_packet->payload)->data[0] = (MESH_UUID & 0xFF);
+    ((ble_ad_t*) p_packet->payload)->data[1] = (MESH_UUID >> 8) & 0xFF;
+    ((ble_ad_t*) p_packet->payload)->adv_data_length = DFU_PACKET_ADV_OVERHEAD + dfu_packet_len;
 }
