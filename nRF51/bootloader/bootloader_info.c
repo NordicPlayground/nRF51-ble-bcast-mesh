@@ -1,3 +1,37 @@
+/***********************************************************************************
+Copyright (c) Nordic Semiconductor ASA
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright notice, this
+  list of conditions and the following disclaimer in the documentation and/or
+  other materials provided with the distribution.
+
+  3. Neither the name of Nordic Semiconductor ASA nor the names of other
+  contributors to this software may be used to endorse or promote products
+  derived from this software without specific prior written permission.
+
+  4. This software must only be used in a processor manufactured by Nordic
+  Semiconductor ASA, or in a processor manufactured by a third party that
+  is used in combination with a processor manufactured by Nordic Semiconductor.
+
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+************************************************************************************/
 #include <stdio.h>
 #include <string.h>
 #include "bootloader_info.h"
@@ -275,7 +309,7 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
 
         memset(&buffer[entry_length - 4], 0xFF, 8); /* pad the end-of-entries entry */
         ((bootloader_info_header_t*) &buffer[0])->type = type;
-        ((bootloader_info_header_t*) &buffer[0])->len = (length + HEADER_LEN) / 4;
+        ((bootloader_info_header_t*) &buffer[0])->len = entry_length / 4;
         memcpy(&buffer[HEADER_LEN], p_entry, length);
 
         /* add end-of-entries-entry */
@@ -291,6 +325,19 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
     }
     PIN_CLEAR(PIN_ENTRY_PUT);
     return (bl_info_entry_t*) ((uint32_t) p_new_header + 4 * mp_bl_info_page->metadata.entry_header_length);
+}
+
+void bootloader_info_entry_invalidate(uint32_t* p_info_page, bl_info_type_t type)
+{
+    bootloader_info_header_t* p_header = bootloader_info_header_get(bootloader_info_entry_get(p_info_page, type));
+    if (p_header)
+    {
+        /* write zeros into the type, don't change the length. */
+        bootloader_info_header_t header;
+        header.len = p_header->len;
+        header.type = 0x0000;
+        nrf_flash_store((uint32_t*) p_header, (uint8_t*) &header, 4, 0);
+    }
 }
 
 void bootloader_info_reset(void)

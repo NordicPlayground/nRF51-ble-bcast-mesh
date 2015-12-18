@@ -75,6 +75,8 @@ static aci_status_code_t error_code_translate(uint32_t nrf_error_code)
             return ACI_STATUS_ERROR_INVALID_LENGTH;
         case NRF_ERROR_NOT_FOUND:
             return ACI_STATUS_ERROR_PIPE_INVALID;
+        case NRF_ERROR_BUSY:
+            return ACI_STATUS_ERROR_BUSY;
         default:
             return ACI_STATUS_ERROR_UNKNOWN;
     }
@@ -414,19 +416,45 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
     case SERIAL_CMD_OPCODE_DFU:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
-        serial_evt.length = 6;
-        /* do not attempt to police the length, as additional data might be added in future versions */
+        serial_evt.length = 5;
+    
+        /* do not attempt to police the length for this event type, as additional data might be added in future versions */
 
-#ifdef BOOTLOADER            
-        error_code = bootloader_rx(&serial_cmd->params.dfu.packet, serial_cmd->length - 1, true);
+#ifdef BOOTLOADER      
+        /* attempt to allocate a packet for the buffer before entering the handler, allowing to catch
+           out-of-memory issues right away. */
+        mesh_packet_t* p_packet;
+        if (mesh_packet_acquire(&p_packet))
+        {
+            error_code = NRF_SUCCESS;
+        }
+        else
+        {
+            error_code = NRF_ERROR_BUSY;
+        }
+        
+        /* send ack */
+        serial_evt.params.cmd_rsp.response.dfu.packet_type = serial_cmd->params.dfu.packet.packet_type;
+        serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+        serial_handler_event_send(&serial_evt);
+        
+        /* propagate to handler */
+        if (p_packet)
+        {
+            bootloader_packet_set_local_fields(p_packet, serial_cmd->length - SERIAL_PACKET_OVERHEAD);
+            memcpy(&p_packet->payload[4], &serial_cmd->params.dfu.packet, serial_cmd->length - SERIAL_PACKET_OVERHEAD);
+        
+            error_code = bootloader_rx((dfu_packet_t*) &p_packet->payload[4], serial_cmd->length - SERIAL_PACKET_OVERHEAD, true);
+            mesh_packet_ref_count_dec(p_packet);
+        }
 #else
         error_code = NRF_ERROR_INVALID_STATE;
-#endif            
-            serial_evt.params.cmd_rsp.response.dfu.packet_type = serial_cmd->params.dfu.packet.packet_type;
-            serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-        
-
+        serial_evt.params.cmd_rsp.response.dfu.packet_type = serial_cmd->params.dfu.packet.packet_type;
+        serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
         serial_handler_event_send(&serial_evt);
+        
+#endif            
+        
         break;
         
     default:
