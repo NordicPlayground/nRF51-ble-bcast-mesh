@@ -412,11 +412,6 @@
               <FilePath>..\main.c</FilePath>
             </File>
             <File>
-              <FileName>journal.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\journal.c</FilePath>
-            </File>
-            <File>
               <FileName>dfu_mesh.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\dfu_mesh.c</FilePath>
@@ -1012,11 +1007,6 @@
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\main.c</FilePath>
-            </File>
-            <File>
-              <FileName>journal.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\journal.c</FilePath>
             </File>
             <File>
               <FileName>dfu_mesh.c</FileName>
