@@ -33,8 +33,8 @@ typedef struct
 typedef struct __attribute((packed))
 {
     uint32_t company_id;
-    uint32_t app_version;
     uint16_t app_id;
+    uint32_t app_version;
 } app_id_t;
 
 
@@ -297,7 +297,7 @@ static uint32_t create_info(char* p_file_name, uint8_t* p_data_buf)
 
     /* end-of-entries */
     memset(&p_data_buf[i], 0xFF, 4);
-    p_data_buf[i + 1] = BL_INFO_TYPE_LAST8;
+    p_data_buf[i + 3] = BL_INFO_TYPE_LAST8;
 
     free(input_string);
     return i + 4;
