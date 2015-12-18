@@ -36,7 +36,6 @@
 #define STATE_TIMEOUT_TARGET        (US_TO_RTC_TICKS(5000000)) /* 5.0s */
 #define STATE_TIMEOUT_RAMPDOWN      (US_TO_RTC_TICKS(1000000)) /* 1.0s */
 
-#define SERIAL_PACKET_OVERHEAD      (2)
 
 /* important that req-cache isn't too big - might lead to starvation in req-device */
 #define REQ_CACHE_SIZE              (4)

@@ -94,6 +94,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_PACKET_LEN_DATA_REQ     (2 + 2 + 4)
 #define DFU_PACKET_LEN_DATA_RSP     (2 + 2 + 4 + SEGMENT_LENGTH)
 
+#define SERIAL_PACKET_OVERHEAD      (1)
+
 typedef uint16_t segment_t;
 typedef uint16_t seq_t;
 
