@@ -82,6 +82,7 @@ bootloader_info_t* bootloader_info_get(void);
 bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_type_t type);
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type, bl_info_entry_t* p_entry, uint32_t length); /* p_entry must point to RAM */
 void bootloader_info_reset(void);
+void bootloader_info_entry_invalidate(uint32_t* p_info_page, bl_info_type_t type);
 
 
 #endif /* BOOTLOADER_INFO_H__ */

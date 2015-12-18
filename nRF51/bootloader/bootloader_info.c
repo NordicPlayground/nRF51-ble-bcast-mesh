@@ -293,6 +293,19 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
     return (bl_info_entry_t*) ((uint32_t) p_new_header + 4 * mp_bl_info_page->metadata.entry_header_length);
 }
 
+void bootloader_info_entry_invalidate(uint32_t* p_info_page, bl_info_type_t type)
+{
+    bootloader_info_header_t* p_header = bootloader_info_header_get(bootloader_info_entry_get(p_info_page, type));
+    if (p_header)
+    {
+        /* write zeros into the type, don't change the length. */
+        bootloader_info_header_t header;
+        header.len = p_header->len;
+        header.type = 0x0000;
+        nrf_flash_store((uint32_t*) p_header, (uint8_t*) &header, 4, 0);
+    }
+}
+
 void bootloader_info_reset(void)
 {
     reset_with_replace(BL_INFO_TYPE_INVALID, NULL, 0);
