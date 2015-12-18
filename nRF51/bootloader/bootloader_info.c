@@ -275,7 +275,7 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
 
         memset(&buffer[entry_length - 4], 0xFF, 8); /* pad the end-of-entries entry */
         ((bootloader_info_header_t*) &buffer[0])->type = type;
-        ((bootloader_info_header_t*) &buffer[0])->len = (length + HEADER_LEN) / 4;
+        ((bootloader_info_header_t*) &buffer[0])->len = entry_length / 4;
         memcpy(&buffer[HEADER_LEN], p_entry, length);
 
         /* add end-of-entries-entry */
