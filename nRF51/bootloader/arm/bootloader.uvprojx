@@ -986,7 +986,7 @@
             <vShortWch>0</vShortWch>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>NRF51 BOARD_PCA10028 BOOTLOADER SERIAL</Define>
+              <Define>NRF51 BOARD_PCA10028 BOOTLOADER SERIAL NO_TIMEOUTS</Define>
               <Undefine></Undefine>
               <IncludePath>..\..\rbc_mesh\include;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp</IncludePath>
             </VariousControls>
