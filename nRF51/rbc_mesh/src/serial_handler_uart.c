@@ -134,6 +134,12 @@ static void char_rx(uint8_t c)
             fail_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_BUSY;
             serial_handler_event_send(&fail_evt);
         }
+        else
+        {
+#ifdef BOOTLOADER            
+            NVIC_SetPendingIRQ(SWI2_IRQn);
+#endif            
+        }
 
         if (fifo_is_full(&rx_fifo))
         {

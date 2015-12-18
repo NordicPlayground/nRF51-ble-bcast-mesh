@@ -63,13 +63,19 @@ void HardFault_Handler(uint32_t pc, uint32_t lr)
     __BKPT(0);
 }
 
+/** Interrupt indicating new serial command */
+void SWI2_IRQHandler(void)
+{
+    mesh_aci_command_check();
+}
+
 static void rx_cb(mesh_packet_t* p_packet)
 {
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
     if (p_adv_data->handle > RBC_MESH_APP_MAX_HANDLE)
     {
         NRF_GPIO->OUTCLR = (1 << 21);
-        bootloader_rx((dfu_packet_t*) &p_adv_data->handle, p_adv_data->adv_data_length - 3);
+        bootloader_rx((dfu_packet_t*) &p_adv_data->handle, p_adv_data->adv_data_length - 3, false);
         NRF_GPIO->OUTSET = (1 << 21);
     }
 }
@@ -91,14 +97,17 @@ int main(void)
     NRF_CLOCK->TASKS_CAL = 1;
     while (!NRF_CLOCK->EVENTS_DONE);
     
+    NVIC_SetPriority(SWI2_IRQn, 2);
+    NVIC_EnableIRQ(SWI2_IRQn);
+    
     init_leds();
     rtc_init();
-    transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
-    bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE));
-    bootloader_init();
 #ifdef SERIAL    
     mesh_aci_init();
 #endif    
+    transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
+    bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE));
+    bootloader_init();
 
     while (1)
     {
