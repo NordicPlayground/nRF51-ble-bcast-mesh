@@ -32,7 +32,7 @@ typedef enum
 
 void bootloader_init(void);
 
-uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length);
+uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
 void bootloader_abort(bl_end_t end_reason);
 void bootloader_rtc_irq_handler(void);
 

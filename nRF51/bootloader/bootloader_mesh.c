@@ -291,7 +291,7 @@ static void update_state_beacon(void)
 {
     dfu_packet_t* p_beacon = NULL;
     uint16_t beacon_len = 0;
-    switch (m_transaction.dfu_type)
+    switch (m_transaction.type)
     {
         case DFU_TYPE_APP:
             p_beacon = beacon_set(BEACON_TYPE_READY_APP);
@@ -711,8 +711,9 @@ void bootloader_init(void)
     }
 }
 
-uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length)
+uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
 {
+    NRF_GPIO->OUTCLR = (1 << 22);
     switch (p_packet->packet_type)
     {
         case DFU_PACKET_TYPE_FWID:
@@ -739,6 +740,7 @@ uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length)
             /* don't care */
             break;
     }
+    NRF_GPIO->OUTCLR = (1 << 22);
     return NRF_SUCCESS;
 }
 
