@@ -74,7 +74,7 @@ static bootloader_info_header_t* bootloader_info_header_get(bl_info_entry_t* p_e
     {
         return NULL;
     }
-    return (bootloader_info_header_t*) ((uint32_t) p_entry - mp_bl_info_page->metadata.entry_header_length);
+    return (bootloader_info_header_t*) ((uint32_t) p_entry - 4 * mp_bl_info_page->metadata.entry_header_length);
 }
 
 static inline bootloader_info_header_t* bootloader_info_first_unused_get(bootloader_info_t* p_bl_info_page)
@@ -227,7 +227,7 @@ bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_typ
         iter_type = (bl_info_type_t) p_header->type;
     }
     PIN_CLEAR(PIN_ENTRY_GET);
-    return (bl_info_entry_t*) ((uint32_t) p_header + mp_bl_info_page->metadata.entry_header_length);
+    return (bl_info_entry_t*) ((uint32_t) p_header + 4 * mp_bl_info_page->metadata.entry_header_length);
 }
 
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
@@ -290,7 +290,7 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
         }
     }
     PIN_CLEAR(PIN_ENTRY_PUT);
-    return (bl_info_entry_t*) ((uint32_t) p_new_header + mp_bl_info_page->metadata.entry_header_length);
+    return (bl_info_entry_t*) ((uint32_t) p_new_header + 4 * mp_bl_info_page->metadata.entry_header_length);
 }
 
 void bootloader_info_reset(void)
