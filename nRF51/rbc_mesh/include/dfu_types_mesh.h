@@ -120,8 +120,8 @@ typedef enum
 typedef struct __attribute((packed))
 {
     uint32_t company_id;
-    uint32_t app_version;
     uint16_t app_id;
+    uint32_t app_version;
 } app_id_t;
 
 
@@ -156,7 +156,7 @@ typedef struct __attribute((packed))
             uint8_t _rfu1       : 4;
             uint8_t authority   : 3;
             uint8_t flood       : 1;
-            uint8_t is_target   : 1;
+            uint8_t relay_node  : 1;
             uint8_t _rfu2       : 3;
             uint32_t transaction_id;
             fwid_union_t fwid;
