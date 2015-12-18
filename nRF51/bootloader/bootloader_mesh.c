@@ -110,9 +110,11 @@ static void serial_tx(dfu_packet_t* p_packet, uint16_t len)
 
 static void set_timeout(uint32_t time)
 {
+#ifndef NO_TIMEOUTS    
     NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH] = 0;
     NRF_RTC0->CC[RTC_BL_STATE_CH] = (NRF_RTC0->COUNTER + time) & RTC_MASK;
     NRF_RTC0->INTENSET = (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos));
+#endif    
 }
 
 static bool signature_check(void)
