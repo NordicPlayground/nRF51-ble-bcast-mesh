@@ -53,6 +53,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     __disable_irq();
+    NRF_GPIO->OUTSET = (1 << 7);
+    NRF_GPIO->OUTCLR = (1 << 23);
     __BKPT(0);
     while (1);
 }
@@ -60,6 +62,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 void HardFault_Handler(uint32_t pc, uint32_t lr)
 {
     NRF_GPIO->OUTSET = (1 << 7);
+    NRF_GPIO->OUTCLR = (1 << 23);
     __BKPT(0);
 }
 
