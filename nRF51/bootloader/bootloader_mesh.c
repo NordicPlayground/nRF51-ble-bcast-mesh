@@ -214,6 +214,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
         bootloader_abort(BL_END_ERROR_NO_MEM);
     }
     dfu_packet_t* p_dfu = (dfu_packet_t*) &(((ble_ad_t*) mp_beacon->payload)->data[2]);
+    memset(p_dfu, 0, sizeof(dfu_packet_t));
 
     switch (type)
     {
