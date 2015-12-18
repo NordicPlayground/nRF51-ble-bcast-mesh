@@ -415,17 +415,12 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
         serial_evt.length = 6;
+        /* do not attempt to police the length, as additional data might be added in future versions */
 
-        if (serial_cmd->length != 1)
-        {
-            serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
-        }
-        else
-        {
 #ifdef BOOTLOADER            
-            error_code = bootloader_rx(&serial_cmd->params.dfu.packet, serial_cmd->length - 2);
+        error_code = bootloader_rx(&serial_cmd->params.dfu.packet, serial_cmd->length - 1, true);
 #else
-            error_code = NRF_ERROR_INVALID_STATE;
+        error_code = NRF_ERROR_INVALID_STATE;
 #endif            
             serial_evt.params.cmd_rsp.response.dfu.packet_type = serial_cmd->params.dfu.packet.packet_type;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
