@@ -424,10 +424,10 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 #endif            
             serial_evt.params.cmd_rsp.response.dfu.packet_type = serial_cmd->params.dfu.packet.packet_type;
             serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-        }
+        
 
         serial_handler_event_send(&serial_evt);
-        break;     
+        break;
         
     default:
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
