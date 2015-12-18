@@ -132,19 +132,19 @@ static bool signature_check(void)
     uint8_t hash[uECC_BYTES];
     sha256_context_t hash_context;
     sha256_init(&hash_context);
-    sha256_update(&hash_context, &m_transaction.type, 1);
-    sha256_update(&hash_context, &((uint32_t) m_transaction.p_start_addr), 4);
-    sha256_update(&hash_context, &m_transaction.length, 4);
+    sha256_update(&hash_context, (uint8_t*) &m_transaction.type, 1);
+    sha256_update(&hash_context, (uint8_t*) &m_transaction.p_start_addr, 4);
+    sha256_update(&hash_context, (uint8_t*) &m_transaction.length, 4);
     switch (m_transaction.type)
     {
         case DFU_TYPE_APP:
-            sha256_update(&hash_context, &m_transaction.target_fwid_union, DFU_FWID_LEN_APP);
+            sha256_update(&hash_context, (uint8_t*) &m_transaction.target_fwid_union, DFU_FWID_LEN_APP);
             break;
         case DFU_TYPE_SD:
-            sha256_update(&hash_context, &m_transaction.target_fwid_union, DFU_FWID_LEN_SD);
+            sha256_update(&hash_context, (uint8_t*) &m_transaction.target_fwid_union, DFU_FWID_LEN_SD);
             break;
         case DFU_TYPE_BOOTLOADER:
-            sha256_update(&hash_context, &m_transaction.target_fwid_union, DFU_FWID_LEN_BL);
+            sha256_update(&hash_context, (uint8_t*) &m_transaction.target_fwid_union, DFU_FWID_LEN_BL);
             break;
         default:
             break;
