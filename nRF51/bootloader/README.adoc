@@ -1,4 +1,5 @@
 = Bootloader Alpha
+
 This is the first preview release of the mesh-dfu-bootloader, which is in development.
 When finished, the bootloader is meant to perform a concurrent DFU transfer for all potential target nodes across a mesh network.
 
