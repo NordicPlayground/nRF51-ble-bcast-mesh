@@ -42,6 +42,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_gpio.h"
 #include "SEGGER_RTT.h"
 #include "boards.h"
+#include "utils.h"
+#include "nrf_delay.h"
+
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -49,45 +53,104 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdarg.h>
 
 #define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)
-#define MESH_INTERVAL_MIN_MS    (100)
+#define MESH_INTERVAL_MIN_MS    (400)
 #define MESH_CHANNEL            (38)
 #define MESH_CLOCK_SRC          (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
 #define INVALID_HANDLE          (RBC_MESH_INVALID_HANDLE)
 
+#define max_links 100
+
+volatile uint16_t gs_handle   __attribute__((at(0x0001FC04))) __attribute__((used)) ;
+volatile uint16_t gs_state  __attribute__((at(0x0001FC00))) __attribute__((used)) ;
+
 static rbc_mesh_value_handle_t m_handle = INVALID_HANDLE;
 static uint8_t m_data[RBC_MESH_VALUE_MAX_LEN];
-
+static uint16_t throughput[max_links];
 extern void UART0_IRQHandler(void);
 
-static void print_usage(void)
+
+const uint8_t leds_list[LEDS_NUMBER] = LEDS_LIST;
+
+
+void blink(uint8_t LED,uint8_t number)
 {
-    _LOG("To configure: transmit the handle number this device responds to, \r\n"
-    "or 0 to respond to all handles.\r\n");
+  for(int i=0; i < number; i++)
+  {
+      nrf_gpio_pin_set(21);
+			nrf_gpio_pin_set(22);
+			nrf_gpio_pin_set(23);
+			nrf_gpio_pin_clear(LED);
+      //nrf_delay_ms(100);
+      //nrf_gpio_pin_set(LED);
+			//nrf_delay_ms(100);
+  }
 }
 
-/** 
+ 
+/**
 * @brief Handle an incoming command, and act accordingly.
 */
-static void cmd_rx(uint8_t* cmd, uint32_t len)
+static bool cmd_rx(char* cmd, uint32_t len)
 {
-    if (len <= 1)
-        return;
-    m_handle = atoi((char*) cmd);
-    if (m_handle == 0)
-    {
-        m_data[6]++;
-        _LOG("Responding to all\r\n");
-    }
-    else
-    {
-        m_data[6]++;
-        rbc_mesh_value_set(m_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
-        rbc_mesh_persistence_set(m_handle, true);
-        _LOG("Responding to handle %d\r\n", (int) m_handle);
-    }
-}
 
+	int j;
+
+	//___LOG(0,"cmd_rx:%s",&cmd);
+
+	if (*cmd == 0x53) //"S" for Start
+	{
+		if (m_handle == 0)
+		{
+			for (int i=0;i<max_links;i++)
+			{
+				throughput[i] = 0;
+			}
+			__LOG(0,"throughput clr \r\n");
+		}
+		__LOG(0,"%d is STARTING\r\n", (int) m_handle);
+		return true;
+
+	}
+	else if (*cmd == 0x54) //"T" for sTop
+	{
+		__LOG(0,"%d is STOPPING\r\n", (int) m_handle);
+		if (m_handle == 0)
+		{
+			
+			//__LOG(0,"d%2xp%4x\r\n", 0, (int)throughput[0]);
+			for (j=max_links-1;j>0;j--)
+			{
+					if (throughput[j] != 0)
+					{
+							break;
+					}
+			}
+
+			__LOG(0,"data_start,");
+			for (int i=0;i<j;i++)
+			{
+				__LOG(0,"%5x,",(int)throughput[i]); //
+			}
+			__LOG(0,"data_end\r\n");
+			return true;
+		}
+	}
+
+	else if (*cmd == 0x50) //"P" for Ping
+	{
+		__LOG(0,"%d is PINGING\r\n", (int) m_handle);
+		return true;
+	}
+	
+	else if (*cmd == 0x48) //"H" for How Many
+	{
+		__LOG(0,"%d RECEIVED %d \r\n", (int) m_handle, (int) throughput[m_handle]);
+		return true;
+	}
+
+	return false;
+}
 /**
 * @brief General error handler.
 */
@@ -110,7 +173,7 @@ static void error_loop(void)
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    _LOG("SD ERROR: %s:L%d\r\n", (const char*) p_file_name, (int) line_num);
+    __LOG(0,"SD ERROR: %s:L%d\r\n", (const char*) p_file_name, (int) line_num);
     error_loop();
 }
 
@@ -124,14 +187,24 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    _LOG("APP ERROR: %s:L%d - E:%X\r\n", p_file_name, (int) line_num, (int) error_code);
+    __LOG(0,"APP ERROR: %s:L%d - E:%X\r\n", p_file_name, (int) line_num, (int) error_code);
     error_loop();
 }
 
 void HardFault_Handler(void)
 {
-    _LOG("HARDFAULT\r\n");
+    __LOG(0,"HARDFAULT\r\n");
     error_loop();
+}
+
+int rtt_send(char const *p_buf, unsigned buf_size)
+{
+  return SEGGER_RTT_Write(0, p_buf, buf_size);
+}
+
+int rtt_read(char *p_buf, unsigned buf_size)
+{
+  return SEGGER_RTT_Read(0, p_buf, buf_size);
 }
 
 /**
@@ -141,45 +214,148 @@ void HardFault_Handler(void)
 */
 static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 { 
-    static const char cmd[] = {'U', 'C', 'N', 'I', 'T'};
-    switch (evt->event_type)
-    {
-        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
-        case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-        case RBC_MESH_EVENT_TYPE_NEW_VAL:  
-            if (evt->value_handle == m_handle || m_handle == 0)
-            {
-                nrf_gpio_pin_toggle(LED_START);
-                if (m_handle == 0)
-                {
-                    rbc_mesh_value_set(evt->value_handle, m_data, 1); /* short ack */
-                    _LOG("%c[%d] \r\n", cmd[evt->event_type], evt->value_handle);
-                }
-                else
-                {
-                    m_data[6]++;
-                    rbc_mesh_value_set(evt->value_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
-                }
-            }
-            else
-            {
-                //rbc_mesh_value_disable(evt->value_handle);
-            }
-            break;
-        case RBC_MESH_EVENT_TYPE_INITIALIZED: break;
-        case RBC_MESH_EVENT_TYPE_TX: break;
-    }
+    //static const char cmd[] = {'U', 'C', 'N', 'I', 'T'};
+	  
+		switch (evt->event_type)
+		{
+				case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+				case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
+				case RBC_MESH_EVENT_TYPE_NEW_VAL:  
+						if (evt->value_handle == m_handle || m_handle == 0)
+						{
+								nrf_gpio_pin_toggle(LED_RGB_RED);
+								if (m_handle == 0)
+								{
+										if ( ((uint8_t) evt->value_handle) < max_links)
+										{
+											rbc_mesh_value_set(evt->value_handle, m_data, 1); /* short ack */
+											throughput[(uint8_t)evt->value_handle]++;
+											throughput[0]++;
+										}
+										
+								}
+								else
+								{
+										m_data[6]++;
+										nrf_gpio_pin_set(LED_RGB_GREEN);	
+										rbc_mesh_value_set(evt->value_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
+								}
+						}
+						else
+						{
+								//rbc_mesh_value_disable(evt->value_handle);
+						}
+						break;
+				case RBC_MESH_EVENT_TYPE_INITIALIZED: break;
+				case RBC_MESH_EVENT_TYPE_TX: break;
+		}
+ 
 }
+
+
+/**
+* @brief RTT_RESPOND    read rtt incoming data and respond with RTT
+*
+*/
+int RTT_respond(void)
+{
+	char send[128];
+  char read[128];
+  uint16_t read_len = 0;
+	while (true)
+	{
+		read_len = rtt_read(read,128);
+		nrf_gpio_pin_toggle(23);
+		if (read_len!=0)
+		{
+			if (cmd_rx(&read[0], read_len))
+				 continue;
+			else
+				 rtt_send(send, 18);
+		}
+		else
+		{
+			return true;
+		}
+	}
+}
+
+
 
 /** @brief main function */
 int main(void)
 {   
-    /* Enable Softdevice (including sd_ble before framework) */
+		bool start=true;
+		nrf_gpio_range_cfg_output(0, 32);
+    for (uint32_t i = LED_START; i <= LED_STOP; ++i)
+    {
+        nrf_gpio_pin_set(i);
+    }
+				
+    SEGGER_RTT_Init();
+    SEGGER_RTT_ConfigDownBuffer(0, NULL, NULL, 0, SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL);
+    SEGGER_RTT_ConfigUpBuffer  (0, NULL, NULL, 0, SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL);
+		 /*	
+		uint32_t time_ms = 500; //Time(in miliseconds) between consecutive compare events.
+    uint32_t time_ticks;
+    uint32_t err_code = NRF_SUCCESS;
+		
+		err_code = nrf_drv_timer_init(&TIMER_LED, NULL, timer_led_event_handler);
+    APP_ERROR_CHECK(err_code);
+    
+    time_ticks = nrf_drv_timer_ms_to_ticks(&TIMER_LED, time_ms);
+    
+    nrf_drv_timer_extended_compare(
+         &TIMER_LED, NRF_TIMER_CC_CHANNEL0, time_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
+    
+    nrf_drv_timer_enable(&TIMER_LED);
+
+    while(1)
+    {
+        __WFI();
+    }
+		
+ 	
+		while (true)
+		{
+			for (int i=0;i<max_links;i++)
+			{
+				__LOG(0,"%5x,Z",i); //(int)throughput[i]
+			}
+		}
+	
+  
+	
+    __LOG(0,(char *) &start_msg[0]);
+    __LOG(0,"Program init\r\n", __FUNCTION__);
+    */
+    
+   
+    /*
+		uint32_t num=0;
+    while (1)
+    {
+      num++;
+      sprintf(&send[0], "W%7d\r\n", (int)num);
+      rtt_send(send,10);
+    
+			read_len = rtt_read(read,128);
+      if (read_len!=0)
+      {
+        rtt_send(read, read_len);
+      }
+		
+      nrf_delay_ms(10);
+    }
+      */
+		
+		
+		/* Enable Softdevice (including sd_ble before framework) */
     SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SRC, NULL);
     softdevice_ble_evt_handler_set(rbc_mesh_ble_evt_handler);
     softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
-    
-    /* Init the rbc_mesh */
+  	
+  	/* Init the rbc_mesh */
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr     = MESH_ACCESS_ADDR;
@@ -193,28 +369,91 @@ int main(void)
     ble_gap_addr_t addr;
     sd_ble_gap_address_get(&addr);
     memcpy(m_data, addr.addr, 6);
-    
-    nrf_gpio_range_cfg_output(0, 32);
-    for (uint32_t i = LED_START; i <= LED_STOP; ++i)
-    {
-        nrf_gpio_pin_set(i);
-    }
-    
-    cmd_init(cmd_rx);
 
-    _LOG("START\r\n");
-    print_usage();
     
+		
+
+    
+	  //cmd_init(cmd_rx);
+    
+		/*		
+		while(gs_release == 0xFFFF)
+		{
+			nrf_delay_ms(1000);
+			blink(LED_RGB_RED,1);
+			sprintf(&send[0], "RESET\r\n");
+			rtt_send(send,7);
+		}
+		
+		while(true)
+		{
+			nrf_delay_ms(1000);
+			if (gs_handle == 0x0000)
+			{
+				blink(LED_RGB_GREEN,1);
+				sprintf(&send[0], "CENTRAL\r\n");
+				rtt_send(send,9);
+			}
+			else 
+			{
+				blink(LED_RGB_BLUE,1);
+				sprintf(&send[0], "NOT CENTRAL\r\n");
+				rtt_send(send,13);
+			}
+		}
+	*/
+	
     rbc_mesh_event_t evt;
     while (true)
     {
-        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
-        {
-            rbc_mesh_event_handler(&evt);
-            rbc_mesh_packet_release(evt.data);
-        }
-        
-        sd_app_evt_wait();
-    }
+			if (gs_state == 0xFFFF)
+			{
+				nrf_gpio_pin_clear(LED_RGB_BLUE);
+				RTT_respond();
+				m_handle = (rbc_mesh_value_handle_t) gs_handle;
+			}	
+			if (gs_state == 0x0FFF)
+			{
+				if  (start == true)
+				{
+					if (m_handle == 0)
+					{
+						for (int i=0;i<max_links;i++)
+						{
+							throughput[i] = 0;
+						}
+					}
+					else
+					{
+						m_data[6]++;
+						rbc_mesh_value_set(m_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
+						rbc_mesh_persistence_set(m_handle, true);
+						nrf_gpio_pin_set(LED_RGB_BLUE);
+						nrf_gpio_pin_clear(LED_RGB_GREEN);
+					}
+					start = false;
+					nrf_gpio_pin_set(LED_RGB_BLUE);
+					nrf_gpio_pin_clear(LED_RGB_GREEN);	
+				}
+				
+				sd_app_evt_wait();
+			
+				if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+				{
+						rbc_mesh_event_handler(&evt);
+						rbc_mesh_packet_release(evt.data);
+				}
+			}
+			if (gs_state == 0x00FF)
+			{
+				RTT_respond();
+			}
+			if (gs_state == 0x000F)
+			{
+			}	
+			if (gs_state == 0x0000)
+			{
+			}	
+		}
 }
 

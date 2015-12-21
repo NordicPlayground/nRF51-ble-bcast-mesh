@@ -6,8 +6,8 @@
 
 #TARGET_BOARD         ?= BOARD_PCA10000
 #TARGET_BOARD         ?= BOARD_PCA10001
-TARGET_BOARD         ?= BOARD_PCA10028
-#TARGET_BOARD         ?= BOARD_PCA10031
+#TARGET_BOARD         ?= BOARD_PCA10028
+TARGET_BOARD         ?= BOARD_PCA10031
 
 
 ATTR_TABLE_SIZE      ?= 0x2700
@@ -34,22 +34,22 @@ MAKEFILE_NAME := $(MAKEFILE_LIST)
 MAKEFILE_DIR := $(dir $(MAKEFILE_NAME) ) 
 
 ifeq ($(OS),Windows_NT)
-  include $(TEMPLATE_PATH)/Makefile.windows
+	include $(TEMPLATE_PATH)/Makefile.windows
 else
-  include $(TEMPLATE_PATH)/Makefile.posix
+	include $(TEMPLATE_PATH)/Makefile.posix
 endif
 
 # echo suspend
 ifeq ("$(VERBOSE)","1")
-  NO_ECHO := 
+	NO_ECHO := 
 else
-  NO_ECHO := @
+	NO_ECHO := @
 endif
 
 ifeq ($(MAKECMDGOALS),debug)
-  BUILD_TYPE := debug
+	BUILD_TYPE := debug
 else
-  BUILD_TYPE := release
+	BUILD_TYPE := release
 endif
 
 # Toolchain commands
@@ -96,6 +96,7 @@ C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c
 C_SOURCE_FILES += $(COMPONENTS)/softdevice/common/softdevice_handler/softdevice_handler.c
 C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/uart/app_uart_fifo.c
 C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/gpiote/nrf_drv_gpiote.c
+C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/hal/nrf_delay.c
 C_SOURCE_FILES += $(COMPONENTS)/drivers_nrf/common/nrf_drv_common.c
 C_SOURCE_FILES += $(COMPONENTS)/libraries/fifo/app_fifo.c
 C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c
@@ -136,9 +137,9 @@ OUTPUT_BINARY_DIRECTORY = $(OBJECT_DIRECTORY)
 BUILD_DIRECTORIES := $(sort $(OBJECT_DIRECTORY) $(OUTPUT_BINARY_DIRECTORY) $(LISTING_DIRECTORY) )
 
 ifeq ($(BUILD_TYPE),debug)
-  DEBUG_FLAGS += -D DEBUG -g -O0
+	DEBUG_FLAGS += -D DEBUG -g -O0
 else
-  DEBUG_FLAGS += -D NDEBUG -g -O0
+	DEBUG_FLAGS += -D NDEBUG -g -O0
 endif
 
 # flags common to all targets

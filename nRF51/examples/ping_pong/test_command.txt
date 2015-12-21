@@ -1,0 +1,1 @@
+python ping_pong_throughput_test.py --log /c/b/log2.csv --test_time=10 --num_tests 8 --hex $(pwd)/arm/_build/ping_pong.hex --verbose 1

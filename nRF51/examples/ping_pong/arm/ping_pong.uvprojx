@@ -14,7 +14,7 @@
         <TargetCommonOption>
           <Device>nRF51422_xxAC</Device>
           <Vendor>Nordic Semiconductor</Vendor>
-          <PackID>NordicSemiconductor.nRF_DeviceFamilyPack.1.1.4</PackID>
+          <PackID>NordicSemiconductor.nRF_ConfidentialDeviceFamilyPack.7.2.0</PackID>
           <PackURL>http://developer.nordicsemi.com/nRF51_SDK/pieces/nRF_DeviceFamilyPack/</PackURL>
           <Cpu>IROM(0x00000000,0x40000) IRAM(0x20000000,0x8000) CPUTYPE("Cortex-M0") CLOCK(12000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -145,6 +145,7 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
+            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -363,7 +364,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10028 SOFTDEVICE_PRESENT NRF51</Define>
+              <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10031 SOFTDEVICE_PRESENT NRF51</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\RTT;..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\..\components\libraries\fifo</IncludePath>
             </VariousControls>
@@ -522,6 +523,11 @@
               <FileName>app_fifo.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\components\libraries\fifo\app_fifo.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_delay.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\drivers_nrf\hal\nrf_delay.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -44,15 +44,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _LOG(str, ...) do{\
         char tx_str[128];\
         sprintf(tx_str, str, ##__VA_ARGS__);\
-        char* c = tx_str;\
-        while (*c)\
-            app_uart_put(*(c++));\
-    } while(0)
+        rtt_send(tx_str,strlen(str));\
+	  } while(0)
 
 typedef void (*cmd_rx_cb_t)(uint8_t* cmd, uint32_t len);
 
 void cmd_init(cmd_rx_cb_t rx_cb);
 
+int rtt_send(char const *p_buf, unsigned buf_size);
+int rtt_read(char *p_buf, unsigned buf_size);
 
 
 #endif /* __CMD_IF_H__ */

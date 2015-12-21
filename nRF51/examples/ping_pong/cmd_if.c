@@ -89,14 +89,14 @@ void cmd_init(cmd_rx_cb_t rx_cb)
 {
     uint32_t error_code;
     app_uart_comm_params_t uart_params;
-    uart_params.baud_rate = UART_BAUDRATE_BAUDRATE_Baud460800;
-    uart_params.cts_pin_no = CTS_PIN_NUMBER;
+    uart_params.baud_rate = UART_BAUDRATE_BAUDRATE_Baud1M;
+	  uart_params.cts_pin_no = CTS_PIN_NUMBER;
     uart_params.rts_pin_no = RTS_PIN_NUMBER;
     uart_params.rx_pin_no = RX_PIN_NUMBER;
     uart_params.tx_pin_no = TX_PIN_NUMBER;
-    uart_params.flow_control = APP_UART_FLOW_CONTROL_DISABLED;
+    uart_params.flow_control = APP_UART_FLOW_CONTROL_DISABLED; 
     uart_params.use_parity = false;
-    APP_UART_FIFO_INIT(&uart_params, 8, 512, uart_event_handler, APP_IRQ_PRIORITY_LOW, error_code);
+    APP_UART_FIFO_INIT(&uart_params, 8, 512, uart_event_handler, APP_IRQ_PRIORITY_LOW, error_code); 
     APP_ERROR_CHECK(error_code);
 
     m_rx_cb = rx_cb;
