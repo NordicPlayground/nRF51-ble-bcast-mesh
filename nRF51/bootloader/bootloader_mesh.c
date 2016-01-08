@@ -97,6 +97,7 @@ typedef struct
     uint16_t        segment_count;
     fwid_union_t    target_fwid_union;
     bool            segment_is_valid_after_transfer;
+    bool            flood;
 } transaction_t;
 
 typedef struct
@@ -192,13 +193,46 @@ static bool signature_check(void)
     return (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, (uint8_t*) ((uint32_t) m_transaction.p_bank_addr + m_transaction.length - m_transaction.signature_length)));
 }
 
+static bool ready_packet_is_upgrade(dfu_packet_t* p_packet)
+{
+    /* check that we haven't failed to connect to this TID before */
+    for (uint32_t i = 0; i < TRANSACTION_ID_CACHE_SIZE; ++i)
+    {
+        if (m_tid_cache[i] == p_packet->payload.state.transaction_id)
+        {
+            return false;
+        }
+    }
+    
+    switch (p_packet->payload.state.dfu_type)
+    {
+        case DFU_TYPE_APP:
+            return (p_packet->payload.state.fwid.app.app_id == m_bl_info_pointers.p_fwid->app.app_id &&
+                    p_packet->payload.state.fwid.app.company_id== m_bl_info_pointers.p_fwid->app.company_id &&
+                    p_packet->payload.state.fwid.app.app_version > m_bl_info_pointers.p_fwid->app.app_version);
+
+        case DFU_TYPE_BOOTLOADER:
+            return (p_packet->payload.state.fwid.bootloader.id ==
+                    m_bl_info_pointers.p_fwid->bootloader.id &&
+                    p_packet->payload.state.fwid.bootloader.ver > 
+                    m_bl_info_pointers.p_fwid->bootloader.ver);
+
+        case DFU_TYPE_SD:
+            return (p_packet->payload.state.fwid.sd ==
+                    m_bl_info_pointers.p_fwid->sd);
+        default:
+            return false;
+    }
+}
+
 static bool ready_packet_matches_our_req(dfu_packet_t* p_packet)
 {
-    if (p_packet->payload.state.dfu_type != m_transaction.type)
+    if (p_packet->payload.state.dfu_type != m_transaction.type && m_transaction.type != DFU_TYPE_NONE)
     {
         return false;
     }
 
+    /* check that we haven't failed to connect to this TID before */
     for (uint32_t i = 0; i < TRANSACTION_ID_CACHE_SIZE; ++i)
     {
         if (m_tid_cache[i] == p_packet->payload.state.transaction_id)
@@ -256,6 +290,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
             p_dfu->packet_type = DFU_PACKET_TYPE_STATE;
             p_dfu->payload.state.dfu_type = DFU_TYPE_APP;
             p_dfu->payload.state.authority = m_transaction.authority;
+            p_dfu->payload.state.flood = m_transaction.flood;
             p_dfu->payload.state.transaction_id = m_transaction.transaction_id;
             memcpy(&p_dfu->payload.state.fwid.app, &m_transaction.target_fwid_union.app, sizeof(app_id_t));
             transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
@@ -378,6 +413,7 @@ static void start_ready(dfu_packet_t* p_ready_packet)
     }
     m_transaction.transaction_id = p_ready_packet->payload.state.transaction_id;
     m_transaction.authority = p_ready_packet->payload.state.authority;
+    m_transaction.flood = p_ready_packet->payload.state.flood;
     set_timeout(STATE_TIMEOUT_READY);
     m_state = BL_STATE_DFU_READY;
 
@@ -604,6 +640,32 @@ static void handle_state_packet(dfu_packet_t* p_packet)
 {
     switch (m_state)
     {
+        case BL_STATE_FIND_FWID:
+            if (p_packet->payload.state.authority > 0 &&
+                ready_packet_is_upgrade(p_packet))
+            {
+                m_transaction.type = (dfu_type_t) p_packet->payload.state.dfu_type;
+                switch (m_transaction.type)
+                {
+                    case DFU_TYPE_APP:
+                        memcpy(&m_transaction.target_fwid_union, 
+                               &p_packet->payload.state.fwid.app, 
+                               sizeof(app_id_t));
+                        break;
+                    case DFU_TYPE_SD:
+                        m_transaction.target_fwid_union.sd = p_packet->payload.state.fwid.sd;
+                        break;
+                    case DFU_TYPE_BOOTLOADER:
+                        memcpy(&m_transaction.target_fwid_union.bootloader, 
+                               &p_packet->payload.state.fwid.bootloader, 
+                               sizeof(bl_id_t));
+                        break;
+                    default: return;
+                }
+                
+                start_ready(p_packet);
+            }
+            break;
         case BL_STATE_DFU_REQ:
             if (p_packet->payload.state.authority > 0 &&
                 ready_packet_matches_our_req(p_packet))
@@ -708,6 +770,7 @@ void bootloader_init(void)
     mp_beacon = NULL;
     m_state = BL_STATE_FIND_FWID;
     m_transaction.transaction_id = 0;
+    m_transaction.type = DFU_TYPE_NONE;
     memset(m_req_cache, 0, REQ_CACHE_SIZE);
     memset(m_tid_cache, 0, TRANSACTION_ID_CACHE_SIZE);
     m_tid_index = 0;
