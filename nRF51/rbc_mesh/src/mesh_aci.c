@@ -106,6 +106,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         
     case SERIAL_CMD_OPCODE_RADIO_RESET:
         /* brute force kill :) */
+        NRF_POWER->RESETREAS = 0x0F000F;
         NVIC_SystemReset();
         break;
 #ifndef BOOTLOADER
