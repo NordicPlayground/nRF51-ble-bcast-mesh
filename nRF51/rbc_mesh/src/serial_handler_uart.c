@@ -230,7 +230,11 @@ void serial_handler_init(void)
     serial_evt_t started_event;
     started_event.length = 4;
     started_event.opcode = SERIAL_EVT_OPCODE_DEVICE_STARTED;
+#ifdef BOOTLOADER
+    started_event.params.device_started.operating_mode = OPERATING_MODE_SETUP;
+#else
     started_event.params.device_started.operating_mode = OPERATING_MODE_STANDBY;
+#endif
     uint32_t reset_reason;
 #ifdef SOFTDEVICE_PRESENT
     sd_power_reset_reason_get(&reset_reason);

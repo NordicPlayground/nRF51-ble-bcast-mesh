@@ -159,11 +159,11 @@ static void gpiote_init(void)
                                | (GPIO_PIN_CNF_PULL_Pulldown    << GPIO_PIN_CNF_PULL_Pos)
                                | (GPIO_PIN_CNF_INPUT_Connect    << GPIO_PIN_CNF_INPUT_Pos)
                                | (GPIO_PIN_CNF_DIR_Input        << GPIO_PIN_CNF_DIR_Pos);
-    
+
     NRF_GPIOTE->CONFIG[SERIAL_REQN_GPIOTE_CH] = (PIN_CSN << GPIOTE_CONFIG_PSEL_Pos)
                                               | (GPIOTE_CONFIG_POLARITY_HiToLo << GPIOTE_CONFIG_POLARITY_Pos)
                                               | (GPIOTE_CONFIG_MODE_Event << GPIOTE_CONFIG_MODE_Pos);
-                                              
+
 
     NRF_GPIOTE->INTENSET = GPIOTE_INTENSET_IN0_Msk;
     NVIC_SetPriority(GPIOTE_IRQn, APP_IRQ_PRIORITY_LOW);
@@ -305,14 +305,15 @@ void serial_handler_init(void)
 
     gpiote_init();
 
-    /* set initial buffers, dummy in tx */
-    //prepare_rx();
-#if 1 
-    /* notify application controller of the restart */ 
+    /* notify application controller of the restart */
     serial_evt_t started_event;
     started_event.length = 4;
     started_event.opcode = SERIAL_EVT_OPCODE_DEVICE_STARTED;
+#ifdef BOOTLOADER
+    started_event.params.device_started.operating_mode = OPERATING_MODE_SETUP;
+#else
     started_event.params.device_started.operating_mode = OPERATING_MODE_STANDBY;
+#endif
     uint32_t reset_reason;
 #ifdef SOFTDEVICE_PRESENT
     sd_power_reset_reason_get(&reset_reason);
@@ -321,12 +322,11 @@ void serial_handler_init(void)
 #endif
     started_event.params.device_started.hw_error = !!(reset_reason & (1 << 3));
     started_event.params.device_started.data_credit_available = SERIAL_QUEUE_SIZE;
-    
+
     if (!serial_handler_event_send(&started_event))
     {
         APP_ERROR_CHECK(NRF_ERROR_INTERNAL);
     }
-#endif
 }
 
 bool serial_handler_event_send(serial_evt_t* evt)
