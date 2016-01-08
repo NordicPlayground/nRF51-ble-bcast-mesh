@@ -70,6 +70,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define STATE_TIMEOUT_TARGET        (US_TO_RTC_TICKS(5000000)) /* 5.0s */
 #define STATE_TIMEOUT_RAMPDOWN      (US_TO_RTC_TICKS(1000000)) /* 1.0s */
 
+#define START_ADDRESS_UNKNOWN       (0xFFFFFFFF)
 
 /* important that req-cache isn't too big - might lead to starvation in req-device */
 #define REQ_CACHE_SIZE              (4)
@@ -477,6 +478,12 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                         APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
                 }
 
+                /* if the host doesn't know the start address, we use start of segment: */
+                if (p_packet->payload.start.start_address == START_ADDRESS_UNKNOWN)
+                {
+                    p_packet->payload.start.start_address = p_segment->start;
+                }
+
                 uint32_t segment_count = ((p_packet->payload.start.length * 4) + (p_packet->payload.start.start_address & 0x0F) - 1) / 16 + 1;
                 if (segment_count > 0xFFFF)
                 {
@@ -710,7 +717,7 @@ static void handle_fwid_packet(dfu_packet_t* p_packet)
         {
             NRF_RTC0->INTENCLR = (1 << (RTC_BL_STATE_CH + RTC_INTENCLR_COMPARE0_Pos));
             /* SD shall only be upgraded if a newer version of our app requires a different SD */
-            if (p_packet->payload.fwid.sd != m_bl_info_pointers.p_fwid->sd)
+            if (p_packet->payload.fwid.sd != 0xFFFE && p_packet->payload.fwid.sd != m_bl_info_pointers.p_fwid->sd)
             {
                 m_transaction.target_fwid_union.sd = p_packet->payload.fwid.sd;
                 start_req(DFU_TYPE_SD);
