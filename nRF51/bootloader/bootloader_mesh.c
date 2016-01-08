@@ -248,8 +248,8 @@ static bool ready_packet_matches_our_req(dfu_packet_t* p_packet)
                 &m_transaction.target_fwid_union.app, sizeof(app_id_t)) == 0);
 
         case DFU_TYPE_BOOTLOADER:
-            return (p_packet->payload.state.fwid.bootloader ==
-                m_transaction.target_fwid_union.bootloader);
+            return (memcmp(&p_packet->payload.state.fwid.bootloader,
+                    &m_transaction.target_fwid_union.bootloader, sizeof(bl_id_t)) == 0);
 
         case DFU_TYPE_SD:
             return (p_packet->payload.state.fwid.sd ==
@@ -340,9 +340,10 @@ static bool app_is_newer(app_id_t* p_app_id)
             p_app_id->app_version > m_bl_info_pointers.p_fwid->app.app_version);
 }
 
-static bool bootloader_is_newer(uint16_t bl_id)
+static bool bootloader_is_newer(bl_id_t bl_id)
 {
-    return (bl_id > m_bl_info_pointers.p_fwid->bootloader);
+    return (bl_id.id == m_bl_info_pointers.p_fwid->bootloader.id &&
+            bl_id.ver > m_bl_info_pointers.p_fwid->bootloader.ver);
 }
 
 static void update_state_beacon(void)
@@ -477,7 +478,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                     default:
                         APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
                 }
-
+                
                 /* if the host doesn't know the start address, we use start of segment: */
                 if (p_packet->payload.start.start_address == START_ADDRESS_UNKNOWN)
                 {

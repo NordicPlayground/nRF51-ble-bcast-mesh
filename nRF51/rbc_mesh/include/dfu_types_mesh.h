@@ -124,18 +124,23 @@ typedef struct __attribute((packed))
     uint32_t app_version;
 } app_id_t;
 
+typedef struct __attribute((packed))
+{
+    uint8_t id;
+    uint8_t ver;
+} bl_id_t;
 
 typedef struct __attribute((packed))
 {
     uint16_t sd;
-    uint16_t bootloader;
+    bl_id_t bootloader;
     app_id_t app;
 } fwid_t;
 
 typedef union __attribute((packed))
 {
     app_id_t app;
-    uint16_t bootloader;
+    bl_id_t bootloader;
     uint16_t sd;
 } fwid_union_t;
 
