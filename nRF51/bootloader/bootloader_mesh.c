@@ -47,15 +47,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "journal.h"
 #include "serial_handler.h"
 #include "serial_evt.h"
+#include "nrf_mbr.h"
 
-#define TX_REPEATS_DEFAULT          (4)
+#define TX_REPEATS_DEFAULT          (3)
 #define TX_REPEATS_FWID             (TX_REPEATS_INF)
 #define TX_REPEATS_DFU_REQ          (TX_REPEATS_INF)
 #define TX_REPEATS_READY            (TX_REPEATS_INF)
 #define TX_REPEATS_DATA             (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_RSP              (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_REQ              (TX_REPEATS_DEFAULT)
-#define TX_REPEATS_START            (2 * TX_REPEATS_DEFAULT);
+#define TX_REPEATS_START            (TX_REPEATS_DEFAULT);
 
 #define TX_INTERVAL_TYPE_FWID       (TX_INTERVAL_TYPE_REGULAR)
 #define TX_INTERVAL_TYPE_DFU_REQ    (TX_INTERVAL_TYPE_REGULAR)
@@ -64,17 +65,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TX_INTERVAL_TYPE_RSP        (TX_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_REQ        (TX_INTERVAL_TYPE_REGULAR)
 
-#define STATE_TIMEOUT_FIND_FWID     (US_TO_RTC_TICKS( 500000)) /* 0.5s */
+#define STATE_TIMEOUT_FIND_FWID     (US_TO_RTC_TICKS(2000000)) /* 2.0s */
 #define STATE_TIMEOUT_REQ           (US_TO_RTC_TICKS(1000000)) /* 1.0s */
 #define STATE_TIMEOUT_READY         (US_TO_RTC_TICKS(3000000)) /* 3.0s */
 #define STATE_TIMEOUT_TARGET        (US_TO_RTC_TICKS(5000000)) /* 5.0s */
 #define STATE_TIMEOUT_RAMPDOWN      (US_TO_RTC_TICKS(1000000)) /* 1.0s */
+
+#define IRQ_ENABLED            0x01     /**< Field that identifies if an interrupt is enabled. */
+#define MAX_NUMBER_INTERRUPTS  32       /**< Maximum number of interrupts available. */
 
 #define START_ADDRESS_UNKNOWN       (0xFFFFFFFF)
 
 /* important that req-cache isn't too big - might lead to starvation in req-device */
 #define REQ_CACHE_SIZE              (4)
 #define TRANSACTION_ID_CACHE_SIZE   (8)
+
+#define SENT_PACKET_COUNT           (32)
 
 typedef enum
 {
@@ -124,8 +130,50 @@ static uint8_t              m_req_index;
 static uint32_t             m_tid_cache[TRANSACTION_ID_CACHE_SIZE];
 static uint8_t              m_tid_index;
 static volatile uint32_t    m_key_len = uECC_BYTES * 2;
+static mesh_packet_t*       mp_sent_packets[SENT_PACKET_COUNT];
+static uint32_t             m_sent_packet_index;
 
 static mesh_packet_t*       mp_beacon;
+
+static void packet_release_callback(mesh_packet_t* p_packet)
+{
+    for (uint32_t i = 0; i < SENT_PACKET_COUNT; ++i)
+    {
+        if (p_packet == mp_sent_packets[i])
+        {
+            mp_sent_packets[i] = NULL;
+            break;
+        }
+    }
+}
+
+static void interrupts_disable(void)
+{
+    uint32_t interrupt_setting_mask;
+    uint32_t irq;
+
+    /* Fetch the current interrupt settings. */
+    interrupt_setting_mask = NVIC->ISER[0];
+
+    /* Loop from interrupt 0 for disabling of all interrupts. */
+    for (irq = 0; irq < MAX_NUMBER_INTERRUPTS; irq++)
+    {
+        if (interrupt_setting_mask & (IRQ_ENABLED << irq))
+        {
+            /* The interrupt was enabled, hence disable it. */
+            NVIC_DisableIRQ((IRQn_Type)irq);
+        }
+    }
+}
+
+static bool app_is_valid(void)
+{
+    return (m_bl_info_pointers.p_segment_app != NULL &&
+            *((uint32_t*) m_bl_info_pointers.p_segment_app->start) != 0xFFFFFFFF &&
+            m_bl_info_pointers.p_fwid->app.app_version != APP_VERSION_INVALID &&
+            !journal_is_invalid((uint32_t*) m_bl_info_pointers.p_segment_app->start, 
+                               m_bl_info_pointers.p_segment_app->length));
+}
 
 static void serial_tx(dfu_packet_t* p_packet, uint16_t len)
 {
@@ -264,7 +312,10 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
     if (mp_beacon)
     {
         transport_tx_abort(mp_beacon);
-        mesh_packet_ref_count_dec(mp_beacon);
+        if (!mesh_packet_ref_count_dec(mp_beacon))
+        {
+            NRF_GPIO->OUTCLR = (1 << 24);
+        }
     }
     if (!mesh_packet_acquire(&mp_beacon))
     {
@@ -283,7 +334,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
             p_dfu->payload.fwid.app.company_id  = m_bl_info_pointers.p_fwid->app.company_id;
             p_dfu->payload.fwid.bootloader      = m_bl_info_pointers.p_fwid->bootloader;
             p_dfu->payload.fwid.sd              = m_bl_info_pointers.p_fwid->sd;
-            transport_tx(mp_beacon, TX_REPEATS_FWID, TX_INTERVAL_TYPE_FWID);
+            transport_tx(mp_beacon, TX_REPEATS_FWID, TX_INTERVAL_TYPE_FWID, NULL);
             break;
 
         case BEACON_TYPE_READY_APP:
@@ -294,7 +345,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
             p_dfu->payload.state.flood = m_transaction.flood;
             p_dfu->payload.state.transaction_id = m_transaction.transaction_id;
             memcpy(&p_dfu->payload.state.fwid.app, &m_transaction.target_fwid_union.app, sizeof(app_id_t));
-            transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
+            transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY, NULL);
             break;
 
         case BEACON_TYPE_READY_SD:
@@ -304,7 +355,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
             p_dfu->payload.state.authority = m_transaction.authority;
             p_dfu->payload.state.transaction_id = m_transaction.transaction_id;
             p_dfu->payload.state.fwid.app = m_transaction.target_fwid_union.app;
-            transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
+            transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY, NULL);
             break;
 
         case BEACON_TYPE_READY_BL:
@@ -314,7 +365,7 @@ static dfu_packet_t* beacon_set(beacon_type_t type)
             p_dfu->payload.state.authority = m_transaction.authority;
             p_dfu->payload.state.transaction_id = m_transaction.transaction_id;
             p_dfu->payload.state.fwid.bootloader = m_transaction.target_fwid_union.bootloader;
-            transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY);
+            transport_tx(mp_beacon, TX_REPEATS_READY, TX_INTERVAL_TYPE_READY, NULL);
             break;
     }
 
@@ -387,7 +438,7 @@ static void start_find_fwid(void)
     serial_tx(p_fwid, DFU_PACKET_LEN_FWID);
 }
 
-static void start_req(dfu_type_t type)
+static void start_req(dfu_type_t type, bool timeout)
 {
     m_transaction.authority = 0;
     m_transaction.length = 0;
@@ -399,7 +450,10 @@ static void start_req(dfu_type_t type)
     m_transaction.signature_length = 0;
     m_transaction.transaction_id = 0;
     m_transaction.type = type;
-    set_timeout(STATE_TIMEOUT_REQ);
+    if (timeout)
+    {
+        set_timeout(STATE_TIMEOUT_REQ);
+    }
     m_state = BL_STATE_DFU_REQ;
 
     update_state_beacon();
@@ -433,9 +487,12 @@ static void start_target(void)
             m_transaction.length,
             m_transaction.segment_is_valid_after_transfer) != NRF_SUCCESS)
     {
-        start_req(m_transaction.type);
+        start_req(m_transaction.type, true);
     }
-    transport_tx_abort(mp_beacon); /* stop beaconing */
+    else
+    {
+        transport_tx_abort(mp_beacon); /* stop beaconing */
+    }
 }
 
 static void start_rampdown(void)
@@ -524,7 +581,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             else
             {
                 m_tid_cache[(m_tid_index++) & (TRANSACTION_ID_CACHE_SIZE - 1)] = m_transaction.transaction_id;
-                start_req(m_transaction.type); /* go back to req, we've missed packet 0 */
+                start_req(m_transaction.type, true); /* go back to req, we've missed packet 0 */
             }
         }
         else if (m_state == BL_STATE_DFU_TARGET)
@@ -539,14 +596,16 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                     if (p_packet->payload.data.segment <= m_transaction.segment_count)
                     {
                         uint32_t* p_addr = addr_from_seg(p_packet->payload.data.segment);
-                        if (dfu_data((uint32_t) p_addr,
-                                p_packet->payload.data.data,
-                                length - (DFU_PACKET_LEN_DATA - SEGMENT_LENGTH)) == NRF_SUCCESS)
+                        uint32_t error_code = dfu_data((uint32_t) p_addr,
+                                                       p_packet->payload.data.data,
+                                                       length - (DFU_PACKET_LEN_DATA - SEGMENT_LENGTH));
+                        if (error_code == NRF_SUCCESS)
                         {
+                            set_timeout(STATE_TIMEOUT_TARGET);
                             m_transaction.segments_remaining--;
                             do_relay = true;
                             /* check whether we've lost any entries, and request them */
-                            uint32_t* p_req_entry = NULL;
+                            volatile uint32_t* p_req_entry = NULL;
                             uint32_t req_entry_len = 0;
                             mesh_packet_t* p_req_packet;
                             if (dfu_get_oldest_missing_entry(
@@ -563,12 +622,28 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                                         ADDR_SEGMENT(p_req_entry, m_transaction.p_start_addr),
                                         (uint8_t*) &m_transaction.transaction_id,
                                         4) == NRF_SUCCESS &&
-                                    transport_tx(p_req_packet, TX_REPEATS_REQ, TX_INTERVAL_TYPE_REQ))
+                                    transport_tx(p_req_packet, TX_REPEATS_REQ, TX_INTERVAL_TYPE_REQ, NULL))
                                 {
-                                    m_transaction.p_last_requested_entry = p_req_entry;
+                                    m_transaction.p_last_requested_entry = (uint32_t*) p_req_entry;
+                                }
+                                mesh_packet_ref_count_dec(p_req_packet);
+                            }
+                        }
+                        else if (error_code == NRF_ERROR_INVALID_STATE)
+                        {
+                            /* redundant RX, skip TX for this sequence number this interval */
+                            NVIC_DisableIRQ(RTC0_IRQn);
+                            for (uint32_t i = 0; i < SENT_PACKET_COUNT; ++i)
+                            {
+                                if (mp_sent_packets[i] && 
+                                    ((mesh_dfu_adv_data_t*) mp_sent_packets[i]->payload)->dfu_packet.payload.data.segment == 
+                                    p_packet->payload.data.segment)
+                                {
+                                    transport_tx_skip(mp_sent_packets[i]);
+                                    break;
                                 }
                             }
-
+                            NVIC_EnableIRQ(RTC0_IRQn);
                         }
 
                     }
@@ -618,7 +693,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
 
     if (do_relay)
     {
-        mesh_packet_t* p_mesh_packet = mesh_packet_get_start_pointer(p_packet);
+        mesh_packet_t* p_mesh_packet = mesh_packet_get_aligned(p_packet);
         if (!p_mesh_packet)
         {
             if (!mesh_packet_acquire(&p_mesh_packet))
@@ -639,7 +714,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
 
         mesh_packet_set_local_addr(p_mesh_packet);
 
-        transport_tx(p_mesh_packet, TX_REPEATS_DATA, TX_INTERVAL_TYPE_DATA);
+        transport_tx(p_mesh_packet, TX_REPEATS_DATA, TX_INTERVAL_TYPE_DATA, packet_release_callback);
+        mp_sent_packets[(m_sent_packet_index++) & (SENT_PACKET_COUNT - 1)] = p_mesh_packet;
         mesh_packet_ref_count_dec(p_mesh_packet);
     }
 }
@@ -676,8 +752,29 @@ static void handle_state_packet(dfu_packet_t* p_packet)
             break;
         case BL_STATE_DFU_REQ:
             if (p_packet->payload.state.authority > 0 &&
-                ready_packet_matches_our_req(p_packet))
+                (
+                 ready_packet_matches_our_req(p_packet) || 
+                 ready_packet_is_upgrade(p_packet)
+                )
+               )
             {
+                switch (m_transaction.type)
+                {
+                    case DFU_TYPE_APP:
+                        memcpy(&m_transaction.target_fwid_union, 
+                               &p_packet->payload.state.fwid.app, 
+                               sizeof(app_id_t));
+                        break;
+                    case DFU_TYPE_SD:
+                        m_transaction.target_fwid_union.sd = p_packet->payload.state.fwid.sd;
+                        break;
+                    case DFU_TYPE_BOOTLOADER:
+                        memcpy(&m_transaction.target_fwid_union.bootloader, 
+                               &p_packet->payload.state.fwid.bootloader, 
+                               sizeof(bl_id_t));
+                        break;
+                    default: return;
+                }
                 start_ready(p_packet);
             }
             break;
@@ -712,7 +809,7 @@ static void handle_fwid_packet(dfu_packet_t* p_packet)
         {
             NRF_RTC0->INTENCLR = (1 << (RTC_BL_STATE_CH + RTC_INTENCLR_COMPARE0_Pos));
             m_transaction.target_fwid_union.bootloader = p_packet->payload.fwid.bootloader;
-            start_req(DFU_TYPE_BOOTLOADER);
+            start_req(DFU_TYPE_BOOTLOADER, true);
         }
         else if (app_is_newer(&p_packet->payload.fwid.app))
         {
@@ -721,12 +818,12 @@ static void handle_fwid_packet(dfu_packet_t* p_packet)
             if (p_packet->payload.fwid.sd != 0xFFFE && p_packet->payload.fwid.sd != m_bl_info_pointers.p_fwid->sd)
             {
                 m_transaction.target_fwid_union.sd = p_packet->payload.fwid.sd;
-                start_req(DFU_TYPE_SD);
+                start_req(DFU_TYPE_SD, true);
             }
             else
             {
                 memcpy(&m_transaction.target_fwid_union.app, &p_packet->payload.fwid.app, sizeof(app_id_t));
-                start_req(DFU_TYPE_APP);
+                start_req(DFU_TYPE_APP, true);
             }
         }
     }
@@ -744,6 +841,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
             {
                 if (m_req_cache[i] == p_packet->payload.req_data.segment)
                 {
+                    mesh_packet_ref_count_dec(p_rsp);
                     return;
                 }
             }
@@ -755,7 +853,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
                )
             {
                 bootloader_packet_set_local_fields(p_rsp, DFU_PACKET_LEN_DATA);
-                transport_tx(p_rsp, TX_REPEATS_RSP, TX_INTERVAL_TYPE_RSP);
+                transport_tx(p_rsp, TX_REPEATS_RSP, TX_INTERVAL_TYPE_RSP, NULL);
             }
             mesh_packet_ref_count_dec(p_rsp);
 
@@ -820,17 +918,17 @@ void bootloader_init(void)
 
     journal_init((uint32_t*) &m_bl_info_pointers.p_journal[0],
                  (uint32_t*) &m_bl_info_pointers.p_journal[BL_INFO_LEN_JOURNAL / 2]);
-    NRF_UICR->BOOTLOADERADDR = m_bl_info_pointers.p_segment_bl->start;
 
     if (!m_bl_info_pointers.p_flags->sd_intact ||
-        m_bl_info_pointers.p_fwid->sd == SD_VERSION_INVALID)
+         m_bl_info_pointers.p_fwid->sd == SD_VERSION_INVALID)
     {
-        start_req(DFU_TYPE_SD);
+        m_transaction.target_fwid_union.sd = 0;
+        start_req(DFU_TYPE_SD, false);
     }
-    else if (!m_bl_info_pointers.p_flags->app_intact ||
-        m_bl_info_pointers.p_fwid->app.app_version == APP_VERSION_INVALID)
+    else if (!app_is_valid())
     {
-        start_req(DFU_TYPE_APP);
+        memcpy(&m_transaction.target_fwid_union.app, &m_bl_info_pointers.p_fwid->app, sizeof(app_id_t));
+        start_req(DFU_TYPE_APP, false);
     }
     else
     {
@@ -840,7 +938,18 @@ void bootloader_init(void)
 
 uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
 {
-    NRF_GPIO->OUTCLR = (1 << 22);
+    static bool led = false;
+    if (led)
+    {
+        NRF_GPIO->OUTCLR = (1 << 22);
+    }
+    else
+    {
+        NRF_GPIO->OUTSET = (1 << 22);
+    }
+    led = !led;
+    NRF_GPIO->OUTSET = (1 << 1);
+    
     switch (p_packet->packet_type)
     {
         case DFU_PACKET_TYPE_FWID:
@@ -867,20 +976,37 @@ uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial
             /* don't care */
             break;
     }
-    NRF_GPIO->OUTSET = (1 << 22);
+    NRF_GPIO->OUTCLR = (1 << 1);
     return NRF_SUCCESS;
 }
 
-void bootloader_abort(bl_end_t end_reason)
+void bootloader_abort(volatile bl_end_t end_reason)
 {
     switch (end_reason)
     {
-        case BL_END_ERROR_UNAUTHORIZED:
-            bootloader_util_app_start(m_bl_info_pointers.p_segment_bl->start);
+        case BL_END_SUCCESS:
+        case BL_END_ERROR_TIMEOUT:
+        case BL_END_FWID_VALID:
+            if (app_is_valid())
+            {
+                interrupts_disable();
+                NRF_GPIO->OUTCLR = (1 << 22);
+                
+                sd_mbr_command_t com = {SD_MBR_COMMAND_INIT_SD, };
+        
+                volatile uint32_t err_code = sd_mbr_command(&com);
+                APP_ERROR_CHECK(err_code);
+                
+                err_code = sd_softdevice_vector_table_base_set(m_bl_info_pointers.p_segment_app->start);
+                APP_ERROR_CHECK(err_code);
+
+                NRF_GPIO->OUTSET = (1 << 21);
+                NRF_GPIO->OUTSET = (1 << 22);
+                bootloader_util_app_start(m_bl_info_pointers.p_segment_app->start);
+            }
             break;
         default:
-            /* TODO: add more granularity here, not all error conditions are recoverable */
-            bootloader_util_app_start(m_bl_info_pointers.p_segment_app->start);
+            NVIC_SystemReset();
             break;
     }
 }
@@ -900,7 +1026,7 @@ void bootloader_rtc_irq_handler(void)
             break;
 
         case BL_STATE_DFU_TARGET:
-            start_req(m_transaction.type);
+            start_req(m_transaction.type, true);
             break;
 
         case BL_STATE_VALIDATE:
