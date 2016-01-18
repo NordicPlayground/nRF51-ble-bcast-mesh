@@ -48,7 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RADIO_RX_FIFO_LEN   (32)
 #define TRANSPORT_TX_SLOTS  (32)
 #define RTC_MARGIN          (2) /* ticks */
-#define INTERVAL            (1639) /* ticks */
+#define INTERVAL            (3277) /* ticks */
 /******************************************************************************
 * Static typedefs
 ******************************************************************************/
