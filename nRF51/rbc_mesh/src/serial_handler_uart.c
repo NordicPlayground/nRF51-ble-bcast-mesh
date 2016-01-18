@@ -57,7 +57,6 @@ typedef enum
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-
 static fifo_t rx_fifo;
 static fifo_t tx_fifo;
 static serial_data_t rx_fifo_buffer[SERIAL_QUEUE_SIZE];
@@ -138,7 +137,12 @@ static void char_rx(uint8_t c)
         {
 #ifdef BOOTLOADER            
             NVIC_SetPendingIRQ(SWI2_IRQn);
-#endif            
+#else
+            async_event_t async_evt;
+            async_evt.type = EVENT_TYPE_GENERIC;
+            async_evt.callback.generic = mesh_aci_command_check;
+            event_handler_push(&async_evt);
+#endif
         }
 
         if (fifo_is_full(&rx_fifo))
@@ -204,18 +208,24 @@ void serial_handler_init(void)
     rx_fifo.memcpy_fptr = NULL;
     fifo_init(&rx_fifo);
 
-    /* setup hw */
+    /* setup hw */                      
     nrf_gpio_cfg_output(TX_PIN_NUMBER);
     nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_NOPULL);
     nrf_gpio_cfg_output(RTS_PIN_NUMBER);
     nrf_gpio_cfg_input(CTS_PIN_NUMBER, NRF_GPIO_PIN_NOPULL);
-
+    
+    /* delay to keep hw from outputting weird bits on config */
+    for (uint32_t i = 0; i < 100; ++i)
+    {
+        __NOP();
+    }
+    
     NRF_UART0->PSELTXD       = TX_PIN_NUMBER;
     NRF_UART0->PSELRXD       = RX_PIN_NUMBER;
     NRF_UART0->PSELCTS       = CTS_PIN_NUMBER;
     NRF_UART0->PSELRTS       = RTS_PIN_NUMBER;
     NRF_UART0->CONFIG        = (UART_CONFIG_HWFC_Enabled << UART_CONFIG_HWFC_Pos);
-    NRF_UART0->BAUDRATE      = (UART_BAUDRATE_BAUDRATE_Baud1M << UART_BAUDRATE_BAUDRATE_Pos);
+    NRF_UART0->BAUDRATE      = (UART_BAUDRATE_BAUDRATE_Baud115200 << UART_BAUDRATE_BAUDRATE_Pos);
     NRF_UART0->ENABLE        = (UART_ENABLE_ENABLE_Enabled << UART_ENABLE_ENABLE_Pos);
     NRF_UART0->TASKS_STARTTX = 1;
     NRF_UART0->TASKS_STARTRX = 1;
