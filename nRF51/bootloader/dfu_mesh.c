@@ -454,10 +454,12 @@ bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, u
     *p_len = 0;
     for (uint32_t i = 0; i < MISSING_ENTRY_BACKLOG_COUNT; ++i)
     {
-        if (m_current_transfer.p_missing_entry_backlog[i].addr >= (uint32_t) p_start_addr &&
+        if (m_current_transfer.p_missing_entry_backlog[i].addr != 0 &&
+            m_current_transfer.p_missing_entry_backlog[i].addr >= (uint32_t) p_start_addr &&
             (
-             m_current_transfer.p_missing_entry_backlog[i].addr < (uint32_t) *pp_entry ||
-             *pp_entry == NULL
+             (m_current_transfer.p_missing_entry_backlog[i].addr < (uint32_t) *pp_entry)
+             ||
+             (*pp_entry == NULL)
             )
            )
         {
