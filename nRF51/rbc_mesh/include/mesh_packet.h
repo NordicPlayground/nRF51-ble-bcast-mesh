@@ -121,6 +121,8 @@ bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet);
 
 bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet);
 
+uint8_t mesh_packet_ref_count_get(mesh_packet_t* p_packet);
+
 uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet);
 
 uint32_t mesh_packet_build(mesh_packet_t* p_packet,

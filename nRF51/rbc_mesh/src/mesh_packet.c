@@ -120,6 +120,15 @@ bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
     return (g_packet_refs[index] > 0);
 }
 
+uint8_t mesh_packet_ref_count_get(mesh_packet_t* p_packet)
+{
+    uint32_t index = PACKET_INDEX(p_packet);
+    if (index > RBC_MESH_PACKET_POOL_SIZE)
+        return 0;
+    
+    return g_packet_refs[index];
+}
+
 uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet)
 {
 #ifdef SOFTDEVICE_PRESENT
