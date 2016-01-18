@@ -106,9 +106,16 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         break;
 
     case SERIAL_CMD_OPCODE_RADIO_RESET:
-        /* brute force kill :) */
-        NRF_POWER->RESETREAS = 0x0F000F;
+        /* kill ourself :) */
+#ifdef SOFTDEVICE_PRESENT
+        sd_power_reset_reason_clr(0x0F000F);
+        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
+        sd_nvic_SystemReset();
+#else
+        NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
+        NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_FORCED_REBOOT;
         NVIC_SystemReset();
+#endif    
         break;
 #ifndef BOOTLOADER
     case SERIAL_CMD_OPCODE_INIT:
