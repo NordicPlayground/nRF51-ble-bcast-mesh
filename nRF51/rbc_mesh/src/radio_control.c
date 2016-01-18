@@ -103,9 +103,13 @@ static void purge_preemptable(void)
             /* event is preemptable, stop it */
             fifo_pop(&radio_fifo, &current_evt);
 
-            /* propagate failed rx event */
-            current_evt.callback.rx(current_evt.packet_ptr, false, 0xFFFFFFFF);
             radio_disable();
+            while (NRF_RADIO->STATE != RADIO_STATE_STATE_Disabled);
+            NRF_RADIO->EVENTS_END = 0;
+
+            /* propagate failed rx event */
+            APP_ERROR_CHECK_BOOL(current_evt.callback.rx != NULL);
+            current_evt.callback.rx(current_evt.packet_ptr, false, 0xFFFFFFFF);
             --events_in_queue;
         }
         else
@@ -141,7 +145,7 @@ static void setup_event(radio_event_t* p_evt)
     radio_channel_set(p_evt->channel);
     NRF_RADIO->PACKETPTR = (uint32_t) p_evt->packet_ptr;
     NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
-    
+
     if (p_evt->event_type == RADIO_EVENT_TYPE_TX)
     {
         DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_TX);
@@ -155,7 +159,7 @@ static void setup_event(radio_event_t* p_evt)
         NRF_RADIO->RXADDRESSES = 1;
         NRF_RADIO->TASKS_RXEN = 1;
         radio_state = RADIO_STATE_RX;
-    }   
+    }
 }
 
 /*****************************************************************************
@@ -217,7 +221,7 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_cb)
         radio_fifo.memcpy_fptr = NULL;
         fifo_init(&radio_fifo);
     }
-    
+
     radio_state = RADIO_STATE_DISABLED;
 
     NVIC_ClearPendingIRQ(RADIO_IRQn);
@@ -284,19 +288,21 @@ void radio_event_handler(void)
     bool crc_status = NRF_RADIO->CRCSTATUS;
     uint32_t crc = NRF_RADIO->RXCRC;
     bool end_event = NRF_RADIO->EVENTS_END;
-    NRF_RADIO->EVENTS_END = 0;
 
     radio_event_t prev_evt;
     if (end_event)
     {
+        NRF_RADIO->EVENTS_END = 0;
         /* pop the event that just finished */
         uint32_t error_code = fifo_pop(&radio_fifo, &prev_evt);
         APP_ERROR_CHECK(error_code);
     }
+    else
+    {
+        purge_preemptable();
+    }
 
-
-    radio_event_t evt;
-    purge_preemptable();
+    radio_event_t evt;    
     if (fifo_peek(&radio_fifo, &evt) == NRF_SUCCESS)
     {
         setup_event(&evt);
@@ -309,6 +315,7 @@ void radio_event_handler(void)
 
     if (end_event)
     {
+        APP_ERROR_CHECK_BOOL(prev_evt.callback.rx != NULL);
         /* send to super space */
         if (prev_evt.event_type == RADIO_EVENT_TYPE_RX ||
             prev_evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
