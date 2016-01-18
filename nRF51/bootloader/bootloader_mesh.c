@@ -166,13 +166,12 @@ static void interrupts_disable(void)
     }
 }
 
-static bool app_is_valid(void)
+static bool app_is_valid(uint32_t* app_start, uint32_t app_length)
 {
     return (m_bl_info_pointers.p_segment_app != NULL &&
             *((uint32_t*) m_bl_info_pointers.p_segment_app->start) != 0xFFFFFFFF &&
             m_bl_info_pointers.p_fwid->app.app_version != APP_VERSION_INVALID &&
-            !journal_is_invalid((uint32_t*) m_bl_info_pointers.p_segment_app->start, 
-                               m_bl_info_pointers.p_segment_app->length));
+            !journal_is_invalid(app_start, app_length));
 }
 
 static void serial_tx(dfu_packet_t* p_packet, uint16_t len)
@@ -925,7 +924,8 @@ void bootloader_init(void)
         m_transaction.target_fwid_union.sd = 0;
         start_req(DFU_TYPE_SD, false);
     }
-    else if (!app_is_valid())
+    else if (!app_is_valid((uint32_t*) m_bl_info_pointers.p_segment_app->start, 
+                           m_bl_info_pointers.p_segment_app->length))
     {
         memcpy(&m_transaction.target_fwid_union.app, &m_bl_info_pointers.p_fwid->app, sizeof(app_id_t));
         start_req(DFU_TYPE_APP, false);
@@ -982,12 +982,17 @@ uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial
 
 void bootloader_abort(volatile bl_end_t end_reason)
 {
+    uint32_t app_length = m_bl_info_pointers.p_segment_app->length;
+    if (m_transaction.transaction_id != 0)
+    {
+        app_length = m_transaction.length;
+    }
     switch (end_reason)
     {
         case BL_END_SUCCESS:
         case BL_END_ERROR_TIMEOUT:
         case BL_END_FWID_VALID:
-            if (app_is_valid())
+            if (app_is_valid((uint32_t*) m_bl_info_pointers.p_segment_app->start, app_length))
             {
                 interrupts_disable();
                 NRF_GPIO->OUTCLR = (1 << 22);
