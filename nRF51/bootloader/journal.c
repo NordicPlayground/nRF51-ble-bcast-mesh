@@ -68,7 +68,7 @@ void journal_invalidate_multiple(uint32_t* p_first, uint32_t count)
     {
         fields[TO_WORD(page_index + page)] &= ~(1 << TO_OFFSET(page_index + page));
     }
-    nrf_flash_store(mp_invalidate_field, (uint8_t*) fields, 4 + TO_WORD(page_index + count), TO_WORD(page_index) * 4);
+    nrf_flash_store(mp_invalidate_field, (uint8_t*) fields, 4 * (1 + TO_WORD(page_index + count)), 0);
 }
 
 void journal_complete(uint32_t* p_page)
@@ -78,10 +78,10 @@ void journal_complete(uint32_t* p_page)
     nrf_flash_store(mp_complete_field, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
 }
 
-bool journal_is_complete(uint32_t* p_start, uint16_t length)
+bool journal_is_complete(uint32_t* p_start, uint32_t length)
 {
     /* complete if all pages are tagged as complete */
-    for (uint32_t i = (uint32_t) p_start / PAGE_SIZE; i <= length / PAGE_SIZE; ++i)
+    for (uint32_t i = (uint32_t) p_start / PAGE_SIZE; i < ((uint32_t) p_start + length) / PAGE_SIZE; ++i)
     {
         if (GET_FLAG(i, mp_complete_field))
         {
@@ -91,10 +91,10 @@ bool journal_is_complete(uint32_t* p_start, uint16_t length)
     return true;
 }
 
-bool journal_is_invalid(uint32_t* p_start, uint16_t length)
+bool journal_is_invalid(uint32_t* p_start, uint32_t length)
 {
     /* invalid if at least one page is invalid, and the entire thing isn't complete. */
-    for (uint32_t i = (uint32_t) p_start / PAGE_SIZE; i <= length / PAGE_SIZE; ++i)
+    for (uint32_t i = (uint32_t) p_start / PAGE_SIZE; i < ((uint32_t) p_start + length) / PAGE_SIZE; ++i)
     {
         if (!GET_FLAG(i, mp_invalidate_field))
         {
