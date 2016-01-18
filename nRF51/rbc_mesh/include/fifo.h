@@ -44,10 +44,10 @@ typedef void (*fifo_memcpy)(void* dest, const void* src);
 typedef struct
 {
   void* elem_array;
-  uint32_t elem_size;
-  uint32_t array_len;
-  uint32_t head;
-  uint32_t tail;
+  uint16_t elem_size;
+  uint16_t array_len;
+  uint16_t head;
+  uint16_t tail;
   fifo_memcpy memcpy_fptr; /* must be a valid function or NULL */
 } fifo_t;
 
