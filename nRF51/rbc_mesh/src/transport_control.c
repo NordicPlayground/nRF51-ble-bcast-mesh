@@ -46,6 +46,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "version_handler.h"
 #include "mesh_aci.h"
 #include "app_error.h"
+#include "dfu_types_mesh.h"
+#include "bootloader_info_app.h"
+#include "bootloader_app.h"
 
 #include <string.h>
 
@@ -66,6 +69,7 @@ typedef struct
 * Static globals
 ******************************************************************************/
 static tc_state_t m_state;
+static bl_info_entry_t* mp_fwid_entry = NULL;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -225,6 +229,61 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
     }
 }
 
+static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
+{
+    if (mp_fwid_entry == NULL)
+    {
+        return; /* no fwid to compare against */
+    }
+    mesh_dfu_adv_data_t* p_dfu = (mesh_dfu_adv_data_t*) p_adv_data;
+    
+    switch ((dfu_packet_type_t) p_dfu->dfu_packet.packet_type)
+    {
+        case DFU_PACKET_TYPE_FWID:
+            /* check if fwid is newer */
+            if (
+                (
+                    mp_fwid_entry->version.app.company_id == p_dfu->dfu_packet.payload.fwid.app.company_id &&
+                    mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.fwid.app.app_id &&
+                    mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.fwid.app.app_version
+                )
+                ||
+                (
+                    mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.fwid.bootloader.id &&
+                    mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.fwid.bootloader.ver
+                )
+               )
+            {
+                bootloader_start();
+            }
+            break;
+        case DFU_PACKET_TYPE_STATE:
+            /* check if we are an eligible target */
+            if (p_dfu->dfu_packet.payload.state.authority != 0)
+            {
+                if (p_dfu->dfu_packet.payload.state.dfu_type == DFU_TYPE_APP)
+                {
+                    if (mp_fwid_entry->version.app.company_id == p_dfu->dfu_packet.payload.state.fwid.app.company_id &&
+                        mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.state.fwid.app.app_id &&
+                        mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.state.fwid.app.app_version)
+                    {
+                        bootloader_start();
+                    }
+                }
+                else if (p_dfu->dfu_packet.payload.state.dfu_type == DFU_TYPE_BOOTLOADER)
+                {
+                    if (mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.state.fwid.bootloader.id &&
+                        mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.state.fwid.bootloader.ver)
+                    {
+                        bootloader_start();
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+}
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
@@ -232,6 +291,9 @@ void tc_init(uint32_t access_address, uint8_t channel)
 {
     m_state.access_address = access_address;
     m_state.channel = channel;
+    
+    bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS);
+    mp_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
 }
 
 void tc_radio_params_set(uint32_t access_address, uint8_t channel)
@@ -298,6 +360,10 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         if (p_mesh_adv_data->handle <= RBC_MESH_APP_MAX_HANDLE)
         {
             mesh_app_packet_handle(p_mesh_adv_data, timestamp);
+        }
+        else
+        {
+            mesh_framework_packet_handle(p_mesh_adv_data, timestamp);
         }
     }
     
