@@ -193,9 +193,9 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
             }
             else
             {
-                error_code = rbc_mesh_value_set(   serial_cmd->params.value_set.handle,
-                                                            serial_cmd->params.value_set.value,
-                                                            data_len);
+                error_code = rbc_mesh_value_set(serial_cmd->params.value_set.handle,
+                                                serial_cmd->params.value_set.value,
+                                                data_len);
 
                 serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
             }
@@ -211,11 +211,8 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
                 app_evt.value_handle = serial_cmd->params.value_set.handle;
 
                 error_code = rbc_mesh_event_push(&app_evt);
-                if (error_code != NRF_SUCCESS)
-                {
-                    mesh_packet_ref_count_dec(p_packet);
-                }
-
+                mesh_packet_ref_count_dec(p_packet);
+                
                 serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
             }
         }
@@ -442,6 +439,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 #endif /* BOOTLOADER */
 
     case SERIAL_CMD_OPCODE_DFU:
+    {
         serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
         serial_evt.params.cmd_rsp.command_opcode = serial_cmd->opcode;
         serial_evt.length = 5;
@@ -451,7 +449,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 #ifdef BOOTLOADER
         /* attempt to allocate a packet for the buffer before entering the handler, allowing to catch
            out-of-memory issues right away. */
-        mesh_packet_t* p_packet;
+        mesh_packet_t* p_packet = NULL;
         if (mesh_packet_acquire(&p_packet))
         {
             error_code = NRF_SUCCESS;
@@ -482,7 +480,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         serial_handler_event_send(&serial_evt);
 
 #endif
-
+    }
         break;
 
     default:
