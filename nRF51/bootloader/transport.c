@@ -70,6 +70,7 @@ static fifo_t           m_rx_fifo;
 static mesh_packet_t*   m_rx_fifo_buf[RADIO_RX_FIFO_LEN];
 static uint32_t         m_ticks_at_order_time;
 static prng_t           m_prng;
+static bool             m_started = false;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -119,7 +120,10 @@ static void order_scan(void)
     evt.access_address = 0;
     evt.callback.rx = rx_cb;
     evt.channel = 37;
-    radio_order(&evt);
+    if (!radio_order(&evt))
+    {
+        mesh_packet_ref_count_dec((mesh_packet_t*) &evt.packet_ptr);
+    }
 }
 
 static void tx_cb(uint8_t* p_data)
@@ -131,20 +135,28 @@ static void tx_cb(uint8_t* p_data)
 
 static void rx_cb(uint8_t* p_data, bool success, uint32_t crc)
 {
-    if (success)
+    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) p_data) == 1);
+    if (success &&
+        fifo_push(&m_rx_fifo, &p_data) == NRF_SUCCESS)
     {
-        fifo_push(&m_rx_fifo, &p_data);
         NVIC_SetPendingIRQ(SWI0_IRQn);
     }
     else
     {
+        /* mark the packet for debugging purposes */
+        ((mesh_packet_t*) p_data)->header.type = 0x0F;
+        memset(((mesh_packet_t*) p_data)->addr, 0xFF, 6);
         mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
+        APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) p_data) == 0);
     }
 }
 
 static void idle_cb(void)
 {
+    if (m_started)
+    {
     order_scan();
+}
 }
 
 static void order_next_rtc(void)
@@ -182,6 +194,7 @@ void SWI0_IRQHandler(void)
     mesh_packet_t* p_packet;
     while (fifo_pop(&m_rx_fifo, &p_packet) == NRF_SUCCESS)
     {
+        APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get(p_packet) == 1);
         m_rx_cb(p_packet);
         mesh_packet_ref_count_dec(p_packet);
     }
@@ -203,6 +216,7 @@ bool timeslot_is_in_ts(void)
 ******************************************************************************/
 void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 {
+    m_started = false;
     m_rx_cb = rx_cb;
     memset(m_tx, 0, sizeof(tx_t) * TRANSPORT_TX_SLOTS);
 
@@ -211,14 +225,25 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
     m_rx_fifo.array_len = RADIO_RX_FIFO_LEN;
     m_rx_fifo.memcpy_fptr = NULL;
     fifo_init(&m_rx_fifo);
-    radio_init(access_addr, idle_cb);
+    mesh_packet_init();
 
     APP_ERROR_CHECK(rand_prng_seed(&m_prng));
 
     NVIC_SetPriority(SWI0_IRQn, 2);
     NVIC_EnableIRQ(SWI0_IRQn);
 
+    NVIC_SetPriority(RADIO_IRQn, 0);
+
+    radio_init(access_addr, idle_cb);
+}
+
+void transport_start(void)
+{
+    if (!m_started)
+    {
+        m_started = true;
     order_scan();
+}
 }
 
 bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type)
@@ -291,12 +316,15 @@ void transport_rtc_irq_handler(void)
             radio_evt.packet_ptr = (uint8_t*) m_tx[i].p_packet;
             radio_evt.access_address = 0;
             radio_evt.callback.tx = tx_cb;
-
+            uint8_t radio_refs = 0;
             for (radio_evt.channel = 37; radio_evt.channel <= 39; ++radio_evt.channel)
             {
+                    if (radio_order(&radio_evt))
+                    {
+                        radio_refs++;
                 mesh_packet_ref_count_inc(m_tx[i].p_packet);
-                radio_order(&radio_evt);
             }
+                }
 
             if (m_tx[i].count++ == 0xFF)
             {
