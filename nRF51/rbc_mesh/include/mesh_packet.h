@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include "rbc_mesh.h"
 #include "toolchain.h"
+#include "dfu_types_mesh.h"
 
 
 #define MESH_UUID                           (0xFEE4)
@@ -88,6 +89,14 @@ typedef __packed_armcc struct
     uint16_t                version;
     uint8_t                 data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc mesh_adv_data_t;
+
+typedef __packed_armcc struct
+{
+    uint8_t                 adv_data_length;
+    uint8_t                 adv_data_type;
+    uint16_t                mesh_uuid;
+    dfu_packet_t            dfu_packet;
+} __packed_gcc mesh_dfu_adv_data_t;
 
 typedef __packed_armcc struct
 {
