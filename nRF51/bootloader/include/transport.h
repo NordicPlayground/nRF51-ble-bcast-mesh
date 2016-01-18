@@ -51,12 +51,14 @@ typedef enum
     TX_INTERVAL_TYPE_REGULAR
 } tx_interval_type_t;
 
-
+typedef void(*release_cb_t)(mesh_packet_t* p_packet);
 typedef void(*rx_cb_t)(mesh_packet_t* p_packet);
 
 void transport_init(rx_cb_t rx_cb, uint32_t access_addr);
-bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type);
+void transport_start(void);
+bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type, release_cb_t release_cb);
 void transport_tx_reset(mesh_packet_t* p_packet);
+void transport_tx_skip(mesh_packet_t* p_packet);
 void transport_tx_abort(mesh_packet_t* p_packet);
 void transport_rtc_irq_handler(void);
 

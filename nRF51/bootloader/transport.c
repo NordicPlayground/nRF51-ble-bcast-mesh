@@ -49,17 +49,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TRANSPORT_TX_SLOTS  (32)
 #define RTC_MARGIN          (2) /* ticks */
 #define INTERVAL            (3277) /* ticks */
+#define REDUNDANCY_MAX      (1)
 /******************************************************************************
 * Static typedefs
 ******************************************************************************/
 typedef struct
 {
     mesh_packet_t* p_packet;
+    release_cb_t release_callback;
     uint32_t ticks_next;
     uint32_t ticks_start;
     uint8_t repeats;
     uint8_t count;
     uint8_t type;
+    uint8_t redundancy;
 } tx_t;
 /******************************************************************************
 * Static globals
@@ -155,8 +158,8 @@ static void idle_cb(void)
 {
     if (m_started)
     {
-    order_scan();
-}
+        order_scan();
+    }
 }
 
 static void order_next_rtc(void)
@@ -231,7 +234,7 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 
     NVIC_SetPriority(SWI0_IRQn, 2);
     NVIC_EnableIRQ(SWI0_IRQn);
-
+    
     NVIC_SetPriority(RADIO_IRQn, 0);
 
     radio_init(access_addr, idle_cb);
@@ -242,11 +245,11 @@ void transport_start(void)
     if (!m_started)
     {
         m_started = true;
-    order_scan();
-}
+        order_scan();
+    }
 }
 
-bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type)
+bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type, release_cb_t release_cb)
 {
     if (type == TX_INTERVAL_TYPE_EXPONENTIAL && repeats > TX_REPEATS_EXPONENTIAL_MAX)
     {
@@ -269,6 +272,7 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t t
     p_tx->count = 0;
     p_tx->ticks_start = NRF_RTC0->COUNTER;
     p_tx->type = type;
+    p_tx->release_callback = release_cb;
     set_next_tx(p_tx);
     order_next_rtc();
     return true;
@@ -284,6 +288,17 @@ void transport_tx_reset(mesh_packet_t* p_packet)
         set_next_tx(p_tx);
         order_next_rtc();
     }
+}
+
+void transport_tx_skip(mesh_packet_t* p_packet)
+{
+    NVIC_DisableIRQ(RTC0_IRQn);
+    tx_t* p_tx = find_tx_entry(p_packet);
+    if (p_tx)
+    {
+        p_tx->redundancy++;
+    }
+    NVIC_EnableIRQ(RTC0_IRQn);
 }
 
 void transport_tx_abort(mesh_packet_t* p_packet)
@@ -317,14 +332,19 @@ void transport_rtc_irq_handler(void)
             radio_evt.access_address = 0;
             radio_evt.callback.tx = tx_cb;
             uint8_t radio_refs = 0;
-            for (radio_evt.channel = 37; radio_evt.channel <= 39; ++radio_evt.channel)
+            if (m_tx[i].redundancy < REDUNDANCY_MAX)
             {
+                for (radio_evt.channel = 37; radio_evt.channel <= 39; ++radio_evt.channel)
+                {
                     if (radio_order(&radio_evt))
                     {
                         radio_refs++;
-                mesh_packet_ref_count_inc(m_tx[i].p_packet);
-            }
+                        mesh_packet_ref_count_inc(m_tx[i].p_packet);
+                    }
                 }
+            }
+            
+            m_tx[i].redundancy = 0;
 
             if (m_tx[i].count++ == 0xFF)
             {
@@ -338,6 +358,10 @@ void transport_rtc_irq_handler(void)
             }
             else
             {
+                if (m_tx[i].release_callback)
+                {
+                    m_tx[i].release_callback(m_tx[i].p_packet);
+                }
                 mesh_packet_ref_count_dec(m_tx[i].p_packet);
                 memset(&m_tx[i], 0, sizeof(tx_t));
             }
