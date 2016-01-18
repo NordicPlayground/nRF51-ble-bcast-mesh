@@ -65,7 +65,7 @@ typedef struct
 /******************************************************************************
 * Static globals
 ******************************************************************************/
-static tc_state_t g_state;
+static tc_state_t m_state;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -78,9 +78,8 @@ static void order_search(void)
     radio_event_t evt;
     
     evt.event_type = RADIO_EVENT_TYPE_RX_PREEMPTABLE;
-    evt.start_time = 0;
     evt.access_address = 1;
-    evt.channel = g_state.channel;
+    evt.channel = m_state.channel;
     evt.callback.rx = rx_cb;
     
     if (!mesh_packet_acquire((mesh_packet_t**) &evt.packet_ptr))
@@ -115,7 +114,7 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
         mesh_packet_ref_count_inc((mesh_packet_t*) data); /* event handler has a ref */
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
-            g_state.queue_saturation = true;
+            m_state.queue_saturation = true;
             mesh_packet_ref_count_dec((mesh_packet_t*) data); /* event handler lost its ref */
         }
     }
@@ -155,7 +154,7 @@ static void tx_cb(uint8_t* data)
 static void radio_idle_callback(void)
 {
     /* If the processor is unable to keep up, we should back down, and give it time */
-    if (!g_state.queue_saturation)
+    if (!m_state.queue_saturation)
         order_search();
 }
 
@@ -231,23 +230,23 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
 ******************************************************************************/
 void tc_init(uint32_t access_address, uint8_t channel)
 {
-    g_state.access_address = access_address;
-    g_state.channel = channel;
+    m_state.access_address = access_address;
+    m_state.channel = channel;
 }
 
 void tc_radio_params_set(uint32_t access_address, uint8_t channel)
 {
     if (channel < 40)
     {
-        g_state.access_address = access_address;
-        g_state.channel = channel;
+        m_state.access_address = access_address;
+        m_state.channel = channel;
         timeslot_restart();
     }
 }
 
 void tc_on_ts_begin(void)
 {
-    radio_init(g_state.access_address, radio_idle_callback);
+    radio_init(m_state.access_address, radio_idle_callback);
 }
 
 uint32_t tc_tx(mesh_packet_t* p_packet)
@@ -257,11 +256,10 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
     /* queue the packet for transmission */
     radio_event_t event;
     memset(&event, 0, sizeof(radio_event_t));
-    event.start_time = 0;
     mesh_packet_ref_count_inc(p_packet); /* queue will have a reference until tx_cb */
     event.packet_ptr = (uint8_t*) p_packet;
     event.access_address = 0;
-    event.channel = g_state.channel;
+    event.channel = m_state.channel;
     event.callback.tx = tx_cb;
     event.event_type = RADIO_EVENT_TYPE_TX;
     if (!radio_order(&event))
@@ -306,10 +304,10 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     /* this packet is no longer needed in this context */
     mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
 
-    if (g_state.queue_saturation)
+    if (m_state.queue_saturation)
     {
         order_search();
-        g_state.queue_saturation = false;
+        m_state.queue_saturation = false;
     }
     
     CLEAR_PIN(PIN_RX);
