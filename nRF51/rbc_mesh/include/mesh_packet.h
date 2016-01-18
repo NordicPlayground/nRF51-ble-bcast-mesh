@@ -142,7 +142,5 @@ bool mesh_packet_has_additional_data(mesh_packet_t* p_packet);
 /** Fill address field with local addr, and sanitize adv-data */
 void mesh_packet_take_ownership(mesh_packet_t* p_packet);
 
-mesh_packet_t* mesh_packet_get_start_pointer(void* p_content);
-
 #endif /* _MESH_PACKET_H__ */
 

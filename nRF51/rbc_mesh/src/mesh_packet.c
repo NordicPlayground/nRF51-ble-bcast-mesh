@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include <string.h>
 
+#define PACKET_INDEX(p_packet) (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t)
 /******************************************************************************
 * Static globals
 ******************************************************************************/
@@ -59,32 +60,41 @@ void mesh_packet_on_ts_begin(void)
     /* do nothing */
 }
 
-mesh_packet_t* mesh_packet_get_aligned(void* p_buf_pointer)
-{
-    uint32_t index = (((uint32_t) p_buf_pointer) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
-    if (index > RBC_MESH_PACKET_POOL_SIZE)
-        return NULL;
-    return &g_packet_pool[index];
-}
-
 bool mesh_packet_acquire(mesh_packet_t** pp_packet)
 {
+    uint32_t was_masked;
     for (uint32_t i = 0; i < RBC_MESH_PACKET_POOL_SIZE; ++i)
     {
+        _DISABLE_IRQS(was_masked);
         if (g_packet_refs[i] == 0) /* no refs, free to use */
         {
             g_packet_refs[i] = 1;
             *pp_packet = &g_packet_pool[i];
+            _ENABLE_IRQS(was_masked);
             return true;
         }
+        _ENABLE_IRQS(was_masked);
     }
     APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     return false;
 }
 
+mesh_packet_t* mesh_packet_get_aligned(void* p_buf_pointer)
+{
+    uint32_t index = PACKET_INDEX(p_buf_pointer);
+    if (index < RBC_MESH_PACKET_POOL_SIZE)
+    {
+        return &g_packet_pool[index];
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
 bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 {
-    uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
+    uint32_t index = PACKET_INDEX(p_packet);
     if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
 
@@ -101,7 +111,7 @@ bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 
 bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
 {
-    uint32_t index = (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t);
+    uint32_t index = PACKET_INDEX(p_packet);
     if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
 
@@ -116,7 +126,7 @@ bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
     }
     g_packet_refs[index]--;
     _ENABLE_IRQS(was_masked);
-
+    
     return (g_packet_refs[index] > 0);
 }
 
@@ -231,7 +241,7 @@ mesh_adv_data_t* mesh_packet_adv_data_get(mesh_packet_t* p_packet)
 
     /* loop through all ad data structures */
     while (p_mesh_adv_data->adv_data_type != MESH_ADV_DATA_TYPE ||
-            p_mesh_adv_data->mesh_uuid != MESH_UUID)
+           p_mesh_adv_data->mesh_uuid != MESH_UUID)
     {
         if (p_mesh_adv_data->adv_data_length + ((uint32_t) p_mesh_adv_data - (uint32_t) (p_packet->payload))
                > p_packet->header.length - MESH_PACKET_BLE_OVERHEAD)
