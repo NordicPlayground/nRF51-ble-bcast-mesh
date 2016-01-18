@@ -34,9 +34,10 @@ class test_info():
         self.stage_done   = threading.Event()
         self.view         = [x for x in range(0, self.top, 1)]
         self.data         = [0] * self.top
-        self.state_f      = "0x1FC00"
+        self.start_f      = "0x1FC00"
+        self.stop_f      = "0x1FC08"
         self.handle_f     = "0x1FC04"
-        self.base_f       = "127"
+        self.base_f       = self.start_f    #"127"
         self.stage_length = timedelta(seconds=self.test_time)
         self.stage_timer  = 0
         self.num          = 0
@@ -64,7 +65,6 @@ class TEST():
         time.sleep(0.1)
         self.dev.start(1, num_devices)
         TIMER.stage = datetime.now()
-
         return True
 
     def stop_stage(self, num_devices):
@@ -82,6 +82,7 @@ class TEST():
 
     def run(self):
         # Test All devices
+        self.log.test_setup()
         self.log.append_csv()
         self.dev.program()
         self.dev.set_handles(0, self.info.top)
@@ -154,14 +155,14 @@ class DEVICES():
 
     def start(self, start, end):
         now = TIMER.now()
-        success = multi_prog.memory_batch(self.info.devs[start:end], action="write", addr=self.info.state_f, val="0x0FFF", verbose=self.log.verbose)
+        success = multi_prog.memory_batch(self.info.devs[start:end], action="write", addr=self.info.start_f, val="0x7FFF", verbose=self.log.verbose)
         if self.log.verbose > 2:
             print("starting devices took = " + str(TIMER.diff(now, TIMER.now())) + " seconds")
         return success
 
     def stop(self, start, end):
         now = TIMER.now()
-        success = multi_prog.memory_batch(self.info.devs[start:end], action="write", addr=self.info.state_f, val="0x00FF", verbose=self.log.verbose)
+        success = multi_prog.memory_batch(self.info.devs[start:end], action="write", addr=self.info.stop_f, val="0x7FFF", verbose=self.log.verbose)
         if self.log.verbose > 2:
             print("starting devices took = " + str(TIMER.diff(now, TIMER.now())) + " seconds")
         return success
@@ -230,6 +231,53 @@ class LOG():
         sys.stdout.write("instant msg  " + ','.join(("{:>" + str(self.char) + "}").format(str(x)) for x in [self.messages[i] for i in self.info.view]) + "\r\n")
         sys.stdout.write("instant B/s  " + ','.join(("{0:" + str(self.char) + ".0f}").format(x) for x in [self.throughput[i] for i in self.info.view]) + "\r\n")
 
+    def test_setup(self):
+        full_row = []
+        full_row.append("TEST INF0:\n")
+
+        output = self.info.__dict__
+        for i in range(0,len(output)):
+            key = list(output.keys())[i]
+            value = list(output.values())[i]
+            full_row.append("Key= " + str(key) + ",Value= " + str(value))
+
+        tmp_log_file = 'delete_me.log'
+        cmd = 'python -V > {}'.format( tmp_log_file )
+        os.system( cmd )
+        output = open( tmp_log_file, 'r' ).read()
+        full_row.append(" " + str(output))
+
+        #cmd = 'pip freeze > {}'.format( tmp_log_file )
+        #os.system( cmd )
+        #output = open( tmp_log_file, 'r' ).read()
+        #full_row.append("'" + str(output) + "'")
+
+        cmd = 'nrfjprog -v > {}'.format( tmp_log_file )
+        os.system( cmd )
+        output = open( tmp_log_file, 'r' ).read()
+        output = output.split('\n')
+        full_row.append(" " +str(output[0]) + "\n")
+        full_row.append(" " +str(output[1]))
+        
+        cmd = 'git config --get remote.origin.url > {}'.format( tmp_log_file )
+        os.system( cmd )
+        full_row.append(" REPO= " +open( tmp_log_file, 'r' ).read())
+        
+        cmd = 'git log -1 > {}'.format( tmp_log_file )
+        os.system( cmd )
+        output = open( tmp_log_file, 'r' ).read()
+        
+        output = output.split('\n')
+        
+        for y in range(0,5):
+            full_row.append(" " +str(output[y]))
+
+        #for y in range(0, len(full_row)):
+        #    print (full_row[y])
+
+        self.gateway_log.append(full_row)
+
+
     def append_csv(self):
         full_row = []
         full_row.append(self.info.steps[self.info.num])
@@ -247,8 +295,11 @@ class LOG():
 
         with open(self.info.args.log, 'a') as csvfile:
             spamwriter = csv.writer(csvfile, delimiter=' ')
+            spamwriter.writerow(' ')
+            spamwriter.writerow(' ')
+            spamwriter.writerow(self.gateway_log[0][:])
             spamwriter.writerow(['entry', 'devices', 'throughput'])
-            for x in range(0, len(self.gateway_log)):
+            for x in range(1, len(self.gateway_log)):
                 full_row = []
                 full_row.append(str(x))
                 # full_row.append(self.gateway_log[x][0])
@@ -295,8 +346,6 @@ def monitorThread(args):
     test = TEST(info, log, dev)
 
     sys.stdout.write("verbosity = " + str(log.verbose) + "\r\n")
-
-    multi_prog.version()
 
     test.run()
 

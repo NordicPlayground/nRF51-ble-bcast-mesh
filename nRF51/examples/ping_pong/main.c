@@ -62,7 +62,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define max_links 100
 
 volatile uint16_t gs_handle   __attribute__((at(0x0001FC04))) __attribute__((used)) ;
-volatile uint16_t gs_state  __attribute__((at(0x0001FC00))) __attribute__((used)) ;
+volatile uint16_t gs_start  __attribute__((at(0x0001FC00))) __attribute__((used)) ;
+volatile uint16_t gs_stop  __attribute__((at(0x0001FC08))) __attribute__((used)) ;
 
 static rbc_mesh_value_handle_t m_handle = INVALID_HANDLE;
 static uint8_t m_data[RBC_MESH_VALUE_MAX_LEN];
@@ -128,7 +129,7 @@ static bool cmd_rx(char* cmd, uint32_t len)
 			}
 
 			__LOG(0,"data_start,");
-			for (int i=0;i<j;i++)
+			for (int i=0;i<=j;i++)
 			{
 				__LOG(0,"%5x,",(int)throughput[i]); //
 			}
@@ -406,13 +407,13 @@ int main(void)
     rbc_mesh_event_t evt;
     while (true)
     {
-			if (gs_state == 0xFFFF)
+			if (gs_start == 0xFFFF)
 			{
 				nrf_gpio_pin_clear(LED_RGB_BLUE);
 				RTT_respond();
 				m_handle = (rbc_mesh_value_handle_t) gs_handle;
 			}	
-			if (gs_state == 0x0FFF)
+			if ((gs_start != 0xFFFF) && (gs_stop == 0xFFFF))
 			{
 				if  (start == true)
 				{
@@ -444,16 +445,10 @@ int main(void)
 						rbc_mesh_packet_release(evt.data);
 				}
 			}
-			if (gs_state == 0x00FF)
+			if (gs_stop != 0xFFFF)
 			{
 				RTT_respond();
 			}
-			if (gs_state == 0x000F)
-			{
-			}	
-			if (gs_state == 0x0000)
-			{
-			}	
 		}
 }
 

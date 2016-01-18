@@ -161,24 +161,24 @@ def erase_device(devices):
         print( "Done.")
  
 
-def flash_devices(devices, args, verbose=0):
+def flash_devices(devices, args):
     threads = []
     idx=0
     for dev in devices:
         if args.multicompile:
 
             if not dev is None:
-                if verbose > 2:
+                if args.verbose > 2:
                     print( "Programming device " + dev + " with " + hexfiles[idx])
             thread = Thread(target = progDev, args = (dev, args, hexfiles[idx],  ))
         if args.reset:
             if not dev is None:
-                if verbose > 2:
+                if args.verbose > 2:
                     print( "Resetting device " + dev )
             thread = Thread(target = resetDev, args = (dev,  ))
         else:
             if not dev is None:
-                if verbose > 2:
+                if args.verbose > 2:
                     print( "Programming device " + dev + " with " + hexfiles[0])
             thread = Thread(target = progDev, args = (dev, args, hexfiles[0],  ))
 
@@ -188,7 +188,7 @@ def flash_devices(devices, args, verbose=0):
 
     for thread in threads:
         thread.join()
-    if verbose > 2:
+    if args.verbose > 2:
         print( "Done.")
 
 class args:
@@ -209,18 +209,6 @@ def main (src_dir, snrFilter=None, group_add=None, role=None, flash=None, \
                        sd=None, erase=None, compil=None, verbose=0, \
                        multicompile=None, return_true=None, reset=None):
     
-    #parser = argparse.ArgumentParser(description='Flash mesh')
-    #parser.add_argument('-d', '--device_add'       , type=int, default="0290")
-    #parser.add_argument('-g', '--group_add'        , type=str, default="f00f")
-    #parser.add_argument('--role'             , type=int, nargs='+',default=1)
-    #parser.add_argument('--sd'                     , action="store_true")
-    #parser.add_argument('-e', '--erase'            , action="store_true")
-    #parser.add_argument('-c', '--compile'          , action="store_true")
-    #parser.add_argument('-mc', '--multicompile'    , action="store_true")
-    #parser.add_argument('-t', '--return_true'      , action="store_true")
-    #parser.add_argument('-f', '--flash'            , action="store_true")                       
-    #parser.add_argument('-r', '--reset'            , action="store_true")
-    #args = parser.parse_args()
     args.src_dir = src_dir
     args.snrFilter = snrFilter
     args.group_add = group_add
