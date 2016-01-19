@@ -97,9 +97,12 @@ typedef struct
     dfu_type_t      type;
     uint32_t*       p_start_addr;
     uint32_t*       p_bank_addr;
+    uint32_t*       p_indicated_start_addr;
     uint32_t*       p_last_requested_entry;
     uint32_t        length;
     uint32_t        signature_length;
+    uint8_t         signature[2 * uECC_BYTES];
+    uint8_t         signature_bitmap;
     uint16_t        segments_remaining;
     uint16_t        segment_count;
     fwid_union_t    target_fwid_union;
@@ -212,12 +215,12 @@ static bool signature_check(void)
     {
         return false;
     }
-
+    
     uint8_t hash[uECC_BYTES];
     sha256_context_t hash_context;
     sha256_init(&hash_context);
     sha256_update(&hash_context, (uint8_t*) &m_transaction.type, 1);
-    sha256_update(&hash_context, (uint8_t*) &m_transaction.p_start_addr, 4);
+    sha256_update(&hash_context, (uint8_t*) &m_transaction.p_indicated_start_addr, 4);
     sha256_update(&hash_context, (uint8_t*) &m_transaction.length, 4);
     switch (m_transaction.type)
     {
@@ -237,8 +240,11 @@ static bool signature_check(void)
     dfu_sha256(&hash_context);
 
     sha256_final(&hash_context, hash);
-
-    return (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, (uint8_t*) ((uint32_t) m_transaction.p_bank_addr + m_transaction.length - m_transaction.signature_length)));
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
+    bool success = (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, m_transaction.signature));
+    _ENABLE_IRQS(was_masked);
+    return success;
 }
 
 static bool ready_packet_is_upgrade(dfu_packet_t* p_packet)
@@ -535,6 +541,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                         APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
                 }
                 
+                m_transaction.p_indicated_start_addr = (uint32_t*) p_packet->payload.start.start_address;
+                
                 /* if the host doesn't know the start address, we use start of segment: */
                 if (p_packet->payload.start.start_address == START_ADDRESS_UNKNOWN)
                 {
@@ -542,6 +550,11 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 }
 
                 uint32_t segment_count = ((p_packet->payload.start.length * 4) + (p_packet->payload.start.start_address & 0x0F) - 1) / 16 + 1;
+                
+                if (p_packet->payload.start.signature_length != 0)
+                {
+                    segment_count += p_packet->payload.start.signature_length / SEGMENT_LENGTH;
+                }
                 if (segment_count > 0xFFFF)
                 {
                     /* can't have more than 65536 segments in a transmission */
@@ -555,6 +568,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 m_transaction.signature_length                  = p_packet->payload.start.signature_length;
                 m_transaction.segment_is_valid_after_transfer   = p_packet->payload.start.last;
                 m_transaction.p_last_requested_entry            = NULL;
+                m_transaction.signature_bitmap                  = 0;
+                
 
                 if (m_transaction.type == DFU_TYPE_BOOTLOADER)
                 {
@@ -594,17 +609,43 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 default:
                     if (p_packet->payload.data.segment <= m_transaction.segment_count)
                     {
-                        uint32_t* p_addr = addr_from_seg(p_packet->payload.data.segment);
-                        uint32_t error_code = dfu_data((uint32_t) p_addr,
+                        uint32_t* p_addr = NULL; 
+                        uint32_t error_code = NRF_ERROR_NULL;
+                        
+                        if (p_packet->payload.data.segment <= 
+                            m_transaction.segment_count - m_transaction.signature_length / SEGMENT_LENGTH)
+                        {
+                            p_addr = addr_from_seg(p_packet->payload.data.segment);
+                            error_code  = dfu_data((uint32_t) p_addr,
                                                        p_packet->payload.data.data,
                                                        length - (DFU_PACKET_LEN_DATA - SEGMENT_LENGTH));
+                        }
+                        else /* treat signature packets at the end */
+                        {
+                            uint32_t index = p_packet->payload.data.segment - (m_transaction.segment_count - m_transaction.signature_length / SEGMENT_LENGTH) - 1;
+                            if (index >= m_transaction.signature_length / SEGMENT_LENGTH || 
+                                m_transaction.signature_bitmap & (1 << index))
+                            {
+                                error_code = NRF_ERROR_INVALID_STATE;
+                            }
+                            else
+                            {
+                                memcpy(&m_transaction.signature[index * SEGMENT_LENGTH], 
+                                       p_packet->payload.data.data, 
+                                       length - (DFU_PACKET_LEN_DATA - SEGMENT_LENGTH));
+                                
+                                m_transaction.signature_bitmap |= (1 << index);
+                                error_code = NRF_SUCCESS;
+                            }
+                        }
+                        
                         if (error_code == NRF_SUCCESS)
                         {
                             set_timeout(STATE_TIMEOUT_TARGET);
                             m_transaction.segments_remaining--;
                             do_relay = true;
                             /* check whether we've lost any entries, and request them */
-                            volatile uint32_t* p_req_entry = NULL;
+                            uint32_t* p_req_entry = NULL;
                             uint32_t req_entry_len = 0;
                             mesh_packet_t* p_req_packet;
                             if (dfu_get_oldest_missing_entry(
@@ -644,8 +685,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                             }
                             NVIC_EnableIRQ(RTC0_IRQn);
                         }
-
                     }
+                    break;
             }
 
             /* ending the DFU */
