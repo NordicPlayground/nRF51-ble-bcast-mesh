@@ -694,40 +694,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             {
                 dfu_end();
                 
-                if (signature_check())
-                {
-                    /* write new version in bl info: */
-                    bl_info_entry_t new_version_entry;
-                    memcpy(&new_version_entry.version, m_bl_info_pointers.p_fwid, sizeof(fwid_t));
-                    switch (m_transaction.type)
-                    {
-                        case DFU_TYPE_APP:
-                            memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
-                            break;
-                        case DFU_TYPE_SD:
-                            memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
-                            break;
-                        case DFU_TYPE_BOOTLOADER:
-                            memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
-                            break;
-                        default:
-                            break;
-                    }
-                    m_bl_info_pointers.p_fwid = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
-                    
-                    /* remove finished journal */
-                    bootloader_info_entry_invalidate((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_JOURNAL);
-                    
-                    /* prepare to reboot */
                     start_rampdown();
                 }
-                else
-                {
-                    /* someone gave us anauthorized firmware, and we're broken.
-                       need to reboot and try to request a new transfer */
-                    bootloader_abort(BL_END_ERROR_UNAUTHORIZED);
-                }
-            }
         }
     }
 
@@ -1076,7 +1044,55 @@ void bootloader_rtc_irq_handler(void)
             break;
 
         case BL_STATE_VALIDATE:
+            if (signature_check())
+            {
+                /* Don't want any interrupts disturbing this final stage */
+                uint32_t was_masked;
+                _DISABLE_IRQS(was_masked);
+                
+                /* write new version in bl info: */
+                bl_info_entry_t new_version_entry;
+                memcpy(&new_version_entry.version, m_bl_info_pointers.p_fwid, sizeof(fwid_t));
+                bl_info_type_t sign_info_type = BL_INFO_TYPE_INVALID;
+                
+                switch (m_transaction.type)
+                {
+                    case DFU_TYPE_APP:
+                        memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
+                        sign_info_type = BL_INFO_TYPE_SIGNATURE_APP;
+                        break;
+                    case DFU_TYPE_SD:
+                        memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
+                        sign_info_type = BL_INFO_TYPE_SIGNATURE_SD;
+                        break;
+                    case DFU_TYPE_BOOTLOADER:
+                        memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
+                        sign_info_type = BL_INFO_TYPE_SIGNATURE_BL;
+                        break;
+                    default:
+                        break;
+                }
+                m_bl_info_pointers.p_fwid = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
+                
+                /* remove finished journal */
+                bootloader_info_entry_invalidate((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_JOURNAL);
+                
+                /* add signature to bl info, if applicable: */
+                if (m_transaction.signature_length != 0)
+                {
+                    bootloader_info_entry_put(sign_info_type, (bl_info_entry_t*) m_transaction.signature, DFU_SIGNATURE_LEN);
+                }
+                
+                _ENABLE_IRQS(was_masked);
+                
             bootloader_abort(BL_END_SUCCESS);
+            }
+            else
+            {
+                /* someone gave us anauthorized firmware, and we're broken.
+                   need to reboot and try to request a new transfer */
+                bootloader_abort(BL_END_ERROR_UNAUTHORIZED);
+            }
             break;
 
         default:
