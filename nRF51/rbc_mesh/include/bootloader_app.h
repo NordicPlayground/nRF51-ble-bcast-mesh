@@ -36,10 +36,40 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BOOTLOADER_APP_H__
 #include <stdint.h>
 #include <stdbool.h>
+#include "dfu_types_mesh.h"
 
-typedef void (*bootloader_prepare_cb_t)(void);
+/** 
+* Callback type for notifying the application of incoming dfu-transfers, and
+* get authorization to start the bootloader. Return true to accept the dfu 
+* transfer, false to reject it and resume normal operation. The device will 
+* be reset immediately, and may not be available for regular operation for 
+* several minutes.
+*/
+typedef bool (*bootloader_authorize_cb_t)(dfu_type_t type, fwid_union_t* p_fwid);
 
-uint32_t bootloader_start(void);
-void bootloader_prepare_callback_set(bootloader_prepare_cb_t prepare_callback);
+/** 
+* Manually trigger the bootloader. The device will be reset immediately, and 
+* may not be available for regular operation for several minutes. Will trigger
+* the authorize callback, which must return true for the bootloader to start.
+* If successful and authorized, this function call will not return.
+*
+* @param[in] type Type of transfer expected, or DFU_TYPE_NONE.
+* @param[in] p_fwid FWID union to identify the incoming transfer.
+* 
+* @return NRF_ERROR_BUSY The application rejected the bootloader start request.
+* @return NRF_ERROR_FORBIDDEN The NRF_UICR->BOOTLOADERADDR persistent register 
+*   has not been set, and the bootloader could not start.
+*/
+uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid);
+
+/**
+* Set the authorize callback function pointer. The function will be called for
+* each call to bootloader_start(), and must return true to authorize the request for 
+* starting the bootloader.
+* 
+* @param[in] authorize_callback Function pointer to the authorization callback 
+*   function.
+*/
+void bootloader_authorize_callback_set(bootloader_authorize_cb_t authorize_callback);
 
 #endif /* BOOTLOADER_APP_H__ */

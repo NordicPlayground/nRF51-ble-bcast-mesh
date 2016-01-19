@@ -43,36 +43,38 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define IRQ_ENABLED            0x01     /**< Field that identifies if an interrupt is enabled. */
 #define MAX_NUMBER_INTERRUPTS  32       /**< Maximum number of interrupts available. */
 
-bootloader_prepare_cb_t m_prepare_cb = NULL;
+bootloader_authorize_cb_t m_authorize_callback = NULL;
 
 static void interrupts_disable(void)
 {
     uint32_t interrupt_setting_mask;
     uint32_t irq;
 
-    /* Fetch the current interrupt settings. */
     interrupt_setting_mask = NVIC->ISER[0];
 
-    /* Loop from interrupt 0 for disabling of all interrupts. */
+    /* Loop through and disable all interrupts. */
     for (irq = 0; irq < MAX_NUMBER_INTERRUPTS; irq++)
     {
         if (interrupt_setting_mask & (IRQ_ENABLED << irq))
         {
-            /* The interrupt was enabled, hence disable it. */
             NVIC_DisableIRQ((IRQn_Type)irq);
         }
     }
 }
 
-uint32_t bootloader_start(void)
+uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid)
 {
     if (NRF_UICR->BOOTLOADERADDR != 0xFFFFFFFF)
     {
         interrupts_disable();
         
-        if (m_prepare_cb)
+        if (m_authorize_callback)
         {
-            m_prepare_cb();
+            /* Ask the application whether we should accept the transfer. */
+            if (!m_authorize_callback(type, p_fwid))
+            {
+                return NRF_ERROR_BUSY;
+            }
         }
 
 #ifdef SOFTDEVICE_PRESENT
@@ -93,8 +95,8 @@ uint32_t bootloader_start(void)
     }
 }
 
-void bootloader_prepare_callback_set(bootloader_prepare_cb_t prepare_callback)
+void bootloader_authorize_callback_set(bootloader_authorize_cb_t authorize_callback)
 {
     /* or would it work with an event? */
-    m_prepare_cb = prepare_callback;
+    m_authorize_callback = authorize_callback;
 }

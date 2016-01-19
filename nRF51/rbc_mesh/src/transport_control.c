@@ -229,6 +229,7 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
     }
 }
 
+
 static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
 {
     if (mp_fwid_entry == NULL)
@@ -241,21 +242,22 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t t
     {
         case DFU_PACKET_TYPE_FWID:
             /* check if fwid is newer */
-            if (
-                (
-                    mp_fwid_entry->version.app.company_id == p_dfu->dfu_packet.payload.fwid.app.company_id &&
-                    mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.fwid.app.app_id &&
-                    mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.fwid.app.app_version
-                )
-                ||
-                (
-                    mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.fwid.bootloader.id &&
-                    mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.fwid.bootloader.ver
-                )
-               )
+            if (mp_fwid_entry->version.app.company_id == p_dfu->dfu_packet.payload.fwid.app.company_id &&
+                mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.fwid.app.app_id &&
+                mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.fwid.app.app_version)
             {
-                bootloader_start();
+                fwid_union_t fwid;
+                memcpy(&fwid.app, &p_dfu->dfu_packet.payload.fwid.app, sizeof(app_id_t));
+                bootloader_start(DFU_TYPE_APP, &fwid);
             }
+            else if (mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.fwid.bootloader.id &&
+                     mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.fwid.bootloader.ver)
+            {
+                fwid_union_t fwid;
+                memcpy(&fwid.bootloader, &p_dfu->dfu_packet.payload.fwid.bootloader, sizeof(bl_id_t));
+                bootloader_start(DFU_TYPE_BOOTLOADER, &fwid);
+            }
+                
             break;
         case DFU_PACKET_TYPE_STATE:
             /* check if we are an eligible target */
@@ -267,7 +269,7 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t t
                         mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.state.fwid.app.app_id &&
                         mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.state.fwid.app.app_version)
                     {
-                        bootloader_start();
+                        bootloader_start(DFU_TYPE_APP, &p_dfu->dfu_packet.payload.state.fwid);
                     }
                 }
                 else if (p_dfu->dfu_packet.payload.state.dfu_type == DFU_TYPE_BOOTLOADER)
@@ -275,7 +277,7 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t t
                     if (mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.state.fwid.bootloader.id &&
                         mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.state.fwid.bootloader.ver)
                     {
-                        bootloader_start();
+                        bootloader_start(DFU_TYPE_BOOTLOADER, &p_dfu->dfu_packet.payload.state.fwid);
                     }
                 }
             }
