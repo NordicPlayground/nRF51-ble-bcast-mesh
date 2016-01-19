@@ -37,11 +37,16 @@ typedef struct __attribute((packed))
     uint32_t app_version;
 } app_id_t;
 
+typedef struct __attribute((packed))
+{
+    uint8_t id;
+    uint8_t version;
+} bl_id_t;
 
 typedef struct __attribute((packed))
 {
     uint16_t sd;
-    uint16_t bootloader;
+    bl_id_t bootloader;
     app_id_t app;
 } fwid_t;
 
@@ -285,8 +290,10 @@ static uint32_t create_info(char* p_file_name, uint8_t* p_data_buf)
     if (!p_entry || sscanf(p_entry, "%hx", &id.app.app_id) == 0) missing_entry("APP_ID");
     p_entry = get_file_entry(lines, line_count, "SD_VERSION");
     if (!p_entry || sscanf(p_entry, "%hx", &id.sd) == 0) missing_entry("SD_VERSION");
+    p_entry = get_file_entry(lines, line_count, "BL_ID");
+    if (!p_entry || sscanf(p_entry, "%hhx", &id.bootloader.id) == 0) missing_entry("BL_ID");
     p_entry = get_file_entry(lines, line_count, "BL_VERSION");
-    if (!p_entry || sscanf(p_entry, "%hx", &id.bootloader) == 0) missing_entry("BL_VERSION");
+    if (!p_entry || sscanf(p_entry, "%hhx", &id.bootloader.version) == 0) missing_entry("BL_VERSION");
 
     i += put_info_entry(BL_INFO_TYPE_VERSION, 14, (uint8_t*) &id, &p_data_buf[i]);
 
