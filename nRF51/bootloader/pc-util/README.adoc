@@ -42,5 +42,7 @@ operation and a short description.
 |Verification key Qx | uint8_t[32] | No | First part of the public signing key used to verify incoming DFU transfers.
 |Verification key Qy | uint8_t[32] | No | Second part of the public signing key used to verify incoming DFU transfers.
 |PUBLIC_KEY     | uint8_t[64] | No      | Alternative full-version of the public signing key used to verify incoming DFU transfers.
+|===
+
 
 For further documentation on the different handles and their uses, see the guide under /docs/dfu/.
