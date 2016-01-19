@@ -50,6 +50,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "nrf_gpio.h"
 
+/* Magic UICR overwrite to convince the MBR to start in bootloader. */
+#if 1
+extern uint32_t __Vectors;
+uint32_t* m_uicr_bootloader_start_address 
+    __attribute__((at(NRF_UICR_BOOT_START_ADDRESS))) = &__Vectors;
+#endif
+
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     __disable_irq();
@@ -64,22 +71,23 @@ void HardFault_Handler(uint32_t pc, uint32_t lr)
     NRF_GPIO->OUTSET = (1 << 7);
     NRF_GPIO->OUTCLR = (1 << 23);
     __BKPT(0);
+    while (1);
 }
 
 /** Interrupt indicating new serial command */
+#ifdef SERIAL
 void SWI2_IRQHandler(void)
 {
     mesh_aci_command_check();
 }
+#endif
 
 static void rx_cb(mesh_packet_t* p_packet)
 {
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
-    if (p_adv_data->handle > RBC_MESH_APP_MAX_HANDLE)
+    if (p_adv_data && p_adv_data->handle > RBC_MESH_APP_MAX_HANDLE)
     {
-        NRF_GPIO->OUTCLR = (1 << 21);
         bootloader_rx((dfu_packet_t*) &p_adv_data->handle, p_adv_data->adv_data_length - 3, false);
-        NRF_GPIO->OUTSET = (1 << 21);
     }
 }
 
@@ -87,31 +95,46 @@ static void init_leds(void)
 {
     nrf_gpio_range_cfg_output(0, 32);
     NRF_GPIO->OUTCLR = 0xFFFFFFFF;
-    NRF_GPIO->OUTSET = (1 << 21) | (1 << 22) | (1 << 23) | (1 << 24);
+    NRF_GPIO->OUTSET = (1 << 22) | (1 << 23) | (1 << 24);
+}
+
+static void init_clock(void)
+{
+    NRF_CLOCK->TASKS_HFCLKSTART = 1;
+    while (!NRF_CLOCK->EVENTS_HFCLKSTARTED);
+    NRF_CLOCK->EVENTS_HFCLKSTARTED = 0;
+    NRF_CLOCK->TASKS_LFCLKSTART = 1;
+    while (!NRF_CLOCK->EVENTS_LFCLKSTARTED);
+    NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
+    
+    NRF_CLOCK->TASKS_CAL = 1;
+    while (!NRF_CLOCK->EVENTS_DONE);
+    NRF_CLOCK->EVENTS_DONE = 0;
 }
 
 int main(void)
 {
-    NRF_CLOCK->TASKS_HFCLKSTART = 1;
-    while (!NRF_CLOCK->EVENTS_HFCLKSTARTED);
-    NRF_CLOCK->TASKS_LFCLKSTART = 1;
-    while (!NRF_CLOCK->EVENTS_LFCLKSTARTED);
+    init_clock();
     
-    NRF_CLOCK->TASKS_CAL = 1;
-    while (!NRF_CLOCK->EVENTS_DONE);
+    /* check whether we should go to application */
+    if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_GO_TO_APP)
+    {
+        bootloader_abort(BL_END_SUCCESS);
+    }
     
     NVIC_SetPriority(SWI2_IRQn, 2);
     NVIC_EnableIRQ(SWI2_IRQn);
     
     init_leds();
     rtc_init();
-#ifdef SERIAL    
+#ifdef SERIAL
     mesh_aci_init();
-#endif    
+#endif
     transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
     bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE));
     bootloader_init();
-
+    transport_start();
+    
     while (1)
     {
         __WFE();
