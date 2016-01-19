@@ -72,8 +72,6 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
-            <nStopB1X>0</nStopB1X>
-            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -143,6 +141,7 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
+            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -422,9 +421,9 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
+              <FileName>mesh_gatt.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
             <File>
               <FileName>radio_control.c</FileName>
@@ -566,6 +565,26 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_info_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
+            </File>
+            <File>
+              <FileName>rand.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -710,8 +729,6 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
-            <nStopB1X>0</nStopB1X>
-            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -781,6 +798,7 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
+            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -1060,9 +1078,9 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
-              <FileName>mesh_srv.c</FileName>
+              <FileName>mesh_gatt.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\mesh_srv.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
             <File>
               <FileName>radio_control.c</FileName>
@@ -1118,6 +1136,26 @@
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_info_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
+            </File>
+            <File>
+              <FileName>rand.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
             </File>
           </Files>
         </Group>

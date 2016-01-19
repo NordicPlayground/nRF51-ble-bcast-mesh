@@ -579,6 +579,26 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
             </File>
+            <File>
+              <FileName>bootloader_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>rand.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_info_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -965,7 +985,7 @@
               <OCR_RVCT4>
                 <Type>1</Type>
                 <StartAddress>0x18000</StartAddress>
-                <Size>0x28000</Size>
+                <Size>0x18000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -1147,6 +1167,26 @@
               <FileName>mesh_packet.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>rand.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_info_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1759,6 +1799,26 @@
               <FileName>mesh_packet.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>rand.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_info_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
             </File>
           </Files>
         </Group>
