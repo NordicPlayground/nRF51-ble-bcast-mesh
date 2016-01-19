@@ -7,8 +7,8 @@ key for verifying dfu-transfers and firmware IDs allows the bootloader to make q
 about whether to accept incoming dfu-transfers, and where the data belongs.
 
 == Build/run
-The GNU Makefile in this repository can be used to build the tool with GCC (works on UNIX with any
-version of GCC 4.0 and above, and on Windows platforms with MinGW, and Cygwin). The application
+The GNU Makefile in this repository can be used to build the tool with GCC (tested on Linux with GCC
+4.8.1, and on Windows with MinGW + GCC4.8.1). The application
 only consists of a single file, and should be platform-independent. A pre-built version of the
 tool for Windows can also be found in this directory.
 
