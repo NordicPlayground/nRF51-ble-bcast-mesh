@@ -985,7 +985,7 @@ uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial
     return NRF_SUCCESS;
 }
 
-void bootloader_abort(volatile bl_end_t end_reason)
+void bootloader_abort(bl_end_t end_reason)
 {
     uint32_t app_length = m_bl_info_pointers.p_segment_app->length;
     if (m_transaction.transaction_id != 0)
