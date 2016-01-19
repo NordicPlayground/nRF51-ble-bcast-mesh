@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include <string.h>
 
-#define PACKET_INDEX(p_packet) (((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t)
+#define PACKET_INDEX(p_packet) ((((uint32_t) p_packet) - ((uint32_t) &g_packet_pool[0])) / sizeof(mesh_packet_t))
 /******************************************************************************
 * Static globals
 ******************************************************************************/

@@ -465,7 +465,7 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         serial_handler_event_send(&serial_evt);
 
         /* propagate to handler */
-        if (p_packet)
+        if (error_code == NRF_SUCCESS)
         {
             bootloader_packet_set_local_fields(p_packet, serial_cmd->length - SERIAL_PACKET_OVERHEAD);
             memcpy(&p_packet->payload[4], &serial_cmd->params.dfu.packet, serial_cmd->length - SERIAL_PACKET_OVERHEAD);

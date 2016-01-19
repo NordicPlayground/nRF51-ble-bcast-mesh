@@ -101,7 +101,7 @@ typedef struct
     uint32_t*       p_last_requested_entry;
     uint32_t        length;
     uint32_t        signature_length;
-    uint8_t         signature[2 * uECC_BYTES];
+    uint8_t         signature[DFU_SIGNATURE_LEN];
     uint8_t         signature_bitmap;
     uint16_t        segments_remaining;
     uint16_t        segment_count;
@@ -240,11 +240,7 @@ static bool signature_check(void)
     dfu_sha256(&hash_context);
 
     sha256_final(&hash_context, hash);
-    uint32_t was_masked;
-    _DISABLE_IRQS(was_masked);
-    bool success = (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, m_transaction.signature));
-    _ENABLE_IRQS(was_masked);
-    return success;
+    return (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, m_transaction.signature));
 }
 
 static bool ready_packet_is_upgrade(dfu_packet_t* p_packet)
@@ -694,8 +690,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             {
                 dfu_end();
                 
-                    start_rampdown();
-                }
+                start_rampdown();
+            }
         }
     }
 
@@ -1085,7 +1081,7 @@ void bootloader_rtc_irq_handler(void)
                 
                 _ENABLE_IRQS(was_masked);
                 
-            bootloader_abort(BL_END_SUCCESS);
+                bootloader_abort(BL_END_SUCCESS);
             }
             else
             {
