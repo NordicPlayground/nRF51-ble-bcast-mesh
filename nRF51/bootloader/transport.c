@@ -99,7 +99,7 @@ static void set_next_tx(tx_t* p_tx)
     {
         uint32_t offset         = (INTERVAL <<  p_tx->count) - INTERVAL;
         uint32_t offset_next    = (INTERVAL << (p_tx->count + 1)) - INTERVAL;
-        uint32_t diff = (offset_next & RTC_MASK - offset & RTC_MASK) & RTC_MASK;
+        uint32_t diff = ((offset_next & RTC_MASK) - (offset & RTC_MASK)) & RTC_MASK;
 
         p_tx->ticks_next = (p_tx->ticks_start + offset +
             (rand_prng_get(&m_prng) % (diff / 2)) + diff / 2) & RTC_MASK;
@@ -234,7 +234,7 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 
     NVIC_SetPriority(SWI0_IRQn, 2);
     NVIC_EnableIRQ(SWI0_IRQn);
-    
+
     NVIC_SetPriority(RADIO_IRQn, 0);
 
     radio_init(access_addr, idle_cb);
@@ -343,7 +343,7 @@ void transport_rtc_irq_handler(void)
                     }
                 }
             }
-            
+
             m_tx[i].redundancy = 0;
 
             if (m_tx[i].count++ == 0xFF)

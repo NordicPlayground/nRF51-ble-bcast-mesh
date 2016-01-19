@@ -52,9 +52,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* Magic UICR overwrite to convince the MBR to start in bootloader. */
 #if 1
+#if defined(__CC_ARM)
 extern uint32_t __Vectors;
-uint32_t* m_uicr_bootloader_start_address 
+uint32_t* m_uicr_bootloader_start_address
     __attribute__((at(NRF_UICR_BOOT_START_ADDRESS))) = &__Vectors;
+#elif defined(__GNUC__)
+extern uint32_t __Vectors;
+uint32_t* m_uicr_bootloader_start_address
+    __attribute__((section("UICR_BOOTADDR"))) = &__Vectors;
+#else
+#error "Unsupported toolchain."
+#endif
 #endif
 
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
@@ -106,7 +114,7 @@ static void init_clock(void)
     NRF_CLOCK->TASKS_LFCLKSTART = 1;
     while (!NRF_CLOCK->EVENTS_LFCLKSTARTED);
     NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
-    
+
     NRF_CLOCK->TASKS_CAL = 1;
     while (!NRF_CLOCK->EVENTS_DONE);
     NRF_CLOCK->EVENTS_DONE = 0;
@@ -115,16 +123,16 @@ static void init_clock(void)
 int main(void)
 {
     init_clock();
-    
+
     /* check whether we should go to application */
     if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_GO_TO_APP)
     {
         bootloader_abort(BL_END_SUCCESS);
     }
-    
+
     NVIC_SetPriority(SWI2_IRQn, 2);
     NVIC_EnableIRQ(SWI2_IRQn);
-    
+
     init_leds();
     rtc_init();
 #ifdef SERIAL
@@ -134,7 +142,7 @@ int main(void)
     bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE));
     bootloader_init();
     transport_start();
-    
+
     while (1)
     {
         __WFE();
