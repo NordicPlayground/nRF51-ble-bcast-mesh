@@ -60,7 +60,7 @@ typedef enum
     BL_INFO_TYPE_SEGMENT_SD         = 0x10,
     BL_INFO_TYPE_SEGMENT_BL         = 0x11,
     BL_INFO_TYPE_SEGMENT_APP        = 0x12,
-    
+
     BL_INFO_TYPE_SIGNATURE_SD       = 0x1A,
     BL_INFO_TYPE_SIGNATURE_BL       = 0x1B,
     BL_INFO_TYPE_SIGNATURE_APP      = 0x1C,
@@ -112,7 +112,6 @@ typedef struct
 
 
 uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank_page);
-bootloader_info_t* bootloader_info_get(void);
 bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_type_t type);
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type, bl_info_entry_t* p_entry, uint32_t length); /* p_entry must point to RAM */
 void bootloader_info_reset(void);
