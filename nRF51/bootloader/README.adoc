@@ -7,6 +7,9 @@ Master boot record, see below). This allows for single-bank Direct Firmware Upda
 makes it possible to use the bootloader on devices with 128K of flash.
 
 == Usage
+For a quick-start guide to the Mesh-DFU, see the
+link:./dfu_quick_start.adoc[quick start guide document].
+
 The bootloader supports both serial and over the air transfers. The intended main usage scenario
 is to have a single device in a network connected to a host over a serial connection, controlled via
 the mesh-version of https://github.com/NordicSemiconductor/pc-nrfutil[pc-nrfutil]. From this device,
