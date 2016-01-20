@@ -762,6 +762,8 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                 )
                )
             {
+                /* assume that the other device knows what to upgrade */
+                m_transaction.type = (dfu_type_t) p_packet->payload.state.dfu_type;
                 switch (m_transaction.type)
                 {
                     case DFU_TYPE_APP:
