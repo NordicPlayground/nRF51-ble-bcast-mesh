@@ -111,14 +111,14 @@ static nrf_radio_signal_callback_return_param_t g_ret_param;
 static uint64_t g_timeslot_length;
 static uint64_t g_next_timeslot_length;
 static uint64_t g_start_time_ref = 0;
-static uint64_t g_global_time = 0;      
-static bool g_is_in_callback = false;            
+static uint64_t g_global_time = 0;
+static bool g_is_in_callback = false;
 static bool g_is_in_timeslot = false;
 static bool g_framework_initialized = false;
 static bool g_end_timer_triggered = false;
 static ts_forced_command_t g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
 static uint32_t g_negotiate_timeslot_length = TIMESLOT_SLOT_LENGTH;
-static uint32_t g_lfclk_ppm;                            
+static uint32_t g_lfclk_ppm;
 
 
 static volatile uint32_t ts_count = 0;
@@ -147,7 +147,7 @@ void ts_sd_event_handler(uint32_t evt)
     switch (evt)
     {
         case NRF_EVT_RADIO_SESSION_IDLE:
-            /* the idle event is usually triggered when rbc_mesh_stop is called, 
+            /* the idle event is usually triggered when rbc_mesh_stop is called,
                 but if this isn't the case, we have to restart the TS */
             if (g_timeslot_forced_command != TS_FORCED_COMMAND_STOP)
             {
@@ -175,7 +175,6 @@ void ts_sd_event_handler(uint32_t evt)
             timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
             break;
         default:
-            APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
     CLEAR_PIN(PIN_SD_EVT_HANDLER);
 }
@@ -217,7 +216,7 @@ static void global_time_update(void)
     /* scale to become us */
     g_global_time += ((delta_rtc_time << 15) / 1000);
 }
-    
+
 
 /**
 * @brief Radio signal callback handler taking care of all signals in searching
@@ -228,8 +227,8 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     static uint32_t requested_extend_time = 0;
     static uint32_t successful_extensions = 0;
     static uint32_t timeslot_count = 0;
-    
-    if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START) 
+
+    if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START)
     {
         g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
     }
@@ -263,7 +262,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 
     g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
     g_is_in_callback = true;
-    
+
     SET_PIN(PIN_IN_CB);
 
     switch (sig)
@@ -274,7 +273,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             g_is_in_timeslot = true;
             g_end_timer_triggered = false;
             successful_extensions = 0;
-            
+
             if (timeslot_count > 0)
             {
                 global_time_update();
@@ -283,7 +282,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             event_handler_on_ts_begin();
             timer_on_ts_begin();
             tc_on_ts_begin();
-            
+
             g_negotiate_timeslot_length = TIMESLOT_SLOT_EXTEND_LENGTH;
             g_timeslot_length = g_next_timeslot_length;
 
@@ -292,13 +291,13 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 
             /* attempt to extend our time right away */
             timeslot_extend(g_negotiate_timeslot_length);
-            
+
             /* increase timeslot-count, but skip =0 on rollover */
             if (!++timeslot_count)
             {
                 timeslot_count++;
             }
-            
+
             break;
         }
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_RADIO:
@@ -324,7 +323,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 
             timer_order_cb_sync_exec(TIMER_INDEX_TS_END, g_timeslot_length - end_timer_margin(),
                     end_timer_handler);
-            
+
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
 
             TICK_PIN(PIN_EXTENSION_OK);
@@ -397,8 +396,8 @@ void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
         return;
     }
     uint32_t error;
-    
-    
+
+
     switch (lfclksrc)
     {
         case NRF_CLOCK_LFCLKSRC_XTAL_100_PPM:
@@ -428,17 +427,17 @@ void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
         default:
             g_lfclk_ppm = 250;
     }
-    
+
 
     g_is_in_callback = false;
     g_framework_initialized = true;
-    
+
     error = sd_nvic_EnableIRQ(SD_EVT_IRQn);
     APP_ERROR_CHECK(error);
 
     error = sd_radio_session_open(&radio_signal_callback);
     APP_ERROR_CHECK(error);
-    
+
     timer_init();
     g_start_time_ref = NRF_RTC0->COUNTER;
     g_timeslot_length = TIMESLOT_SLOT_LENGTH;
