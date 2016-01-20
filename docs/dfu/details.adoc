@@ -1,0 +1,8 @@
+= Mesh-DFU Details
+
+The DFU packet format used for Mesh-DFU transfers (both over serial and on-air) is presented in
+link:DFUpackets.pdf[DFUpackets.pdf]. The source of the document, along with additional details
+on various mechanisms are present in the excel-sheet with the same name.
+
+More in-depth information, along with some message sequence diagrams and explanations will be
+included in this document at a later stage.

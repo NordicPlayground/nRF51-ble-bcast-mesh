@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -44,10 +39,10 @@ typedef void (*fifo_memcpy)(void* dest, const void* src);
 typedef struct
 {
   void* elem_array;
-  uint32_t elem_size;
-  uint32_t array_len;
-  uint32_t head;
-  uint32_t tail;
+  uint16_t elem_size;
+  uint16_t array_len;
+  uint16_t head;
+  uint16_t tail;
   fifo_memcpy memcpy_fptr; /* must be a valid function or NULL */
 } fifo_t;
 

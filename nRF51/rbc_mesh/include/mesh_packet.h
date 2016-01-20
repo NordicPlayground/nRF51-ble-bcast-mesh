@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -39,8 +34,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include "rbc_mesh.h"
 #include "toolchain.h"
+#include "dfu_types_mesh.h"
 
-                                             
+
 #define MESH_UUID                           (0xFEE4)
 #define MESH_ADV_DATA_TYPE                  (0x16)
 #define BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH   (31)
@@ -51,7 +47,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /******************************************************************************
 * Public typedefs
 ******************************************************************************/
-typedef __packed_armcc enum 
+typedef __packed_armcc enum
 {
     BLE_PACKET_TYPE_ADV_IND,
     BLE_PACKET_TYPE_ADV_DIRECT_IND,
@@ -72,6 +68,12 @@ typedef __packed_armcc struct
     uint8_t _rfu3;
 } __packed_gcc ble_packet_header_t;
 
+typedef __packed_armcc struct
+{
+    uint8_t                 adv_data_length;
+    uint8_t                 adv_data_type;
+    uint8_t                 data[];
+} __packed_gcc ble_ad_t;
 
 typedef __packed_armcc struct
 {
@@ -83,7 +85,15 @@ typedef __packed_armcc struct
     uint8_t                 data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc mesh_adv_data_t;
 
-typedef __packed_armcc struct 
+typedef __packed_armcc struct
+{
+    uint8_t                 adv_data_length;
+    uint8_t                 adv_data_type;
+    uint16_t                mesh_uuid;
+    dfu_packet_t            dfu_packet;
+} __packed_gcc mesh_dfu_adv_data_t;
+
+typedef __packed_armcc struct
 {
     ble_packet_header_t header;
     uint8_t addr[6];
@@ -106,9 +116,11 @@ bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet);
 
 bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet);
 
+uint8_t mesh_packet_ref_count_get(mesh_packet_t* p_packet);
+
 uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet);
 
-uint32_t mesh_packet_build(mesh_packet_t* p_packet, 
+uint32_t mesh_packet_build(mesh_packet_t* p_packet,
         rbc_mesh_value_handle_t handle,
         uint16_t version,
         uint8_t* data,

@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -57,7 +52,6 @@ typedef enum
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-
 static fifo_t rx_fifo;
 static fifo_t tx_fifo;
 static serial_data_t rx_fifo_buffer[SERIAL_QUEUE_SIZE];
@@ -70,6 +64,16 @@ static uint8_t* tx_ptr;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
+static void do_transmit(void);
+
+#ifdef BOOTLOADER
+void SWI1_IRQHandler(void)
+{
+    do_transmit();
+}
+#endif
+
+
 /** @brief Process packet queue, always done in the async context */
 static void do_transmit(void)
 {
@@ -90,6 +94,9 @@ static void schedule_transmit(void)
     if (serial_state != SERIAL_STATE_TRANSMIT)
     {
         serial_state = SERIAL_STATE_TRANSMIT;
+#ifdef BOOTLOADER
+        NVIC_SetPendingIRQ(SWI1_IRQn);
+#else
         async_event_t evt;
         evt.type = EVENT_TYPE_GENERIC;
         evt.callback.generic = do_transmit;
@@ -97,6 +104,7 @@ static void schedule_transmit(void)
         {
             serial_state = SERIAL_STATE_IDLE;
         }
+#endif        
     }
 }
 
@@ -119,6 +127,17 @@ static void char_rx(uint8_t c)
             fail_evt.params.cmd_rsp.command_opcode = ((serial_cmd_t*) rx_buf.buffer)->opcode;
             fail_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_BUSY;
             serial_handler_event_send(&fail_evt);
+        }
+        else
+        {
+#ifdef BOOTLOADER            
+            NVIC_SetPendingIRQ(SWI2_IRQn);
+#else
+            async_event_t async_evt;
+            async_evt.type = EVENT_TYPE_GENERIC;
+            async_evt.callback.generic = mesh_aci_command_check;
+            event_handler_push(&async_evt);
+#endif
         }
 
         if (fifo_is_full(&rx_fifo))
@@ -184,18 +203,24 @@ void serial_handler_init(void)
     rx_fifo.memcpy_fptr = NULL;
     fifo_init(&rx_fifo);
 
-    /* setup hw */
+    /* setup hw */                      
     nrf_gpio_cfg_output(TX_PIN_NUMBER);
     nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_NOPULL);
     nrf_gpio_cfg_output(RTS_PIN_NUMBER);
     nrf_gpio_cfg_input(CTS_PIN_NUMBER, NRF_GPIO_PIN_NOPULL);
-
+    
+    /* delay to keep hw from outputting weird bits on config */
+    for (uint32_t i = 0; i < 100; ++i)
+    {
+        __NOP();
+    }
+    
     NRF_UART0->PSELTXD       = TX_PIN_NUMBER;
     NRF_UART0->PSELRXD       = RX_PIN_NUMBER;
     NRF_UART0->PSELCTS       = CTS_PIN_NUMBER;
     NRF_UART0->PSELRTS       = RTS_PIN_NUMBER;
     NRF_UART0->CONFIG        = (UART_CONFIG_HWFC_Enabled << UART_CONFIG_HWFC_Pos);
-    NRF_UART0->BAUDRATE      = (UART_BAUDRATE_BAUDRATE_Baud38400 << UART_BAUDRATE_BAUDRATE_Pos);
+    NRF_UART0->BAUDRATE      = (UART_BAUDRATE_BAUDRATE_Baud115200 << UART_BAUDRATE_BAUDRATE_Pos);
     NRF_UART0->ENABLE        = (UART_ENABLE_ENABLE_Enabled << UART_ENABLE_ENABLE_Pos);
     NRF_UART0->TASKS_STARTTX = 1;
     NRF_UART0->TASKS_STARTRX = 1;
@@ -210,7 +235,11 @@ void serial_handler_init(void)
     serial_evt_t started_event;
     started_event.length = 4;
     started_event.opcode = SERIAL_EVT_OPCODE_DEVICE_STARTED;
+#ifdef BOOTLOADER
+    started_event.params.device_started.operating_mode = OPERATING_MODE_SETUP;
+#else
     started_event.params.device_started.operating_mode = OPERATING_MODE_STANDBY;
+#endif
     uint32_t reset_reason;
 #ifdef SOFTDEVICE_PRESENT
     sd_power_reset_reason_get(&reset_reason);

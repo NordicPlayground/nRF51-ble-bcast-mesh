@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -35,11 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _SERIAL_EVENT_H__
 #define _SERIAL_EVENT_H__
 
-#include "serial_handler.h"
-#include "toolchain.h"
-#include "mesh_aci.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include "toolchain.h"
+#include "mesh_aci.h"
+#include "dfu_types_mesh.h"
 
 
 typedef __packed_armcc enum
@@ -50,7 +45,8 @@ typedef __packed_armcc enum
     SERIAL_EVT_OPCODE_EVENT_NEW             = 0xB3,
     SERIAL_EVT_OPCODE_EVENT_UPDATE          = 0xB4,
     SERIAL_EVT_OPCODE_EVENT_CONFLICTING     = 0xB5,
-    SERIAL_EVT_OPCODE_EVENT_TX              = 0xB6
+    SERIAL_EVT_OPCODE_EVENT_TX              = 0xB6,
+    SERIAL_EVT_OPCODE_DFU                   = 0x78
 } __packed_gcc serial_evt_opcode_t;
 
 
@@ -98,6 +94,10 @@ typedef __packed_armcc struct
     uint8_t data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc serial_evt_cmd_rsp_params_val_get_t;
 
+typedef __packed_armcc struct
+{
+    uint16_t packet_type;
+} __packed_gcc serial_evt_cmd_rsp_params_dfu_t;
 
 /****** EVT PARAMS ******/
 typedef __packed_armcc struct
@@ -117,6 +117,7 @@ typedef __packed_armcc struct
         serial_evt_cmd_rsp_params_flag_get_t flag;
         serial_evt_cmd_rsp_params_int_min_t int_min;
         serial_evt_cmd_rsp_params_val_get_t val_get;
+        serial_evt_cmd_rsp_params_dfu_t dfu;
     } __packed_gcc response;        
 } __packed_gcc serial_evt_params_cmd_rsp_t;
 
@@ -153,6 +154,11 @@ typedef __packed_armcc struct
 
 typedef __packed_armcc struct 
 {
+    dfu_packet_t packet;
+} __packed_gcc serial_evt_params_dfu_t;
+
+typedef __packed_armcc struct 
+{
     uint8_t length;
     uint8_t opcode;
     __packed_armcc union
@@ -164,6 +170,7 @@ typedef __packed_armcc struct
         serial_evt_params_event_conflicting_t       event_conflicting;
         serial_evt_params_event_tx_t                event_tx;
         serial_evt_params_event_device_started_t    device_started;
+        serial_evt_params_dfu_t                     dfu;
 	} __packed_gcc params;
 } __packed_gcc serial_evt_t;
 

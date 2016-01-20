@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -46,6 +41,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "version_handler.h"
 #include "mesh_aci.h"
 #include "app_error.h"
+#include "dfu_types_mesh.h"
+#include "bootloader_info_app.h"
+#include "bootloader_app.h"
 
 #include <string.h>
 
@@ -65,7 +63,8 @@ typedef struct
 /******************************************************************************
 * Static globals
 ******************************************************************************/
-static tc_state_t g_state;
+static tc_state_t m_state;
+static bl_info_entry_t* mp_fwid_entry = NULL;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -78,9 +77,8 @@ static void order_search(void)
     radio_event_t evt;
     
     evt.event_type = RADIO_EVENT_TYPE_RX_PREEMPTABLE;
-    evt.start_time = 0;
     evt.access_address = 1;
-    evt.channel = g_state.channel;
+    evt.channel = m_state.channel;
     evt.callback.rx = rx_cb;
     
     if (!mesh_packet_acquire((mesh_packet_t**) &evt.packet_ptr))
@@ -115,7 +113,7 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
         mesh_packet_ref_count_inc((mesh_packet_t*) data); /* event handler has a ref */
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
-            g_state.queue_saturation = true;
+            m_state.queue_saturation = true;
             mesh_packet_ref_count_dec((mesh_packet_t*) data); /* event handler lost its ref */
         }
     }
@@ -155,7 +153,7 @@ static void tx_cb(uint8_t* data)
 static void radio_idle_callback(void)
 {
     /* If the processor is unable to keep up, we should back down, and give it time */
-    if (!g_state.queue_saturation)
+    if (!m_state.queue_saturation)
         order_search();
 }
 
@@ -226,28 +224,88 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
     }
 }
 
+
+static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
+{
+    if (mp_fwid_entry == NULL)
+    {
+        return; /* no fwid to compare against */
+    }
+    mesh_dfu_adv_data_t* p_dfu = (mesh_dfu_adv_data_t*) p_adv_data;
+    
+    switch ((dfu_packet_type_t) p_dfu->dfu_packet.packet_type)
+    {
+        case DFU_PACKET_TYPE_FWID:
+            /* check if fwid is newer */
+            if (mp_fwid_entry->version.app.company_id == p_dfu->dfu_packet.payload.fwid.app.company_id &&
+                mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.fwid.app.app_id &&
+                mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.fwid.app.app_version)
+            {
+                fwid_union_t fwid;
+                memcpy(&fwid.app, &p_dfu->dfu_packet.payload.fwid.app, sizeof(app_id_t));
+                bootloader_start(DFU_TYPE_APP, &fwid);
+            }
+            else if (mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.fwid.bootloader.id &&
+                     mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.fwid.bootloader.ver)
+            {
+                fwid_union_t fwid;
+                memcpy(&fwid.bootloader, &p_dfu->dfu_packet.payload.fwid.bootloader, sizeof(bl_id_t));
+                bootloader_start(DFU_TYPE_BOOTLOADER, &fwid);
+            }
+                
+            break;
+        case DFU_PACKET_TYPE_STATE:
+            /* check if we are an eligible target */
+            if (p_dfu->dfu_packet.payload.state.authority != 0)
+            {
+                if (p_dfu->dfu_packet.payload.state.dfu_type == DFU_TYPE_APP)
+                {
+                    if (mp_fwid_entry->version.app.company_id == p_dfu->dfu_packet.payload.state.fwid.app.company_id &&
+                        mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.state.fwid.app.app_id &&
+                        mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.state.fwid.app.app_version)
+                    {
+                        bootloader_start(DFU_TYPE_APP, &p_dfu->dfu_packet.payload.state.fwid);
+                    }
+                }
+                else if (p_dfu->dfu_packet.payload.state.dfu_type == DFU_TYPE_BOOTLOADER)
+                {
+                    if (mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.state.fwid.bootloader.id &&
+                        mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.state.fwid.bootloader.ver)
+                    {
+                        bootloader_start(DFU_TYPE_BOOTLOADER, &p_dfu->dfu_packet.payload.state.fwid);
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+}
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
 void tc_init(uint32_t access_address, uint8_t channel)
 {
-    g_state.access_address = access_address;
-    g_state.channel = channel;
+    m_state.access_address = access_address;
+    m_state.channel = channel;
+    
+    bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS);
+    mp_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
 }
 
 void tc_radio_params_set(uint32_t access_address, uint8_t channel)
 {
     if (channel < 40)
     {
-        g_state.access_address = access_address;
-        g_state.channel = channel;
+        m_state.access_address = access_address;
+        m_state.channel = channel;
         timeslot_restart();
     }
 }
 
 void tc_on_ts_begin(void)
 {
-    radio_init(g_state.access_address, radio_idle_callback);
+    radio_init(m_state.access_address, radio_idle_callback);
 }
 
 uint32_t tc_tx(mesh_packet_t* p_packet)
@@ -257,11 +315,10 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
     /* queue the packet for transmission */
     radio_event_t event;
     memset(&event, 0, sizeof(radio_event_t));
-    event.start_time = 0;
     mesh_packet_ref_count_inc(p_packet); /* queue will have a reference until tx_cb */
     event.packet_ptr = (uint8_t*) p_packet;
     event.access_address = 0;
-    event.channel = g_state.channel;
+    event.channel = m_state.channel;
     event.callback.tx = tx_cb;
     event.event_type = RADIO_EVENT_TYPE_TX;
     if (!radio_order(&event))
@@ -301,15 +358,19 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         {
             mesh_app_packet_handle(p_mesh_adv_data, timestamp);
         }
+        else
+        {
+            mesh_framework_packet_handle(p_mesh_adv_data, timestamp);
+        }
     }
     
     /* this packet is no longer needed in this context */
     mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
 
-    if (g_state.queue_saturation)
+    if (m_state.queue_saturation)
     {
         order_search();
-        g_state.queue_saturation = false;
+        m_state.queue_saturation = false;
     }
     
     CLEAR_PIN(PIN_RX);

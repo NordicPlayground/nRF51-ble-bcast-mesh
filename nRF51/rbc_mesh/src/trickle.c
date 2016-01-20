@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -36,20 +31,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "trickle.h"
 #include "rbc_mesh_common.h"
 #include "app_error.h"
+#include "rand.h"
 
 #include "nrf_soc.h"
 #include "nrf51_bitfields.h"
 #include <string.h>
 
-typedef struct 
-{ 
-    uint32_t a; 
-    uint32_t b; 
-    uint32_t c; 
-    uint32_t d; 
-} rand_t;
-
-#define rot(x,k) (((x)<<(k))|((x)>>(32-(k))))
 /*****************************************************************************
 * Static Globals
 *****************************************************************************/
@@ -58,50 +45,11 @@ typedef struct
 static uint32_t g_i_min, g_i_max;
 static uint8_t g_k;
 
-static rand_t g_rand;
+static prng_t g_rand;
 
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
-
-/* Bob Jenkins' small prng 
-http://burtleburtle.net/bob/rand/smallprng.html */
-static uint32_t rand() {
-    uint32_t e = g_rand.a - rot(g_rand.b, 27);
-    g_rand.a = g_rand.b ^ rot(g_rand.c, 17);
-    g_rand.b = g_rand.c + g_rand.d;
-    g_rand.c = g_rand.d + e;
-    g_rand.d = e + g_rand.a;
-    return g_rand.d;
-}
-
-static void rand_init(void)
-{
-    uint32_t error_code;
-    uint8_t bytes_available;
-    uint32_t seed;
-    
-    /* generate true random seed */
-    do
-    {
-        error_code =
-            sd_rand_application_bytes_available_get(&bytes_available);
-        APP_ERROR_CHECK(error_code);
-    } while (bytes_available < 4);
-    
-    error_code =
-        sd_rand_application_vector_get((uint8_t*) &seed,
-        4);
-    APP_ERROR_CHECK(error_code);
-    
-    /* establish base magic numbers */
-    g_rand.a = 0xf1ea5eed;
-    g_rand.b = g_rand.c = g_rand.d = seed;
-    
-    for (uint32_t i = 0; i < 20; ++i) {
-        (void)rand();
-    }
-}
 
 /**
 * @brief Do calculations for beginning of a trickle interval. Is called from
@@ -118,8 +66,8 @@ static void trickle_interval_begin(trickle_t* trickle)
 
 static void refresh_t(trickle_t* trickle)
 {
-    uint32_t rand_number = rand();
-    
+    uint32_t rand_number = rand_prng_get(&g_rand);
+
     uint64_t i_half = trickle->i_relative / 2;
     trickle->t = trickle->i + i_half + (rand_number % i_half);
 }
@@ -147,8 +95,8 @@ void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k)
     g_i_min = i_min;
     g_i_max = i_max;
     g_k = k;
-    
-    rand_init();
+
+    rand_prng_seed(&g_rand);
 }
 
 void trickle_rx_consistent(trickle_t* trickle, uint64_t time_now)
