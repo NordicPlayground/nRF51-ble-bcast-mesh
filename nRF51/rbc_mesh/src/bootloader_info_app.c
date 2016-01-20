@@ -90,26 +90,34 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page)
 
 bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_type_t type)
 {
-    bootloader_info_header_t* p_header =
-        (bootloader_info_header_t*)
-        ((uint32_t) p_bl_info_page + ((bootloader_info_t*) p_bl_info_page)->metadata.metadata_len);
-    uint32_t iterations = 0;
-    bl_info_type_t iter_type = (bl_info_type_t) p_header->type;
-    while (iter_type != type)
+    if (mp_bl_info_page &&
+        mp_bl_info_page->metadata.entry_header_length != 0xFF)
     {
-        p_header = bootloader_info_iterate(p_header);
-        if ((uint32_t) p_header > ((uint32_t) p_bl_info_page) + PAGE_SIZE ||
-            (
-             (iter_type == BL_INFO_TYPE_LAST) &&
-             (iter_type != type)
-            ) ||
-            ++iterations > PAGE_SIZE / 2)
+        bootloader_info_header_t* p_header =
+            (bootloader_info_header_t*)
+            ((uint32_t) p_bl_info_page + ((bootloader_info_t*) p_bl_info_page)->metadata.metadata_len);
+        uint32_t iterations = 0;
+        bl_info_type_t iter_type = (bl_info_type_t) p_header->type;
+        while (iter_type != type)
         {
-            PIN_CLEAR(PIN_ENTRY_GET);
-            return NULL; /* out of bounds */
+            p_header = bootloader_info_iterate(p_header);
+            if ((uint32_t) p_header > ((uint32_t) p_bl_info_page) + PAGE_SIZE ||
+                (
+                 (iter_type == BL_INFO_TYPE_LAST) &&
+                 (iter_type != type)
+                ) ||
+                ++iterations > PAGE_SIZE / 2)
+            {
+                PIN_CLEAR(PIN_ENTRY_GET);
+                return NULL; /* out of bounds */
+            }
+            iter_type = (bl_info_type_t) p_header->type;
         }
-        iter_type = (bl_info_type_t) p_header->type;
+        return (bl_info_entry_t*) ((uint32_t) p_header + 4 * mp_bl_info_page->metadata.entry_header_length);
     }
-    return (bl_info_entry_t*) ((uint32_t) p_header + 4 * mp_bl_info_page->metadata.entry_header_length);
+    else
+    {
+        return NULL;
+    }
 }
 
