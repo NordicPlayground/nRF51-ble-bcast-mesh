@@ -124,9 +124,11 @@ up to 32kB if flash size is not an issue. The bootloader is not expected to grow
 this cannot be guaranteed.
 
 == Memory map
-Below is a memory map of the device flash area with the bootloader on a 256kb device, with S110
+Below is a memory map of the device flash area with the bootloader on a 128kB device, with S110
 v8.0. Note the device info page at the top with its bank page below it. The bank page is used to
 ensure that the contents of the device-info page is never lost due to power-outs or similar.
+
+image::../../docs/dfu/memorymap.png[Memory map of the Flash area]
 
 == Tell me more!
 For more information about the mesh-dfu functionality and how it's implemented in the bootloader,
