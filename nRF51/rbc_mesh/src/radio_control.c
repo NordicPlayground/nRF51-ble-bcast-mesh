@@ -246,15 +246,14 @@ bool radio_order(radio_event_t* radio_event)
         return false;
     }
     /* trigger radio callback */
-    uint32_t was_masked;
-    _DISABLE_IRQS(was_masked);
 
     if (fifo_push(&radio_fifo, radio_event) != NRF_SUCCESS)
     {
-        _ENABLE_IRQS(was_masked);
         return false;
     }
 
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
     if (timeslot_is_in_ts())
     {
         NVIC_SetPendingIRQ(RADIO_IRQn);
