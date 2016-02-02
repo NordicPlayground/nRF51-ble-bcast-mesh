@@ -52,9 +52,9 @@ typedef enum
 typedef struct
 {
     radio_event_type_t event_type;  /* RX/TX */
-    uint8_t* packet_ptr;            /* packet pointer to use. */
     uint8_t access_address;         /* If TX: access address index to send on. If RX: AA enabled bitfield */
     uint8_t channel;                /* Channel to execute event on */
+    uint8_t* packet_ptr;            /* packet pointer to use. */
     union 
     {
         radio_rx_cb rx;
