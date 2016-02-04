@@ -47,7 +47,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stddef.h>
 #include <string.h>
 
-#define MESH_TRICKLE_I_MAX              (2000)
+#define MESH_TRICKLE_I_MAX              (2048)
 #define MESH_TRICKLE_K                  (3)
 
 #define MESH_VALUE_LOLLIPOP_LIMIT       (200)
