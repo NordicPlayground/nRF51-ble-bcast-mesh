@@ -41,8 +41,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_packet.h"
 #include "mesh_aci.h"
 
+#include "SEGGER_RTT.h"
+
 #include "nrf_error.h"
 #include "app_error.h"
+#include "fifo.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
@@ -57,6 +60,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define HANDLE_CACHE_ENTRY_INVALID      (RBC_MESH_HANDLE_CACHE_ENTRIES)
 #define DATA_CACHE_ENTRY_INVALID        (RBC_MESH_DATA_CACHE_ENTRIES)
 
+#define CACHE_TASK_FIFO_SIZE            (8)
+
+#define THREAD_SAFE                     (0)
+
+#if THREAD_SAFE
+
+#define HANDLE_CACHE_ITERATE(index)     do { uint32_t was_masked; _DISABLE_IRQS(was_masked); index = m_handle_cache[index].index_next; _ENABLE_IRQS(was_masked); } while (0)
+#define HANDLE_CACHE_ITERATE_BACK(index)     do { uint32_t was_masked; _DISABLE_IRQS(was_masked); index = m_handle_cache[index].index_prev; _ENABLE_IRQS(was_masked); } while (0)
+
+#else
+
+#define HANDLE_CACHE_ITERATE(index)     do { index = m_handle_cache[index].index_next; } while (0)
+#define HANDLE_CACHE_ITERATE_BACK(index)     do { index = m_handle_cache[index].index_prev; } while (0)
+
+#endif
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
@@ -79,18 +97,109 @@ typedef struct
     trickle_t trickle;
     mesh_packet_t* p_packet;
 } data_entry_t;
+
+typedef enum
+{
+    CACHE_TASK_TYPE_ENABLE,
+    CACHE_TASK_TYPE_LOCAL_UPDATE
+} cache_task_type_t;
+
+typedef struct
+{
+    cache_task_type_t type;
+    rbc_mesh_value_handle_t handle;
+    union
+    {
+        struct
+        {
+            mesh_packet_t* p_packet;
+        } enable;
+        struct
+        {
+            mesh_packet_t* p_packet;
+        } local_update;
+    } params;
+} cache_task_t;
 /******************************************************************************
 * Static globals
 ******************************************************************************/
-static handle_entry_t m_handle_cache[RBC_MESH_HANDLE_CACHE_ENTRIES];
-static data_entry_t m_data_cache[RBC_MESH_DATA_CACHE_ENTRIES];
-static uint32_t m_handle_cache_head;
-static uint32_t m_handle_cache_tail;
-static bool g_is_initialized = false;
-
+static handle_entry_t   m_handle_cache[RBC_MESH_HANDLE_CACHE_ENTRIES];
+static data_entry_t     m_data_cache[RBC_MESH_DATA_CACHE_ENTRIES];
+static uint32_t         m_handle_cache_head;
+static uint32_t         m_handle_cache_tail;
+static uint16_t         m_persistence_count = 0;
+static bool             m_is_initialized = false;
+static fifo_t           m_task_fifo;
+static cache_task_t     m_task_fifo_buffer[CACHE_TASK_FIFO_SIZE];
+static bool             m_handle_task_scheduled;
+#ifdef DEBUG
+static uint16_t m_cache_altering_log[16];
+static uint8_t m_cache_alter_pointer = 0;
+#endif
 /******************************************************************************
 * Static functions
 ******************************************************************************/
+#ifdef DEBUG
+static void log_cache_access(uint16_t line)
+{
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
+    m_cache_altering_log[(m_cache_alter_pointer++) & 0x0F] = line;
+    m_cache_altering_log[(m_cache_alter_pointer) & 0x0F] = 0; // to easily locate latest.
+    _ENABLE_IRQS(was_masked);
+}
+
+static void print_cache_log(void)
+{
+    SEGGER_RTT_WriteString(0, "CACHE LOG:\n");
+    for (uint8_t i = 0; i < 16; ++i)
+    {
+        SEGGER_RTT_printf(0, "\t%d\n", m_cache_altering_log[(m_cache_alter_pointer + i) & 0x0F]);
+    }
+}
+
+static void validate_cache(void)
+{ 
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
+    APP_ERROR_CHECK_BOOL(m_handle_cache[m_handle_cache_tail].index_next == HANDLE_CACHE_ENTRY_INVALID);
+    APP_ERROR_CHECK_BOOL(m_handle_cache[m_handle_cache_head].index_prev == HANDLE_CACHE_ENTRY_INVALID);
+    for (uint32_t i = 0; i < RBC_MESH_HANDLE_CACHE_ENTRIES; ++i)
+    {
+        if (i != m_handle_cache_head)
+        {
+            if (m_handle_cache[i].index_prev == HANDLE_CACHE_ENTRY_INVALID)
+            {
+                print_cache_log();
+                APP_ERROR_CHECK_BOOL(false);
+            }
+        }
+        if (i != m_handle_cache_tail)
+        {
+            if (m_handle_cache[i].index_next == HANDLE_CACHE_ENTRY_INVALID)
+            {
+                print_cache_log();
+                APP_ERROR_CHECK_BOOL(false);
+            }
+        }
+    }
+    
+    for (uint32_t count = 0, i = m_handle_cache_head; count < RBC_MESH_HANDLE_CACHE_ENTRIES - 1; i = m_handle_cache[i].index_next, count++)
+    {
+        if (m_handle_cache[i].index_next == HANDLE_CACHE_ENTRY_INVALID)
+        {
+            print_cache_log();
+            APP_ERROR_CHECK_BOOL(false);
+        }
+    }
+    _ENABLE_IRQS(was_masked);
+}
+
+
+
+#endif    
+
+
 static void version_increment(uint16_t* version)
 {
     if (*version == UINT16_MAX)
@@ -121,12 +230,14 @@ static void data_entry_free(data_entry_t* p_data_entry)
   Returns the index of the resulting entry. */
 static uint16_t data_entry_allocate(void)
 {
+    static uint16_t allocated = 0;
     /** @TODO: Can this bit be removed when all entries are allocated?*/
-    for (uint32_t i = 0; i < RBC_MESH_DATA_CACHE_ENTRIES; ++i)
+    for (uint32_t i = allocated; i < RBC_MESH_DATA_CACHE_ENTRIES; ++i)
     {
         if (m_data_cache[i].p_packet == NULL)
         {
             trickle_timer_reset(&m_data_cache[i].trickle, 0);
+            allocated++;
             return i;
         }
     }
@@ -136,7 +247,8 @@ static uint16_t data_entry_allocate(void)
     while (m_handle_cache[handle_index].data_entry == DATA_CACHE_ENTRY_INVALID ||
             m_handle_cache[handle_index].persistent)
     {
-        handle_index = m_handle_cache[handle_index].index_prev;
+        HANDLE_CACHE_ITERATE_BACK(handle_index);
+        
         if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
         {
             return DATA_CACHE_ENTRY_INVALID;
@@ -149,7 +261,6 @@ static uint16_t data_entry_allocate(void)
     m_handle_cache[handle_index].data_entry = DATA_CACHE_ENTRY_INVALID;
 
     data_entry_free(&m_data_cache[data_index]);
-
     return data_index;
 }
 
@@ -157,17 +268,20 @@ static uint16_t data_entry_allocate(void)
   Returns HANDLE_CACHE_ENTRY_INVALID if not found */
 static uint16_t handle_entry_get(rbc_mesh_value_handle_t handle)
 {
+    event_handler_critical_section_begin();
     uint16_t i = m_handle_cache_head;
 
     while (m_handle_cache[i].handle != handle)
     {
         if (m_handle_cache_tail == i)
         {
+            event_handler_critical_section_end();
             return HANDLE_CACHE_ENTRY_INVALID; /* checked all entries */
         }
-        i = m_handle_cache[i].index_next; /* iterate */
+        HANDLE_CACHE_ITERATE(i);
     }
-
+    
+    event_handler_critical_section_end();
     return i;
 }
 
@@ -177,20 +291,15 @@ static uint16_t handle_entry_get(rbc_mesh_value_handle_t handle)
   is full of persistent handles */
 static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
 {
-    /* this may be executed in main context, and we don't want an event to
-       come in and change the linked list while we're working on it */
-    event_handler_critical_section_begin();
-
     uint16_t i = handle_entry_get(handle);
     if (i == HANDLE_CACHE_ENTRY_INVALID)
     {
         i = m_handle_cache_tail;
         while (m_handle_cache[i].persistent)
         {
-            i = m_handle_cache[i].index_prev;
+            HANDLE_CACHE_ITERATE_BACK(i);
             if (i == HANDLE_CACHE_ENTRY_INVALID)
             {
-                event_handler_critical_section_end();
                 return i; /* reached the head without hitting a non-persistent handle */
             }
         }
@@ -204,7 +313,6 @@ static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
             m_handle_cache[i].data_entry = DATA_CACHE_ENTRY_INVALID;
         }
     }
-
     /* detach and move to head */
     if (i != m_handle_cache_tail)
     {
@@ -219,7 +327,6 @@ static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
         m_handle_cache[i].index_next = HANDLE_CACHE_ENTRY_INVALID;
     }
 
-
     if (i != m_handle_cache_head)
     {
         if (m_handle_cache[i].index_prev != HANDLE_CACHE_ENTRY_INVALID)
@@ -232,12 +339,10 @@ static uint16_t handle_entry_to_head(rbc_mesh_value_handle_t handle)
         m_handle_cache[m_handle_cache_head].index_prev = i;
         m_handle_cache_head = i;
     }
-
+    
     m_handle_cache[m_handle_cache_head].index_prev = HANDLE_CACHE_ENTRY_INVALID;
     m_handle_cache[m_handle_cache_tail].index_next = HANDLE_CACHE_ENTRY_INVALID;
-
-    event_handler_critical_section_end();
-
+    
     return i;
 }
 
@@ -261,7 +366,7 @@ static uint16_t handle_version_set(rbc_mesh_value_handle_t handle,
     {
         m_handle_cache[i].version = version;
     }
-
+    
     return i;
 }
 
@@ -288,11 +393,10 @@ static void order_next_transmission(uint64_t time_now)
     uint64_t ts_end_time = timeslot_get_end_time();
     uint64_t earliest = UINT64_MAX;
     uint16_t handle_index = m_handle_cache_head;
-
     do
     {
         uint16_t data_index = m_handle_cache[handle_index].data_entry;
-        if (data_index != DATA_CACHE_ENTRY_INVALID &&
+        if (data_index < DATA_CACHE_ENTRY_INVALID &&
             m_data_cache[data_index].p_packet != NULL &&
             m_data_cache[data_index].trickle.t < earliest
         )
@@ -300,10 +404,10 @@ static void order_next_transmission(uint64_t time_now)
             earliest = m_data_cache[data_index].trickle.t;
         }
 
-        handle_index = m_handle_cache[handle_index].index_next;
+        HANDLE_CACHE_ITERATE(handle_index);
 
-    } while (handle_index != m_handle_cache_tail);
-
+    } while (handle_index != m_handle_cache_tail && handle_index != HANDLE_CACHE_ENTRY_INVALID);
+    
     if (earliest < ts_end_time)
     {
         timer_order_cb(TIMER_INDEX_VH, earliest - ts_begin_time, transmit_all_instances);
@@ -346,7 +450,7 @@ static void transmit_all_instances(uint64_t timestamp)
         }
         data_index++;
     }
-
+    
     order_next_transmission(timestamp);
 }
 
@@ -364,6 +468,122 @@ static bool payload_has_conflict(mesh_adv_data_t* p_old_adv, mesh_adv_data_t* p_
     return (memcmp(p_old_adv->data, p_new_adv->data, p_old_adv->adv_data_length - MESH_PACKET_ADV_OVERHEAD) != 0);
 }
 
+static void cache_task_handle_enable(rbc_mesh_value_handle_t handle, mesh_packet_t* p_packet)
+{
+    const uint64_t ts_time = timer_get_timestamp();
+    const uint64_t time_now = ts_time + timeslot_get_global_time();
+    uint16_t handle_index = handle_entry_to_head(handle);
+    uint16_t data_index = m_handle_cache[handle_index].data_entry;
+
+    if (data_index == DATA_CACHE_ENTRY_INVALID)
+    {
+        data_index = data_entry_allocate();
+        
+        APP_ERROR_CHECK_BOOL(data_index != DATA_CACHE_ENTRY_INVALID);
+
+        m_handle_cache[handle_index].data_entry = data_index;
+        trickle_timer_reset(&m_data_cache[data_index].trickle, time_now);
+        m_data_cache[data_index].p_packet = p_packet;
+    }
+    else
+    {
+        if (m_data_cache[data_index].p_packet != NULL)
+        {
+            mesh_packet_ref_count_dec(p_packet); /* didn't need the dummy packet after all, we already had one */
+        }
+        else
+        {            
+            m_data_cache[data_index].p_packet = p_packet;
+        }
+        
+        trickle_enable(&m_data_cache[data_index].trickle);
+    }
+
+    vh_order_update(ts_time);
+}
+
+static void cache_task_handle_local_update(rbc_mesh_value_handle_t handle, mesh_packet_t* p_packet)
+{
+    const uint64_t ts_time = timer_get_timestamp();
+    const uint64_t time_now = ts_time + timeslot_get_global_time();
+    const uint16_t handle_index = handle_version_increment(handle);
+    uint16_t data_index = m_handle_cache[handle_index].data_entry;
+
+    if (data_index == DATA_CACHE_ENTRY_INVALID)
+    {
+        data_index = data_entry_allocate();
+        APP_ERROR_CHECK_BOOL(data_index != DATA_CACHE_ENTRY_INVALID);
+        
+        m_handle_cache[handle_index].data_entry = data_index;
+    }
+    else if (m_data_cache[data_index].p_packet != NULL)
+    {
+        mesh_packet_ref_count_dec(m_data_cache[data_index].p_packet);
+    }
+    
+    /* set the version number in the packet, as we now know it. */
+    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
+    APP_ERROR_CHECK_BOOL(p_adv_data != NULL);
+    p_adv_data->version = m_handle_cache[handle_index].version;
+    
+    m_data_cache[data_index].p_packet = p_packet;
+
+    trickle_enable(&m_data_cache[data_index].trickle);
+
+    if (m_handle_cache[handle_index].version == 1) /* first update */
+    {
+        trickle_timer_reset(&m_data_cache[data_index].trickle, time_now);
+    }
+    else
+    {
+        trickle_rx_inconsistent(&m_data_cache[data_index].trickle, time_now);
+    }
+
+    vh_order_update(ts_time);
+}
+
+static void handle_task_queue(void)
+{
+    m_handle_task_scheduled = false;
+    
+    cache_task_t task;
+    while (fifo_pop(&m_task_fifo, &task) == NRF_SUCCESS)
+    {
+        switch (task.type)
+        {
+            case CACHE_TASK_TYPE_ENABLE:
+                cache_task_handle_enable(task.handle, task.params.enable.p_packet);
+                break;
+            
+            case CACHE_TASK_TYPE_LOCAL_UPDATE:
+                cache_task_handle_local_update(task.handle, task.params.local_update.p_packet);
+                break;
+        }
+    }
+}
+
+static uint32_t handle_task_push(cache_task_t* p_task)
+{
+    uint32_t error_code = fifo_push(&m_task_fifo, p_task);
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+    
+    if (true || !m_handle_task_scheduled)
+    {
+        async_event_t evt;
+        evt.type = EVENT_TYPE_GENERIC;
+        evt.callback.generic = handle_task_queue;
+        error_code = event_handler_push(&evt);
+        if (error_code == NRF_SUCCESS)
+        {
+            m_handle_task_scheduled = true; /* we may have a double-schedule here, but it doesn't really matter */
+        }
+    }
+    
+    return error_code;
+}
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
@@ -391,12 +611,19 @@ uint32_t vh_init(uint32_t min_interval_us)
         m_handle_cache[i].index_prev = i - 1;
         m_handle_cache[i].index_next = i + 1;
     }
+    
     m_handle_cache_head = 0;
     m_handle_cache_tail = RBC_MESH_HANDLE_CACHE_ENTRIES - 1;
     m_handle_cache[m_handle_cache_head].index_prev = HANDLE_CACHE_ENTRY_INVALID;
     m_handle_cache[m_handle_cache_tail].index_next = HANDLE_CACHE_ENTRY_INVALID;
-
-    g_is_initialized = true;
+    
+    m_task_fifo.array_len = CACHE_TASK_FIFO_SIZE;
+    m_task_fifo.elem_array = m_task_fifo_buffer;
+    m_task_fifo.elem_size = sizeof(cache_task_t);
+    m_task_fifo.memcpy_fptr = NULL;
+    fifo_init(&m_task_fifo);
+    m_handle_task_scheduled = false;
+    m_is_initialized = true;
     return NRF_SUCCESS;
 }
 
@@ -414,7 +641,7 @@ uint32_t vh_min_interval_set(uint32_t min_interval_us)
 
 vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return VH_DATA_STATUS_UNKNOWN;
 
     mesh_packet_t* p_packet = mesh_packet_get_aligned(p_adv_data);
@@ -437,10 +664,12 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
             trickle_rx_inconsistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
             vh_order_update(0);
         }
+        
         return VH_DATA_STATUS_OLD;
     }
     else if (delta == 0)
     {
+        
         /* the incoming packet has the same version as the current */
         if (data_index == DATA_CACHE_ENTRY_INVALID)
         {
@@ -457,7 +686,7 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
             return VH_DATA_STATUS_CONFLICTING;
         }
         else
-        {
+        {   
             trickle_rx_consistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
             return VH_DATA_STATUS_SAME;
         }
@@ -476,6 +705,7 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
         {
             /* free old packet */
             mesh_packet_ref_count_dec(m_data_cache[data_index].p_packet); /* remove data cache ref */
+            cache_hit = true;
         }
 
         /* store new packet in data cache */
@@ -485,7 +715,7 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
         m_data_cache[data_index].p_packet = p_packet;
         trickle_rx_inconsistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
         vh_order_update(0);
-
+        
         if (cache_hit)
         {
             return VH_DATA_STATUS_UPDATED;
@@ -495,33 +725,28 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
             return VH_DATA_STATUS_NEW;
         }
     }
+    
 }
 
 vh_data_status_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return VH_DATA_STATUS_UNKNOWN;
-
-    vh_data_status_t status;
+    
+    cache_task_t task;
+    task.type = CACHE_TASK_TYPE_LOCAL_UPDATE;
+    task.handle = handle;
+    
     uint32_t error_code;
-    const uint64_t ts_time = timer_get_timestamp();
-    const uint64_t time_now = ts_time + timeslot_get_global_time();
-    const uint16_t handle_index = handle_version_increment(handle);
-    uint16_t data_index = m_handle_cache[handle_index].data_entry;
-
-    if (data_index == DATA_CACHE_ENTRY_INVALID)
+    
+    if (!mesh_packet_acquire(&task.params.local_update.p_packet))
     {
-        data_index = data_entry_allocate();
-        if (!mesh_packet_acquire(&m_data_cache[data_index].p_packet))
-        {
-            return VH_DATA_STATUS_UNKNOWN;
-        }
-        m_handle_cache[handle_index].data_entry = data_index;
+        return VH_DATA_STATUS_UNKNOWN;
     }
-
-    error_code = mesh_packet_build(m_data_cache[data_index].p_packet,
+    
+    error_code = mesh_packet_build(task.params.local_update.p_packet,
             handle,
-            m_handle_cache[handle_index].version,
+            0, /* !!! TEMPORARY, as we can't know before the task is handled */
             data,
             length);
     if (error_code != NRF_SUCCESS)
@@ -529,22 +754,13 @@ vh_data_status_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, 
         return VH_DATA_STATUS_UNKNOWN;
     }
 
-    trickle_enable(&m_data_cache[data_index].trickle);
-
-    if (m_handle_cache[handle_index].version == 1) /* first update */
+    error_code = handle_task_push(&task);
+    if (error_code != NRF_SUCCESS)
     {
-        status = VH_DATA_STATUS_NEW;
-        trickle_timer_reset(&m_data_cache[data_index].trickle, time_now);
+        mesh_packet_ref_count_dec(task.params.local_update.p_packet);
+        return VH_DATA_STATUS_UNKNOWN;
     }
-    else
-    {
-        status = VH_DATA_STATUS_UPDATED;
-        trickle_rx_inconsistent(&m_data_cache[data_index].trickle, time_now);
-    }
-
-    vh_order_update(ts_time);
-
-    return status;
+    return VH_DATA_STATUS_UPDATED;
 }
 
 uint32_t vh_on_timeslot_begin(void)
@@ -564,17 +780,22 @@ uint32_t vh_order_update(uint64_t time_now)
 
 uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* length)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return NRF_ERROR_INVALID_STATE;
 
+    event_handler_critical_section_begin();
+    
     uint16_t handle_index = handle_entry_get(handle);
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
+        event_handler_critical_section_end();
         return NRF_ERROR_NOT_FOUND;
     }
+    
     uint16_t data_index = m_handle_cache[handle_index].data_entry;
     if (data_index == DATA_CACHE_ENTRY_INVALID || m_data_cache[data_index].p_packet == NULL)
     {
+        event_handler_critical_section_end();
         return NRF_ERROR_NOT_FOUND;
     }
 
@@ -589,29 +810,34 @@ uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* l
     /* make copy */
     memcpy(data, p_adv_data->data, *length);
 
+    event_handler_critical_section_end();
     return NRF_SUCCESS;
 }
 
 uint32_t vh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return NRF_ERROR_INVALID_STATE;
 
+    event_handler_critical_section_begin();
+    
     uint16_t handle_index = handle_entry_get(handle);
 
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
+        event_handler_critical_section_end();
         return NRF_ERROR_NOT_FOUND;
     }
 
     m_handle_cache[handle_index].tx_event = do_tx_event;
 
+    event_handler_critical_section_end();
     return NRF_SUCCESS;
 }
 
 uint32_t vh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return NRF_ERROR_INVALID_STATE;
 
     if (handle == RBC_MESH_INVALID_HANDLE)
@@ -619,19 +845,24 @@ uint32_t vh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    uint16_t handle_index = handle_entry_to_head(handle);
+    event_handler_critical_section_begin();
+    
+    uint16_t handle_index = handle_entry_get(handle);
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
+        event_handler_critical_section_end();
         return NRF_ERROR_NOT_FOUND;
     }
 
     *is_doing_tx_event = m_handle_cache[handle_index].tx_event;
 
+    event_handler_critical_section_end();
     return NRF_SUCCESS;
 }
 
 int16_t vh_get_version_delta(uint16_t old_version, uint16_t new_version)
 {
+    /* utility function */
     if (old_version < MESH_VALUE_LOLLIPOP_LIMIT)
     {
         return (((int32_t)old_version + INT16_MAX) > ((int32_t)new_version)) ?
@@ -668,56 +899,52 @@ int16_t vh_get_version_delta(uint16_t old_version, uint16_t new_version)
 
 uint32_t vh_value_enable(rbc_mesh_value_handle_t handle)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return NRF_ERROR_INVALID_STATE;
-
-    const uint64_t ts_time = timer_get_timestamp();
-    const uint64_t time_now = ts_time + timeslot_get_global_time();
-    uint16_t handle_index = handle_entry_to_head(handle);
-    uint16_t data_index = m_handle_cache[handle_index].data_entry;
-
-    if (data_index == DATA_CACHE_ENTRY_INVALID)
+    cache_task_t task;
+    
+    task.type = CACHE_TASK_TYPE_ENABLE;
+    task.handle = handle;
+    uint32_t error_code;
+    
+    if (!mesh_packet_acquire(&task.params.enable.p_packet))
     {
-        data_index = data_entry_allocate();
-        if (!mesh_packet_acquire(&m_data_cache[data_index].p_packet))
-        {
-            return NRF_ERROR_NO_MEM;
-        }
-
-        /* build a dummy packet to request data, as we don't know the contents of the packet */
-        uint32_t error_code = mesh_packet_build(m_data_cache[data_index].p_packet,
-                handle,
-                0,
-                NULL,
-                0);
-        if (error_code != NRF_SUCCESS)
-        {
-            mesh_packet_ref_count_dec(m_data_cache[data_index].p_packet); /* free the newly acquired packet */
-            m_data_cache[data_index].p_packet = NULL;
-            return NRF_ERROR_INTERNAL;
-        }
-
-        m_handle_cache[handle_index].data_entry = data_index;
-        trickle_timer_reset(&m_data_cache[data_index].trickle, time_now);
+        return NRF_ERROR_NO_MEM;
     }
-    else
+    
+    /* build a dummy packet to request data, as we don't know the contents of the packet */
+    error_code = mesh_packet_build(task.params.enable.p_packet,
+            handle,
+            0,
+            NULL,
+            0);
+    if (error_code != NRF_SUCCESS)
     {
-        trickle_enable(&m_data_cache[data_index].trickle);
+        mesh_packet_ref_count_dec(task.params.enable.p_packet); /* free the newly acquired packet */
+        return NRF_ERROR_INTERNAL;
     }
-
-    vh_order_update(ts_time);
-
-    return NRF_SUCCESS;
+    
+    error_code = handle_task_push(&task);
+    
+    if (error_code != NRF_SUCCESS)
+    {
+        mesh_packet_ref_count_dec(task.params.enable.p_packet); /* free the newly acquired packet */
+    }
+    
+    return error_code;
 }
 
 uint32_t vh_value_disable(rbc_mesh_value_handle_t handle)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return NRF_ERROR_INVALID_STATE;
 
+    event_handler_critical_section_begin();
+    
     uint16_t handle_index = handle_entry_get(handle);
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
+        event_handler_critical_section_end();
         return NRF_ERROR_NOT_FOUND;
     }
 
@@ -728,12 +955,13 @@ uint32_t vh_value_disable(rbc_mesh_value_handle_t handle)
         trickle_disable(&m_data_cache[data_index].trickle);
     }
 
+    event_handler_critical_section_end();
     return NRF_SUCCESS;
 }
 
 uint32_t vh_value_is_enabled(rbc_mesh_value_handle_t handle, bool* p_is_enabled)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return NRF_ERROR_INVALID_STATE;
 
     if (handle == RBC_MESH_INVALID_HANDLE)
@@ -741,10 +969,13 @@ uint32_t vh_value_is_enabled(rbc_mesh_value_handle_t handle, bool* p_is_enabled)
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    uint16_t handle_index = handle_entry_to_head(handle);
+    event_handler_critical_section_begin();
+    
+    uint16_t handle_index = handle_entry_get(handle);
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
         *p_is_enabled = false;
+        event_handler_critical_section_end();
         return NRF_SUCCESS;
     }
 
@@ -752,52 +983,78 @@ uint32_t vh_value_is_enabled(rbc_mesh_value_handle_t handle, bool* p_is_enabled)
     if (data_index == DATA_CACHE_ENTRY_INVALID)
     {
         *p_is_enabled = false;
+        event_handler_critical_section_end();
         return NRF_SUCCESS;
     }
 
     *p_is_enabled = trickle_is_enabled(&m_data_cache[data_index].trickle);
+    
+    event_handler_critical_section_end();
     return NRF_SUCCESS;
 }
 
 uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persistent)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return NRF_ERROR_INVALID_STATE;
-
+    
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
-
-    uint16_t handle_index = handle_entry_to_head(handle);
+    
+    event_handler_critical_section_begin();
+    
+    uint16_t handle_index = handle_entry_get(handle);
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
+        event_handler_critical_section_end();
         return NRF_ERROR_NOT_FOUND;
     }
 
-    m_handle_cache[handle_index].persistent = persistent;
+    if (m_handle_cache[handle_index].persistent != persistent)
+    {
+        uint32_t was_masked;
+        _DISABLE_IRQS(was_masked);
+        if (persistent)
+        {
+            m_persistence_count++;
+        }
+        else
+        {
+            m_persistence_count--;
+        }
+        
+        m_handle_cache[handle_index].persistent = persistent;
+        _ENABLE_IRQS(was_masked);
+    }    
 
+    event_handler_critical_section_end();
     return NRF_SUCCESS;
 }
 
 uint32_t vh_value_persistence_get(rbc_mesh_value_handle_t handle, bool* p_persistent)
 {
-    if (!g_is_initialized)
+    if (!m_is_initialized)
         return NRF_ERROR_INVALID_STATE;
 
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
-
-    uint16_t handle_index = handle_entry_to_head(handle);
+    
+    event_handler_critical_section_begin();
+    
+    uint16_t handle_index = handle_entry_get(handle);
     if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
     {
+        event_handler_critical_section_end();
         return NRF_ERROR_NOT_FOUND;
     }
 
     *p_persistent = m_handle_cache[handle_index].persistent;
-
+    
+    event_handler_critical_section_end();
     return NRF_SUCCESS;
 }
 
