@@ -471,6 +471,26 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
+            <File>
+              <FileName>bootloader_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_info_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>bootloader_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
+            </File>
+            <File>
+              <FileName>rand.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
