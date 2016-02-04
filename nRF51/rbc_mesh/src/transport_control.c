@@ -65,6 +65,16 @@ typedef struct
 ******************************************************************************/
 static tc_state_t m_state;
 static bl_info_entry_t* mp_fwid_entry = NULL;
+
+/* STATS */
+#ifdef PACKET_STATS
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats = {0};
+#endif
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -115,8 +125,23 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
         {
             m_state.queue_saturation = true;
             mesh_packet_ref_count_dec((mesh_packet_t*) data); /* event handler lost its ref */
+#ifdef PACKET_STATS
+            m_packet_stats.queue_drop++;
+#endif
         }
+#ifdef PACKET_STATS
+        else
+        {         
+            m_packet_queue_ok++;
+        }
+#endif
     }
+#ifdef PACKET_STATS
+    else
+    {        
+        m_packet_crc_fail++;
+    }
+#endif    
 
     /* no longer needed in this context */
     mesh_packet_ref_count_dec((mesh_packet_t*) data);
@@ -138,8 +163,11 @@ static void tx_cb(uint8_t* data)
         tx_event.data = p_adv_data->data;
         tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
         tx_event.version_delta = 0;
-
-        APP_ERROR_CHECK(rbc_mesh_event_push(&tx_event));
+        
+        if (rbc_mesh_event_push(&tx_event) == NRF_SUCCESS)
+        {
+            mesh_packet_ref_count_inc((mesh_packet_t*) data);
+        }
 #if RBC_MESH_SERIAL
         mesh_aci_rbc_event_handler(&tx_event);
 #endif

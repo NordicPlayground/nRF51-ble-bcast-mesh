@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define HEADER_LEN       (4)
 
 #ifdef DEBUG
-#undefine DEBUG
+#undef DEBUG
 #define DEBUG 0
 #endif
 
