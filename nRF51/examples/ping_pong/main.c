@@ -43,7 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdarg.h>
 
-#define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)
+#define MESH_ACCESS_ADDR        (0xABCDEF01)
 #define MESH_INTERVAL_MIN_MS    (100)
 #define MESH_CHANNEL            (38)
 #define MESH_CLOCK_SRC          (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
@@ -90,6 +90,7 @@ static void error_loop(void)
 {
     nrf_gpio_pin_clear(LED_START + 1);
     nrf_gpio_pin_set(LED_START + 2);
+    __disable_irq();
     while (1)
     {
         UART0_IRQHandler();
@@ -106,6 +107,7 @@ static void error_loop(void)
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
     _LOG("SD ERROR: %s:L%d\r\n", (const char*) p_file_name, (int) line_num);
+    SEGGER_RTT_printf(0, "SD ERROR: %s:L%d\r\n", (const char*) p_file_name, (int) line_num);
     error_loop();
 }
 
@@ -120,12 +122,14 @@ void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_nam
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     _LOG("APP ERROR: %s:L%d - E:%X\r\n", p_file_name, (int) line_num, (int) error_code);
+    SEGGER_RTT_printf(0, "APP ERROR: %s:L%d - E:%X\r\n", p_file_name, (int) line_num, (int) error_code);
     error_loop();
 }
 
 void HardFault_Handler(void)
 {
     _LOG("HARDFAULT\r\n");
+    SEGGER_RTT_printf(0, "HARDFAULT\r\n");
     error_loop();
 }
 
@@ -169,6 +173,9 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 /** @brief main function */
 int main(void)
 {   
+    SEGGER_RTT_Init();
+    SEGGER_RTT_WriteString(0, "START\n");
+
     /* Enable Softdevice (including sd_ble before framework) */
     SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SRC, NULL);
     softdevice_ble_evt_handler_set(rbc_mesh_ble_evt_handler);
