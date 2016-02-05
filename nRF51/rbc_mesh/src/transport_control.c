@@ -113,6 +113,7 @@ static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_dat
 /* radio callback, executed in STACK_LOW */
 static void rx_cb(uint8_t* data, bool success, uint32_t crc)
 {
+    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) == 1);
     if (success)
     {
         async_event_t evt;
@@ -120,31 +121,33 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
         evt.callback.packet.payload = data;
         evt.callback.packet.crc = crc;
         evt.callback.packet.timestamp = timer_get_timestamp();
-        mesh_packet_ref_count_inc((mesh_packet_t*) data); /* event handler has a ref */
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
             m_state.queue_saturation = true;
-            mesh_packet_ref_count_dec((mesh_packet_t*) data); /* event handler lost its ref */
 #ifdef PACKET_STATS
             m_packet_stats.queue_drop++;
 #endif
         }
-#ifdef PACKET_STATS
         else
-        {         
-            m_packet_queue_ok++;
-        }
+        {     
+            mesh_packet_ref_count_inc((mesh_packet_t*) data); /* event handler has a ref */ 
+            APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) == 2);
+            
+#ifdef PACKET_STATS   
+            m_packet_stats.queue_ok++;
 #endif
+        }
     }
-#ifdef PACKET_STATS
     else
     {        
-        m_packet_crc_fail++;
+#ifdef PACKET_STATS
+        m_packet_stats.crc_fail++;
+#endif
     }
-#endif    
 
     /* no longer needed in this context */
     mesh_packet_ref_count_dec((mesh_packet_t*) data);
+    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) <= 1);
 }
 
 /* radio callback, executed in STACK_LOW */
@@ -361,6 +364,7 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
 /* packet processing, executed in APP_LOW */
 void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 {
+    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) == 1);
     SET_PIN(PIN_RX);
     mesh_packet_t* p_packet = (mesh_packet_t*) data;
 
@@ -392,6 +396,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         }
     }
     
+    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) >= 1);
     /* this packet is no longer needed in this context */
     mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
 
