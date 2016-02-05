@@ -62,19 +62,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define CACHE_TASK_FIFO_SIZE            (8)
 
-#define THREAD_SAFE                     (0)
-
-#if THREAD_SAFE
-
-#define HANDLE_CACHE_ITERATE(index)     do { uint32_t was_masked; _DISABLE_IRQS(was_masked); index = m_handle_cache[index].index_next; _ENABLE_IRQS(was_masked); } while (0)
-#define HANDLE_CACHE_ITERATE_BACK(index)     do { uint32_t was_masked; _DISABLE_IRQS(was_masked); index = m_handle_cache[index].index_prev; _ENABLE_IRQS(was_masked); } while (0)
-
-#else
-
 #define HANDLE_CACHE_ITERATE(index)     do { index = m_handle_cache[index].index_next; } while (0)
 #define HANDLE_CACHE_ITERATE_BACK(index)     do { index = m_handle_cache[index].index_prev; } while (0)
-
-#endif
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
@@ -194,9 +183,6 @@ static void validate_cache(void)
     }
     _ENABLE_IRQS(was_masked);
 }
-
-
-
 #endif    
 
 
