@@ -175,6 +175,7 @@ void ts_sd_event_handler(uint32_t evt)
             timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
             break;
         default:
+            break;
     }
     CLEAR_PIN(PIN_SD_EVT_HANDLER);
 }
