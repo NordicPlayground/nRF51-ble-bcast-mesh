@@ -127,11 +127,11 @@ static handle_entry_t   m_handle_cache[RBC_MESH_HANDLE_CACHE_ENTRIES];
 static data_entry_t     m_data_cache[RBC_MESH_DATA_CACHE_ENTRIES];
 static uint32_t         m_handle_cache_head;
 static uint32_t         m_handle_cache_tail;
-static uint16_t         m_persistence_count = 0;
 static bool             m_is_initialized = false;
 static fifo_t           m_task_fifo;
 static cache_task_t     m_task_fifo_buffer[CACHE_TASK_FIFO_SIZE];
 static bool             m_handle_task_scheduled;
+
 #ifdef DEBUG
 static uint16_t m_cache_altering_log[16];
 static uint8_t m_cache_alter_pointer = 0;
@@ -1012,22 +1012,7 @@ uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persisten
         return NRF_ERROR_NOT_FOUND;
     }
 
-    if (m_handle_cache[handle_index].persistent != persistent)
-    {
-        uint32_t was_masked;
-        _DISABLE_IRQS(was_masked);
-        if (persistent)
-        {
-            m_persistence_count++;
-        }
-        else
-        {
-            m_persistence_count--;
-        }
-        
         m_handle_cache[handle_index].persistent = persistent;
-        _ENABLE_IRQS(was_masked);
-    }    
 
     event_handler_critical_section_end();
     return NRF_SUCCESS;
