@@ -218,6 +218,7 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_cb)
     }
 
     radio_state = RADIO_STATE_DISABLED;
+    NRF_RADIO->EVENTS_END = 0;
 
     NVIC_ClearPendingIRQ(RADIO_IRQn);
     NVIC_EnableIRQ(RADIO_IRQn);
