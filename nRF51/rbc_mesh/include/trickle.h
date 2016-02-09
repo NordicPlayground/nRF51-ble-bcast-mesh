@@ -80,7 +80,7 @@ void trickle_timer_reset(trickle_t* trickle, uint64_t time_now);
 /**
 * @brief register a successful TX on the given trickle algorithm instance.
 */
-void trickle_tx_register(trickle_t* trickle);
+void trickle_tx_register(trickle_t* trickle, uint64_t time_now);
 
 /**
 * @brief Check timeouts and check whether a TX on the trickle instance is 
