@@ -110,10 +110,9 @@ static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_dat
     evt->data_len = p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
 }
 
-/* radio callback, executed in STACK_LOW */
+/* immediate radio callback, executed in STACK_LOW */
 static void rx_cb(uint8_t* data, bool success, uint32_t crc)
 {
-    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) == 1);
     if (success)
     {
         async_event_t evt;
@@ -130,8 +129,7 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
         }
         else
         {     
-            mesh_packet_ref_count_inc((mesh_packet_t*) data); /* event handler has a ref */ 
-            APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) == 2);
+            mesh_packet_ref_count_inc((mesh_packet_t*) data); /* event handler has a ref */
             
 #ifdef PACKET_STATS   
             m_packet_stats.queue_ok++;
@@ -144,10 +142,10 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
         m_packet_stats.crc_fail++;
 #endif
     }
+    
 
     /* no longer needed in this context */
     mesh_packet_ref_count_dec((mesh_packet_t*) data);
-    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) <= 1);
 }
 
 /* radio callback, executed in STACK_LOW */
@@ -189,8 +187,7 @@ static void radio_idle_callback(void)
 }
 
 static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t timestamp)
-{
-    
+{   
     int16_t delta = vh_get_version_delta(p_mesh_adv_data->handle, p_mesh_adv_data->version);
     vh_data_status_t data_status = vh_rx_register(p_mesh_adv_data, timestamp);
    
@@ -342,16 +339,17 @@ void tc_on_ts_begin(void)
 uint32_t tc_tx(mesh_packet_t* p_packet)
 {
     TICK_PIN(PIN_MESH_TX);
-    
     /* queue the packet for transmission */
     radio_event_t event;
     memset(&event, 0, sizeof(radio_event_t));
+    
     mesh_packet_ref_count_inc(p_packet); /* queue will have a reference until tx_cb */
     event.packet_ptr = (uint8_t*) p_packet;
     event.access_address = 0;
     event.channel = m_state.channel;
     event.callback.tx = tx_cb;
     event.event_type = RADIO_EVENT_TYPE_TX;
+    
     if (!radio_order(&event))
     {
         mesh_packet_ref_count_dec(p_packet); /* queue couldn't hold the ref */
@@ -364,7 +362,7 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
 /* packet processing, executed in APP_LOW */
 void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
 {
-    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) == 1);
+    APP_ERROR_CHECK_BOOL(data != NULL);
     SET_PIN(PIN_RX);
     mesh_packet_t* p_packet = (mesh_packet_t*) data;
 
@@ -373,6 +371,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         /* invalid packet, ignore */
         CLEAR_PIN(PIN_RX);
         mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
+        
         return;
     }
     
@@ -381,7 +380,6 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
     addr.addr_type = p_packet->header.addr_type;
     
     mesh_adv_data_t* p_mesh_adv_data = mesh_packet_adv_data_get(p_packet);
-    
     
     if (p_mesh_adv_data != NULL)
     {
@@ -394,9 +392,9 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         {
             mesh_framework_packet_handle(p_mesh_adv_data, timestamp);
         }
+        
     }
     
-    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) data) >= 1);
     /* this packet is no longer needed in this context */
     mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
 
