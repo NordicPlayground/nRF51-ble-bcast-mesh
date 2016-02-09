@@ -88,6 +88,11 @@ bool journal_is_complete(uint32_t* p_start, uint32_t length)
 
 bool journal_is_invalid(uint32_t* p_start, uint32_t length)
 {
+    if (mp_invalidate_field == NULL || mp_complete_field == NULL)
+    {
+        return false; /* no reason to believe that the journal is invalid */
+    }
+    
     /* invalid if at least one page is invalid, and the entire thing isn't complete. */
     for (uint32_t i = (uint32_t) p_start / PAGE_SIZE; i < ((uint32_t) p_start + length) / PAGE_SIZE; ++i)
     {
