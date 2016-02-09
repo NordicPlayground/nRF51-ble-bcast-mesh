@@ -119,11 +119,6 @@ int main(void)
 {
     init_clock();
 
-    /* check whether we should go to application */
-    if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_GO_TO_APP)
-    {
-        bootloader_abort(BL_END_SUCCESS);
-    }
 
     NVIC_SetPriority(SWI2_IRQn, 2);
     NVIC_EnableIRQ(SWI2_IRQn);
@@ -138,6 +133,12 @@ int main(void)
     bootloader_init();
     transport_start();
 
+    /* check whether we should go to application */
+    if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_GO_TO_APP)
+    {
+        bootloader_abort(BL_END_SUCCESS);
+    }
+    
     while (1)
     {
         __WFE();
