@@ -184,7 +184,7 @@ uint32_t mesh_packet_build(mesh_packet_t* p_packet,
 
     p_mesh_adv_data->handle = handle;
     p_mesh_adv_data->version = version;
-    if (length > 0 && data != NULL)
+    if (length > 0 && data != NULL && length <= RBC_MESH_VALUE_MAX_LEN)
     {
         memcpy(p_mesh_adv_data->data, data, length);
     }
