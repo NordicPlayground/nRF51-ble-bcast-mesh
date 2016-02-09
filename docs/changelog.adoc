@@ -1,5 +1,15 @@
 = Changelog
 
+== 0.8.1 Stability improvement
+
+This release is a pure stability patch, and should mitigate some issues observed during testing:
+
+- When subjected to stress, the firmware sometimes shortcuts the handle cache linked list, excluding some handles from the pool of handles being transmitted. This is observable in the ping-pong example project if run with more than 10 devices: Devices stop getting updates from the central device one by one, until there is only one device left getting pings on its pongs. This was caused by a race condition, as the version handler had a hole in its thread safety. All manipulation of the cache-linked list is now serialized with the event-handler. This removed all symptoms from all our test cases, and the mesh performs much better under pressure.
+
+- The trickle timers for each handles had a possiblity of falling behind, leading to devices not being able to catch up with its timers. This issue only appeared when the mesh was tested under heavy stress (20+ devices within range of each other), and looked like non-stop spamming of packets. This issue is now mitigated, as the trickle timer is forced into a "future" timeout if the device catches up with a whole interval.
+
+- The bootloader "early-exit" check was moved to after the init-process, as the journal module had to be initialized to make sure that we weren't in the middle of a transaction.
+
 == 0.8.0 Device Firmware Update over the Mesh
 Standalone Bootloader that supports Serial(UART) and Mesh (does not require the softdevice)
 PC tool support for DFU over the Mesh (https://github.com/NordicSemiconductor/pc-nrfutil)
