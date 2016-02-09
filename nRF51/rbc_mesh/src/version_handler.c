@@ -121,71 +121,9 @@ static fifo_t           m_task_fifo;
 static cache_task_t     m_task_fifo_buffer[CACHE_TASK_FIFO_SIZE];
 static bool             m_handle_task_scheduled;
 
-#ifdef DEBUG
-static uint16_t m_cache_altering_log[16];
-static uint8_t m_cache_alter_pointer = 0;
-#endif
 /******************************************************************************
 * Static functions
 ******************************************************************************/
-#ifdef DEBUG
-static void log_cache_access(uint16_t line)
-{
-    uint32_t was_masked;
-    _DISABLE_IRQS(was_masked);
-    m_cache_altering_log[(m_cache_alter_pointer++) & 0x0F] = line;
-    m_cache_altering_log[(m_cache_alter_pointer) & 0x0F] = 0; // to easily locate latest.
-    _ENABLE_IRQS(was_masked);
-}
-
-static void print_cache_log(void)
-{
-    SEGGER_RTT_WriteString(0, "CACHE LOG:\n");
-    for (uint8_t i = 0; i < 16; ++i)
-    {
-        SEGGER_RTT_printf(0, "\t%d\n", m_cache_altering_log[(m_cache_alter_pointer + i) & 0x0F]);
-    }
-}
-
-static void validate_cache(void)
-{ 
-    uint32_t was_masked;
-    _DISABLE_IRQS(was_masked);
-    APP_ERROR_CHECK_BOOL(m_handle_cache[m_handle_cache_tail].index_next == HANDLE_CACHE_ENTRY_INVALID);
-    APP_ERROR_CHECK_BOOL(m_handle_cache[m_handle_cache_head].index_prev == HANDLE_CACHE_ENTRY_INVALID);
-    for (uint32_t i = 0; i < RBC_MESH_HANDLE_CACHE_ENTRIES; ++i)
-    {
-        if (i != m_handle_cache_head)
-        {
-            if (m_handle_cache[i].index_prev == HANDLE_CACHE_ENTRY_INVALID)
-            {
-                print_cache_log();
-                APP_ERROR_CHECK_BOOL(false);
-            }
-        }
-        if (i != m_handle_cache_tail)
-        {
-            if (m_handle_cache[i].index_next == HANDLE_CACHE_ENTRY_INVALID)
-            {
-                print_cache_log();
-                APP_ERROR_CHECK_BOOL(false);
-            }
-        }
-    }
-    
-    for (uint32_t count = 0, i = m_handle_cache_head; count < RBC_MESH_HANDLE_CACHE_ENTRIES - 1; i = m_handle_cache[i].index_next, count++)
-    {
-        if (m_handle_cache[i].index_next == HANDLE_CACHE_ENTRY_INVALID)
-        {
-            print_cache_log();
-            APP_ERROR_CHECK_BOOL(false);
-        }
-    }
-    _ENABLE_IRQS(was_masked);
-}
-#endif    
-
-
 static void version_increment(uint16_t* version)
 {
     if (*version == UINT16_MAX)
@@ -217,7 +155,7 @@ static void data_entry_free(data_entry_t* p_data_entry)
 static uint16_t data_entry_allocate(void)
 {
     static uint16_t allocated = 0;
-    /** @TODO: Can this bit be removed when all entries are allocated?*/
+    
     for (uint32_t i = allocated; i < RBC_MESH_DATA_CACHE_ENTRIES; ++i)
     {
         if (m_data_cache[i].p_packet == NULL)
@@ -242,10 +180,11 @@ static uint16_t data_entry_allocate(void)
     }
 
     uint32_t data_index = m_handle_cache[handle_index].data_entry;
-
+    APP_ERROR_CHECK_BOOL(data_index < RBC_MESH_DATA_CACHE_ENTRIES);
+    
     /* cleanup */
     m_handle_cache[handle_index].data_entry = DATA_CACHE_ENTRY_INVALID;
-
+    
     data_entry_free(&m_data_cache[data_index]);
     return data_index;
 }
@@ -382,10 +321,10 @@ static void order_next_transmission(uint64_t time_now)
     do
     {
         uint16_t data_index = m_handle_cache[handle_index].data_entry;
-        if (data_index < DATA_CACHE_ENTRY_INVALID &&
+        if (data_index < RBC_MESH_DATA_CACHE_ENTRIES &&
             m_data_cache[data_index].p_packet != NULL &&
-            m_data_cache[data_index].trickle.t < earliest
-        )
+            trickle_is_enabled(&m_data_cache[data_index].trickle) &&
+            m_data_cache[data_index].trickle.t < earliest)
         {
             earliest = m_data_cache[data_index].trickle.t;
         }
@@ -413,6 +352,7 @@ static void transmit_all_instances(uint64_t timestamp)
             data_index -= RBC_MESH_DATA_CACHE_ENTRIES;
 
         if ((m_data_cache[data_index].p_packet != NULL) &&
+            (trickle_is_enabled(&m_data_cache[data_index].trickle)) &&
             (m_data_cache[data_index].trickle.t <= timestamp + ts_begin_time))
         {
             bool do_tx = false;
@@ -420,11 +360,10 @@ static void transmit_all_instances(uint64_t timestamp)
             if (do_tx)
             {
                 uint32_t error_code = tc_tx(m_data_cache[data_index].p_packet);
-
                 if (error_code == NRF_SUCCESS)
                 {
                     /* the handle is queued for transmission */
-                    trickle_tx_register(&m_data_cache[data_index].trickle);
+                    trickle_tx_register(&m_data_cache[data_index].trickle, timestamp + ts_begin_time);
                 }
                 else
                 {
@@ -478,7 +417,7 @@ static void cache_task_handle_enable(rbc_mesh_value_handle_t handle, mesh_packet
             mesh_packet_ref_count_dec(p_packet); /* didn't need the dummy packet after all, we already had one */
         }
         else
-        {            
+        {
             m_data_cache[data_index].p_packet = p_packet;
         }
         
@@ -502,16 +441,17 @@ static void cache_task_handle_local_update(rbc_mesh_value_handle_t handle, mesh_
         
         m_handle_cache[handle_index].data_entry = data_index;
     }
-    else if (m_data_cache[data_index].p_packet != NULL)
+    
+    if (m_data_cache[data_index].p_packet != NULL)
     {
         mesh_packet_ref_count_dec(m_data_cache[data_index].p_packet);
+        m_data_cache[data_index].p_packet = NULL;
     }
     
     /* set the version number in the packet, as we now know it. */
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
     APP_ERROR_CHECK_BOOL(p_adv_data != NULL);
     p_adv_data->version = m_handle_cache[handle_index].version;
-    
     m_data_cache[data_index].p_packet = p_packet;
 
     trickle_enable(&m_data_cache[data_index].trickle);
@@ -691,6 +631,7 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
         {
             /* free old packet */
             mesh_packet_ref_count_dec(m_data_cache[data_index].p_packet); /* remove data cache ref */
+            m_data_cache[data_index].p_packet = NULL;
             cache_hit = true;
         }
 
@@ -999,9 +940,9 @@ uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persisten
         event_handler_critical_section_end();
         return NRF_ERROR_NOT_FOUND;
     }
-
-        m_handle_cache[handle_index].persistent = persistent;
-
+    
+    m_handle_cache[handle_index].persistent = persistent;
+    
     event_handler_critical_section_end();
     return NRF_SUCCESS;
 }
