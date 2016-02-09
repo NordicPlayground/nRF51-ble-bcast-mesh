@@ -89,17 +89,18 @@ mesh_packet_t* mesh_packet_get_aligned(void* p_buf_pointer)
 
 bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 {
+    /* the given pointer may not be aligned, have to force alignment with index */
     uint32_t index = PACKET_INDEX(p_packet);
     if (index > RBC_MESH_PACKET_POOL_SIZE)
         return false;
 
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
-    /* the given pointer may not be aligned, have to force alignment with index */
-    if (++g_packet_refs[index] == 0x00) /* check for rollover */
+    if (g_packet_refs[index] == 0x00 || g_packet_refs[index] == 0xFF) /* check for rollover and 0-inc */
     {
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
+    g_packet_refs[index]++;
     _ENABLE_IRQS(was_masked);
     return true;
 }
