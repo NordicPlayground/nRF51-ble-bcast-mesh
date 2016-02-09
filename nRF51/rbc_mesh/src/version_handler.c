@@ -548,7 +548,7 @@ static void handle_task_queue(void)
     }
 }
 
-static uint32_t handle_task_push(cache_task_t* p_task)
+static uint32_t cache_task_push(cache_task_t* p_task)
 {
     uint32_t error_code = fifo_push(&m_task_fifo, p_task);
     if (error_code != NRF_SUCCESS)
@@ -737,10 +737,11 @@ vh_data_status_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, 
             length);
     if (error_code != NRF_SUCCESS)
     {
+        mesh_packet_ref_count_dec(task.params.local_update.p_packet);
         return VH_DATA_STATUS_UNKNOWN;
     }
 
-    error_code = handle_task_push(&task);
+    error_code = cache_task_push(&task);
     if (error_code != NRF_SUCCESS)
     {
         mesh_packet_ref_count_dec(task.params.local_update.p_packet);
@@ -910,10 +911,11 @@ uint32_t vh_value_enable(rbc_mesh_value_handle_t handle)
         return NRF_ERROR_INTERNAL;
     }
     
-    error_code = handle_task_push(&task);
+    error_code = cache_task_push(&task);
     
     if (error_code != NRF_SUCCESS)
     {
+        APP_ERROR_CHECK(error_code);
         mesh_packet_ref_count_dec(task.params.enable.p_packet); /* free the newly acquired packet */
     }
     
