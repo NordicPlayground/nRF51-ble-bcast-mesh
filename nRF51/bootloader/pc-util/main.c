@@ -312,7 +312,8 @@ static uint32_t create_info(char* p_file_name, uint8_t* p_data_buf)
     fwid_t id;
 
     p_entry = get_file_entry(lines, line_count, "COMPANY_ID");
-    if (!p_entry || sscanf(p_entry, "%x", &id.app.company_id) == 0) missing_entry("COMPANY_ID");
+    uint32_t company_id = 0;
+    if (!p_entry || sscanf(p_entry, "%llx", &company_id) == 0) missing_entry("COMPANY_ID");
     p_entry = get_file_entry(lines, line_count, "APP_VERSION");
     if (!p_entry || sscanf(p_entry, "%x", &id.app.app_version) == 0) missing_entry("APP_VERSION");
     p_entry = get_file_entry(lines, line_count, "APP_ID");
@@ -323,6 +324,7 @@ static uint32_t create_info(char* p_file_name, uint8_t* p_data_buf)
     if (!p_entry || sscanf(p_entry, "%hhx", &id.bootloader.id) == 0) missing_entry("BL_ID");
     p_entry = get_file_entry(lines, line_count, "BL_VERSION");
     if (!p_entry || sscanf(p_entry, "%hhx", &id.bootloader.version) == 0) missing_entry("BL_VERSION");
+    id.app.company_id = company_id;
 
     i += put_info_entry(BL_INFO_TYPE_VERSION, 14, (uint8_t*) &id, &p_data_buf[i]);
 
