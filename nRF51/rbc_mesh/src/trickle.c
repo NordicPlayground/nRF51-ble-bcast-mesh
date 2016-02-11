@@ -83,12 +83,6 @@ static void refresh_t(trickle_t* trickle, uint64_t time_now)
     uint64_t i_half = trickle->i_relative >> 1;
     
     trickle->t = trickle->i + i_half + (rand_number & (i_half - 1));
-    
-    /* ensure that we're able to keep up */
-    if (trickle->t < time_now + TIME_MARGIN)
-    {
-        trickle->t = time_now + TIME_MARGIN;
-    }
 }
 
 static void check_interval(trickle_t* trickle, uint64_t time_now)
@@ -152,6 +146,10 @@ void trickle_timer_reset(trickle_t* trickle, uint64_t time_now)
 
 void trickle_tx_register(trickle_t* trickle, uint64_t time_now)
 {
+    if (trickle->i < time_now)
+    {
+        trickle->i = time_now;
+    }
     refresh_t(trickle, time_now); /* order next t */
 }
 
