@@ -588,7 +588,7 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
         if (data_index != DATA_CACHE_ENTRY_INVALID)
         {
             trickle_rx_inconsistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
-            vh_order_update(0);
+            vh_order_update(timestamp);
         }
         
         return VH_DATA_STATUS_OLD;
@@ -608,7 +608,7 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
             payload_has_conflict(mesh_packet_adv_data_get(m_data_cache[data_index].p_packet), p_adv_data))
         {
             trickle_rx_inconsistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
-            vh_order_update(0);
+            vh_order_update(timestamp);
             return VH_DATA_STATUS_CONFLICTING;
         }
         else
@@ -641,7 +641,7 @@ vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
         mesh_packet_ref_count_inc(p_packet); /* ref in data cache */
         m_data_cache[data_index].p_packet = p_packet;
         trickle_rx_inconsistent(&m_data_cache[data_index].trickle, ts_start_time + timestamp);
-        vh_order_update(0);
+        vh_order_update(timestamp);
         
         if (cache_hit)
         {
