@@ -110,7 +110,7 @@ static void schedule_transmit(void)
 
 static void char_rx(uint8_t c)
 {
-    static serial_data_t rx_buf;
+    static serial_data_t rx_buf = {{0}};
     static uint8_t* pp = rx_buf.buffer;
     
     *(pp++) = c;
