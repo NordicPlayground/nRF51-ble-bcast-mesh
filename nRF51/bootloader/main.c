@@ -96,9 +96,8 @@ static void rx_cb(mesh_packet_t* p_packet)
 
 static void init_leds(void)
 {
-    nrf_gpio_range_cfg_output(0, 32);
-    NRF_GPIO->OUTCLR = 0xFFFFFFFF;
-    NRF_GPIO->OUTSET = (1 << 22) | (1 << 23) | (1 << 24);
+    nrf_gpio_range_cfg_output(21, 24);
+    NRF_GPIO->OUT = (1 << 22) | (1 << 23) | (1 << 24);
 }
 
 static void init_clock(void)
