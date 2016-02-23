@@ -204,17 +204,15 @@ void serial_handler_init(void)
     fifo_init(&rx_fifo);
 
     /* setup hw */                      
-    nrf_gpio_cfg_output(TX_PIN_NUMBER);
-    nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_NOPULL);
+    nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_PULLUP);
+    NRF_GPIO->OUTSET = (1 << RTS_PIN_NUMBER) | (1 << TX_PIN_NUMBER);
     nrf_gpio_cfg_output(RTS_PIN_NUMBER);
-    nrf_gpio_cfg_input(CTS_PIN_NUMBER, NRF_GPIO_PIN_NOPULL);
+    nrf_gpio_cfg_input(CTS_PIN_NUMBER, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_output(TX_PIN_NUMBER);
     
     /* delay to keep hw from outputting weird bits on config */
-    for (uint32_t i = 0; i < 100; ++i)
-    {
-        __NOP();
-    }
-    
+    NRF_UART0->POWER         = 0;
+    NRF_UART0->POWER         = 1;
     NRF_UART0->PSELTXD       = TX_PIN_NUMBER;
     NRF_UART0->PSELRXD       = RX_PIN_NUMBER;
     NRF_UART0->PSELCTS       = CTS_PIN_NUMBER;
@@ -222,14 +220,18 @@ void serial_handler_init(void)
     NRF_UART0->CONFIG        = (UART_CONFIG_HWFC_Enabled << UART_CONFIG_HWFC_Pos);
     NRF_UART0->BAUDRATE      = (UART_BAUDRATE_BAUDRATE_Baud115200 << UART_BAUDRATE_BAUDRATE_Pos);
     NRF_UART0->ENABLE        = (UART_ENABLE_ENABLE_Enabled << UART_ENABLE_ENABLE_Pos);
-    NRF_UART0->TASKS_STARTTX = 1;
-    NRF_UART0->TASKS_STARTRX = 1;
-    NRF_UART0->EVENTS_RXDRDY = 0;
     NRF_UART0->INTENSET      = (UART_INTENSET_RXDRDY_Msk | 
                                 UART_INTENSET_TXDRDY_Msk);
-
+    //NRF_UART0->TASKS_STARTTX = 1;
+    //NRF_UART0->TXD = 0;
+    NRF_UART0->EVENTS_RXDRDY = 0;
+    NRF_UART0->EVENTS_TXDRDY = 0;
+    NRF_UART0->TASKS_STARTRX = 1;
     NVIC_SetPriority(UART0_IRQn, 3);
     NVIC_EnableIRQ(UART0_IRQn);
+    
+    
+
     
     /* notify application controller of the restart */ 
     serial_evt_t started_event;
