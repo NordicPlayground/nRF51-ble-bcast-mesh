@@ -205,10 +205,16 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
     {
         return NRF_ERROR_INVALID_ADDR; /* must be page aligned */
     }
-
+    
     mp_bl_info_page      = (bootloader_info_t*) p_bl_info_page;
     mp_bl_info_bank_page = (bootloader_info_t*) p_bl_info_bank_page;
 
+    if (mp_bl_info_page->metadata.metadata_len == 0xFF)
+    {
+        return NRF_ERROR_INVALID_DATA;
+    }
+    
+    
     /* make sure we have an end-of-entries entry */
     if (bootloader_info_first_unused_get(mp_bl_info_page) == NULL)
     {
@@ -238,6 +244,7 @@ bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_typ
     bootloader_info_header_t* p_header =
         (bootloader_info_header_t*)
         ((uint32_t) p_bl_info_page + ((bootloader_info_t*) p_bl_info_page)->metadata.metadata_len);
+    
     uint32_t iterations = 0;
     bl_info_type_t iter_type = (bl_info_type_t) p_header->type;
     while (iter_type != type)

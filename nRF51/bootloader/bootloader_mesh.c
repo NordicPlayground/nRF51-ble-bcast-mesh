@@ -1012,6 +1012,8 @@ void bootloader_abort(bl_end_t end_reason)
                 bootloader_util_app_start(m_bl_info_pointers.p_segment_app->start);
             }
             break;
+        case BL_END_ERROR_INVALID_PERSISTENT_STORAGE:
+            APP_ERROR_CHECK_BOOL(false);
         default:
             NVIC_SystemReset();
             break;

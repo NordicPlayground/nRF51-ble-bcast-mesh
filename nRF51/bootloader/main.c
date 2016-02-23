@@ -128,7 +128,12 @@ int main(void)
     mesh_aci_init();
 #endif
     transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
-    bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE));
+    if (bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, 
+                             (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE))
+        != NRF_SUCCESS)
+    {
+        bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
+    }
     bootloader_init();
     /* check whether we should go to application */
     if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_GO_TO_APP)
