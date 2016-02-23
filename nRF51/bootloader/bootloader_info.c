@@ -216,7 +216,7 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
         if (bootloader_info_first_unused_get(mp_bl_info_bank_page) == NULL)
         {
             /* bank is invalid too, no way to recover */
-            bootloader_abort(BL_END_ERROR_INVALID_PERSISTANT_STORAGE);
+            bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
         }
 
         nrf_flash_erase((uint32_t*) mp_bl_info_page, PAGE_SIZE);

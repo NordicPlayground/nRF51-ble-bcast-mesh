@@ -901,7 +901,7 @@ void bootloader_init(void)
         ((uint32_t) m_bl_info_pointers.p_segment_bl         < BOOTLOADER_INFO_ADDRESS)
        )
     {
-        bootloader_abort(BL_END_ERROR_INVALID_PERSISTANT_STORAGE);
+        bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
     }
 
     /* create journal */
@@ -913,7 +913,7 @@ void bootloader_init(void)
 
         if ((uint32_t) m_bl_info_pointers.p_journal < BOOTLOADER_INFO_ADDRESS)
         {
-            bootloader_abort(BL_END_ERROR_INVALID_PERSISTANT_STORAGE);
+            bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
         }
     }
 
