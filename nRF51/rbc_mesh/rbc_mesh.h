@@ -61,7 +61,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /** @brief Default value for the number of data cache entries */
 #ifndef RBC_MESH_DATA_CACHE_ENTRIES
-    #define RBC_MESH_DATA_CACHE_ENTRIES             (20)
+    #define RBC_MESH_DATA_CACHE_ENTRIES             (35)
 #endif
 
 /** @brief Length of app-event FIFO. Must be power of two. */
@@ -120,6 +120,7 @@ typedef struct
     rbc_mesh_value_handle_t value_handle;   /** Handle of the value the event is generated for */
     uint8_t* data;                          /** Current data array contained at the event handle location */
     uint8_t data_len;                       /** Length of data array */
+    int8_t rssi;                            /** RSSI of received data, in range of -100dBm to ~-40dBm */
     uint16_t version_delta;                 /** Version number increase since last update */
 } rbc_mesh_event_t;
 

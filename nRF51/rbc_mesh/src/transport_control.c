@@ -78,19 +78,19 @@ static struct
 /******************************************************************************
 * Static functions
 ******************************************************************************/
-static void rx_cb(uint8_t* data, bool success, uint32_t crc);
-static void tx_cb(uint8_t* data);
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
+static void tx_cb(uint8_t* p_data);
 
 
 static void order_search(void)
 {
     radio_event_t evt;
-    
+
     evt.event_type = RADIO_EVENT_TYPE_RX_PREEMPTABLE;
     evt.access_address = 1;
     evt.channel = m_state.channel;
     evt.callback.rx = rx_cb;
-    
+
     if (!mesh_packet_acquire((mesh_packet_t**) &evt.packet_ptr))
     {
         return; /* something is hogging all the packets */
@@ -103,23 +103,25 @@ static void order_search(void)
 }
 
 
-static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_data)
+static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_data, uint8_t rssi)
 {
     evt->value_handle = p_mesh_adv_data->handle;
     evt->data = &p_mesh_adv_data->data[0];
     evt->data_len = p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+    evt->rssi = -((int8_t) rssi);
 }
 
 /* immediate radio callback, executed in STACK_LOW */
-static void rx_cb(uint8_t* data, bool success, uint32_t crc)
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 {
     if (success)
     {
         async_event_t evt;
         evt.type = EVENT_TYPE_PACKET;
-        evt.callback.packet.payload = data;
+        evt.callback.packet.payload = p_data;
         evt.callback.packet.crc = crc;
         evt.callback.packet.timestamp = timer_get_timestamp();
+        evt.callback.packet.rssi = rssi;
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
             m_state.queue_saturation = true;
@@ -128,34 +130,34 @@ static void rx_cb(uint8_t* data, bool success, uint32_t crc)
 #endif
         }
         else
-        {     
-            mesh_packet_ref_count_inc((mesh_packet_t*) data); /* event handler has a ref */
-            
-#ifdef PACKET_STATS   
+        {
+            mesh_packet_ref_count_inc((mesh_packet_t*) p_data); /* event handler has a ref */
+
+#ifdef PACKET_STATS
             m_packet_stats.queue_ok++;
 #endif
         }
     }
     else
-    {        
+    {
 #ifdef PACKET_STATS
         m_packet_stats.crc_fail++;
 #endif
     }
-    
+
 
     /* no longer needed in this context */
-    mesh_packet_ref_count_dec((mesh_packet_t*) data);
+    mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
 
 /* radio callback, executed in STACK_LOW */
-static void tx_cb(uint8_t* data)
+static void tx_cb(uint8_t* p_data)
 {
     rbc_mesh_event_t tx_event;
-    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) data);
+    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
     bool doing_tx_event = false;
-    if (p_adv_data != NULL && 
-        vh_tx_event_flag_get(p_adv_data->handle, &doing_tx_event) == NRF_SUCCESS 
+    if (p_adv_data != NULL &&
+        vh_tx_event_flag_get(p_adv_data->handle, &doing_tx_event) == NRF_SUCCESS
         && doing_tx_event
     )
     {
@@ -164,17 +166,17 @@ static void tx_cb(uint8_t* data)
         tx_event.data = p_adv_data->data;
         tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
         tx_event.version_delta = 0;
-        
+
         if (rbc_mesh_event_push(&tx_event) == NRF_SUCCESS)
         {
-            mesh_packet_ref_count_inc((mesh_packet_t*) data);
+            mesh_packet_ref_count_inc((mesh_packet_t*) p_data);
         }
 #if RBC_MESH_SERIAL
         mesh_aci_rbc_event_handler(&tx_event);
 #endif
     }
 
-    mesh_packet_ref_count_dec((mesh_packet_t*) data); /* radio ref removed (pushed in tc_tx) */
+    mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
     vh_order_update(timer_get_timestamp()); /* tell the vh, so that it can push more updates */
 }
 
@@ -186,11 +188,11 @@ static void radio_idle_callback(void)
         order_search();
 }
 
-static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t timestamp)
-{   
+static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t timestamp, uint8_t rssi)
+{
     int16_t delta = vh_get_version_delta(p_mesh_adv_data->handle, p_mesh_adv_data->version);
     vh_data_status_t data_status = vh_rx_register(p_mesh_adv_data, timestamp);
-   
+
     /* prepare app event */
     rbc_mesh_event_t evt;
     evt.version_delta = delta;
@@ -200,12 +202,12 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
         case VH_DATA_STATUS_NEW:
 
             /* notify application */
-            prepare_event(&evt, p_mesh_adv_data);
+            prepare_event(&evt, p_mesh_adv_data, rssi);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
             if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
-            {                
-                mesh_gatt_value_set(p_mesh_adv_data->handle, 
-                    p_mesh_adv_data->data, 
+            {
+                mesh_gatt_value_set(p_mesh_adv_data->handle,
+                    p_mesh_adv_data->data,
                     p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
             }
 #ifdef RBC_MESH_SERIAL
@@ -216,12 +218,12 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
         case VH_DATA_STATUS_UPDATED:
 
             /* notify application */
-            prepare_event(&evt, p_mesh_adv_data);
+            prepare_event(&evt, p_mesh_adv_data, rssi);
             evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
             if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
             {
-                mesh_gatt_value_set(p_mesh_adv_data->handle, 
-                    p_mesh_adv_data->data, 
+                mesh_gatt_value_set(p_mesh_adv_data->handle,
+                    p_mesh_adv_data->data,
                     p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
             }
 #ifdef RBC_MESH_SERIAL
@@ -232,14 +234,14 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
         case VH_DATA_STATUS_OLD:
             /* do nothing */
             break;
-            
+
         case VH_DATA_STATUS_SAME:
             /* do nothing */
             break;
 
         case VH_DATA_STATUS_CONFLICTING:
 
-            prepare_event(&evt, p_mesh_adv_data);
+            prepare_event(&evt, p_mesh_adv_data, rssi);
             evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
             rbc_mesh_event_push(&evt); /* ignore error - will be a normal packet drop */
 #ifdef RBC_MESH_SERIAL
@@ -260,7 +262,7 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t t
         return; /* no fwid to compare against */
     }
     mesh_dfu_adv_data_t* p_dfu = (mesh_dfu_adv_data_t*) p_adv_data;
-    
+
     switch ((dfu_packet_type_t) p_dfu->dfu_packet.packet_type)
     {
         case DFU_PACKET_TYPE_FWID:
@@ -280,7 +282,7 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t t
                 memcpy(&fwid.bootloader, &p_dfu->dfu_packet.payload.fwid.bootloader, sizeof(bl_id_t));
                 bootloader_start(DFU_TYPE_BOOTLOADER, &fwid);
             }
-                
+
             break;
         case DFU_PACKET_TYPE_STATE:
             /* check if we are an eligible target */
@@ -316,7 +318,7 @@ void tc_init(uint32_t access_address, uint8_t channel)
 {
     m_state.access_address = access_address;
     m_state.channel = channel;
-    
+
     bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS);
     mp_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
 }
@@ -342,25 +344,25 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
     /* queue the packet for transmission */
     radio_event_t event;
     memset(&event, 0, sizeof(radio_event_t));
-    
+
     mesh_packet_ref_count_inc(p_packet); /* queue will have a reference until tx_cb */
     event.packet_ptr = (uint8_t*) p_packet;
     event.access_address = 0;
     event.channel = m_state.channel;
     event.callback.tx = tx_cb;
     event.event_type = RADIO_EVENT_TYPE_TX;
-    
+
     if (!radio_order(&event))
     {
         mesh_packet_ref_count_dec(p_packet); /* queue couldn't hold the ref */
         return NRF_ERROR_NO_MEM;
     }
-    
+
     return NRF_SUCCESS;
 }
 
 /* packet processing, executed in APP_LOW */
-void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
+void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t rssi)
 {
     APP_ERROR_CHECK_BOOL(data != NULL);
     SET_PIN(PIN_RX);
@@ -371,30 +373,30 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         /* invalid packet, ignore */
         CLEAR_PIN(PIN_RX);
         mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
-        
+
         return;
     }
-    
+
     ble_gap_addr_t addr;
     memcpy(addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
     addr.addr_type = p_packet->header.addr_type;
-    
+
     mesh_adv_data_t* p_mesh_adv_data = mesh_packet_adv_data_get(p_packet);
-    
+
     if (p_mesh_adv_data != NULL)
     {
         /* filter mesh packets on handle range */
         if (p_mesh_adv_data->handle <= RBC_MESH_APP_MAX_HANDLE)
         {
-            mesh_app_packet_handle(p_mesh_adv_data, timestamp);
+            mesh_app_packet_handle(p_mesh_adv_data, timestamp, rssi);
         }
         else
         {
             mesh_framework_packet_handle(p_mesh_adv_data, timestamp);
         }
-        
+
     }
-    
+
     /* this packet is no longer needed in this context */
     mesh_packet_ref_count_dec(p_packet); /* from rx_cb */
 
@@ -403,6 +405,6 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp)
         order_search();
         m_state.queue_saturation = false;
     }
-    
+
     CLEAR_PIN(PIN_RX);
 }

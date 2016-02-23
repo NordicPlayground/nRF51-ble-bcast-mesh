@@ -38,6 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "toolchain.h"
 #include "rbc_mesh.h"
+#include "mesh_packet.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -104,7 +105,7 @@ static void purge_preemptable(void)
 
             /* propagate failed rx event */
             APP_ERROR_CHECK_BOOL(current_evt.callback.rx != NULL);
-            current_evt.callback.rx(current_evt.packet_ptr, false, 0xFFFFFFFF);
+            current_evt.callback.rx(current_evt.packet_ptr, false, 0xFFFFFFFF, 100);
             --events_in_queue;
         }
         else
@@ -136,7 +137,7 @@ static void radio_channel_set(uint8_t ch)
 
 static void setup_event(radio_event_t* p_evt)
 {
-    NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_END_DISABLE_Msk;
+    NRF_RADIO->SHORTS = RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_END_DISABLE_Msk | RADIO_SHORTS_ADDRESS_RSSISTART_Msk;
     radio_channel_set(p_evt->channel);
     NRF_RADIO->PACKETPTR = (uint32_t) p_evt->packet_ptr;
     NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
@@ -283,6 +284,14 @@ void radio_event_handler(void)
     bool crc_status = NRF_RADIO->CRCSTATUS;
     uint32_t crc = NRF_RADIO->RXCRC;
     bool end_event = NRF_RADIO->EVENTS_END;
+    bool rssi_ok = NRF_RADIO->EVENTS_RSSIEND;
+    uint8_t rssi = 0;
+
+    if (rssi_ok)
+    {
+        rssi = NRF_RADIO->RSSISAMPLE;
+        NRF_RADIO->EVENTS_RSSIEND = 0;
+    }
 
     radio_event_t prev_evt;
     if (end_event)
@@ -297,7 +306,7 @@ void radio_event_handler(void)
         purge_preemptable();
     }
 
-    radio_event_t evt;    
+    radio_event_t evt;
     if (fifo_peek(&radio_fifo, &evt) == NRF_SUCCESS)
     {
         setup_event(&evt);
@@ -315,7 +324,7 @@ void radio_event_handler(void)
         if (prev_evt.event_type == RADIO_EVENT_TYPE_RX ||
             prev_evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
-            prev_evt.callback.rx(prev_evt.packet_ptr, crc_status, crc);
+            prev_evt.callback.rx(prev_evt.packet_ptr, crc_status, crc, rssi);
         }
         else
         {

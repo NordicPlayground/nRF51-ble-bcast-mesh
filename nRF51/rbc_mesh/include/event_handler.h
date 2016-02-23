@@ -48,7 +48,7 @@ typedef enum
 typedef void(*generic_cb)(void);
 
 /**
-* @brief Asynchronous event type. 
+* @brief Asynchronous event type.
 */
 typedef struct
 {
@@ -60,8 +60,9 @@ typedef struct
             uint8_t* payload; /* packet to be processed */
             uint32_t crc;
             uint32_t timestamp;
+            uint8_t rssi;
         } packet;
-        struct 
+        struct
         {
             timer_callback cb;/*void return */
             uint32_t timestamp;

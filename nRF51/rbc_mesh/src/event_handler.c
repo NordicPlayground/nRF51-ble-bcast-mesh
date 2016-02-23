@@ -68,7 +68,8 @@ static void async_event_execute(async_event_t* evt)
         case EVENT_TYPE_PACKET:
             tc_packet_handler(evt->callback.packet.payload,
                                 evt->callback.packet.crc,
-                                evt->callback.packet.timestamp);
+                                evt->callback.packet.timestamp,
+                                evt->callback.packet.rssi);
         default:
             break;
     }

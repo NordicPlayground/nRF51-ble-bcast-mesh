@@ -73,6 +73,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         uint8_t length = len;\
         while (length--)\
             app_uart_put(*(c++));\
+        app_uart_put('\n');\
     } while(0)
 
 #endif
@@ -238,8 +239,9 @@ void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
         case RBC_MESH_EVENT_TYPE_NEW_VAL: cmd = 'N'; break;
         case RBC_MESH_EVENT_TYPE_TX: cmd = 'T'; break;
     }
-    _LOG("%c[%d] ", cmd, evt->value_handle);
+    _LOG("%c[%d][RSSI: %d] ", cmd, evt->value_handle, evt->rssi);
     _LOG_BUFFER(evt->data, evt->data_len);
+    
 }
 
 /** Handler for incoming UART events */

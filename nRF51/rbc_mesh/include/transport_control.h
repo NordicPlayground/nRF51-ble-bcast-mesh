@@ -35,11 +35,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ble.h"
 
 /**
-* @file This module takes care of all lower level packet processing and 
+* @file This module takes care of all lower level packet processing and
 *   schedules the radio for transmission. Acts as the link between the radio
 *   and the mesh service.
 */
- 
+
 
 
 void tc_init(uint32_t access_address, uint8_t channel);
@@ -53,6 +53,6 @@ void tc_on_ts_begin(void);
 */
 uint32_t tc_tx(mesh_packet_t* p_packet);
 
-void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp);
+void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t rssi);
 
 #endif /* _TRANSPORT_CONTROL_H__ */

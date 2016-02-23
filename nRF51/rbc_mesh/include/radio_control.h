@@ -33,8 +33,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 /** @brief callbacks for after radio event is complete */
-typedef void (*radio_rx_cb)(uint8_t*, bool, uint32_t);
-typedef void (*radio_tx_cb)(uint8_t*);
+typedef void (*radio_rx_cb)(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
+typedef void (*radio_tx_cb)(uint8_t* p_data);
 
 /** @brief callback for when the radio is out of things to do */
 typedef void (*radio_idle_cb)(void);
@@ -47,7 +47,7 @@ typedef enum
 } radio_event_type_t;
 
 /**
-* @brief executable radio event type 
+* @brief executable radio event type
 */
 typedef struct
 {
@@ -55,7 +55,7 @@ typedef struct
     uint8_t access_address;         /* If TX: access address index to send on. If RX: AA enabled bitfield */
     uint8_t channel;                /* Channel to execute event on */
     uint8_t* packet_ptr;            /* packet pointer to use. */
-    union 
+    union
     {
         radio_rx_cb rx;
         radio_tx_cb tx;
@@ -72,8 +72,8 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_callback);
 
 /**
 * @brief Schedule a radio event (tx/rx)
-* 
-* @param[in] radio_event pointer to user-created radio event to be queued. 
+*
+* @param[in] radio_event pointer to user-created radio event to be queued.
 *   Is copied into queue, may be stack allocated
 */
 bool radio_order(radio_event_t* radio_event);
