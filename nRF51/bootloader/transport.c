@@ -73,7 +73,7 @@ static bool             m_started = false;
 * Static functions
 ******************************************************************************/
 static void tx_cb(uint8_t* p_data);
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc);
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
 static void idle_cb(void);
 
 static tx_t* find_tx_entry(mesh_packet_t* p_packet)
@@ -131,7 +131,7 @@ static void tx_cb(uint8_t* p_data)
     NRF_GPIO->OUTCLR = (1 << 6);
 }
 
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc)
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 {
     APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) p_data) == 1);
     if (success &&
