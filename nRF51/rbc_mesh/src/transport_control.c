@@ -65,6 +65,7 @@ typedef struct
 ******************************************************************************/
 static tc_state_t m_state;
 static bl_info_entry_t* mp_fwid_entry = NULL;
+static packet_peek_cb_t mp_packet_peek_cb;
 
 /* STATS */
 #ifdef PACKET_STATS
@@ -318,6 +319,7 @@ void tc_init(uint32_t access_address, uint8_t channel)
 {
     m_state.access_address = access_address;
     m_state.channel = channel;
+    mp_packet_peek_cb = NULL;
 
     bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS);
     mp_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
@@ -368,7 +370,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
     SET_PIN(PIN_RX);
     mesh_packet_t* p_packet = (mesh_packet_t*) data;
 
-    if (p_packet->header.length > MESH_PACKET_OVERHEAD + RBC_MESH_VALUE_MAX_LEN)
+    if (p_packet->header.length > BLE_GAP_ADDR_LEN + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
     {
         /* invalid packet, ignore */
         CLEAR_PIN(PIN_RX);
@@ -377,6 +379,12 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
         return;
     }
 
+    /* Pass packet to packet peek function */
+    if (mp_packet_peek_cb)
+    {
+        mp_packet_peek_cb(p_packet, crc, timestamp, rssi);
+    }
+    
     ble_gap_addr_t addr;
     memcpy(addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
     addr.addr_type = p_packet->header.addr_type;
@@ -407,4 +415,9 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
     }
 
     CLEAR_PIN(PIN_RX);
+}
+
+void tc_packet_peek_cb_set(packet_peek_cb_t packet_peek_cb)
+{
+    mp_packet_peek_cb = packet_peek_cb;
 }

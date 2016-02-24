@@ -41,18 +41,42 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
+/** @brief Function pointer type for packet peek callback. */
+typedef void (*packet_peek_cb_t)(mesh_packet_t* p_packet, 
+                                 uint32_t crc, 
+                                 uint64_t timestamp, 
+                                 uint8_t rssi); 
+
 
 void tc_init(uint32_t access_address, uint8_t channel);
 
 void tc_radio_params_set(uint32_t access_address, uint8_t channel);
 
 void tc_on_ts_begin(void);
+
 /**
-* @brief: assemble a packet by getting data from server based on params,
-*   and place it on the radio queue
+* @brief: Assemble a packet by getting data from server based on params,
+*   and place it on the radio queue.
 */
 uint32_t tc_tx(mesh_packet_t* p_packet);
 
 void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t rssi);
+
+/** 
+* @brief Set packet peek function pointer. Every received packet will be 
+*   passed to the peek function before being processed by the stack - 
+*   including non-mesh packets. This allows the application to read
+*   out parameters like RSSI from nearby devices.
+* 
+* @warning This is considered an advanced feature, and should be used with some
+*   care. The packet memory will be invalid after the function is finished, and 
+*   users should not store any direct pointers to it. Also note that the 
+*   function is called from APP_LOW priority, which means it takes away from 
+*   stack-internal processing time. Excessive usage may lead to starvation of
+*   internal functionality, and potentially packet drops.
+*
+* @param[in] packet_peek_cb Function pointer to a packet-peek function.
+*/
+void tc_packet_peek_cb_set(packet_peek_cb_t packet_peek_cb);
 
 #endif /* _TRANSPORT_CONTROL_H__ */
