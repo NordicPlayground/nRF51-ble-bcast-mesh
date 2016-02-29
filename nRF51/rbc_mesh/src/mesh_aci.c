@@ -101,6 +101,9 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         break;
 
     case SERIAL_CMD_OPCODE_RADIO_RESET:
+        /* Host gets out of sync if we cut off in the middle of a TX */
+        serial_wait_for_completion();
+        
         /* kill ourself :) */
 #ifdef SOFTDEVICE_PRESENT
         sd_power_reset_reason_clr(0x0F000F);
@@ -448,6 +451,53 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
         if (mesh_packet_acquire(&p_packet))
         {
             error_code = NRF_SUCCESS;
+            /* verify length */
+            switch (serial_cmd->params.dfu.packet.packet_type)
+            {
+                case DFU_PACKET_TYPE_DATA:
+                case DFU_PACKET_TYPE_DATA_RSP:
+                    if (serial_cmd->length < 10)
+                    {
+                        error_code = NRF_ERROR_INVALID_LENGTH;
+                    }
+                    break;
+                case DFU_PACKET_TYPE_DATA_REQ:
+                    if (serial_cmd->length != DFU_PACKET_LEN_DATA_REQ + 1)
+                    {
+                        error_code = NRF_ERROR_INVALID_LENGTH;
+                    }
+                    break;
+                case DFU_PACKET_TYPE_FWID:
+                    if (serial_cmd->length != DFU_PACKET_LEN_FWID + 1)
+                    {
+                        error_code = NRF_ERROR_INVALID_LENGTH;
+                    }
+                    break;
+                case DFU_PACKET_TYPE_STATE:
+                    if (serial_cmd->params.dfu.packet.payload.state.dfu_type == DFU_TYPE_APP)
+                    {
+                        if (serial_cmd->length != DFU_PACKET_LEN_STATE_APP + 1)
+                        {
+                            error_code = NRF_ERROR_INVALID_LENGTH;
+                        }
+                    }
+                    else if (serial_cmd->params.dfu.packet.payload.state.dfu_type == DFU_TYPE_SD)
+                    {
+                        if (serial_cmd->length != DFU_PACKET_LEN_STATE_SD + 1)
+                        {
+                            error_code = NRF_ERROR_INVALID_LENGTH;
+                        }
+                    }
+                    else
+                    {
+                        if (serial_cmd->length != DFU_PACKET_LEN_STATE_BL + 1)
+                        {
+                            error_code = NRF_ERROR_INVALID_LENGTH;
+                        }
+                    }
+                    break;
+                
+            }
         }
         else
         {
