@@ -45,6 +45,8 @@ typedef enum
     BL_STATE_DFU_READY,
     BL_STATE_DFU_TARGET,
     BL_STATE_VALIDATE,
+    BL_STATE_RELAY_CANDIDATE,
+    BL_STATE_RELAY
 } bl_state_t;
 
 typedef enum
@@ -61,7 +63,7 @@ typedef enum
 } bl_end_t;
 
 void bootloader_init(void);
-
+void bootloader_start(void);
 uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
 void bootloader_abort(bl_end_t end_reason);
 void bootloader_rtc_irq_handler(void);
