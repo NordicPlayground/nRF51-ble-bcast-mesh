@@ -52,16 +52,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PIN_ENTRY_PUT       (4)
 #define PIN_INIT            (5)
 
-#if defined(NRF51) && DEBUG
-#define PIN_SET(x) NRF_GPIO->OUTSET = (1 << (x))
-#define PIN_CLEAR(x) NRF_GPIO->OUTCLR = (1 << (x))
-#define PIN_TICK(x) do{ PIN_SET(x); _NOP(); _NOP(); _NOP(); _NOP(); PIN_CLEAR(x); while (0)
-#else
-#define PIN_SET(x) 
-#define PIN_CLEAR(x)
-#define PIN_TICK(x) 
-#endif
-
 typedef struct
 {
     uint16_t len;
@@ -75,7 +65,6 @@ static bootloader_info_t* mp_bl_info_bank_page;
 ******************************************************************************/
 static void invalidate_entry(bootloader_info_header_t* p_header)
 {
-    PIN_SET(PIN_INVALIDATE);
     /* TODO: optimization: check if the write only adds 0-bits to the current value,
        in which case we can just overwrite the current. */
     if ((uint32_t) p_header & 0x03)
@@ -89,7 +78,6 @@ static void invalidate_entry(bootloader_info_header_t* p_header)
 
     uint32_t len = HEADER_LEN;
     nrf_flash_store((uint32_t*) p_header, (uint8_t*) &old_header_ram, len, 0);
-    PIN_CLEAR(PIN_INVALIDATE);
 }
 
 static inline bootloader_info_header_t* bootloader_info_iterate(bootloader_info_header_t* p_info_header)
@@ -120,7 +108,6 @@ static bootloader_info_header_t* reset_with_replace(
         bl_info_entry_t* p_entry,
         uint32_t entry_length)
 {
-    PIN_SET(PIN_RESET);
     /* create new page from valid entries, assumes intact info page */
     uint8_t new_page[PAGE_SIZE];
     bootloader_info_header_t* p_replace_position = NULL;
@@ -191,7 +178,6 @@ static bootloader_info_header_t* reset_with_replace(
     nrf_flash_erase((uint32_t*) mp_bl_info_page, PAGE_SIZE);
     nrf_flash_store((uint32_t*) mp_bl_info_page, new_page, PAGE_SIZE, 0);
 
-    PIN_CLEAR(PIN_RESET);
     return p_replace_position;
 }
 /******************************************************************************
@@ -199,7 +185,6 @@ static bootloader_info_header_t* reset_with_replace(
 ******************************************************************************/
 uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank_page)
 {
-    PIN_SET(PIN_INIT);
     if ((uint32_t) p_bl_info_page & (PAGE_SIZE - 1) ||
         (uint32_t) p_bl_info_bank_page & (PAGE_SIZE - 1))
     {
@@ -229,7 +214,6 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
         nrf_flash_store((uint32_t*) mp_bl_info_page, (uint8_t*) mp_bl_info_bank_page, PAGE_SIZE, 0);
     }
 
-    PIN_CLEAR(PIN_INIT);
     return NRF_SUCCESS;
 }
 
@@ -240,7 +224,6 @@ bootloader_info_t* bootloader_info_get(void)
 
 bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_type_t type)
 {
-    PIN_SET(PIN_ENTRY_GET);
     bootloader_info_header_t* p_header =
         (bootloader_info_header_t*)
         ((uint32_t) p_bl_info_page + ((bootloader_info_t*) p_bl_info_page)->metadata.metadata_len);
@@ -257,12 +240,10 @@ bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_typ
             ) ||
             ++iterations > PAGE_SIZE / 2)
         {
-            PIN_CLEAR(PIN_ENTRY_GET);
             return NULL; /* out of bounds */
         }
         iter_type = (bl_info_type_t) p_header->type;
     }
-    PIN_CLEAR(PIN_ENTRY_GET);
     return (bl_info_entry_t*) ((uint32_t) p_header + 4 * mp_bl_info_page->metadata.entry_header_length);
 }
 
@@ -274,7 +255,6 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
     {
         return NULL;
     }
-    PIN_SET(PIN_ENTRY_PUT);
 
     /* previous entry, to be invalidated after we've stored the current entry. */
     bootloader_info_header_t* p_old_header =
@@ -325,7 +305,6 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
             invalidate_entry(p_old_header);
         }
     }
-    PIN_CLEAR(PIN_ENTRY_PUT);
     return (bl_info_entry_t*) ((uint32_t) p_new_header + 4 * mp_bl_info_page->metadata.entry_header_length);
 }
 
