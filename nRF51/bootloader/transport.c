@@ -126,9 +126,7 @@ static void order_scan(void)
 
 static void tx_cb(uint8_t* p_data)
 {
-    NRF_GPIO->OUTSET = (1 << 6);
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
-    NRF_GPIO->OUTCLR = (1 << 6);
 }
 
 static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)

@@ -62,17 +62,21 @@ uint32_t* m_uicr_bootloader_start_address
 
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
+#ifdef DEBUG_LEDS    
     __disable_irq();
     NRF_GPIO->OUTSET = (1 << 7);
     NRF_GPIO->OUTCLR = (1 << 23);
+#endif    
     __BKPT(0);
     while (1);
 }
 
 void HardFault_Handler(uint32_t pc, uint32_t lr)
 {
+#ifdef DEBUG_LEDS    
     NRF_GPIO->OUTSET = (1 << 7);
     NRF_GPIO->OUTCLR = (1 << 23);
+#endif    
     __BKPT(0);
     while (1);
 }
@@ -96,8 +100,10 @@ static void rx_cb(mesh_packet_t* p_packet)
 
 static void init_leds(void)
 {
+#ifdef DEBUG_LEDS 
     nrf_gpio_range_cfg_output(21, 24);
     NRF_GPIO->OUT = (1 << 22) | (1 << 23) | (1 << 24);
+#endif
 }
 
 static void init_clock(void)
@@ -120,6 +126,7 @@ int main(void)
 
     NVIC_SetPriority(SWI2_IRQn, 2);
     NVIC_EnableIRQ(SWI2_IRQn);
+    __enable_irq();
 
     init_leds();
     rtc_init();
@@ -133,6 +140,7 @@ int main(void)
     {
         bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
     }
+    
     bootloader_init();
     /* check whether we should go to application */
     if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_GO_TO_APP)
@@ -140,6 +148,7 @@ int main(void)
         bootloader_abort(BL_END_SUCCESS);
     }
     
+    bootloader_start();
     transport_start();
     
     while (1)
