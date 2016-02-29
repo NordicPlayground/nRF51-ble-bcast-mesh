@@ -47,6 +47,8 @@ typedef __packed_armcc struct
 
 void serial_handler_init(void);
 
+void serial_wait_for_completion(void);
+
 bool serial_handler_event_send(serial_evt_t* evt);
 
 bool serial_handler_command_get(serial_cmd_t* evt);

@@ -79,6 +79,7 @@ static serial_data_t tx_buffer;
 static serial_state_t serial_state;
 static bool has_pending_tx = false;
 static bool doing_tx = false;
+static bool suspend = false;
 
 /*****************************************************************************
 * Static functions
@@ -237,7 +238,10 @@ void spi_event_handler(spi_slave_evt_t evt)
                     APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
                 }
             }
-
+            if (suspend)
+            {
+                return;
+            }
             if (fifo_is_empty(&tx_fifo))
             {
                 serial_state = SERIAL_STATE_IDLE;
@@ -322,6 +326,24 @@ void serial_handler_init(void)
     {
         APP_ERROR_CHECK(NRF_ERROR_INTERNAL);
     }
+}
+
+
+void serial_wait_for_completion(void)
+{
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
+    suspend = true;
+    
+    extern void SPI0_IRQHandler(void);
+    
+    while (serial_state != SERIAL_STATE_IDLE)
+    {
+        SPI0_IRQHandler();
+    }
+    
+    suspend = false;
+    _ENABLE_IRQS(was_masked);
 }
 
 bool serial_handler_event_send(serial_evt_t* evt)

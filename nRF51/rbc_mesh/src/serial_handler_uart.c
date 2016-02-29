@@ -61,6 +61,7 @@ static serial_state_t serial_state;
 static serial_data_t tx_buffer;
 static uint32_t tx_len;
 static uint8_t* tx_ptr;
+static bool suspend;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
@@ -91,7 +92,7 @@ static void do_transmit(void)
 /** @brief Put a do_transmit call up for asynchronous processing */
 static void schedule_transmit(void)
 {
-    if (serial_state != SERIAL_STATE_TRANSMIT)
+    if (!suspend && serial_state != SERIAL_STATE_TRANSMIT)
     {
         serial_state = SERIAL_STATE_TRANSMIT;
 #ifdef BOOTLOADER
@@ -202,6 +203,8 @@ void serial_handler_init(void)
     rx_fifo.elem_size = sizeof(serial_data_t);
     rx_fifo.memcpy_fptr = NULL;
     fifo_init(&rx_fifo);
+    
+    suspend = false;
 
     /* setup hw */                      
     nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_PULLUP);
@@ -222,16 +225,12 @@ void serial_handler_init(void)
     NRF_UART0->ENABLE        = (UART_ENABLE_ENABLE_Enabled << UART_ENABLE_ENABLE_Pos);
     NRF_UART0->INTENSET      = (UART_INTENSET_RXDRDY_Msk | 
                                 UART_INTENSET_TXDRDY_Msk);
-    //NRF_UART0->TASKS_STARTTX = 1;
-    //NRF_UART0->TXD = 0;
+
     NRF_UART0->EVENTS_RXDRDY = 0;
     NRF_UART0->EVENTS_TXDRDY = 0;
     NRF_UART0->TASKS_STARTRX = 1;
     NVIC_SetPriority(UART0_IRQn, 3);
     NVIC_EnableIRQ(UART0_IRQn);
-    
-    
-
     
     /* notify application controller of the restart */ 
     serial_evt_t started_event;
@@ -255,6 +254,19 @@ void serial_handler_init(void)
     {
         APP_ERROR_CHECK(NRF_ERROR_INTERNAL);
     }
+}
+
+void serial_wait_for_completion(void)
+{
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
+    suspend = true;
+    while (serial_state != SERIAL_STATE_IDLE)
+    {
+        UART0_IRQHandler();
+    }
+    suspend = false;
+    _ENABLE_IRQS(was_masked);
 }
 
 bool serial_handler_event_send(serial_evt_t* evt)
