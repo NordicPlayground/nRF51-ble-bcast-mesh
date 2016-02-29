@@ -78,27 +78,22 @@ This creates a device page .bin file (example.bin) and a device page .hex file (
 We'll use the .hex file in step 7.
 
 == 4. Erase all chip memory including UICR on all devices.
-Using nrfjprog or nRFgo Studio (both available on www.nordicsemi.com), erase all previous data on
+Using nrfjprog (available on www.nordicsemi.com), erase all previous data on
 your device (including UICR).
 
 == 5. Flash the Softdevice on all devices.
 Get a copy of the S110 v8.0 Softdevice at www.nordicsemi.com, and flash it onto your device with
-nrfjprog or nRFgo Studio. In nRFgo Studio, use the "Program SoftDevice" tab when selecting the
-firmware file.
+nrfjprog.
 
 == 6. Flash the serial bootloader on all devices.
-Flash the precompiled bootloader_serial.hex (in nRF51/bootloader/test/) to your device with nrfjprog
-or nRFgo Studio. For nRFgo Studio, use the "Program Bootloader" tab when selecting the firmware file. See the
-bootloader readme file if you run into any issues.
+Flash the precompiled bootloader_serial.hex (in nRF51/bootloader/test/) to your device with nrfjprog.
 
 == 7. Flash the device page on all devices.
-Flash the device page .hex that you generated in step 3 to the device. In nRFgo Studio, use the
-"Program Application" tab when selecting the firmware file.
+Flash the device page .hex that you generated in step 3 to the device.
 
 == 8. Flash the first application on all devices (serial version on the serial-gateway device).
 Finally, flash the example application app_LED1.hex to your devices, but flash the
-app_serial_LED1.hex file to the device you want to connect to via serial. In nRFgo Studio, use the
-"Program Application" tab when selecting the firmware file. When finished, your device should be
+app_serial_LED1.hex file to the device you want to connect to via serial. When finished, your device should be
 lighting its LED1 if it's an nRF51 development kit, or the red LED if it's an nRF51 dongle.
 The example applications are compiled from he BLE_Gateway example in this repository.
 
@@ -118,6 +113,10 @@ Note that only some of them apply to mesh-DFU, as the tool still supports the re
 Nordic Semiconductor DFU transfer.
 
 == 10. Transfer the DFU-file over serial with the pc-nrfutil tool.
+
+*WARNING:* _For this step, it is important that you close any running instance of nRFgo Studio,
+as it has been known to trip up the reset procedure for the nRF51._
+
 Now for the interesting part: Doing a DFU! First off, figure out which COM-port your serial device
 is on. Mine is on COM138. Now call the nrfutil one final time:
 
