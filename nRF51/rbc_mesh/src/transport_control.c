@@ -104,11 +104,12 @@ static void order_search(void)
 }
 
 
-static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_data, uint8_t rssi)
+static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_data, uint8_t rssi, ble_gap_addr_t* p_addr)
 {
     evt->value_handle = p_mesh_adv_data->handle;
     evt->data = &p_mesh_adv_data->data[0];
     evt->data_len = p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+    memcpy(&evt->ble_adv_addr, p_addr, sizeof(p_mesh_adv_data));
     evt->rssi = -((int8_t) rssi);
 }
 
@@ -189,7 +190,10 @@ static void radio_idle_callback(void)
         order_search();
 }
 
-static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t timestamp, uint8_t rssi)
+static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data,
+                                   uint64_t timestamp,
+                                   uint8_t rssi,
+                                   ble_gap_addr_t* p_addr)
 {
     int16_t delta = vh_get_version_delta(p_mesh_adv_data->handle, p_mesh_adv_data->version);
     vh_data_status_t data_status = vh_rx_register(p_mesh_adv_data, timestamp);
@@ -203,7 +207,7 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
         case VH_DATA_STATUS_NEW:
 
             /* notify application */
-            prepare_event(&evt, p_mesh_adv_data, rssi);
+            prepare_event(&evt, p_mesh_adv_data, rssi, p_addr);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
             if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
             {
@@ -219,7 +223,7 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
         case VH_DATA_STATUS_UPDATED:
 
             /* notify application */
-            prepare_event(&evt, p_mesh_adv_data, rssi);
+            prepare_event(&evt, p_mesh_adv_data, rssi, p_addr);
             evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
             if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
             {
@@ -242,7 +246,7 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data, uint64_t ti
 
         case VH_DATA_STATUS_CONFLICTING:
 
-            prepare_event(&evt, p_mesh_adv_data, rssi);
+            prepare_event(&evt, p_mesh_adv_data, rssi, p_addr);
             evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
             rbc_mesh_event_push(&evt); /* ignore error - will be a normal packet drop */
 #ifdef RBC_MESH_SERIAL
@@ -384,7 +388,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
     {
         mp_packet_peek_cb(p_packet, crc, timestamp, rssi);
     }
-    
+
     ble_gap_addr_t addr;
     memcpy(addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
     addr.addr_type = p_packet->header.addr_type;
@@ -396,13 +400,12 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
         /* filter mesh packets on handle range */
         if (p_mesh_adv_data->handle <= RBC_MESH_APP_MAX_HANDLE)
         {
-            mesh_app_packet_handle(p_mesh_adv_data, timestamp, rssi);
+            mesh_app_packet_handle(p_mesh_adv_data, timestamp, rssi, &addr);
         }
         else
         {
             mesh_framework_packet_handle(p_mesh_adv_data, timestamp);
         }
-
     }
 
     /* this packet is no longer needed in this context */

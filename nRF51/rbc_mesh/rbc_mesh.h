@@ -110,18 +110,16 @@ typedef enum
     RBC_MESH_EVENT_TYPE_TX,              /** The indicated handle was transmitted */
 } rbc_mesh_event_type_t;
 
-/**
-* @brief Rebroadcast framework generated event. Carries information about a
-*   change to one database value.
-*/
+/** @brief Rebroadcast framework generated event. */
 typedef struct
 {
-    rbc_mesh_event_type_t event_type;       /** See @ref rbc_mesh_event_type_t */
-    rbc_mesh_value_handle_t value_handle;   /** Handle of the value the event is generated for */
-    uint8_t* data;                          /** Current data array contained at the event handle location */
-    uint8_t data_len;                       /** Length of data array */
-    int8_t rssi;                            /** RSSI of received data, in range of -100dBm to ~-40dBm */
-    uint16_t version_delta;                 /** Version number increase since last update */
+    rbc_mesh_event_type_t event_type;       /**< See @ref rbc_mesh_event_type_t */
+    rbc_mesh_value_handle_t value_handle;   /**< Handle of the value the event is generated for */
+    uint8_t* data;                          /**< Current data array contained at the event handle location */
+    uint8_t data_len;                       /**< Length of data array */
+    int8_t rssi;                            /**< RSSI of received data, in range of -100dBm to ~-40dBm */
+    ble_gap_addr_t ble_adv_addr;            /**< Advertisement address of the device we got the update from. */
+    uint16_t version_delta;                 /**< Version number increase since last update */
 } rbc_mesh_event_t;
 
 /**
@@ -151,7 +149,6 @@ typedef struct
     uint32_t interval_min_ms;
     nrf_clock_lfclksrc_t lfclksrc;
 } rbc_mesh_init_params_t;
-
 /*****************************************************************************
      Interface Functions
 *****************************************************************************/
