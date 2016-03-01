@@ -386,7 +386,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
     /* Pass packet to packet peek function */
     if (mp_packet_peek_cb)
     {
-        mp_packet_peek_cb(p_packet, crc, timestamp, rssi);
+        mp_packet_peek_cb(p_packet, crc, timeslot_get_global_time() + timestamp, rssi);
     }
 
     ble_gap_addr_t addr;
