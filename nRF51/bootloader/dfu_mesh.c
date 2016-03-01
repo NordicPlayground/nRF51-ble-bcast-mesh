@@ -395,8 +395,10 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
     if (buffer_incoming_entry)
     {
         memcpy(&mp_page_buffer[PAGE_OFFSET(p_addr)], p_data, length);
-
-        m_current_transfer.first_invalid_byte_on_page = PAGE_OFFSET(p_addr) + length;
+        if (m_current_transfer.first_invalid_byte_on_page < PAGE_OFFSET(p_addr) + length)
+        {
+            m_current_transfer.first_invalid_byte_on_page = PAGE_OFFSET(p_addr) + length;
+        }
 
         if (m_current_transfer.first_invalid_byte_on_page == PAGE_SIZE)
         {
