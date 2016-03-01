@@ -76,6 +76,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* important that req-cache isn't too big - might lead to starvation in req-device */
 #define REQ_CACHE_SIZE              (4)
 #define TRANSACTION_ID_CACHE_SIZE   (8)
+#define REQ_RX_COUNT_RETRY          (8)
 
 #define SENT_PACKET_COUNT           (32)
 
@@ -122,10 +123,16 @@ typedef struct
     uint8_t*            p_signature_bl_info;
 } bl_info_pointers_t;
 
+typedef struct
+{
+    uint16_t segment;
+    uint16_t rx_count;
+} req_cache_entry_t;
+
 static transaction_t        m_transaction;
 static bl_state_t           m_state = BL_STATE_FIND_FWID;
 static bl_info_pointers_t   m_bl_info_pointers;
-static uint16_t             m_req_cache[REQ_CACHE_SIZE];
+static req_cache_entry_t    m_req_cache[REQ_CACHE_SIZE];
 static uint16_t             m_data_cache[DATA_CACHE_SIZE];
 static uint8_t              m_req_index;
 static uint8_t              m_data_index;
@@ -735,7 +742,13 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                     if (dfu_get_oldest_missing_entry(
                             m_transaction.p_last_requested_entry,
                             &p_req_entry,
-                            &req_entry_len))
+                            &req_entry_len) &&
+                        (
+                         /* don't request the previous packet yet */
+                         ADDR_SEGMENT(p_req_entry, m_transaction.p_start_addr) < p_packet->payload.data.segment - 1 ||
+                         m_transaction.segment_count == p_packet->payload.data.segment
+                        ) 
+                       )
                     {
                         if(!mesh_packet_acquire(&p_req_packet))
                         {
@@ -894,19 +907,24 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
             }
         }
         else
-        {
+        {   
+            req_cache_entry_t* p_req_entry = NULL;
+            /* check that we haven't served this request recently. */
+            for (uint32_t i = 0; i < REQ_CACHE_SIZE; ++i)
+            {
+                if (m_req_cache[i].segment == p_packet->payload.req_data.segment)
+                {
+                    if (m_req_cache[i].rx_count++ < REQ_RX_COUNT_RETRY)
+                    {
+                        return;
+                    }
+                    p_req_entry = &m_req_cache[i];
+                    break;
+                }
+            }
             mesh_packet_t* p_rsp;
             if (mesh_packet_acquire(&p_rsp))
             {
-                /* check that we haven't served this request before. */
-                for (uint32_t i = 0; i < REQ_CACHE_SIZE; ++i)
-                {
-                    if (m_req_cache[i] == p_packet->payload.req_data.segment)
-                    {
-                        mesh_packet_ref_count_dec(p_rsp);
-                        return;
-                    }
-                }
                 dfu_packet_t* p_dfu_rsp = (dfu_packet_t*) &((ble_ad_t*) p_rsp->payload)->data[2];
                 /* serve request */
                 if (
@@ -926,7 +944,12 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
                 mesh_packet_ref_count_dec(p_rsp);
 
                 /* log our attempt at responding */
-                m_req_cache[(m_req_index++) & (REQ_CACHE_SIZE - 1)] = p_packet->payload.req_data.segment;
+                if (!p_req_entry)
+                {
+                    p_req_entry = &m_req_cache[(m_req_index++) & (REQ_CACHE_SIZE - 1)];
+                    p_req_entry->segment = p_packet->payload.req_data.segment;
+                }
+                p_req_entry->rx_count = 0;
             }
         }
     }
@@ -959,7 +982,7 @@ void bootloader_init(void)
     m_transaction.transaction_id = 0;
     m_transaction.type = DFU_TYPE_NONE;
     memset(m_data_cache, 0xFF, DATA_CACHE_SIZE * sizeof(uint16_t));
-    memset(m_req_cache, 0, REQ_CACHE_SIZE * sizeof(uint16_t));
+    memset(m_req_cache, 0, REQ_CACHE_SIZE * sizeof(m_req_cache[0]));
     memset(m_tid_cache, 0, TRANSACTION_ID_CACHE_SIZE);
     m_tid_index = 0;
     m_data_index = 0;
