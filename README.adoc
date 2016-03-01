@@ -1,15 +1,9 @@
 = nRF51-ble-broadcast-mesh
 
-Bluetooth Low Energy based rebroadcasting mesh implementation on the nRF51.
+Bluetooth Low Energy based rebroadcasting mesh implementation on the nRF51 called "nRF OpenMesh".
 Works with SoftDevice S110 v8.x and S130 v1.0 with Timeslot API, and the nRF51 SDK8.1. 
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
-
-== About
-This project was created in collaboration with The Norwegian University of 
-Science and Technology (NTNU), as part of a master thesis. The project is not
-part of the official Nordic Semiconductor SDK. Developers are welcome to contribute
-and provide feedback.
 
 == Usage
 In addition to two provided examples, there is a template project under
@@ -127,6 +121,12 @@ link:../sdk-8-support/docs/how_it_works.adoc[How the mesh works]
 
 - Detailed description of Trickle, the usage of the Softdevice (including GATT 
 characteristic syntax) and the on-air packets.
+
+== About
+The "nRF OpenMesh" was created in collaboration with The Norwegian University of 
+Science and Technology (NTNU), as part of a master's thesis pre-study. The project is not
+part of the official Nordic Semiconductor SDK. Developers are welcome to contribute
+and provide feedback.
 
 == Forum
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
