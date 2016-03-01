@@ -1,5 +1,47 @@
 = Changelog
 
+== 0.8.2 Name change, Bootloader stability and RX reporting
+
+This release marks a name change for the project: you are now looking at the release notes of the
+nRF OpenMesh! Don't worry though, the URLs, APIs, structure and path-names remain the same.
+We've also addressed some important issues and feature requests, both with the core-part of the
+mesh framework and the DFU bootloader. Take a look:
+
+=== New features:
+
+- RSSI now added to all RX-related events, as requested in Issue #66 and #70.
+
+- Advertisement address from which the RX came from reported. Note that this advertisement address
+ is per hop, and does not identify the device that originated the value update.
+
+- Packet peek: The Transport control module now has a function to set a callback for packet
+reception. The callback gets parameter `mesh_packet_t*`, which can be used to read adv-address and
+payload in the packet. In addition, CRC value, RSSI and timestamp in microseconds is given to the
+callback.
+
+- Bootloader handles relaying of serial-transfers not intended for them properly.
+
+- Bootloaders are more helpful to neighbors in distress, and will attempt to resend responses to data
+requests which go unanswered.
+
+- A set of pre-merged hex files are added under _nRF51/bootloader/test/full_test/_ for easy testing of DFU functionality.
+
+=== Fixes:
+
+- Bootloader had some relay issues, which have been adressed. Performance and success rate for over
+the air-updates should be improved significantly.
+
+- Bootup glitches in the UART-interface removed.
+
+- All zombie states and hang-issues with the core mesh should be fixed.
+
+- Bootloader fails gracefully if the device page isn't flashed.
+
+- nRFgo Studio caused some issues during DFU reset procedure, and has been purged from quick start
+guide. A warning about this is instead present in the guide.
+
+- Some unused files made their way into the public repo, and have been removed.
+
 == 0.8.1 Stability improvement
 
 This release is a pure stability patch, and should mitigate some issues observed during testing:
