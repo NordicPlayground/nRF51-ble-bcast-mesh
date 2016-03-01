@@ -41,8 +41,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_packet.h"
 #include "mesh_aci.h"
 
-#include "SEGGER_RTT.h"
-
 #include "nrf_error.h"
 #include "app_error.h"
 #include "fifo.h"
