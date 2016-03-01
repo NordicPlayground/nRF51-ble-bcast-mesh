@@ -92,9 +92,9 @@ Flash the precompiled bootloader_serial.hex (in nRF51/bootloader/test/) to your 
 Flash the device page .hex that you generated in step 3 to the device.
 
 == 8. Flash the first application on all devices (serial version on the serial-gateway device).
-Finally, flash the example application app_LED1.hex to your devices, but flash the
-app_serial_LED1.hex file to the device you want to connect to via serial. When finished, your device should be
-lighting its LED1 if it's an nRF51 development kit, or the red LED if it's an nRF51 dongle.
+Finally, flash the example application app_LED1.hex to all devices, except the device you want to
+connect to via serial. For this device, use app_serial_LED1.hex instead. When finished, your devices
+should have its LED1 lit if it's an nRF51 development kit, or the red LED lit if it's an nRF51 dongle.
 The example applications are compiled from he BLE_Gateway example in this repository.
 
 == 9. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
