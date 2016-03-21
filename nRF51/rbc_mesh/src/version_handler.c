@@ -488,24 +488,20 @@ static void handle_task_queue(void)
 
 static uint32_t cache_task_push(cache_task_t* p_task)
 {
+    event_handler_critical_section_begin();
     uint32_t error_code = fifo_push(&m_task_fifo, p_task);
-    if (error_code != NRF_SUCCESS)
-    {
-        return error_code;
-    }
-    
-    if (true || !m_handle_task_scheduled)
+
+    if (!m_handle_task_scheduled)
     {
         async_event_t evt;
         evt.type = EVENT_TYPE_GENERIC;
         evt.callback.generic = handle_task_queue;
-        error_code = event_handler_push(&evt);
-        if (error_code == NRF_SUCCESS)
+        if (event_handler_push(&evt) == NRF_SUCCESS)
         {
-            m_handle_task_scheduled = true; /* we may have a double-schedule here, but it doesn't really matter */
+            m_handle_task_scheduled = true;
         }
     }
-    
+    event_handler_critical_section_end();
     return error_code;
 }
 /******************************************************************************
