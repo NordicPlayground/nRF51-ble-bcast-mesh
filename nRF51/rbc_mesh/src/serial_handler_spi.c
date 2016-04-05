@@ -335,11 +335,11 @@ void serial_wait_for_completion(void)
     _DISABLE_IRQS(was_masked);
     suspend = true;
     
-    extern void SPI0_IRQHandler(void);
+    extern void SPI1_TWI1_IRQHandler(void);
     
     while (serial_state != SERIAL_STATE_IDLE)
     {
-        SPI0_IRQHandler();
+        SPI1_TWI1_IRQHandler();
     }
     
     suspend = false;
