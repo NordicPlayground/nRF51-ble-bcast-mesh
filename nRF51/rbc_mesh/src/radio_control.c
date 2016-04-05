@@ -141,6 +141,7 @@ static void setup_event(radio_event_t* p_evt)
     radio_channel_set(p_evt->channel);
     NRF_RADIO->PACKETPTR = (uint32_t) p_evt->packet_ptr;
     NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
+    NRF_RADIO->EVENTS_END = 0;
 
     if (p_evt->event_type == RADIO_EVENT_TYPE_TX)
     {
