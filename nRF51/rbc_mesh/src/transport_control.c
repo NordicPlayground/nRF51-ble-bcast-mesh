@@ -44,7 +44,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "bootloader_info_app.h"
 #include "bootloader_app.h"
-
 #include <string.h>
 
 /* event push isn't present in the API header file. */
@@ -82,7 +81,6 @@ static struct
 static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
 static void tx_cb(uint8_t* p_data);
 
-
 static void order_search(void)
 {
     radio_event_t evt;
@@ -96,6 +94,7 @@ static void order_search(void)
     {
         return; /* something is hogging all the packets */
     }
+
     if (!radio_order(&evt))
     {
         /* couldn't queue the packet for reception, immediately free its only ref */
@@ -103,13 +102,12 @@ static void order_search(void)
     }
 }
 
-
 static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_data, uint8_t rssi, ble_gap_addr_t* p_addr)
 {
     evt->value_handle = p_mesh_adv_data->handle;
     evt->data = &p_mesh_adv_data->data[0];
     evt->data_len = p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
-    memcpy(&evt->ble_adv_addr, p_addr, sizeof(p_mesh_adv_data));
+    memcpy(&evt->ble_adv_addr, p_addr, sizeof(ble_gap_addr_t));
     evt->rssi = -((int8_t) rssi);
 }
 
