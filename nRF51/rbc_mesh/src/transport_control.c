@@ -169,10 +169,7 @@ static void tx_cb(uint8_t* p_data)
         tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
         tx_event.version_delta = 0;
 
-        if (rbc_mesh_event_push(&tx_event) == NRF_SUCCESS)
-        {
-            mesh_packet_ref_count_inc((mesh_packet_t*) p_data);
-        }
+        rbc_mesh_event_push(&tx_event); /* will take care of the reference counting itself. */
 #if RBC_MESH_SERIAL
         mesh_aci_rbc_event_handler(&tx_event);
 #endif
