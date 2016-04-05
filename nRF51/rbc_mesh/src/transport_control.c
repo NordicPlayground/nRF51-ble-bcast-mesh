@@ -145,7 +145,6 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 #endif
     }
 
-
     /* no longer needed in this context */
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
@@ -190,8 +189,8 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data,
                                    uint8_t rssi,
                                    ble_gap_addr_t* p_addr)
 {
-    int16_t delta = vh_get_version_delta(p_mesh_adv_data->handle, p_mesh_adv_data->version);
-    vh_data_status_t data_status = vh_rx_register(p_mesh_adv_data, timestamp);
+    int16_t delta;
+    vh_data_status_t data_status = vh_rx_register(p_mesh_adv_data, timestamp, &delta);
 
     /* prepare app event */
     rbc_mesh_event_t evt;
