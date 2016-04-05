@@ -281,9 +281,9 @@ void radio_disable(void)
 */
 void radio_event_handler(void)
 {
+    bool end_event = NRF_RADIO->EVENTS_END;
     bool crc_status = NRF_RADIO->CRCSTATUS;
     uint32_t crc = NRF_RADIO->RXCRC;
-    bool end_event = NRF_RADIO->EVENTS_END;
     bool rssi_ok = NRF_RADIO->EVENTS_RSSIEND;
     uint8_t rssi = 0;
 
