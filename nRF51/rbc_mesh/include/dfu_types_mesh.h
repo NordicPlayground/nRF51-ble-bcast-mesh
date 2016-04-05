@@ -81,11 +81,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_FWID_LEN_BL             (2)
 #define DFU_FWID_LEN_SD             (2)
 
-#define DFU_PACKET_LEN_FWID         (2 + 2 + 2 + 4 + 2 + 4)
+#define DFU_PACKET_LEN_FWID         (2 + 2 + 1 + 1 + 4 + 2 + 4)
 #define DFU_PACKET_LEN_STATE_SD     (2 + 1 + 1 + 4 + DFU_FWID_LEN_SD)
 #define DFU_PACKET_LEN_STATE_BL     (2 + 1 + 1 + 4 + DFU_FWID_LEN_BL)
 #define DFU_PACKET_LEN_STATE_APP    (2 + 1 + 1 + 4 + DFU_FWID_LEN_APP)
-#define DFU_PACKET_LEN_START        (2 + 2 + 4 + 4 + 2 + 2 + 1)
+#define DFU_PACKET_LEN_START        (2 + 2 + 4 + 4 + 4 + 2 + 1)
 #define DFU_PACKET_LEN_DATA         (2 + 2 + 4 + SEGMENT_LENGTH)
 #define DFU_PACKET_LEN_DATA_REQ     (2 + 2 + 4)
 #define DFU_PACKET_LEN_DATA_RSP     (2 + 2 + 4 + SEGMENT_LENGTH)
