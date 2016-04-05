@@ -199,7 +199,6 @@ static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data,
     switch (data_status)
     {
         case VH_DATA_STATUS_NEW:
-
             /* notify application */
             prepare_event(&evt, p_mesh_adv_data, rssi, p_addr);
             evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
@@ -344,6 +343,11 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
     /* queue the packet for transmission */
     radio_event_t event;
     memset(&event, 0, sizeof(radio_event_t));
+
+    /* clean packet header before sending */
+    p_packet->header._rfu1 = 0;
+    p_packet->header._rfu2 = 0;
+    p_packet->header._rfu3 = 0;
 
     mesh_packet_ref_count_inc(p_packet); /* queue will have a reference until tx_cb */
     event.packet_ptr = (uint8_t*) p_packet;
