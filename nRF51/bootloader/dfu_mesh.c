@@ -212,7 +212,7 @@ void dfu_init(void)
     memset(mp_page_buffer, 0xFF, PAGE_SIZE);
 }
 
-uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, bool final_transfer)
+uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer)
 {
     dfu_init();
     uint16_t segment_count = (((size + (uint32_t) p_start_addr) & 0xFFFFFFF0) - ((uint32_t) p_start_addr & 0xFFFFFFF0)) / 16;
@@ -280,10 +280,17 @@ uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size,
                     mp_page_buffer,
                     PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr), 0);
         }
+        
+        /* mark the irrelevant pages as complete */
+        if (PAGE_ALIGN((p_start_addr + section_size)) > PAGE_ALIGN(p_end_addr))
+        {
+            uint32_t first_irrelevant = PAGE_ALIGN(p_end_addr) + PAGE_SIZE;
+            journal_complete_multiple((uint32_t*) first_irrelevant, (section_size - first_irrelevant + (uint32_t) p_start_addr) / PAGE_SIZE);
+        }
 
         m_current_transfer.p_bank_addr = p_start_addr;
     }
-    else /* double bank */
+    else /* dual bank */
     {
         /* dual banked transfers must be page-aligned to fit MBR */
         if ((uint32_t) p_start_addr & (PAGE_SIZE - 1))
