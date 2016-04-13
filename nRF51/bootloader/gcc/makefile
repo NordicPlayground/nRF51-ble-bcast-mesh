@@ -27,7 +27,7 @@ else
   SERIAL_STRING=""
 endif
 
-OUTPUT_NAME := rbc_gatt$(SERIAL_STRING)_$(TARGET_BOARD)
+OUTPUT_NAME := bootloader$(SERIAL_STRING)_$(TARGET_BOARD)
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
@@ -141,7 +141,6 @@ CFLAGS += -D $(TARGET_BOARD)
 CFLAGS += -D BOOTLOADER
 CFLAGS += -D RBC_MESH_DATA_CACHE_ENTRIES=32
 CFLAGS += -D uECC_CURVE=uECC_secp256r1
-CFLAGS += -D uECC_BYTES=32
 CFLAGS += -mcpu=cortex-m0
 CFLAGS += -mthumb -mabi=aapcs --std=gnu99
 CFLAGS += -Wall -Werror
