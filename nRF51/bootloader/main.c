@@ -52,9 +52,9 @@ extern uint32_t __Vectors;
 uint32_t* m_uicr_bootloader_start_address
     __attribute__((at(NRF_UICR_BOOT_START_ADDRESS))) = &__Vectors;
 #elif defined(__GNUC__)
-extern uint32_t __Vectors;
-uint32_t* m_uicr_bootloader_start_address
-    __attribute__((section("UICR_BOOTADDR"))) = &__Vectors;
+extern volatile uint32_t __Vectors;
+volatile uint32_t* m_uicr_bootloader_start_address
+    __attribute__((section(".uicrBootStartAddress"))) = &__Vectors;
 #else
 #error "Unsupported toolchain."
 #endif
