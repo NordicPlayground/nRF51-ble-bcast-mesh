@@ -147,7 +147,8 @@ int main(void)
     {
         bootloader_abort(BL_END_SUCCESS);
     }
-    
+    NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_GO_TO_APP;
+
     bootloader_start();
     transport_start();
     
