@@ -42,8 +42,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "journal.h"
 #include "serial_handler.h"
 #include "serial_evt.h"
+#include "nrf_flash.h"
 #include "nrf_mbr.h"
 
+/*****************************************************************************
+* Local defines
+*****************************************************************************/
 #define TX_REPEATS_DEFAULT          (3)
 #define TX_REPEATS_FWID             (TX_REPEATS_INF)
 #define TX_REPEATS_DFU_REQ          (TX_REPEATS_INF)
@@ -80,6 +84,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define SENT_PACKET_COUNT           (32)
 
+/*****************************************************************************
+* Local typedefs
+*****************************************************************************/
 typedef enum
 {
     BEACON_TYPE_FWID,
@@ -129,6 +136,9 @@ typedef struct
     uint16_t rx_count;
 } req_cache_entry_t;
 
+/*****************************************************************************
+* Static globals
+*****************************************************************************/
 static transaction_t        m_transaction;
 static bl_state_t           m_state = BL_STATE_FIND_FWID;
 static bl_info_pointers_t   m_bl_info_pointers;
@@ -141,14 +151,28 @@ static uint8_t              m_tid_index;
 static volatile uint32_t    m_key_len = uECC_BYTES * 2;
 static mesh_packet_t*       mp_sent_packets[SENT_PACKET_COUNT];
 static uint32_t             m_sent_packet_index;
-
 static mesh_packet_t*       mp_beacon;
+
+/*****************************************************************************
+* Static Functions
+*****************************************************************************/
+static bool fw_is_verified(void)
+{
+    if (m_bl_info_pointers.p_flags)
+    {
+        return (m_bl_info_pointers.p_flags->sd_intact &&
+                m_bl_info_pointers.p_flags->app_intact &&
+                m_bl_info_pointers.p_flags->bl_intact);
+    }
+
+    return true;
+}
 
 static bool packet_is_from_serial(void* p_packet)
 {
 #ifdef SERIAL
     /* serial packets will have the device's own address as source */
-    
+
     return (memcmp(mesh_packet_get_aligned(p_packet)->addr, (const uint8_t*) &NRF_FICR->DEVICEADDR[0], BLE_GAP_ADDR_LEN) == 0);
 #else
     return false;
@@ -209,7 +233,8 @@ static bool app_is_valid(uint32_t* app_start, uint32_t app_length)
     return (m_bl_info_pointers.p_segment_app != NULL &&
             *((uint32_t*) m_bl_info_pointers.p_segment_app->start) != 0xFFFFFFFF &&
             m_bl_info_pointers.p_fwid->app.app_version != APP_VERSION_INVALID &&
-            !journal_is_invalid(app_start, app_length));
+            !journal_is_invalid(app_start, app_length) &&
+            fw_is_verified());
 }
 
 static void serial_tx(dfu_packet_t* p_packet, uint16_t len)
@@ -501,16 +526,48 @@ static void start_target(void)
     set_timeout(STATE_TIMEOUT_TARGET);
     m_state = BL_STATE_DFU_TARGET;
 
+    uint32_t segment_size = 0;
+    bl_info_entry_t flags_entry;
+    memset(&flags_entry, 0xFF, sizeof(bl_info_entry_t));
+
+    switch (m_transaction.type)
+    {
+        case DFU_TYPE_SD:
+            segment_size = m_bl_info_pointers.p_segment_sd->length;
+            flags_entry.flags.sd_intact = false;
+            break;
+        case DFU_TYPE_APP:
+            segment_size = m_bl_info_pointers.p_segment_app->length;
+            flags_entry.flags.app_intact = false;
+            break;
+        case DFU_TYPE_BOOTLOADER:
+            segment_size = m_bl_info_pointers.p_segment_bl->length;
+            flags_entry.flags.bl_intact = false;
+            break;
+        default:
+            segment_size = 0;
+    }
+
     if (dfu_start(
             m_transaction.p_start_addr,
             m_transaction.p_bank_addr,
             m_transaction.length,
+            segment_size,
             m_transaction.segment_is_valid_after_transfer) != NRF_SUCCESS)
     {
         start_req(m_transaction.type, true);
     }
     else
     {
+        /* put new, invalid and unverified entry in the device page. */
+        if (m_bl_info_pointers.p_flags == NULL)
+        {
+            m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
+        }
+        else
+        {
+            nrf_flash_store((uint32_t*) m_bl_info_pointers.p_flags, (uint8_t*) &flags_entry, (BL_INFO_LEN_FLAGS + 3) & ~0x03UL, 0);
+        }
         transport_tx_abort(mp_beacon); /* stop beaconing */
     }
 }
@@ -1159,42 +1216,55 @@ void bootloader_rtc_irq_handler(void)
                 /* Don't want any interrupts disturbing this final stage */
                 uint32_t was_masked;
                 _DISABLE_IRQS(was_masked);
-                
+
                 /* write new version in bl info: */
                 bl_info_entry_t new_version_entry;
                 memcpy(&new_version_entry.version, m_bl_info_pointers.p_fwid, sizeof(fwid_t));
                 bl_info_type_t sign_info_type = BL_INFO_TYPE_INVALID;
-                
+
+                if (m_bl_info_pointers.p_flags == NULL)
+                {
+                    APP_ERROR_CHECK(NRF_ERROR_NULL);
+                }
+
+                /* copy flags, then mark the type we just verified as intact before reflashing it. */
+                bl_info_entry_t flags_entry;
+                memcpy(&flags_entry, m_bl_info_pointers.p_flags, ((BL_INFO_LEN_FLAGS + 3) & ~0x03UL));
+
                 switch (m_transaction.type)
                 {
                     case DFU_TYPE_APP:
                         memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
                         sign_info_type = BL_INFO_TYPE_SIGNATURE_APP;
+                        flags_entry.flags.app_intact = true;
                         break;
                     case DFU_TYPE_SD:
                         memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
                         sign_info_type = BL_INFO_TYPE_SIGNATURE_SD;
+                        flags_entry.flags.sd_intact = true;
                         break;
                     case DFU_TYPE_BOOTLOADER:
                         memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
                         sign_info_type = BL_INFO_TYPE_SIGNATURE_BL;
+                        flags_entry.flags.bl_intact = true;
                         break;
                     default:
                         break;
                 }
                 m_bl_info_pointers.p_fwid = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
-                
+                m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
+
                 /* remove finished journal */
                 bootloader_info_entry_invalidate((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_JOURNAL);
-                
+
                 /* add signature to bl info, if applicable: */
                 if (m_transaction.signature_length != 0)
                 {
                     bootloader_info_entry_put(sign_info_type, (bl_info_entry_t*) m_transaction.signature, DFU_SIGNATURE_LEN);
                 }
-                
+
                 _ENABLE_IRQS(was_masked);
-                
+
                 bootloader_abort(BL_END_SUCCESS);
             }
             else
