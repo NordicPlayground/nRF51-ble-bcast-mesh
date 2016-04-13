@@ -527,7 +527,7 @@ static void start_target(void)
 
     uint32_t segment_size = 0;
     bl_info_entry_t flags_entry;
-    memset(&flags_entry, 0xFF, sizeof(bl_info_entry_t));
+    memset(&flags_entry, 0xFF, (BL_INFO_LEN_FLAGS + 3) & ~0x03UL);
 
     switch (m_transaction.type)
     {
