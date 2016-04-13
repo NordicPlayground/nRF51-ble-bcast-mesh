@@ -36,7 +36,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_flash.h"
 #include "sha256.h"
 #include "app_error.h"
-#include "journal.h"
 
 #ifndef MISSING_ENTRY_BACKLOG_COUNT
 #define MISSING_ENTRY_BACKLOG_COUNT (64)
@@ -192,12 +191,6 @@ static void flash_page(void)
             + (uint32_t) m_current_transfer.p_current_page),
             mp_page_buffer, PAGE_SIZE, 0);
 
-    if (m_current_transfer.p_bank_addr == m_current_transfer.p_start_addr &&
-        !entry_in_missing_backlog(PAGE_ALIGN(m_current_transfer.p_current_page), PAGE_SIZE))
-    {
-        journal_complete((uint32_t*) PAGE_ALIGN(m_current_transfer.p_current_page));
-    }
-
     memset(mp_page_buffer, 0xFF, PAGE_SIZE);
 
     m_current_transfer.first_invalid_byte_on_page = 0;
@@ -238,18 +231,16 @@ uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size,
             memcpy(&mp_page_buffer[PAGE_OFFSET(p_end_addr)],
                     (uint32_t*) p_end_addr, PAGE_SIZE - PAGE_OFFSET(p_end_addr));
         }
-
+        
         /* Wipe all but the last page. This operation is super slow */
         if (single_page)
         {
-            journal_invalidate((uint32_t*) PAGE_ALIGN(p_start_addr));
             nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_start_addr),
                             PAGE_SIZE);
         }
         else
         {
             uint32_t count = (PAGE_ALIGN(p_end_addr) - PAGE_ALIGN(p_start_addr)) / PAGE_SIZE;
-            journal_invalidate_multiple((uint32_t*) PAGE_ALIGN(p_start_addr), count);
             nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_start_addr),
                             count * PAGE_SIZE);
         }
@@ -273,19 +264,11 @@ uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size,
         {
             /* Erase last page, but retain unaffected data. */
             memcpy(mp_page_buffer, p_end_addr, PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr));
-            journal_invalidate((uint32_t*) PAGE_ALIGN(p_end_addr));
             nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_end_addr), PAGE_SIZE);
 
             nrf_flash_store(p_end_addr,
                     mp_page_buffer,
                     PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr), 0);
-        }
-        
-        /* mark the irrelevant pages as complete */
-        if (PAGE_ALIGN((p_start_addr + section_size)) > PAGE_ALIGN(p_end_addr))
-        {
-            uint32_t first_irrelevant = PAGE_ALIGN(p_end_addr) + PAGE_SIZE;
-            journal_complete_multiple((uint32_t*) first_irrelevant, (section_size - first_irrelevant + (uint32_t) p_start_addr) / PAGE_SIZE);
         }
 
         m_current_transfer.p_bank_addr = p_start_addr;
@@ -298,7 +281,6 @@ uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size,
             return NRF_ERROR_INVALID_ADDR;
         }
         uint32_t page_count = 1 + (segment_count * 16) / PAGE_SIZE;
-        journal_invalidate_multiple((uint32_t*) PAGE_ALIGN(p_bank_addr), page_count);
         nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_bank_addr), page_count * PAGE_SIZE); /* This breaks the app */
         m_current_transfer.p_bank_addr = p_bank_addr;
     }
@@ -324,24 +306,7 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
-
-#if 0 //not supported
-    /* if entry stretches over several pages, take them one at a time, recursively */
-    if (PAGE_OFFSET(p_addr) + length > PAGE_SIZE)
-    {
-        uint16_t first_length = PAGE_SIZE - PAGE_OFFSET(p_addr) + length;
-        uint32_t error_code = dfu_data(p_addr, p_data, first_length);
-        if (error_code != NRF_SUCCESS)
-        {
-            return error_code;
-        }
-
-        p_addr = (uint32_t) (((uint8_t*) p_addr) + first_length);
-        p_data += first_length;
-        length -= first_length;
-    }
-#endif
-
+    
     bool buffer_incoming_entry;
     if (PAGE_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_current_page)
     {
@@ -382,12 +347,6 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         {
             /* Recovering an old entry, flash it individually. */
             nrf_flash_store((uint32_t*) p_addr, p_data, length, 0);
-
-            if (!entry_in_missing_backlog(PAGE_ALIGN(p_addr), PAGE_SIZE))
-            {
-                journal_complete((uint32_t*) PAGE_ALIGN(p_addr));
-            }
-
             buffer_incoming_entry = false;
         }
         else

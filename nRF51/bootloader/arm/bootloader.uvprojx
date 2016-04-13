@@ -170,12 +170,12 @@
             <UseExternalTool>0</UseExternalTool>
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
-            <Capability>0</Capability>
-            <DriverSelection>-1</DriverSelection>
+            <Capability>1</Capability>
+            <DriverSelection>4096</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3></Flash3>
+          <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -309,7 +309,7 @@
               </OCR_RVCT3>
               <OCR_RVCT4>
                 <Type>1</Type>
-                <StartAddress>0x3bc00</StartAddress>
+                <StartAddress>0x3c400</StartAddress>
                 <Size>0x3c00</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
@@ -347,7 +347,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>3</Optim>
+            <Optim>4</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>0</OneElfS>
@@ -363,7 +363,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99 --debug</MiscControls>
-              <Define>NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_DATA_CACHE_ENTRIES=32 uECC_CURVE=uECC_secp256r1 NO_TIMEOUTS</Define>
+              <Define>NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_DATA_CACHE_ENTRIES=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
               <Undefine></Undefine>
               <IncludePath>..\..\rbc_mesh\include;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp</IncludePath>
             </VariousControls>
@@ -447,11 +447,6 @@
               <FileName>bootloader_info.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\bootloader_info.c</FilePath>
-            </File>
-            <File>
-              <FileName>journal.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\journal.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -562,7 +557,7 @@
             <NotGenerated>0</NotGenerated>
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
-          <OutputDirectory>.\</OutputDirectory>
+          <OutputDirectory>.\_build\</OutputDirectory>
           <OutputName>bootloader</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
@@ -963,11 +958,6 @@
               <FileName>bootloader_info.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\bootloader_info.c</FilePath>
-            </File>
-            <File>
-              <FileName>journal.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\journal.c</FilePath>
             </File>
           </Files>
         </Group>

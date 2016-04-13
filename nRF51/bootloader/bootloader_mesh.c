@@ -39,7 +39,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_rtc.h"
 #include "bootloader_info.h"
 #include "app_error.h"
-#include "journal.h"
 #include "serial_handler.h"
 #include "serial_evt.h"
 #include "nrf_flash.h"
@@ -117,17 +116,16 @@ typedef struct
 
 typedef struct
 {
-    bl_info_version_t*  p_fwid;
-    bl_info_segment_t*  p_segment_sd;
-    bl_info_segment_t*  p_segment_bl;
-    bl_info_segment_t*  p_segment_app;
-    bl_info_flags_t*    p_flags;
-    uint8_t*            p_ecdsa_public_key;
-    uint8_t*            p_journal;
-    uint8_t*            p_signature_sd;
-    uint8_t*            p_signature_bl;
-    uint8_t*            p_signature_app;
-    uint8_t*            p_signature_bl_info;
+    bl_info_version_t*      p_fwid;
+    bl_info_segment_t*      p_segment_sd;
+    bl_info_segment_t*      p_segment_bl;
+    bl_info_segment_t*      p_segment_app;
+    bl_info_flags_t*        p_flags;
+    uint8_t*                p_ecdsa_public_key;
+    uint8_t*                p_signature_sd;
+    uint8_t*                p_signature_bl;
+    uint8_t*                p_signature_app;
+    uint8_t*                p_signature_bl_info;
 } bl_info_pointers_t;
 
 typedef struct
@@ -233,7 +231,6 @@ static bool app_is_valid(uint32_t* app_start, uint32_t app_length)
     return (m_bl_info_pointers.p_segment_app != NULL &&
             *((uint32_t*) m_bl_info_pointers.p_segment_app->start) != 0xFFFFFFFF &&
             m_bl_info_pointers.p_fwid->app.app_version != APP_VERSION_INVALID &&
-            !journal_is_invalid(app_start, app_length) &&
             fw_is_verified());
 }
 
@@ -547,6 +544,20 @@ static void start_target(void)
         default:
             segment_size = 0;
     }
+    
+    /* Tag the transfer as incomplete in device page if we're about to overwrite it. */
+    if (m_transaction.p_start_addr == m_transaction.p_bank_addr)
+    {
+        if (m_bl_info_pointers.p_flags == NULL)
+        {
+            m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
+        }
+        else
+        {
+            /* update inline */
+            nrf_flash_store((uint32_t*) m_bl_info_pointers.p_flags, (uint8_t*) &flags_entry, (BL_INFO_LEN_FLAGS + 3) & ~0x03UL, 0);
+        }
+    }
 
     if (dfu_start(
             m_transaction.p_start_addr,
@@ -559,15 +570,6 @@ static void start_target(void)
     }
     else
     {
-        /* put new, invalid and unverified entry in the device page. */
-        if (m_bl_info_pointers.p_flags == NULL)
-        {
-            m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
-        }
-        else
-        {
-            nrf_flash_store((uint32_t*) m_bl_info_pointers.p_flags, (uint8_t*) &flags_entry, (BL_INFO_LEN_FLAGS + 3) & ~0x03UL, 0);
-        }
         transport_tx_abort(mp_beacon); /* stop beaconing */
     }
 }
@@ -1052,7 +1054,6 @@ void bootloader_init(void)
     m_bl_info_pointers.p_segment_bl         = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_BL)->segment;
     m_bl_info_pointers.p_segment_sd         = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_SD)->segment;
     m_bl_info_pointers.p_ecdsa_public_key   = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_ECDSA_PUBLIC_KEY)->public_key[0];
-    m_bl_info_pointers.p_journal            = &bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_JOURNAL)->journal[0];
 
     if (
         ((uint32_t) m_bl_info_pointers.p_flags              < BOOTLOADER_INFO_ADDRESS) ||
@@ -1064,22 +1065,6 @@ void bootloader_init(void)
     {
         bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
     }
-
-    /* create journal */
-    if ((uint32_t) m_bl_info_pointers.p_journal < BOOTLOADER_INFO_ADDRESS)
-    {
-        bl_info_entry_t journal_buffer;
-        memset(&journal_buffer, 0xFF, BL_INFO_LEN_JOURNAL);
-        m_bl_info_pointers.p_journal = &bootloader_info_entry_put(BL_INFO_TYPE_JOURNAL, &journal_buffer, BL_INFO_LEN_JOURNAL)->journal[0];
-
-        if ((uint32_t) m_bl_info_pointers.p_journal < BOOTLOADER_INFO_ADDRESS)
-        {
-            bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
-        }
-    }
-
-    journal_init((uint32_t*) &m_bl_info_pointers.p_journal[0],
-                 (uint32_t*) &m_bl_info_pointers.p_journal[BL_INFO_LEN_JOURNAL / 2]);
 }
 
 void bootloader_start(void)
@@ -1090,7 +1075,7 @@ void bootloader_start(void)
         m_transaction.target_fwid_union.sd = 0;
         start_req(DFU_TYPE_SD, false);
     }
-    else if (!app_is_valid((uint32_t*) m_bl_info_pointers.p_segment_app->start, 
+    else if (!app_is_valid((uint32_t*) m_bl_info_pointers.p_segment_app->start,
                            m_bl_info_pointers.p_segment_app->length))
     {
         memcpy(&m_transaction.target_fwid_union.app, &m_bl_info_pointers.p_fwid->app, sizeof(app_id_t));
@@ -1253,9 +1238,6 @@ void bootloader_rtc_irq_handler(void)
                 }
                 m_bl_info_pointers.p_fwid = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
                 m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
-
-                /* remove finished journal */
-                bootloader_info_entry_invalidate((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_JOURNAL);
 
                 /* add signature to bl info, if applicable: */
                 if (m_transaction.signature_length != 0)
