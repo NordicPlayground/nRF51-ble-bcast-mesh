@@ -81,9 +81,8 @@ C_SOURCE_FILES += ../bootloader_info.c
 C_SOURCE_FILES += ../bootloader_mesh.c
 C_SOURCE_FILES += ../bootloader_rtc.c
 C_SOURCE_FILES += ../dfu_mesh.c
-C_SOURCE_FILES += ../journal.c
 C_SOURCE_FILES += ../transport.c
-C_SOURCE_FILES += ../uECC.c
+C_SOURCE_FILES += micro-ecc/uECC.c
 
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
 	CFLAGS += -D SERIAL=1
@@ -108,6 +107,7 @@ ASM_SOURCE_FILES  += $(COMPONENTS)/toolchain/gcc/gcc_startup_nrf51.s
 # includes common to all targets
 
 INC_PATHS += -I../include
+INC_PATHS += -Imicro-ecc
 INC_PATHS += -I../../rbc_mesh
 INC_PATHS += -I../../rbc_mesh/include
 INC_PATHS += -I../../SDK/bsp
@@ -141,13 +141,15 @@ CFLAGS += -D $(TARGET_BOARD)
 CFLAGS += -D BOOTLOADER
 CFLAGS += -D RBC_MESH_DATA_CACHE_ENTRIES=32
 CFLAGS += -D uECC_CURVE=uECC_secp256r1
+CFLAGS += -D uECC_BYTES=32
 CFLAGS += -mcpu=cortex-m0
 CFLAGS += -mthumb -mabi=aapcs --std=gnu99
 CFLAGS += -Wall -Werror
 CFLAGS += -Wa,-adhln
 CFLAGS += -mfloat-abi=soft
-CFLAGS += -fdata-sections -fno-strict-aliasing
+CFLAGS += -fdata-sections -ffunction-sections -fno-strict-aliasing
 CFLAGS += -fno-builtin
+CFLAGS += -flto
 
 # Linker flags
 LDFLAGS += -Xlinker -Map=$(LISTING_DIRECTORY)/$(OUTPUT_NAME).map
