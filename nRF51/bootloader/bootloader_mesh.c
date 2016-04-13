@@ -271,13 +271,15 @@ static bool signature_check(void)
     {
         return false;
     }
-    
+
     uint8_t hash[uECC_BYTES];
     sha256_context_t hash_context;
     sha256_init(&hash_context);
     sha256_update(&hash_context, (uint8_t*) &m_transaction.type, 1);
     sha256_update(&hash_context, (uint8_t*) &m_transaction.p_indicated_start_addr, 4);
     sha256_update(&hash_context, (uint8_t*) &m_transaction.length, 4);
+    uint8_t padding = 0;
+    sha256_update(&hash_context, &padding, 1);
     switch (m_transaction.type)
     {
         case DFU_TYPE_APP:
