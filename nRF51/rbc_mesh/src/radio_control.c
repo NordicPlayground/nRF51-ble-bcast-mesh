@@ -266,60 +266,40 @@ bool radio_order(radio_event_t* radio_event)
     return true;
 }
 
-
-
 void radio_disable(void)
 {
-    DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
     NRF_RADIO->SHORTS = 0;
     NRF_RADIO->INTENCLR = 0xFFFFFFFF;
     NRF_RADIO->TASKS_DISABLE = 1;
     radio_state = RADIO_STATE_DISABLED;
+    DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
 }
 
 /**
 * IRQ handler for radio. Sends the radio around the state machine, ensuring secure radio state changes
 */
 void radio_event_handler(void)
-{
-    bool end_event = NRF_RADIO->EVENTS_END;
-    bool crc_status = NRF_RADIO->CRCSTATUS;
-    uint32_t crc = NRF_RADIO->RXCRC;
-    bool rssi_ok = NRF_RADIO->EVENTS_RSSIEND;
-    uint8_t rssi = 0;
-
-    if (rssi_ok)
+{   
+    if (NRF_RADIO->EVENTS_END)
     {
-        rssi = NRF_RADIO->RSSISAMPLE;
-        NRF_RADIO->EVENTS_RSSIEND = 0;
-    }
+        bool crc_status = NRF_RADIO->CRCSTATUS;
+        uint32_t crc = NRF_RADIO->RXCRC;
+        uint8_t rssi = 100;
 
-    radio_event_t prev_evt;
-    if (end_event)
-    {
+        if (NRF_RADIO->EVENTS_RSSIEND)
+        {
+            NRF_RADIO->EVENTS_RSSIEND = 0;
+            rssi = NRF_RADIO->RSSISAMPLE;
+        }
+
+        radio_event_t prev_evt;
         NRF_RADIO->EVENTS_END = 0;
+        while (NRF_RADIO->STATE != RADIO_STATE_STATE_Disabled); //SCARY!
+        
         /* pop the event that just finished */
         uint32_t error_code = fifo_pop(&radio_fifo, &prev_evt);
         APP_ERROR_CHECK(error_code);
-    }
-    else
-    {
-        purge_preemptable();
-    }
-
-    radio_event_t evt;
-    if (fifo_peek(&radio_fifo, &evt) == NRF_SUCCESS)
-    {
-        setup_event(&evt);
-    }
-    else
-    {
-        DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
-        radio_state = RADIO_STATE_DISABLED;
-    }
-
-    if (end_event)
-    {
+        
         APP_ERROR_CHECK_BOOL(prev_evt.callback.rx != NULL);
         /* send to super space */
         if (prev_evt.event_type == RADIO_EVENT_TYPE_RX ||
@@ -331,11 +311,27 @@ void radio_event_handler(void)
         {
             prev_evt.callback.tx(prev_evt.packet_ptr);
         }
+        
+        DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
+        radio_state = RADIO_STATE_DISABLED;
     }
-
-    if (radio_state == RADIO_STATE_DISABLED)
+    else
     {
-        g_idle_cb();
+        purge_preemptable();
+    }
+    
+    if (radio_state == RADIO_STATE_DISABLED || 
+        radio_state == RADIO_STATE_NEVER_USED)
+    {
+        radio_event_t evt;
+        if (fifo_peek(&radio_fifo, &evt) == NRF_SUCCESS)
+        {
+            setup_event(&evt);
+        }
+        else
+        {
+            g_idle_cb();
+        }
     }
 }
 
