@@ -45,7 +45,7 @@ typedef enum
 } event_type_t;
 
 /** @brief callback type for generic asynchronous events */
-typedef void(*generic_cb)(void);
+typedef void(*generic_cb_t)(void* p_context);
 
 /**
 * @brief Asynchronous event type.
@@ -67,7 +67,11 @@ typedef struct
             timer_callback cb;/*void return */
             uint32_t timestamp;
         } timer;
-        generic_cb generic; /*void return */
+        struct
+        {
+            generic_cb_t cb;
+            void* p_context;
+        } generic; /*void return */
     } callback;
 } async_event_t;
 

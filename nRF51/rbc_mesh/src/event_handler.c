@@ -52,24 +52,24 @@ static uint32_t g_critical = 0;
 /**
 * @brief execute asynchronous event, based on type
 */
-static void async_event_execute(async_event_t* evt)
+static void async_event_execute(async_event_t* p_evt)
 {
 
-    switch (evt->type)
+    switch (p_evt->type)
     {
         case EVENT_TYPE_TIMER:
-            CHECK_FP(evt->callback.timer.cb);
-            (*evt->callback.timer.cb)(evt->callback.timer.timestamp);
+            CHECK_FP(p_evt->callback.timer.cb);
+            (*p_evt->callback.timer.cb)(p_evt->callback.timer.timestamp);
             break;
         case EVENT_TYPE_GENERIC:
-            CHECK_FP(evt->callback.generic);
-            (*evt->callback.generic)();
+            CHECK_FP(p_evt->callback.generic.cb);
+            (*p_evt->callback.generic.cb)(p_evt->callback.generic.p_context);
             break;
         case EVENT_TYPE_PACKET:
-            tc_packet_handler(evt->callback.packet.payload,
-                                evt->callback.packet.crc,
-                                evt->callback.packet.timestamp,
-                                evt->callback.packet.rssi);
+            tc_packet_handler(p_evt->callback.packet.payload,
+                                p_evt->callback.packet.crc,
+                                p_evt->callback.packet.timestamp,
+                                p_evt->callback.packet.rssi);
         default:
             break;
     }
@@ -148,9 +148,11 @@ uint32_t event_handler_push(async_event_t* evt)
     case EVENT_TYPE_PACKET:
         p_fifo = &g_async_evt_fifo;
         break;
-    default:
+    case EVENT_TYPE_TIMER:
         p_fifo = &g_async_evt_fifo_ts;
         break;
+    default:
+        return NRF_ERROR_INVALID_PARAM;
     }
     uint32_t result = fifo_push(p_fifo, evt);
     if (result != NRF_SUCCESS)
