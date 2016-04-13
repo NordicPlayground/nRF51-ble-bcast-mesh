@@ -49,7 +49,6 @@ typedef enum
     BL_INFO_TYPE_INVALID            = 0x00,
     BL_INFO_TYPE_ECDSA_PUBLIC_KEY   = 0x01,
     BL_INFO_TYPE_VERSION            = 0x02,
-    BL_INFO_TYPE_JOURNAL            = 0x03,
     BL_INFO_TYPE_FLAGS              = 0x04,
 
     BL_INFO_TYPE_SEGMENT_SD         = 0x10,
@@ -86,7 +85,6 @@ typedef union
     uint8_t             signature[BL_INFO_LEN_SIGNATURE];
     bl_info_segment_t   segment;
     bl_info_version_t   version;
-    uint8_t             journal[BL_INFO_LEN_JOURNAL];
     bl_info_flags_t     flags;
 } bl_info_entry_t;
 
