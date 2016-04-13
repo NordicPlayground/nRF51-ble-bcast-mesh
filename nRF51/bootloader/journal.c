@@ -41,20 +41,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static uint32_t* mp_invalidate_field;
 static uint32_t* mp_complete_field;
 
-void journal_init(uint32_t* p_invalidate_field, uint32_t* p_complete_field)
-{
-    mp_invalidate_field = p_invalidate_field;
-    mp_complete_field = p_complete_field;
-}
-
-void journal_invalidate(uint32_t* p_page)
+static void mark_single(uint32_t* p_field, uint32_t* p_page)
 {
     uint32_t page_index = ((uint32_t) p_page) / PAGE_SIZE;
     uint32_t field = ~(1 << TO_OFFSET(page_index));
-    nrf_flash_store(mp_invalidate_field, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
+    nrf_flash_store(p_field, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
 }
 
-void journal_invalidate_multiple(uint32_t* p_first, uint32_t count)
+static void mark_multiple(uint32_t* p_field, uint32_t* p_first, uint32_t count)
 {
     uint32_t page_index = ((uint32_t) p_first) / PAGE_SIZE;
     uint32_t fields[32];
@@ -63,14 +57,33 @@ void journal_invalidate_multiple(uint32_t* p_first, uint32_t count)
     {
         fields[TO_WORD(page_index + page)] &= ~(1 << TO_OFFSET(page_index + page));
     }
-    nrf_flash_store(mp_invalidate_field, (uint8_t*) fields, 4 * (1 + TO_WORD(page_index + count)), 0);
+    nrf_flash_store(p_field, (uint8_t*) fields, 4 * (1 + TO_WORD(page_index + count)), 0);
+}
+
+void journal_init(uint32_t* p_invalidate_field, uint32_t* p_complete_field)
+{
+    mp_invalidate_field = p_invalidate_field;
+    mp_complete_field = p_complete_field;
+}
+
+void journal_invalidate(uint32_t* p_page)
+{
+    mark_single(mp_invalidate_field, p_page);
+}
+
+void journal_invalidate_multiple(uint32_t* p_first, uint32_t count)
+{
+    mark_multiple(mp_invalidate_field, p_first, count);
 }
 
 void journal_complete(uint32_t* p_page)
 {
-    uint32_t page_index = ((uint32_t) p_page) / PAGE_SIZE;
-    uint32_t field = ~(1 << TO_OFFSET(page_index));
-    nrf_flash_store(mp_complete_field, (uint8_t*) &field, 4, TO_WORD(page_index) * 4);
+    mark_single(mp_complete_field, p_page);
+}
+
+void journal_complete_multiple(uint32_t* p_first, uint32_t count)
+{
+    mark_multiple(mp_complete_field, p_first, count);
 }
 
 bool journal_is_complete(uint32_t* p_start, uint32_t length)

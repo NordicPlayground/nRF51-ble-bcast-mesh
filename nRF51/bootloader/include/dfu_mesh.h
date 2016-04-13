@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "sha256.h"
 
 void dfu_init(void);
-uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, bool final_transfer);
+uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer);
 uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length);
 bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len);
 bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, uint32_t* p_len);

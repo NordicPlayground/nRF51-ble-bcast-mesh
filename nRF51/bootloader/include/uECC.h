@@ -27,7 +27,7 @@ uECC_asm_fast  - Use GCC inline assembly optimized for maximum speed. */
 #define uECC_asm_small 1
 #define uECC_asm_fast  2
 #ifndef uECC_ASM
-    #define uECC_ASM uECC_asm_none
+    #define uECC_ASM uECC_asm_small
 #endif
 
 /* Curve selection options. */
