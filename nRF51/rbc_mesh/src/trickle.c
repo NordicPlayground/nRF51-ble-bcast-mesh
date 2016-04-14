@@ -78,6 +78,13 @@ static void trickle_interval_begin(trickle_t* trickle)
 
 static void refresh_t(trickle_t* trickle, uint64_t time_now)
 {
+    static uint64_t time_prev = 0;
+    if (time_now < time_prev)
+    {
+        time_now = time_prev;
+    }
+    time_prev = time_now;
+    
     uint32_t rand_number = rand_prng_get(&g_rand);
 
     uint64_t i_half = trickle->i_relative >> 1;
@@ -95,8 +102,7 @@ static void check_interval(trickle_t* trickle, uint64_t time_now)
             trickle->i_relative = g_i_max * g_i_min;
         /* we've started a new interval since we last touched this trickle */
         trickle->c = 0;
-        uint32_t delta = (time_now - trickle->i) / trickle->i_relative;
-        trickle->i += trickle->i_relative * (delta + 1);
+        trickle->i = trickle->i_relative + time_now;
     }
 }
 
