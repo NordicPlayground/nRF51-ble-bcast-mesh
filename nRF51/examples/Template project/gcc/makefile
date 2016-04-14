@@ -101,6 +101,7 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/version_handler.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/handle_storage.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_packet.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/bootloader_app.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/bootloader_info_app.c

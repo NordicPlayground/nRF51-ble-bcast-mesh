@@ -1,7 +1,7 @@
 #------------------------------------------------------------------------------
 # Firmware build
 #
-# Selectable build options 
+# Selectable build options
 #------------------------------------------------------------------------------
 
 #TARGET_BOARD         ?= BOARD_PCA10000
@@ -31,7 +31,7 @@ export OUTPUT_NAME
 export GNU_INSTALL_ROOT
 
 MAKEFILE_NAME := $(MAKEFILE_LIST)
-MAKEFILE_DIR := $(dir $(MAKEFILE_NAME) ) 
+MAKEFILE_DIR := $(dir $(MAKEFILE_NAME) )
 
 ifeq ($(OS),Windows_NT)
   include $(TEMPLATE_PATH)/Makefile.windows
@@ -41,7 +41,7 @@ endif
 
 # echo suspend
 ifeq ("$(VERBOSE)","1")
-  NO_ECHO := 
+  NO_ECHO :=
 else
   NO_ECHO := @
 endif
@@ -89,6 +89,7 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/fifo.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/version_handler.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/handle_storage.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_packet.c
 ASM_SOURCE_FILES += gcc_startup_nrf51.s # using local startup file to cater customized heap size
 
@@ -155,7 +156,7 @@ CFLAGS += -mthumb -mabi=aapcs --std=gnu99
 CFLAGS += -Wall -Werror
 CFLAGS += -Wa,-adhln
 CFLAGS += -mfloat-abi=soft
-CFLAGS += -ffunction-sections 
+CFLAGS += -ffunction-sections
 CFLAGS += -fdata-sections -fno-strict-aliasing
 CFLAGS += -fno-builtin
 
@@ -250,7 +251,7 @@ genbin:
 	$(NO_ECHO)$(OBJCOPY) -O binary $(OUTPUT_BINARY_DIRECTORY)/$(OUTPUT_NAME).elf $(OUTPUT_BINARY_DIRECTORY)/$(OUTPUT_NAME).bin
 
 # Create binary .hex file from the .elf file
-genhex: 
+genhex:
 	@echo Preparing: $(OUTPUT_NAME).hex
 	$(NO_ECHO)$(OBJCOPY) -O ihex $(OUTPUT_BINARY_DIRECTORY)/$(OUTPUT_NAME).elf $(OUTPUT_BINARY_DIRECTORY)/$(OUTPUT_NAME).hex
 
