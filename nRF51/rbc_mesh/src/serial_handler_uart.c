@@ -65,18 +65,22 @@ static bool suspend;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-static void do_transmit(void);
-
+static void do_transmit(void*);
 #ifdef BOOTLOADER
 void SWI1_IRQHandler(void)
 {
-    do_transmit();
+    do_transmit(NULL);
+}
+#else
+static void mesh_aci_command_check_cb(void* p_context)
+{
+    mesh_aci_command_check();
 }
 #endif
 
 
 /** @brief Process packet queue, always done in the async context */
-static void do_transmit(void)
+static void do_transmit(void* p_context)
 {
     if (fifo_pop(&tx_fifo, &tx_buffer) == NRF_SUCCESS)
     {
@@ -100,7 +104,8 @@ static void schedule_transmit(void)
 #else
         async_event_t evt;
         evt.type = EVENT_TYPE_GENERIC;
-        evt.callback.generic = do_transmit;
+        evt.callback.generic.cb = do_transmit;
+        evt.callback.generic.p_context = NULL;
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
             serial_state = SERIAL_STATE_IDLE;
@@ -111,7 +116,7 @@ static void schedule_transmit(void)
 
 static void char_rx(uint8_t c)
 {
-    static serial_data_t rx_buf = {{0}};
+    static serial_data_t rx_buf = {0};
     static uint8_t* pp = rx_buf.buffer;
     
     *(pp++) = c;
@@ -134,9 +139,9 @@ static void char_rx(uint8_t c)
 #ifdef BOOTLOADER            
             NVIC_SetPendingIRQ(SWI2_IRQn);
 #else
-            async_event_t async_evt;
+            async_event_t async_evt = {0};
             async_evt.type = EVENT_TYPE_GENERIC;
-            async_evt.callback.generic = mesh_aci_command_check;
+            async_evt.callback.generic.cb = mesh_aci_command_check_cb;
             event_handler_push(&async_evt);
 #endif
         }

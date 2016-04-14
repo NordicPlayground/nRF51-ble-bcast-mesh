@@ -84,6 +84,10 @@ static bool suspend = false;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
+static void mesh_aci_command_check_cb(void* p_context)
+{
+    mesh_aci_command_check();
+}
 
 static void enable_pin_listener(bool enable)
 {
@@ -228,8 +232,8 @@ void spi_event_handler(spi_slave_evt_t evt)
                 {
 
                     /* notify ACI handler */
-                    async_event_t async_evt;
-                    async_evt.callback.generic = mesh_aci_command_check;
+                    async_event_t async_evt = {0};
+                    async_evt.callback.generic.cb = mesh_aci_command_check_cb;
                     async_evt.type = EVENT_TYPE_GENERIC;
                     event_handler_push(&async_evt);
                 }
