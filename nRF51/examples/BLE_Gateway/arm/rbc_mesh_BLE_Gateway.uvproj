@@ -597,6 +597,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
             </File>
+            <File>
+              <FileName>handle_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\handle_storage.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1183,6 +1188,11 @@
               <FileName>rand.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
+            </File>
+            <File>
+              <FileName>handle_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\handle_storage.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1813,6 +1823,11 @@
               <FileName>rand.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
+            </File>
+            <File>
+              <FileName>handle_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\handle_storage.c</FilePath>
             </File>
           </Files>
         </Group>

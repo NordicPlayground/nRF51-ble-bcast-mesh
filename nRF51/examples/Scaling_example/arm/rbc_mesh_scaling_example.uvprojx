@@ -459,6 +459,11 @@
               <FilePath>..\..\..\rbc_mesh\src\event_handler.c</FilePath>
             </File>
             <File>
+              <FileName>handle_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\handle_storage.c</FilePath>
+            </File>
+            <File>
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
