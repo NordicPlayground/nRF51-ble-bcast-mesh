@@ -28,6 +28,8 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
+#include <string.h>
+
 #include "transport_control.h"
 
 #include "radio_control.h"
@@ -44,8 +46,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "bootloader_info_app.h"
 #include "bootloader_app.h"
-#include <string.h>
-
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
@@ -102,19 +102,10 @@ static void order_search(void)
     }
 }
 
-static void prepare_event(rbc_mesh_event_t* evt, mesh_adv_data_t* p_mesh_adv_data, uint8_t rssi, ble_gap_addr_t* p_addr)
-{
-    evt->value_handle = p_mesh_adv_data->handle;
-    evt->data = &p_mesh_adv_data->data[0];
-    evt->data_len = p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
-    memcpy(&evt->ble_adv_addr, p_addr, sizeof(ble_gap_addr_t));
-    evt->rssi = -((int8_t) rssi);
-}
-
 /* immediate radio callback, executed in STACK_LOW */
 static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 {
-    if (success)
+    if (success && ((mesh_packet_t*) p_data)->header.length <= MESH_PACKET_BLE_OVERHEAD + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
     {
         async_event_t evt;
         evt.type = EVENT_TYPE_PACKET;
@@ -138,7 +129,7 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 #endif
         }
     }
-    else
+    else if (crc < 0x1000000) /* don't want to trigger on abnormally high crcs */
     {
 #ifdef PACKET_STATS
         m_packet_stats.crc_fail++;
@@ -149,16 +140,16 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
 
-/* radio callback, executed in STACK_LOW */
-static void tx_cb(uint8_t* p_data)
+/* radio tx cb, executed in APP_LOW */
+static void async_tx_cb(void* p_context)
 {
+    mesh_packet_t* p_packet = (mesh_packet_t*) p_context;
     rbc_mesh_event_t tx_event;
-    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
+    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
     bool doing_tx_event = false;
     if (p_adv_data != NULL &&
         vh_tx_event_flag_get(p_adv_data->handle, &doing_tx_event) == NRF_SUCCESS
-        && doing_tx_event
-    )
+        && doing_tx_event)
     {
         tx_event.event_type = RBC_MESH_EVENT_TYPE_TX;
         tx_event.value_handle = p_adv_data->handle;
@@ -171,9 +162,29 @@ static void tx_cb(uint8_t* p_data)
         mesh_aci_rbc_event_handler(&tx_event);
 #endif
     }
+    mesh_packet_ref_count_dec(p_packet); /* event-handler reference popped. */
+}
 
+/* radio callback, executed in STACK_LOW */
+static void tx_cb(uint8_t* p_data)
+{
+    /* have to defer tx-event handling to async context to avoid race 
+       conditions in the handle_storage */
+    async_event_t tx_cb_evt = 
+    {
+        .type = EVENT_TYPE_GENERIC,
+        .callback.generic =
+        {
+            .cb = async_tx_cb,
+            .p_context = p_data
+        }
+    };
+    if (event_handler_push(&tx_cb_evt) == NRF_SUCCESS)
+    {
+        mesh_packet_ref_count_inc((mesh_packet_t*) p_data);
+    }
+    
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
-    vh_order_update(timer_get_timestamp()); /* tell the vh, so that it can push more updates */
 }
 
 
@@ -183,75 +194,6 @@ static void radio_idle_callback(void)
     if (!m_state.queue_saturation)
         order_search();
 }
-
-static void mesh_app_packet_handle(mesh_adv_data_t* p_mesh_adv_data,
-                                   uint64_t timestamp,
-                                   uint8_t rssi,
-                                   ble_gap_addr_t* p_addr)
-{
-    int16_t delta;
-    vh_data_status_t data_status = vh_rx_register(p_mesh_adv_data, timestamp, &delta);
-
-    /* prepare app event */
-    rbc_mesh_event_t evt;
-    evt.version_delta = delta;
-
-    switch (data_status)
-    {
-        case VH_DATA_STATUS_NEW:
-            /* notify application */
-            prepare_event(&evt, p_mesh_adv_data, rssi, p_addr);
-            evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
-            if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
-            {
-                mesh_gatt_value_set(p_mesh_adv_data->handle,
-                    p_mesh_adv_data->data,
-                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
-            }
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&evt);
-#endif
-            break;
-
-        case VH_DATA_STATUS_UPDATED:
-
-            /* notify application */
-            prepare_event(&evt, p_mesh_adv_data, rssi, p_addr);
-            evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-            if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
-            {
-                mesh_gatt_value_set(p_mesh_adv_data->handle,
-                    p_mesh_adv_data->data,
-                    p_mesh_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
-            }
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&evt);
-#endif
-            break;
-
-        case VH_DATA_STATUS_OLD:
-            /* do nothing */
-            break;
-
-        case VH_DATA_STATUS_SAME:
-            /* do nothing */
-            break;
-
-        case VH_DATA_STATUS_CONFLICTING:
-
-            prepare_event(&evt, p_mesh_adv_data, rssi, p_addr);
-            evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
-            rbc_mesh_event_push(&evt); /* ignore error - will be a normal packet drop */
-#ifdef RBC_MESH_SERIAL
-            mesh_aci_rbc_event_handler(&evt);
-#endif
-            break;
-
-        case VH_DATA_STATUS_UNKNOWN:
-            break;
-    }
-}
-
 
 static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
 {
@@ -398,7 +340,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
         /* filter mesh packets on handle range */
         if (p_mesh_adv_data->handle <= RBC_MESH_APP_MAX_HANDLE)
         {
-            mesh_app_packet_handle(p_mesh_adv_data, timestamp, rssi, &addr);
+            vh_rx(p_packet, timestamp, rssi);
         }
         else
         {

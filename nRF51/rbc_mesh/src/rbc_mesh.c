@@ -224,9 +224,7 @@ uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
     /* no critical errors if this call fails, ignore return */
     mesh_gatt_value_set(handle, data, len);
     
-    if (vh_local_update(handle, data, len) == VH_DATA_STATUS_UNKNOWN)
-        return NRF_ERROR_INTERNAL; 
-    return NRF_SUCCESS;
+    return vh_local_update(handle, data, len);
 }
 
 uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* len)

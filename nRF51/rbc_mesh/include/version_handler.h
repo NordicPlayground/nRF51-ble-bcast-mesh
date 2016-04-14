@@ -36,23 +36,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef enum
-{
-    VH_DATA_STATUS_NEW,
-    VH_DATA_STATUS_UPDATED,
-    VH_DATA_STATUS_OLD,
-    VH_DATA_STATUS_SAME,
-    VH_DATA_STATUS_CONFLICTING,
-    VH_DATA_STATUS_UNKNOWN
-} vh_data_status_t;
-
 uint32_t vh_init(uint32_t min_interval_us);
 
 uint32_t vh_min_interval_set(uint32_t min_interval_us);
 
-vh_data_status_t vh_rx_register(mesh_adv_data_t* p_adv_data, uint64_t timestamp, int16_t* p_delta_out);
+uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi);
 
-vh_data_status_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length);
+uint32_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length);
 
 uint32_t vh_on_timeslot_begin(void);
 
@@ -64,8 +54,6 @@ uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* l
 uint32_t vh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
 
 uint32_t vh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event);
-
-int16_t vh_get_version_delta(uint16_t old_version, uint16_t new_version);
 
 uint32_t vh_value_enable(rbc_mesh_value_handle_t handle);
 

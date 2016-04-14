@@ -411,7 +411,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                             mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_ERROR_INVALID_HANDLE);
                             break;
                         }
-                        vh_data_status_t vh_data_status = vh_local_update(
+                        uint32_t error_code = vh_local_update(
                                 p_gatt_evt->param.data_update.handle,
                                 p_gatt_evt->param.data_update.data,
                                 p_gatt_evt->param.data_update.data_len);
@@ -421,27 +421,23 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                         mesh_evt.data_len = p_gatt_evt->param.data_update.data_len;
                         mesh_evt.value_handle = p_gatt_evt->param.data_update.handle;
                         mesh_evt.version_delta = 1;
-                        bool send_event = true;
-                        switch (vh_data_status)
+                        if (error_code == NRF_SUCCESS)
                         {
-                            case VH_DATA_STATUS_CONFLICTING:
-                                mesh_evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
-                                break;
-                            case VH_DATA_STATUS_NEW:
-                                mesh_evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
-                                break;
-                            case VH_DATA_STATUS_UPDATED:
-                                mesh_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-                                break;
-                            default:
+                            mesh_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+                            if (rbc_mesh_event_push(&mesh_evt) != NRF_SUCCESS)
+                            {   
                                 mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_ERROR_BUSY);
-                                send_event = false;
+                            }
+                            else
+                            {
+                                mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_SUCCESS);
+                            }
                         }
-                        if (send_event)
+                        else
                         {
-                            APP_ERROR_CHECK(rbc_mesh_event_push(&mesh_evt));
-                            mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_SUCCESS);
+                            mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_ERROR_BUSY);
                         }
+
                     }
                 break;
 
