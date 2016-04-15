@@ -91,8 +91,10 @@ bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 {
     /* the given pointer may not be aligned, have to force alignment with index */
     uint32_t index = PACKET_INDEX(p_packet);
-    if (index > RBC_MESH_PACKET_POOL_SIZE)
+    if (index >= RBC_MESH_PACKET_POOL_SIZE)
+    {
         return false;
+    }
 
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
@@ -108,8 +110,10 @@ bool mesh_packet_ref_count_inc(mesh_packet_t* p_packet)
 bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
 {
     uint32_t index = PACKET_INDEX(p_packet);
-    if (index > RBC_MESH_PACKET_POOL_SIZE)
+    if (index >= RBC_MESH_PACKET_POOL_SIZE)
+    {
         return false;
+    }
 
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
@@ -129,8 +133,10 @@ bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
 uint8_t mesh_packet_ref_count_get(mesh_packet_t* p_packet)
 {
     uint32_t index = PACKET_INDEX(p_packet);
-    if (index > RBC_MESH_PACKET_POOL_SIZE)
+    if (index >= RBC_MESH_PACKET_POOL_SIZE)
+    {
         return 0;
+    }
     
     return g_packet_refs[index];
 }
