@@ -12,6 +12,9 @@ The GNU Makefile in this repository can be used to build the tool with GCC (test
 only consists of a single file, and should be platform-independent. A pre-built version of the
 tool for Windows can also be found in this directory.
 
+*NOTE:* The tool depends on the objcopy executable distributed with the GCC toolchain or MinGW.
+Objcopy must present be either in the same directory as the generator tool, or in your PATH env.
+
 == Input file
 
 The input file is a text file consisting of a set of handle-value pairs.
