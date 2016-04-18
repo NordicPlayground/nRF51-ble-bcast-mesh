@@ -6,6 +6,20 @@ across a mesh network. The bootloader does not use the Softdevice for its transf
 Master boot record, see below). This allows for single-bank Direct Firmware Updates (DFU), which
 makes it possible to use the bootloader on devices with 128K of flash.
 
+== Requirements
+
+In addition to requirements stated in the main readme-file:
+
+- nRF5x-Command-Line-Tools version 8.2.0 and above
+- Segger Jlink drivers version 5.10n or greater
+- link:https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu[Prerequisites for pc-nrfutil (mesh_dfu branch)]
+For Windows:
+- MinGW (any version)
+    - Needed for objcopy.exe
+For Linux:
+- GCC toolchain 4.0.0 and above
+    - Needed for objcopy utility
+
 == Usage
 For a quick-start guide to the Mesh-DFU, see the
 link:./dfu_quick_start.adoc[quick start guide document].
