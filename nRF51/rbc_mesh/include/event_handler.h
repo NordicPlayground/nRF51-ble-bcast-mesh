@@ -41,7 +41,8 @@ typedef enum
 {
     EVENT_TYPE_TIMER,
     EVENT_TYPE_GENERIC,
-    EVENT_TYPE_PACKET
+    EVENT_TYPE_PACKET,
+    EVENT_TYPE_SET_FLAG
 } event_type_t;
 
 /** @brief callback type for generic asynchronous events */
@@ -72,6 +73,12 @@ typedef struct
             generic_cb_t cb;
             void* p_context;
         } generic; /*void return */
+        struct
+        {
+            uint16_t handle;
+            uint8_t flag;
+            bool value;
+        } set_flag;
     } callback;
 } async_event_t;
 

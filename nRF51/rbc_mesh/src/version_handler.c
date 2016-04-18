@@ -412,15 +412,15 @@ uint32_t vh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
 
     event_handler_critical_section_begin();
-    
-    uint32_t error_code = handle_storage_flag_set(handle, HANDLE_FLAG_TX_EVENT, do_tx_event);
+
+    uint32_t error_code = handle_storage_flag_set_async(handle, HANDLE_FLAG_TX_EVENT, do_tx_event);
 
     event_handler_critical_section_end();
     return error_code;
@@ -453,17 +453,13 @@ uint32_t vh_value_enable(rbc_mesh_value_handle_t handle)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    event_handler_critical_section_begin();
-    
-    uint32_t error_code = handle_storage_flag_set(handle, HANDLE_FLAG_DISABLED, false);
-
-    event_handler_critical_section_end();
+    uint32_t error_code = handle_storage_flag_set_async(handle, HANDLE_FLAG_DISABLED, false);
     return error_code;
 }
 
@@ -473,15 +469,15 @@ uint32_t vh_value_disable(rbc_mesh_value_handle_t handle)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
 
     event_handler_critical_section_begin();
-    
-    uint32_t error_code = handle_storage_flag_set(handle, HANDLE_FLAG_DISABLED, true);
+
+    uint32_t error_code = handle_storage_flag_set_async(handle, HANDLE_FLAG_DISABLED, true);
 
     event_handler_critical_section_end();
     return error_code;
@@ -514,17 +510,13 @@ uint32_t vh_value_persistence_set(rbc_mesh_value_handle_t handle, bool persisten
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    event_handler_critical_section_begin();
-    
-    uint32_t error_code = handle_storage_flag_set(handle, HANDLE_FLAG_PERSISTENT, persistent);
-
-    event_handler_critical_section_end();
+    uint32_t error_code = handle_storage_flag_set_async(handle, HANDLE_FLAG_PERSISTENT, persistent);
     return error_code;
 }
 

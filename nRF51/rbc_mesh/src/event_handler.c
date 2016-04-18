@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fifo.h"
 #include "nrf_soc.h"
 #include "toolchain.h"
+#include "handle_storage.h"
 #include <string.h>
 
 #define EVENT_HANDLER_IRQ       (QDEC_IRQn)
@@ -67,9 +68,13 @@ static void async_event_execute(async_event_t* p_evt)
             break;
         case EVENT_TYPE_PACKET:
             tc_packet_handler(p_evt->callback.packet.payload,
-                                p_evt->callback.packet.crc,
-                                p_evt->callback.packet.timestamp,
-                                p_evt->callback.packet.rssi);
+                              p_evt->callback.packet.crc,
+                              p_evt->callback.packet.timestamp,
+                              p_evt->callback.packet.rssi);
+        case EVENT_TYPE_SET_FLAG:
+            handle_storage_flag_set(p_evt->callback.set_flag.handle, 
+                                    (handle_flag_t) p_evt->callback.set_flag.flag, 
+                                    p_evt->callback.set_flag.value);
         default:
             break;
     }
@@ -146,6 +151,7 @@ uint32_t event_handler_push(async_event_t* evt)
     {
     case EVENT_TYPE_GENERIC:
     case EVENT_TYPE_PACKET:
+    case EVENT_TYPE_SET_FLAG:
         p_fifo = &g_async_evt_fifo;
         break;
     case EVENT_TYPE_TIMER:

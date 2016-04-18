@@ -68,7 +68,10 @@ uint32_t handle_storage_info_set(uint16_t handle, handle_info_t* p_info);
 
 uint32_t handle_storage_local_packet_push(mesh_packet_t* p_packet);
 
+/** MUST BE CALLED FROM EVENT HANDLER CONTEXT */
 uint32_t handle_storage_flag_set(uint16_t handle, handle_flag_t flag, bool value);
+
+uint32_t handle_storage_flag_set_async(uint16_t handle, handle_flag_t flag, bool value);
 
 uint32_t handle_storage_flag_get(uint16_t handle, handle_flag_t flag, bool* p_value);
 

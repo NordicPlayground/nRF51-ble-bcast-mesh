@@ -70,6 +70,7 @@ typedef struct
     trickle_t trickle;
     mesh_packet_t* p_packet;
 } data_entry_t;
+
 /******************************************************************************
 * Static globals
 ******************************************************************************/
@@ -435,16 +436,19 @@ uint32_t handle_storage_flag_set(uint16_t handle, handle_flag_t flag, bool value
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    event_handler_critical_section_begin();
-    uint16_t handle_index = handle_entry_get(handle, false);
+    uint16_t handle_index = handle_entry_get(handle, true);
 
     switch (flag)
     {
         case HANDLE_FLAG_PERSISTENT:
             if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
             {
-                event_handler_critical_section_end();
-                return NRF_ERROR_NO_MEM;
+                handle_index = handle_entry_to_head(handle);
+
+                if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
+                {
+                    return NRF_ERROR_NO_MEM;
+                }
             }
             m_handle_cache[handle_index].persistent = value;
             break;
@@ -452,8 +456,12 @@ uint32_t handle_storage_flag_set(uint16_t handle, handle_flag_t flag, bool value
         case HANDLE_FLAG_TX_EVENT:
             if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
             {
-                event_handler_critical_section_end();
-                return NRF_ERROR_NO_MEM;
+                handle_index = handle_entry_to_head(handle);
+
+                if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
+                {
+                    return NRF_ERROR_NO_MEM;
+                }
             }
             m_handle_cache[handle_index].tx_event = value;
             break;
@@ -463,13 +471,11 @@ uint32_t handle_storage_flag_set(uint16_t handle, handle_flag_t flag, bool value
             {
                 if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
                 {
-                    event_handler_critical_section_end();
-                    return NRF_ERROR_NO_MEM;
+                    return NRF_SUCCESS; /* the value is already disabled */
                 }
                 if (m_handle_cache[handle_index].data_entry == DATA_CACHE_ENTRY_INVALID)
                 {
-                    event_handler_critical_section_end();
-                    return NRF_ERROR_NOT_FOUND;
+                    return NRF_SUCCESS; /* the value is already disabled */
                 }
                 trickle_disable(&m_data_cache[m_handle_cache[handle_index].data_entry].trickle);
             }
@@ -479,7 +485,6 @@ uint32_t handle_storage_flag_set(uint16_t handle, handle_flag_t flag, bool value
                 mesh_packet_t* p_packet = NULL;
                 if (!mesh_packet_acquire(&p_packet))
                 {
-                    event_handler_critical_section_end();
                     return NRF_ERROR_NO_MEM;
                 }
 
@@ -490,48 +495,54 @@ uint32_t handle_storage_flag_set(uint16_t handle, handle_flag_t flag, bool value
                         0);
                 if (error_code != NRF_SUCCESS)
                 {
-                    event_handler_critical_section_end();
                     mesh_packet_ref_count_dec(p_packet);
                     return error_code;
                 }
 
                 if (handle_index == HANDLE_CACHE_ENTRY_INVALID)
                 {
-                    error_code = handle_storage_local_packet_push(p_packet);
-                    mesh_packet_ref_count_dec(p_packet);
-                    event_handler_critical_section_end();
-                    return error_code;
+                    /* may safely run this function inline, as we're already in event handler */
+                    local_packet_push(p_packet);
+                    return NRF_SUCCESS;
                 }
                 else
                 {
-                    if (m_data_cache[m_handle_cache[handle_index].data_entry].p_packet == NULL)
+                    if (m_handle_cache[handle_index].data_entry == DATA_CACHE_ENTRY_INVALID)
                     {
-                        /* this bit may have race conditions which break the refcounting, so let's
-                           protect it. */
-                        uint32_t was_masked;
-                        _DISABLE_IRQS(was_masked);
-                        if (m_data_cache[m_handle_cache[handle_index].data_entry].p_packet != NULL)
+                        m_handle_cache[handle_index].data_entry = data_entry_allocate();
+                        if (m_handle_cache[handle_index].data_entry == DATA_CACHE_ENTRY_INVALID)
                         {
-                            /* someone set the packet already, let's not overwrite it. */
-                            mesh_packet_ref_count_dec(p_packet);
+                            return NRF_ERROR_NO_MEM;
                         }
-                        else
-                        {
-                            m_data_cache[m_handle_cache[handle_index].data_entry].p_packet = p_packet;
-                        }
-                        _ENABLE_IRQS(was_masked);
+                    }
+                    if (m_data_cache[m_handle_cache[handle_index].data_entry].p_packet != NULL)
+                    {
+                        /* someone set the packet already, let's not overwrite it. */
+                        mesh_packet_ref_count_dec(p_packet);
+                    }
+                    else
+                    {
+                        m_data_cache[m_handle_cache[handle_index].data_entry].p_packet = p_packet;
                     }
                     trickle_enable(&m_data_cache[m_handle_cache[handle_index].data_entry].trickle);
                 }
             }
             break;
         default:
-            event_handler_critical_section_end();
             return NRF_ERROR_INVALID_PARAM;
     }
 
-    event_handler_critical_section_end();
     return NRF_SUCCESS;
+}
+
+uint32_t handle_storage_flag_set_async(uint16_t handle, handle_flag_t flag, bool value)
+{
+    async_event_t evt;
+    evt.type = EVENT_TYPE_SET_FLAG;
+    evt.callback.set_flag.handle = handle;
+    evt.callback.set_flag.flag = flag;
+    evt.callback.set_flag.value = value;
+    return event_handler_push(&evt);
 }
 
 uint32_t handle_storage_flag_get(uint16_t handle, handle_flag_t flag, bool* p_value)
