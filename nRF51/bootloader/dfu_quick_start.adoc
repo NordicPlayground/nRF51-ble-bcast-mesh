@@ -13,6 +13,12 @@ See the tool's documentation for installation and prerequisites.
 The guide assumes that you have at least 2 development kits or devices, where one is to be
 interfaced over the serial port, and one gets the DFU from the other over the mesh.
 
+NOTE: For each call to the `nrfjprog` command, you are expected to add the `-s <serial-number>` option, to
+match the Segger ID of your device.
+
+IMPORTANT: that all precompiled hex-files are made for the 256k Flash/32k RAM version of the nRF51.
+Recompile to make them work on other hardware configurations.
+
 1. Generate a signing key file with pc-nrfutil (optional)
 2. Paste the public key from pc-nrfutil into your device-page (optional)
 3. Generate a hex version of your device-page with the tool in /nRF51/bootloader/pc-util.
@@ -21,8 +27,9 @@ interfaced over the serial port, and one gets the DFU from the other over the me
 6. Flash the serial bootloader on all devices.
 7. Flash the device page on all devices.
 8. Flash the first application on all devices (serial version on the serial-gateway device).
-9. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
-10. Transfer the DFU-file over serial with the pc-nrfutil tool.
+9. Verify your bootloader with the bootloader verification script.
+10. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
+11. Transfer the DFU-file over serial with the pc-nrfutil tool.
 
 == 1. Generate a signing key file with pc-nrfutil (optional)
 You need a signing key if you want to verify and sign the DFU. Use nrfutil to generate a signing
@@ -79,17 +86,27 @@ We'll use the .hex file in step 7.
 
 == 4. Erase all chip memory including UICR on all devices.
 Using nrfjprog (available on www.nordicsemi.com), erase all previous data on
-your device (including UICR).
+your device (including UICR):
+
+`nrfjprog --eraseall`
 
 == 5. Flash the Softdevice on all devices.
+NOTE: It's important that steps 5-7 are executed in order.
+
 Get a copy of the S110 v8.0 Softdevice at www.nordicsemi.com, and flash it onto your device with
-nrfjprog.
+nrfjprog:
+
+`nrfjprog --program <S110 hex-file>`
 
 == 6. Flash the serial bootloader on all devices.
-Flash the precompiled bootloader_serial.hex (in nRF51/bootloader/test/) to your device with nrfjprog.
+Flash the precompiled bootloader_serial.hex (in nRF51/bootloader/test/) to your device with nrfjprog:
+
+`nrfjprog --program <bootloader serial hex-file>`
 
 == 7. Flash the device page on all devices.
-Flash the device page .hex that you generated in step 3 to the device.
+Flash the device page .hex that you generated in step 3 to the device:
+
+`nrfjprog --program <device page hex-file>`
 
 == 8. Flash the first application on all devices (serial version on the serial-gateway device).
 Finally, flash the example application app_LED1.hex to all devices, except the device you want to
@@ -97,7 +114,35 @@ connect to via serial. For this device, use app_serial_LED1.hex instead. When fi
 should have its LED1 lit if it's an nRF51 development kit, or the red LED lit if it's an nRF51 dongle.
 The example applications are compiled from he BLE_Gateway example in this repository.
 
-== 9. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
+`nrfjprog --program <app hex-file>`
+
+Then reset your device:
+
+`nrfjprog --reset`
+
+== 9. Verify your bootloader with the bootloader_verify.py script (optional)
+Run the bootloader verification script located in nRF51/bootloader/pc-util:
+
+NOTE: bootloader_verify.py requires the link:https://pypi.python.org/pypi/pyserial[pyserial package],
+and that nrfjprog is present in your PATH.
+
+`python bootloader_verify.py <serial number> <COM-port>`
+
+The output should look like this:
+
+----
+Reading UICR..                  OK.
+Reading Device page..           OK.
+Resetting device..              OK.
+Checking serial connection..    OK.
+
+Bootloader verification OK
+----
+
+The bootloader verification script does not alter your setup in any way, and you may safely continue
+without it. It serves as a checkpoint and help utility in the process.
+
+== 10. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
 To do a DFU, you need to create a DFU-file. The DFU file is really
 a .zip, which contains the application binary, along with some metadata. Matching the FWIDs in
 your device page file, call the nrfutil tool from /nRF51/bootloader/:
@@ -112,10 +157,10 @@ This will generate a DFU file called dfu_test.zip in the current directory. You 
 Note that only some of them apply to mesh-DFU, as the tool still supports the regular
 Nordic Semiconductor DFU transfer.
 
-== 10. Transfer the DFU-file over serial with the pc-nrfutil tool.
+== 11. Transfer the DFU-file over serial with the pc-nrfutil tool.
 
-*WARNING:* _For this step, it is important that you close any running instance of nRFgo Studio,
-as it has been known to trip up the reset procedure for the nRF51._
+WARNING: For this step, it is important that you close any running instance of nRFgo Studio,
+as it has been known to trip up the reset procedure for the nRF51.
 
 Now for the interesting part: Doing a DFU! First off, figure out which COM-port your serial device
 is on. Mine is on COM138. Now call the nrfutil one final time:
