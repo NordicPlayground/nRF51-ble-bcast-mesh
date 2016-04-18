@@ -16,8 +16,7 @@ interfaced over the serial port, and one gets the DFU from the other over the me
 NOTE: For each call to the `nrfjprog` command, you are expected to add the `-s <serial-number>` option, to
 match the Segger ID of your device.
 
-IMPORTANT: that all precompiled hex-files are made for the 256k Flash/32k RAM version of the nRF51.
-Recompile to make them work on other hardware configurations.
+IMPORTANT: All precompiled hex-files are made for the 256k Flash/32k RAM version of the nRF51. Recompile to make them work on other hardware configurations.
 
 1. Generate a signing key file with pc-nrfutil (optional)
 2. Paste the public key from pc-nrfutil into your device-page (optional)
