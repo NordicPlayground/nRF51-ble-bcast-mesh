@@ -30,7 +30,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include "nrf_flash.h"
-#include "nrf.h"
+#include "nrf51.h"
+#include "nrf51_bitfields.h"
 
 /** @brief Function for erasing a page in flash.
  *
@@ -39,7 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void nrf_flash_erase(uint32_t * page_address, uint32_t size)
 {
     uint8_t num_pages = (size + NRF_FLASH_PAGE_SIZE - 1) / NRF_FLASH_PAGE_SIZE;
-    
+
     for(uint8_t  i = 0; i < num_pages ; i++)
     {
         // Turn on flash erase enable and wait until the NVMC is ready:
@@ -48,7 +49,7 @@ void nrf_flash_erase(uint32_t * page_address, uint32_t size)
         while (NRF_NVMC->READY == NVMC_READY_READY_Busy)
         {
             // Do nothing.
-        }   
+        }
 
         // Erase page:
         NRF_NVMC->ERASEPAGE = (uint32_t)page_address;
@@ -80,18 +81,18 @@ void nrf_flash_store(uint32_t * p_dest, uint8_t * p_src, uint32_t size, uint32_t
     static uint8_t buffer[4]  __attribute__((aligned (4)));
     uint8_t cnt = 0;
     uint8_t has_content = 0;
-    
+
     p_dest += offset / 4;
-    
+
     for(uint32_t i=0; i < size ; i++)
     {
         has_content |= ~(*p_src);
         buffer[cnt++]  = *p_src;
-        
+
         p_src++;
-        
+
         if(cnt == 4)
-        {   
+        {
             cnt = 0;
             if (has_content)
             {

@@ -89,21 +89,21 @@ typedef enum
     MESH_GATT_EVT_FLAG_DO_TX
 } mesh_gatt_evt_flag_t;
 
-typedef __packed_armcc struct 
+typedef __packed_armcc struct
 {
     rbc_mesh_value_handle_t handle;
     uint8_t flag;
     uint8_t value;
 } __packed_gcc gatt_evt_flag_update_t;
 
-typedef __packed_armcc struct 
+typedef __packed_armcc struct
 {
     rbc_mesh_value_handle_t handle;
     uint8_t data_len;
     uint8_t data[RBC_MESH_VALUE_MAX_LEN];
 } __packed_gcc gatt_evt_data_update_t;
 
-typedef __packed_armcc struct 
+typedef __packed_armcc struct
 {
     uint8_t opcode;
     uint8_t result;
@@ -128,12 +128,12 @@ static uint32_t mesh_gatt_evt_push(mesh_gatt_evt_t* p_gatt_evt)
     {
         return BLE_ERROR_INVALID_CONN_HANDLE;
     }
-    
+
     if (!m_mesh_service.notification_enabled)
     {
         return BLE_ERROR_NOT_ENABLED;
     }
-    
+
     uint8_t count;
     if (sd_ble_tx_buffer_count_get(&count) != NRF_SUCCESS)
     {
@@ -141,7 +141,7 @@ static uint32_t mesh_gatt_evt_push(mesh_gatt_evt_t* p_gatt_evt)
     }
     if (count == 0)
     {
-        return BLE_ERROR_NO_TX_BUFFERS;  
+        return BLE_ERROR_NO_TX_BUFFERS;
     }
 
     ble_gatts_hvx_params_t hvx_params;
@@ -340,7 +340,7 @@ uint32_t mesh_gatt_init(uint32_t access_address, uint8_t channel, uint32_t inter
     md_char.mesh_access_addr = access_address;
     md_char.mesh_interval_min_ms = interval_min_ms;
     md_char.mesh_channel = channel;
-    
+
     ble_uuid_t ble_srv_uuid;
     ble_srv_uuid.type = BLE_UUID_TYPE_BLE;
     ble_srv_uuid.uuid = MESH_SRV_UUID;
@@ -351,13 +351,13 @@ uint32_t mesh_gatt_init(uint32_t access_address, uint8_t channel, uint32_t inter
     {
         return NRF_ERROR_INTERNAL;
     }
-    
+
     error_code = sd_ble_uuid_vs_add(&m_mesh_base_uuid, &m_mesh_base_uuid_type);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
-    
+
     error_code = mesh_md_char_add(&md_char);
     if (error_code != NRF_SUCCESS)
     {
@@ -415,7 +415,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                                 p_gatt_evt->param.data_update.handle,
                                 p_gatt_evt->param.data_update.data,
                                 p_gatt_evt->param.data_update.data_len);
-                        
+
                         rbc_mesh_event_t mesh_evt;
                         mesh_evt.data = p_gatt_evt->param.data_update.data;
                         mesh_evt.data_len = p_gatt_evt->param.data_update.data_len;
@@ -425,7 +425,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                         {
                             mesh_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
                             if (rbc_mesh_event_push(&mesh_evt) != NRF_SUCCESS)
-                            {   
+                            {
                                 mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_ERROR_BUSY);
                             }
                             else
@@ -445,7 +445,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                     switch ((mesh_gatt_evt_flag_t) p_gatt_evt->param.flag_update.flag)
                     {
                         case MESH_GATT_EVT_FLAG_PERSISTENT:
-                            if (vh_value_persistence_set(p_gatt_evt->param.flag_update.handle, 
+                            if (vh_value_persistence_set(p_gatt_evt->param.flag_update.handle,
                                         !!(p_gatt_evt->param.flag_update.value))
                                     != NRF_SUCCESS)
                             {
@@ -489,13 +489,13 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                         case MESH_GATT_EVT_FLAG_PERSISTENT:
                             {
                                 if (p_gatt_evt->param.flag_update.handle == RBC_MESH_INVALID_HANDLE)
-                                { 
+                                {
                                     mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_ERROR_INVALID_HANDLE);
                                     break;
                                 }
 
                                 bool is_persistent = false;
-                                if (vh_value_persistence_get(p_gatt_evt->param.flag_update.handle, &is_persistent) 
+                                if (vh_value_persistence_get(p_gatt_evt->param.flag_update.handle, &is_persistent)
                                         != NRF_SUCCESS)
                                 {
                                     mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_ERROR_NOT_FOUND);

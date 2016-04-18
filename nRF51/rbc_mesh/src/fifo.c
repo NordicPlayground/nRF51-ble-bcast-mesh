@@ -1,9 +1,9 @@
 /***********************************************************************************
-Copyright (c) Nordic Semiconductor ASA
-All rights reserved.
+  Copyright (c) Nordic Semiconductor ASA
+  All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
+  Redistribution and use in source and binary forms, with or without modification,
+  are permitted provided that the following conditions are met:
 
   1. Redistributions of source code must retain the above copyright notice, this
   list of conditions and the following disclaimer.
@@ -16,51 +16,51 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-************************************************************************************/
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ************************************************************************************/
 #include "fifo.h"
 #include "rbc_mesh_common.h"
 #include "nrf_error.h"
 #include <string.h>
 
 /*****************************************************************************
-* Static functions
-*****************************************************************************/
+ * Static functions
+ *****************************************************************************/
 #define FIFO_ELEM_AT(p_fifo, index) ((uint8_t*) ((uint8_t*) p_fifo->elem_array) + (p_fifo->elem_size) * (index))
 #define FIFO_IS_FULL(p_fifo) (p_fifo->tail + p_fifo->array_len == p_fifo->head)
 #define FIFO_IS_EMPTY(p_fifo) (p_fifo->tail == p_fifo->head)
 /*****************************************************************************
-* Interface functions
-*****************************************************************************/
+ * Interface functions
+ *****************************************************************************/
 void fifo_init(fifo_t* p_fifo)
 {
-	/* round off to nearest(lower) size that can use & operator instead of modulo */
-	uint32_t i = 32;
-	while (!((p_fifo->array_len >> --i) & 0x01));
-	p_fifo->array_len = (1 << i);
+    /* round off to nearest(lower) size that can use & operator instead of modulo */
+    uint32_t i = 32;
+    while (!((p_fifo->array_len >> --i) & 0x01));
+    p_fifo->array_len = (1 << i);
 
-	p_fifo->head = 0;
-	p_fifo->tail = 0;
+    p_fifo->head = 0;
+    p_fifo->tail = 0;
 }
 
 inline uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
 {
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
-	if (FIFO_IS_FULL(p_fifo))
-	{
+    if (FIFO_IS_FULL(p_fifo))
+    {
         _ENABLE_IRQS(was_masked);
         return NRF_ERROR_NO_MEM;
-	}
+    }
 
     void* p_dest = FIFO_ELEM_AT(p_fifo, p_fifo->head & (p_fifo->array_len - 1));
 
@@ -127,25 +127,25 @@ uint32_t fifo_peek_at(fifo_t* p_fifo, void* p_elem, uint32_t elem)
 
 uint32_t fifo_peek(fifo_t* p_fifo, void* p_elem)
 {
-	return fifo_peek_at(p_fifo, p_elem, 0);
+    return fifo_peek_at(p_fifo, p_elem, 0);
 }
 
 void fifo_flush(fifo_t* p_fifo)
 {
-	p_fifo->tail = p_fifo->head;
+    p_fifo->tail = p_fifo->head;
 }
 
 uint32_t fifo_get_len(fifo_t* p_fifo)
 {
-	return (p_fifo->head - p_fifo->tail);
+    return (p_fifo->head - p_fifo->tail);
 }
 
 inline bool fifo_is_full(fifo_t* p_fifo)
 {
-	return FIFO_IS_FULL(p_fifo);
+    return FIFO_IS_FULL(p_fifo);
 }
 
 bool fifo_is_empty(fifo_t* p_fifo)
 {
-	return FIFO_IS_EMPTY(p_fifo);
+    return FIFO_IS_EMPTY(p_fifo);
 }

@@ -36,13 +36,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * @brief Function for aborting current application/bootloader jump to to other app/bootloader.
  *
- * @details This functions will use the address provide to swap the stack pointer and then load 
- *          the address of the reset handler to be executed. It will check current system mode 
+ * @details This functions will use the address provide to swap the stack pointer and then load
+ *          the address of the reset handler to be executed. It will check current system mode
  *          (thread/handler) and if in thread mode it will reset into other application.
- *          If in handler mode \ref isr_abort will be executed to ensure correct exit of handler 
+ *          If in handler mode \ref isr_abort will be executed to ensure correct exit of handler
  *          mode and jump into reset handler of other application.
  *
- * @param[in]  start_addr  Start address of other application. This address must point to the 
+ * @param[in]  start_addr  Start address of other application. This address must point to the
                initial stack pointer of the application.
  *
  * @note This function will never return but issue a reset into provided application.
@@ -132,7 +132,7 @@ static inline void bootloader_util_reset(uint32_t start_addr)
         "movs  r4, #0x00\n"                   // Load zero into R4.
         "mvns  r4, r4\n"                      // Invert R4 to ensure it contain ones.
 
-        "mrs   r5, IPSR\n"                    // Load IPSR to R5 to check for handler or thread mode 
+        "mrs   r5, IPSR\n"                    // Load IPSR to R5 to check for handler or thread mode
         "cmp   r5, #0x00\n"                   // Compare, if 0 then we are in thread mode and can continue to reset handler of bootloader.
         "bne   isr_abort\n"                   // If not zero we need to exit current ISR and jump to reset handler of bootloader.
 

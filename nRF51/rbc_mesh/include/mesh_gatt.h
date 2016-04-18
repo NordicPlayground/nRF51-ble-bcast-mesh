@@ -55,7 +55,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
 * @brief Global mesh metadata characteristic type
 */
-typedef struct 
+typedef struct
 {
     uint32_t mesh_access_addr; /* operating access address */
     uint32_t mesh_interval_min_ms; /* minimum tx interval */

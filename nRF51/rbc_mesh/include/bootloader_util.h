@@ -31,11 +31,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  /**@file
  *
  * @defgroup nrf_bootloader_util Bootloader util API.
- * @{     
- *  
+ * @{
+ *
  * @brief Bootloader util module interface.
  */
- 
+
 #ifndef BOOTLOADER_UTIL_H__
 #define BOOTLOADER_UTIL_H__
 
@@ -43,10 +43,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_types.h"
 
 /**@brief Function for starting the application (or bootloader) at the provided address.
- * 
+ *
  * @param[in]  start_addr             Start address.
  *
- * @note This function will never retrun. Instead it will reset into the application of the 
+ * @note This function will never retrun. Instead it will reset into the application of the
  *       provided address.
  */
 void bootloader_util_app_start(uint32_t start_addr);

@@ -62,7 +62,7 @@ uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid)
     if (NRF_UICR->BOOTLOADERADDR != 0xFFFFFFFF)
     {
         interrupts_disable();
-        
+
         if (m_authorize_callback)
         {
             /* Ask the application whether we should accept the transfer. */
@@ -80,7 +80,7 @@ uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid)
         NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
         NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_FORCED_REBOOT;
         NVIC_SystemReset();
-#endif    
+#endif
         return NRF_SUCCESS; /* unreachable */
     }
     else

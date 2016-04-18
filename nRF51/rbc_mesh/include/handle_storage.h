@@ -58,7 +58,7 @@ uint32_t handle_storage_init(uint32_t min_interval_us);
 uint32_t handle_storage_min_interval_set(uint32_t min_interval_us);
 
 /**
-* Get version and packet pointer of the given handle. The packet is returned 
+* Get version and packet pointer of the given handle. The packet is returned
 *   with a reference, which must be freed when the packet goes out of scope.
 */
 uint32_t handle_storage_info_get(uint16_t handle, handle_info_t* p_info);
@@ -81,15 +81,15 @@ uint32_t handle_storage_rx_inconsistent(uint16_t handle, uint64_t timestamp);
 
 uint64_t handle_storage_next_timeout_get(void);
 
-/** 
-* Get a list of packets ready for transmit at the timestamp provided. Each 
-*   packet is returned with a reference, which must be freed when the packet 
+/**
+* Get a list of packets ready for transmit at the timestamp provided. Each
+*   packet is returned with a reference, which must be freed when the packet
 *   goes out of scope.
 *
 * @param[in] time_now Timestamp to compare TX-timeouts against.
-* @param[out] pp_tx_packets An array of packet pointers to be filled by the 
+* @param[out] pp_tx_packets An array of packet pointers to be filled by the
 *   function.
-* @param[in,out] p_count The maximum number of elements the given array can 
+* @param[in,out] p_count The maximum number of elements the given array can
 *   hold. When returned, the argument contains the number of packets filled
 *   into the array by the function.
 */

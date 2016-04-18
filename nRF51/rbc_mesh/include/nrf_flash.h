@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define NRF_FLASH_H__
 
 #include <stdint.h>
+#include "nrf.h"
 
 #define NRF_FLASH_PAGE_SIZE    ((uint16_t)NRF_FICR->CODEPAGESIZE)                          /**< Size of one flash page. */
 

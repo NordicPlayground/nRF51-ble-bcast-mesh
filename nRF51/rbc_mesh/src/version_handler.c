@@ -119,7 +119,7 @@ static bool payload_has_conflict(mesh_adv_data_t* p_old_adv, mesh_adv_data_t* p_
 static void transmit_all_instances(uint64_t timestamp);
 
 static void order_next_transmission(uint64_t time_now)
-{   
+{
     uint64_t timeout = handle_storage_next_timeout_get();
     time_now = timer_get_timestamp();
     uint64_t ts_begin_time = timeslot_get_global_time();
@@ -140,7 +140,7 @@ static void transmit_all_instances(uint64_t timestamp)
     uint64_t timeslot_start = timeslot_get_global_time();
     mesh_packet_t* pp_tx_packets[RBC_MESH_RADIO_QUEUE_LENGTH - 1];
     uint32_t count = RBC_MESH_RADIO_QUEUE_LENGTH - 1;
-    
+
     uint32_t error_code = handle_storage_tx_packets_get(timestamp + timeslot_start, pp_tx_packets, &count);
     if (error_code == NRF_SUCCESS)
     {
@@ -197,10 +197,10 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
     {
         return NRF_ERROR_INVALID_DATA;
     }
-        
+
     handle_info_t info;
     uint32_t error_code = handle_storage_info_get(p_adv_data->handle, &info);
-    
+
     int16_t delta = version_delta(info.version, p_adv_data->version);
 
     /* prepare app event */
@@ -212,13 +212,13 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
     evt.data = p_adv_data->data;
     evt.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
     evt.value_handle = p_adv_data->handle;
-    
+
     if (error_code == NRF_ERROR_NOT_FOUND)
     {
         /* couldn't find the handle in the handle storage */
         evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
         evt.version_delta = delta;
-        
+
         /* First allocate an element in the storage to ensure that we're not out of memory. */
         error_code = handle_storage_info_set(p_adv_data->handle, &info);
         if (error_code != NRF_SUCCESS)
@@ -226,25 +226,25 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
             mesh_packet_ref_count_dec(info.p_packet);
             return error_code;
         }
-        
-        handle_info_t new_info = 
+
+        handle_info_t new_info =
         {
             .p_packet = p_packet,
             .version = p_adv_data->version
         };
-        
+
         if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
         {
             /* assert if this doesn't work. The empty allocation above should have prevented any errors this time. */
             APP_ERROR_CHECK(handle_storage_info_set(p_adv_data->handle, &new_info));
-            
+
             mesh_gatt_value_set(p_adv_data->handle,
                 p_adv_data->data,
                 p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
         }
-        
+
         vh_order_update(timestamp);
-        
+
 #ifdef RBC_MESH_SERIAL
         mesh_aci_rbc_event_handler(&evt);
 #endif
@@ -258,28 +258,28 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
     {
         mesh_adv_data_t* p_stored_adv_data = NULL;
         if (info.p_packet)
-        {                
+        {
             p_stored_adv_data = mesh_packet_adv_data_get(info.p_packet);
         }
-        
+
         if (p_stored_adv_data &&
             payload_has_conflict(p_stored_adv_data, p_adv_data))
         {
             evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
             rbc_mesh_event_push(&evt); /* not really important whether this succeeds. */
-            
+
 #ifdef RBC_MESH_SERIAL
             mesh_aci_rbc_event_handler(&evt);
 #endif
         }
-        
+
         handle_storage_rx_consistent(p_adv_data->handle, timestamp);
     }
     else /* delta > 0 */
     {
         evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
         evt.version_delta = delta;
-        
+
         /* First allocate an element in the storage to ensure that we're not out of memory. */
         error_code = handle_storage_info_set(p_adv_data->handle, &info);
         if (error_code != NRF_SUCCESS)
@@ -287,25 +287,25 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
             mesh_packet_ref_count_dec(info.p_packet);
             return error_code;
         }
-        
-        handle_info_t new_info = 
+
+        handle_info_t new_info =
         {
             .p_packet = p_packet,
             .version = p_adv_data->version
         };
-        
+
         if (rbc_mesh_event_push(&evt) == NRF_SUCCESS)
         {
             /* assert if this doesn't work. The empty allocation above should have prevented any errors this time. */
             APP_ERROR_CHECK(handle_storage_info_set(p_adv_data->handle, &new_info));
-            
+
             mesh_gatt_value_set(p_adv_data->handle,
                 p_adv_data->data,
                 p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD);
         }
-        
+
         vh_order_update(timestamp);
-        
+
 #ifdef RBC_MESH_SERIAL
         mesh_aci_rbc_event_handler(&evt);
 #endif
@@ -346,7 +346,7 @@ uint32_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t 
     {
         vh_order_update(timer_get_timestamp()); /* will be executed after the packet push */
     }
-    
+
     mesh_packet_ref_count_dec(p_packet);
     return error_code;
 }
@@ -374,25 +374,25 @@ uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* l
     }
 
     handle_info_t info;
-    
+
     uint32_t error_code = handle_storage_info_get(handle, &info);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
-    
+
     if (info.p_packet == NULL)
     {
         return NRF_ERROR_NOT_FOUND;
     }
-    
+
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(info.p_packet);
     if (p_adv_data == NULL)
     {
         mesh_packet_ref_count_dec(info.p_packet);
         return NRF_ERROR_NOT_FOUND;
     }
-    
+
     uint16_t data_length = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
     if (data_length > *length)
     {
@@ -401,7 +401,7 @@ uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* l
     }
     memcpy(data, p_adv_data->data, data_length);
     *length = data_length;
-    
+
     mesh_packet_ref_count_dec(info.p_packet);
     return NRF_SUCCESS;
 }
@@ -432,14 +432,14 @@ uint32_t vh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* p_is_doing_t
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
 
     event_handler_critical_section_begin();
-    
+
     uint32_t error_code = handle_storage_flag_get(handle, HANDLE_FLAG_TX_EVENT, p_is_doing_tx_event);
 
     event_handler_critical_section_end();
@@ -489,14 +489,14 @@ uint32_t vh_value_is_enabled(rbc_mesh_value_handle_t handle, bool* p_is_enabled)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
 
     event_handler_critical_section_begin();
-    
+
     uint32_t error_code = handle_storage_flag_get(handle, HANDLE_FLAG_DISABLED, p_is_enabled);
     *p_is_enabled = !(*p_is_enabled);
 
@@ -526,14 +526,14 @@ uint32_t vh_value_persistence_get(rbc_mesh_value_handle_t handle, bool* p_persis
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    
+
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
 
     event_handler_critical_section_begin();
-    
+
     uint32_t error_code = handle_storage_flag_get(handle, HANDLE_FLAG_PERSISTENT, p_persistent);
 
     event_handler_critical_section_end();

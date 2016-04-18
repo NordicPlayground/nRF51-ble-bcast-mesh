@@ -279,7 +279,7 @@ void radio_disable(void)
 * IRQ handler for radio. Sends the radio around the state machine, ensuring secure radio state changes
 */
 void radio_event_handler(void)
-{   
+{
     if (NRF_RADIO->EVENTS_END)
     {
         bool crc_status = NRF_RADIO->CRCSTATUS;
@@ -295,11 +295,11 @@ void radio_event_handler(void)
         radio_event_t prev_evt;
         NRF_RADIO->EVENTS_END = 0;
         while (NRF_RADIO->STATE != RADIO_STATE_STATE_Disabled); //SCARY!
-        
+
         /* pop the event that just finished */
         uint32_t error_code = fifo_pop(&radio_fifo, &prev_evt);
         APP_ERROR_CHECK(error_code);
-        
+
         APP_ERROR_CHECK_BOOL(prev_evt.callback.rx != NULL);
         /* send to super space */
         if (prev_evt.event_type == RADIO_EVENT_TYPE_RX ||
@@ -311,7 +311,7 @@ void radio_event_handler(void)
         {
             prev_evt.callback.tx(prev_evt.packet_ptr);
         }
-        
+
         DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_IDLE);
         radio_state = RADIO_STATE_DISABLED;
     }
@@ -319,8 +319,8 @@ void radio_event_handler(void)
     {
         purge_preemptable();
     }
-    
-    if (radio_state == RADIO_STATE_DISABLED || 
+
+    if (radio_state == RADIO_STATE_DISABLED ||
         radio_state == RADIO_STATE_NEVER_USED)
     {
         radio_event_t evt;

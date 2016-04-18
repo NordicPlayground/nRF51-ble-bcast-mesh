@@ -88,35 +88,35 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return NRF_ERROR_INVALID_PARAM;
     }
 
-    
+
     event_handler_init();
     mesh_packet_init();
     tc_init(init_params.access_addr, init_params.channel);
 
     uint32_t error_code;
     /* multiply with 1024 instead of 1000 as the number will be easier to set accurately  */
-    error_code = vh_init(init_params.interval_min_ms * 1024); 
+    error_code = vh_init(init_params.interval_min_ms * 1024);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
-    
+
     ble_enable_params_t ble_enable;
     ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     ble_enable.gatts_enable_params.service_changed = 0;
     error_code = sd_ble_enable(&ble_enable);
-    if (error_code != NRF_SUCCESS && 
+    if (error_code != NRF_SUCCESS &&
         error_code != NRF_ERROR_INVALID_STATE)
     {
         return error_code;
     }
-    
+
     error_code = mesh_gatt_init(init_params.access_addr, init_params.channel, init_params.interval_min_ms);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
-    
+
     timeslot_handler_init(init_params.lfclksrc);
 
     g_access_addr = init_params.access_addr;
@@ -124,13 +124,13 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     g_interval_min_ms = init_params.interval_min_ms;
 
     g_mesh_state = MESH_STATE_RUNNING;
-    
+
     g_rbc_event_fifo.array_len = RBC_MESH_APP_EVENT_QUEUE_LENGTH;
     g_rbc_event_fifo.elem_array = g_rbc_event_buffer;
     g_rbc_event_fifo.elem_size = sizeof(rbc_mesh_event_t);
     g_rbc_event_fifo.memcpy_fptr = NULL;
     fifo_init(&g_rbc_event_fifo);
-    
+
     return NRF_SUCCESS;
 }
 
@@ -190,7 +190,7 @@ uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persisten
     {
         return NRF_ERROR_INVALID_ADDR;
     }
-    
+
     return vh_value_persistence_set(handle, persistent);
 }
 
@@ -220,10 +220,10 @@ uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
     {
         return NRF_ERROR_INVALID_ADDR;
     }
-    
+
     /* no critical errors if this call fails, ignore return */
     mesh_gatt_value_set(handle, data, len);
-    
+
     return vh_local_update(handle, data, len);
 }
 
@@ -304,7 +304,6 @@ void rbc_mesh_sd_evt_handler(uint32_t sd_evt)
 {
     ts_sd_event_handler(sd_evt);
 }
-    
 
 uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
 {
@@ -331,8 +330,8 @@ uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt)
     {
         return NRF_ERROR_NOT_FOUND;
     }
-    
-    return NRF_SUCCESS;    
+
+    return NRF_SUCCESS;
 }
 
 uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt)
@@ -345,12 +344,12 @@ uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt)
     {
         return NRF_ERROR_NULL;
     }
-    
+
     if (fifo_peek(&g_rbc_event_fifo, p_evt) != NRF_SUCCESS)
     {
         return NRF_ERROR_NOT_FOUND;
     }
-    
+
     return NRF_SUCCESS;
 }
 
@@ -364,7 +363,7 @@ uint32_t rbc_mesh_packet_release(uint8_t* p_data)
     {
         mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
     }
-    
+
     return NRF_SUCCESS;
 }
 

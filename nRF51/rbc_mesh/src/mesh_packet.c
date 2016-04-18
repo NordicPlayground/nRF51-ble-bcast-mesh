@@ -126,7 +126,7 @@ bool mesh_packet_ref_count_dec(mesh_packet_t* p_packet)
     }
     g_packet_refs[index]--;
     _ENABLE_IRQS(was_masked);
-    
+
     return (g_packet_refs[index] > 0);
 }
 
@@ -137,7 +137,7 @@ uint8_t mesh_packet_ref_count_get(mesh_packet_t* p_packet)
     {
         return 0;
     }
-    
+
     return g_packet_refs[index];
 }
 
