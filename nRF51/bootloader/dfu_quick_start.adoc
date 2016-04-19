@@ -18,19 +18,45 @@ match the Segger ID of your device.
 
 IMPORTANT: All precompiled hex-files are made for the 256k Flash/32k RAM version of the nRF51. Recompile to make them work on other hardware configurations.
 
-1. Generate a signing key file with pc-nrfutil (optional)
-2. Paste the public key from pc-nrfutil into your device-page (optional)
-3. Generate a hex version of your device-page with the tool in /nRF51/bootloader/pc-util.
-4. Erase all chip memory including UICR on all devices.
-5. Flash the Softdevice on all devices.
-6. Flash the serial bootloader on all devices.
-7. Flash the device page on all devices.
-8. Flash the first application on all devices (serial version on the serial-gateway device).
-9. Verify your bootloader with the bootloader verification script.
-10. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
-11. Transfer the DFU-file over serial with the pc-nrfutil tool.
+== LED color meanings
+- RED: Initial app, no serial
+- None: Bootloader
+- Green: New app
 
-== 1. Generate a signing key file with pc-nrfutil (optional)
+== Steps
+
+1. Turn off mass storage driver on all devices
+2. Generate a signing key file with pc-nrfutil (optional)
+3. Paste the public key from pc-nrfutil into your device-page (optional)
+4. Generate a hex version of your device-page with the tool in /nRF51/bootloader/pc-util.
+5. Erase all chip memory including UICR on all devices.
+6. Flash the Softdevice on all devices.
+7. Flash the serial bootloader on all devices.
+8. Flash the device page on all devices.
+9. Flash the first application on all devices (serial version on the serial-gateway device).
+10. Verify your bootloader with the bootloader verification script.
+11. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
+12. Transfer the DFU-file over serial with the pc-nrfutil tool.
+
+== 1. Turn off mass storage driver on all devices (Windows only)
+
+For this step, you'll need JLink.exe, distributed with the
+link:https://www.segger.com/jlink-software.html[Segger JLink toolchain].
+
+Open Jlink Commander (JLink.exe) and type
+
+`usb`
+
+If you have more than one device connected, you'll get a prompt to select a serial number from a
+list. Select the first device that you'd like to flash a bootloader to.
+
+Wait for the device to be connected, then type
+
+`msddisable`
+
+Repeat the procedure for all devices. To move to the next device, simply call `usb` again.
+
+== 2. Generate a signing key file with pc-nrfutil (optional)
 You need a signing key if you want to verify and sign the DFU. Use nrfutil to generate a signing
 key:
 
@@ -42,7 +68,7 @@ lose authorization to do DFU updates to your devices in the future, and the only
 recover from this is to reflash the device. If you don't have any enemies, you may skip this step,
 and move straight to step 3.
 
-== 2. Paste the public key from pc-nrfutil into your device-page (optional)
+== 3. Paste the public key from pc-nrfutil into your device-page (optional)
 Now that you have a private key, you can generate the public key for it:
 
 `nrfutil keys --show-vk hex private_key.txt`
@@ -73,7 +99,7 @@ getting conflicts is present, but highly unlikely given the large pool of number
 of mesh networks actually using the DFU. You might still want to go with something more clever than
 0x12345678 though, someone else might have been just as lazy.
 
-== 3. Generate a hex version of your device-page with the tool in /nRF51/bootloader/pc-util.
+== 4. Generate a hex version of your device-page with the tool in /nRF51/bootloader/pc-util.
 In the same folder as the example device page file, there's a main.c file that you can compile
 to create the device page generator. See its respective README for instructions. Once you have
 a working generator, generate an example device page file:
@@ -81,33 +107,33 @@ a working generator, generate an example device page file:
 `device_page example`
 
 This creates a device page .bin file (example.bin) and a device page .hex file (example.hex).
-We'll use the .hex file in step 7.
+We'll use the .hex file in step 8.
 
-== 4. Erase all chip memory including UICR on all devices.
+== 5. Erase all chip memory including UICR on all devices.
 Using nrfjprog (available on www.nordicsemi.com), erase all previous data on
 your device (including UICR):
 
 `nrfjprog --eraseall`
 
-== 5. Flash the Softdevice on all devices.
-NOTE: It's important that steps 5-7 are executed in order.
+== 6. Flash the Softdevice on all devices.
+NOTE: It's important that steps 6-9 are executed in order.
 
 Get a copy of the S110 v8.0 Softdevice at www.nordicsemi.com, and flash it onto your device with
 nrfjprog:
 
 `nrfjprog --program <S110 hex-file>`
 
-== 6. Flash the serial bootloader on all devices.
+== 7. Flash the serial bootloader on all devices.
 Flash the precompiled bootloader_serial.hex (in nRF51/bootloader/test/) to your device with nrfjprog:
 
 `nrfjprog --program <bootloader serial hex-file>`
 
-== 7. Flash the device page on all devices.
-Flash the device page .hex that you generated in step 3 to the device:
+== 8. Flash the device page on all devices.
+Flash the device page .hex that you generated in step 4 to the device:
 
 `nrfjprog --program <device page hex-file>`
 
-== 8. Flash the first application on all devices (serial version on the serial-gateway device).
+== 9. Flash the first application on all devices (serial version on the serial-gateway device).
 Finally, flash the example application app_LED1.hex to all devices, except the device you want to
 connect to via serial. For this device, use app_serial_LED1.hex instead. When finished, your devices
 should have its LED1 lit if it's an nRF51 development kit, or the red LED lit if it's an nRF51 dongle.
@@ -119,7 +145,7 @@ Then reset your device:
 
 `nrfjprog --reset`
 
-== 9. Verify your bootloader with the bootloader_verify.py script (optional)
+== 10. Verify your bootloader with the bootloader_verify.py script (optional)
 Run the bootloader verification script located in nRF51/bootloader/pc-util:
 
 NOTE: bootloader_verify.py requires the link:https://pypi.python.org/pypi/pyserial[pyserial package],
@@ -141,7 +167,7 @@ Bootloader verification OK
 The bootloader verification script does not alter your setup in any way, and you may safely continue
 without it. It serves as a checkpoint and help utility in the process.
 
-== 10. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
+== 11. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
 To do a DFU, you need to create a DFU-file. The DFU file is really
 a .zip, which contains the application binary, along with some metadata. Matching the FWIDs in
 your device page file, call the nrfutil tool from /nRF51/bootloader/:
@@ -156,7 +182,7 @@ This will generate a DFU file called dfu_test.zip in the current directory. You 
 Note that only some of them apply to mesh-DFU, as the tool still supports the regular
 Nordic Semiconductor DFU transfer.
 
-== 11. Transfer the DFU-file over serial with the pc-nrfutil tool.
+== 12. Transfer the DFU-file over serial with the pc-nrfutil tool.
 
 WARNING: For this step, it is important that you close any running instance of nRFgo Studio,
 as it has been known to trip up the reset procedure for the nRF51.
