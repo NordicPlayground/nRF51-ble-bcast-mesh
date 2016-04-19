@@ -309,7 +309,7 @@
               </OCR_RVCT3>
               <OCR_RVCT4>
                 <Type>1</Type>
-                <StartAddress>0x3c400</StartAddress>
+                <StartAddress>0x3bc00</StartAddress>
                 <Size>0x3c00</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
