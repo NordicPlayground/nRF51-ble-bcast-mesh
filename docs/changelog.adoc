@@ -1,8 +1,384 @@
 = Changelog
 
+== 0.8.3 Bugfixes, code restructure and merge to master
+
+After a long time releasing to the sdk-8-support branch, this release is moving development back
+into master. This means that we're moving the old master branch into a new legacy-sdk-6-7 branch, to
+allow those who are heavily invested in the old SDKs to continue using them. As with the old
+master, this legacy branch will not see new features. The sdk-8-support branch has been merged to
+master, and will no longer be present in the repository.
+
+This release targets a series of issues reported since 0.8.2, in addition to a superficial
+change to the cache system: We've taken the caches out of the version_handler module into its own
+module, named handle_storage. The handle storage acts as a pure storage module, serving the
+version_handler. The version_handler (and it alone) manipulates the handle storage.
+
+=== New features
+
+- The bootloader now yields TX events after successful transmits, one per channel transmitted on.
+
+- Added a bootloader_verify.py script under _nRF51/bootloader/pc-util/_, to ease debugging of any
+unintended bootloader behavior.
+
+=== Fixes
+
+- Fix for Issues #72, #74, #75, #78, #79, #80, #82.
+
+- Fix for example case in Issue #91, still following up on this one.
+
+- CRC false-positives should no longer occur. Symptoms included unused handles getting data and
+erronous payloads getting through to the application.
+
+- DFU signature verification reboot-loophole closed.
+
+- Fixed some erronous DFU packet lengths.
+
+- Restructure of version_handler -> new module handle_storage encapsulating caches.
+
+- Removed Bootloader journaling function, replaced by full check verification.
+
+- Fix GCC linker script for Bootloader.
+
+- Improved documentation for Bootloader usage.
+
+== 0.8.2 Name change, Bootloader stability and RX reporting
+
+This release marks a name change for the project: you are now looking at the release notes of the
+nRF OpenMesh! Don't worry though, the URLs, APIs, structure and path-names remain the same.
+We've also addressed some important issues and feature requests, both with the core-part of the
+mesh framework and the DFU bootloader. Take a look:
+
+=== New features:
+
+- RSSI now added to all RX-related events, as requested in Issue #66 and #70.
+
+- Advertisement address from which the RX came from reported. Note that this advertisement address
+ is per hop, and does not identify the device that originated the value update.
+
+- Packet peek: The Transport control module now has a function to set a callback for packet
+reception. The callback gets parameter `mesh_packet_t*`, which can be used to read adv-address and
+payload in the packet. In addition, CRC value, RSSI and timestamp in microseconds is given to the
+callback.
+
+- Bootloader handles relaying of serial-transfers not intended for them properly.
+
+- Bootloaders are more helpful to neighbors in distress, and will attempt to resend responses to data
+requests which go unanswered.
+
+- A set of pre-merged hex files are added under _nRF51/bootloader/test/full_test/_ for easy testing of DFU functionality.
+
+=== Fixes:
+
+- Bootloader had some relay issues, which have been adressed. Performance and success rate for over
+the air-updates should be improved significantly.
+
+- Bootup glitches in the UART-interface removed.
+
+- All zombie states and hang-issues with the core mesh should be fixed.
+
+- Bootloader fails gracefully if the device page isn't flashed.
+
+- nRFgo Studio caused some issues during DFU reset procedure, and has been purged from quick start
+guide. A warning about this is instead present in the guide.
+
+- Some unused files made their way into the public repo, and have been removed.
+
+== 0.8.1 Stability improvement
+
+This release is a pure stability patch, and should mitigate some issues observed during testing:
+
+- When subjected to stress, the firmware sometimes shortcuts the handle cache linked list, excluding some handles from the pool of handles being transmitted. This is observable in the ping-pong example project if run with more than 10 devices: Devices stop getting updates from the central device one by one, until there is only one device left getting pings on its pongs. This was caused by a race condition, as the version handler had a hole in its thread safety. All manipulation of the cache-linked list is now serialized with the event-handler. This removed all symptoms from all our test cases, and the mesh performs much better under pressure.
+
+- The trickle timers for each handles had a possiblity of falling behind, leading to devices not being able to catch up with its timers. This issue only appeared when the mesh was tested under heavy stress (20+ devices within range of each other), and looked like non-stop spamming of packets. This issue is now mitigated, as the trickle timer is forced into a "future" timeout if the device catches up with a whole interval.
+
+- The bootloader "early-exit" check was moved to after the init-process, as the journal module had to be initialized to make sure that we weren't in the middle of a transaction.
+
+== 0.8.0 Device Firmware Update over the Mesh
+Standalone Bootloader that supports Serial(UART) and Mesh (does not require the softdevice)
+PC tool support for DFU over the Mesh (https://github.com/NordicSemiconductor/pc-nrfutil)
+
+Changes:
+Transport layer for the DFU packets has modified behaviour, however this is restricted to the bootloader
+and does not impact any applications.
+
+Known Issues:
+
+- Nodes running the Mesh in application mode will not relay the DFU packets.
+- Nodes running the Mesh in DFU/Bootloader mode will not relay application packets.
+(Workaround: Switch all nodes to bootloader mode when doing DFU, it is possible to
+Use the bootloader mode as a relay without actually updating local firmware)
+- DFU protocol used does not adapt well to high density networks (when a node can see 8 or more nodes).
+(Improvements are planned for the DFU protocol)
+
+
+Issues fixed:
+
+- Issue #58
+
+- Issue #62
+
+Features to be added:
+
+- Local Nodes to contribute their firmware to fulfil DFU requests from neighbours.
+
+- Update the "Device Info Page" using the DFU
+
+
+== 0.7.1 Bugfixes and stability improvements
+
+This update should greatly improve stability:
+
+- Removing several sources of hardfaults, mostly related to timeslots.
+- Dropping updates to the database if an event can't be propagated, so that the update can be processed later, when the event queue becomes available.
+- Removing an overflow on mesh payload-search of packets without payload (this issue would make it look like the mesh gets updates to handle numbers you've never seen before).
+- Enforcing limit on application-handles - all handles over 0xFFEF are reserved system handles for future mesh maintenance and the upcoming DFU feature.
+- Increased default packet pool size to allow all queues to fill completely without overflowing.
+- Moved all default size-#defines to rbc_mesh.h, making it easier to configure memory to fit your applications.
+- Fix for Issue #52.
+
+So no new functionality for this one, but this release fixes all crashes and any odd behavior we've been able to identify in our tests since v0.7.0.
+== 0.7.0 16bit handles, new GATT interface, async events Oct 15
+The v0.7.0 is the largest update to the bcast-mesh since the initial release almost a year ago.
+Bringing several fundamental changes to the core functionality of the mesh, the update should allow for
+new usage scenarios and be able to provide better support the existing applications, without forcing
+too many big changes. The biggest changes coming with v0.7.0 are:
+
+=== 16bit handles and handle subsets
+Based on feedback from mesh-users, we saw that one of the most significant restrictions in the framework
+was the number of available handles, and the issues related to scaling the handle space. Up until now,
+the bcast mesh has been enforcing a hard limit of 155 handles in a mesh-network, but in practice, we've seen
+that both bandwith and memory restrictions have resulted in significant performance problems with
+as little as 50 handles.
+
+To combat these problems with scaling, v0.7.0 introduces two major changes to the handle-value system:
+- We've extended the handle range from 155 to 65535 handles - using 16bit handles.
+- Each device now only keeps track of and rebroadcasts a subset of the handles in the mesh
+
+The subset of handles is managed by two caches: the handle cache and the data cache.
+The handle cache keeps track of the version number of each handle, and allows the device
+to decide whether an incoming handle value packet is new or old. The data cache keeps
+track of the retransmissions by storing the current data for each handle, and and timing
+related parameters for that particular handle (the Trickle instance).
+
+The handle cache entries are significantly smaller (in memory) than the data cache entries,
+and are also more important for correct behavior. Because of this, the handle cache has to be
+larger than the data cache (enforced at compile time). The most recently updated handle
+cache entries contain a link to a data cache entry, holding the retransmission data for that
+handle. As the data cache fills up and overflows, the least recently updated handles
+are discarded first, and the "oldest" handles stop retransmitting. Similarly, the least
+recently updated handles are the first to be discarded from the handle cache. This is
+analogous to classic LRU-caching schemes.
+
+As the cache sizes may be configured by the application (by overriding the `RBC_MESH_DATA_CACHE_ENTRIES`
+and `RBC_MESH_HANDLE_CACHE_ENTRIES` #defines in rbc_mesh.h in your compiler), the memory and
+bandwidth usage can be controlled by the application. For applications utilizing a low number of
+handles, the mesh will behave as it always have, as the cache may fit all values in all devices.
+
+While the cache typically follows the LRU-scheme, there is an option to override this behavior.
+By setting the "persistent" flag of a handle, that particular handle may never fall out of the
+cache (both handle and data cache). It is strongly recommended that a device that intends to
+update a value in the future keeps that value as persistent in their cache, as an update to a
+value that the device doesn't know the version of is likely to be suppressed by neighbor devices
+which keep the original, higher version number. It is also important that the cache is sized to
+handle all the persistent values.
+
+If the application attempts to read values that are no longer present in the cache, the call
+always returns with `NRF_ERROR_NOT_FOUND`.
+
+=== Serial interface update
+As a response to the changes in handle count, the mesh serial interface has been updated
+to fit the new format. The arduino-implementation of the application controller has also
+been updated to fit these changes. See the
+link:../docs/serial_interface.xlsx[serial interface documentation] for details.
+
+=== Spec-conformant packet format
+The mesh has been assigned the 16bit Service UUID 0xFEE4 for this release, moving away from the
+previous 128bit UUID. With this feature, the mesh is able to use a BLE-core spec compliant message
+format, a feature that has been employed for v0.7.0. The mesh packets now use a proper
+<AD-len - AD-type - data> structure, as defined by the GAP specification. The AD-type used is
+the "Service data" (0x16), with the service UUID being 0xFEE4. While this adds some overhead to
+the packets (and reduces payload size), we think it's a valuable addition, as the mesh data may
+be read from any Bluetooth 4.0 compliant scanner, and regular advertisers may inject packets
+without any changes to link-layer firmware. While we still recommend using the GATT interface
+for accessing the mesh from Smartphones or other applications, this opens up possiblities
+for any device to be an active part of the mesh. Read more about the packet format in the
+link:../docs/how_it_works.adoc["how it works"-document].
+
+=== New GATT interface
+As the number of handles grew, the GATT interface had to change. The Mesh service will no longer
+contain a single characteristic per handle-value, but rather just one characteristic for data
+access. This new characteristic follows a specific <opcode-data> format, and acts as a two-way
+transport medium for mesh access. The GATT handling module now has a new name as well,
+_mesh_gatt_. Read more about the syntax of the new mesh characteristic in the
+link:../docs/how_it_works.adoc["how it works"-document].
+
+=== Async event handling
+We've seen some performance issues coming from the way events are given to the application.
+The main problem is that by sending them inline as a callback to an event handler function,
+the mesh-context is blocked for an unknown amount of time, leading to overflowing buffers,
+poor bandwidth utilization and unexpected behavior. To change this, we're moving to
+asynchonous event passing; events are now queued up in a FIFO-manner from the framework,
+and the application has to pop them off the event queue with the `rbc_mesh_evt_get()`
+function. In the examples, this is done in the main while-loop, in combination with the
+Softdevice sleep function `sd_app_evt_wait()`. This methodology is similar to the
+way the Softdevice passes events, and we think it improves overall consistency.
+
+=== Zero-copy for mesh packets
+The final major change is the way packet data is handled internally. Instead of creating several
+copies of the packet memory for the internal module, and in addition force the application to
+do a copy of any data they want to keep, the framework now passes the same data around, and never
+duplicates memory. This includes the application, and this improvement has one additional implication to the
+way you have to handle events. To let the mesh-framework be able to know when it may safely free
+packet memory for other purposes, the application is required to call
+`rbc_mesh_packet_release(uint8_t* p_data)` with the data pointer in the mesh-event as a parameter
+after it is finished processing the event. Failure to do so will result in a `NRF_ERROR_NO_MEM`
+event from the framework to the `app_error_handler()` callback. The release-function will accept
+any p_data from the mesh (including NULL), and we recommend calling this for all events,
+regardless of event type.
+
+This change includes removing the mesh memory from the GATT server alltogether, and there
+is no longer any need for adjusting linker-maps or heap-size if you want extensive amounts
+of handles; only the aforementioned #defines for cache sizes.
+
+=== Misc changes
+There are some additional minor changes:
+- The issue #44 hotfix has been pushed into the sdk-8-branch.
+- Fix for issue #45
+- TX events are now posted _after_ the mesh has transmitted the message, and contains a pointer to
+the transmitted data.
+- The rbc_mesh_init function now has a lfclk-field, in which you should supply the same clock-parameter
+as given to the sd_softdevice_enable-function (or SOFTDEVICE_HANDLER_INIT if you're using the softdevice-handler).
+This helps the mesh adjust for clock drift when calculating timeslot lengths.
+
+== 0.6.10 Fixed memory leak and UART serial
+This is a tiny, but critical update.
+The mesh_packet and radio_control modules had a corner case where it discarded queued transmits and their allocated packet memory.
+This caused some packets to never get transmitted, a mishap that would be almost impossible to detect from the application side.
+
+As a bonus to this bugfix, we've added a uart version of the serial interface. It follows the exact same packet format, except for the SPI status byte
+added to the events coming from the nRF51. No host side implementation of this interface has been implemented yet.
+
+Finally, a fix for issue #39 has been added, the 20byte max limit _not_ included.
+
+== 0.6.9 API-additions Sep 7
+New small update, mostly adding to the API, both for extended functionality and more precise naming.
+
+Changes included since v0.6.8:
+
+- Added centralized build.sh file in _/examples/_ folder. This shell script builds all examples in all configurations with gcc.
+
+- API: changed the name of the `adv_int_min` parameter to `interval_ms_min`, to avoid any confusion caused by slightly unprecise naming.
+
+- API: Added a TX event, and an enable/disable function for it. This event is enabled for each individual data-value (it's off by default), and makes the framework propagate an event each time a value is transmitted in the mesh. This makes the application more aware of what happens on the radio, and allows for more precise control of data-value updating.
+
+- API: Added start/stop functionality. This allows the application to halt all mesh related radio activity, without losing track of local data variables. (this is a follow-up on this issue: https://devzone.nordicsemi.com/question/48773/how-to-turn-onoff-mesh/)
+
+- API: Added a `version_delta` parameter to the `rbc_mesh_event_t` struct. The delta reports the version increase since the last external update to this value, allowing the application to be aware of any missed versions: Normally, the delta should come back as 1 when receiving an UPDATE event. If the delta comes back as 2 or more, the device has missed some data value update; an indication that the network is pushing new value updates too frequently.
+
+- merged pull-request #35 from @hh123okbb, fixing some compatiblity issues with the SDK APP_TIMER module. Thanks!
+
+- The Async event handler now uses the Quadrature decoder hardware interrupt handler to do asynchronous processing, instead of the SWI0 (suggested in Issue #26). This allows the SDK APP_TIMER module to freely use the SWI0, without modification.
+
+- Some minor additional adjustments and fixes
+
+== 0.6.8 Scaling example and addressing scheme Aug 24
+Small quick update, adding a new example, and changing addressing scheme.
+
+The new Scaling example displays the mesh's ability to handle extensive amounts of handles. It can be interfaced from a host computer via terminal or Segger's RTT interface. Read more about the example in its local README file.
+
+The only functionality change in this update is with the address field of a mesh packet. Instead of containing the source of the current version of the packet, it now contains the local address of whichever node is relaying the packet, as per BLE specification. This will allow your device to recognize the devices around it better, in addition to reducing the amount of memory allocated for metadata.
+
+Also included: some updated documentation, with a more approachable description of Trickle and its usage.
+
+== 0.6.7 GCC support Aug 19
+As promised in v0.6.6, this is the official GCC release. As mentioned in the release notes for v0.6.6, it uses @foldedtoad's PR, with some modifications.
+
+There were a couple of code changes required for proper gcc support:
+There's a new toolchain.h file in rbc_mesh/include/, which introduces a couple of macros that handles the differences between gcc and armcc: The armcc syntax for defining packed typedef structs is different from gcc, and required a new \__packed_gcc macro. In addition, the gcc-implementation of the \__disable_irq() intinsic doesn't return the value of the primask register, and required some inline assembly in a new DISABLE_IRQS() macro. All internal usages of \__disable_irq() and \__enable_irq() have been changed to the macro definitions in the framework. In addition, we found that the size of the metadata had increased in the restructure, but this is now fixed (by packing the trickle struct)
+
+*A couple of "gotchas" for the makefiles:*
+
+- When changing build options like target boards and optional features, you need to run a make clean before make, as gcc won't notice the change otherwise.
+
+- If you've never used gcc with your copy of the nRF51 SDK before, you might have to do some changes to your platform-makefile in /components/toolchain/gcc/Makefile.posix (or Makefile.windows if you're working with cygwin or similar).
+
+- Some combinations of target boards and optional features are not intended for usage (like dongle+buttons or buttons+serial), and may result in strange behavior.
+
+- Output files are labeled with target board
+
+This release fixes issues #4 and #32, and includes PR #33 and #34
+
+Again, huge thanks to @foldedtoad for doing all the work for this feature.
+
+== 0.6.6 Major internal restructure Aug 17
+This is the largest update to the repo in the past 6 months! While looking into some performance issues when using 50+ data instances, we decided to restructure some of the lower levels of the framework. Specifically, the control flow related to sending and receiving packets was redone almost completely. While this update doesn't include any new features or API changes, the performance and code quality has been significantly improved.
+
+Here's a list of all the biggest changes:
+
+- The mesh_srv block is slimmed down to just handle data storage and SD GATT server interfacing, and a new version_handler block is added. This block takes care of all data versioning, including scheduling of retransmissions and trickle management.
+
+- The new version_handler schedules updates in a much more organized fashion, by employing a round robin scheme to the transmissions, and should fix all starvation problems experienced with a high number of trickle instances.
+
+- We had some initial stability problems with the transition to SD8, which should be fixed with this update. The internal context handling is tightened up on level 3 the async events in SWI0, fixing some stability issues with the SD8.
+
+- The mesh now does packet pooling, removing one redundant data copy during processing.
+
+- The transport_control block has taken over some of the responsibility of the mesh_srv block, and both processes incoming and constructs outgoing packets.
+
+- Traces of @foldedtoad's great gcc-support PR is also included as part of this update (thanks!), but still requires some minor alterations to work right out of the box. We'll try to get these fixes out the door later this week.
+
+== 0.6.5 Inernal structure and stability Aug 6
+This release superseeds v0.6.4, which featured some stability issues. We recommend skipping v0.6.4 and v0.6.3, and moving directly to this release.
+
+Changes from v0.6.4:
+
+- Moved asynchronous events to a separate module
+
+- Split the async events into two queues internally, where one only contains events that must be handled inside timeslots (like timer and radio calls), and the other may execute at any time.
+
+- Added serial event "DEVICE_STARTED", which notifies the application controller of nRF51 startup
+
+- Added RadioReset serial command, which causes the nRF51 to reset to its initial state.
+
+- Got rid of the serial_queue module, and used the new generic fifo in its place. No change in functionality.
+
+- Stability improvements to timeslot handling
+
+== 0.6.4 Stability improvements Aug 3
+This release offers no new features, but includes some internal adjustments and stability improvements:
+
+- Lollipop versioning fixed (Issue #28)
+
+- Unified FIFO queue implementation added for internal asynchronous events and commands
+
+- Improved stability for timeslots
+
+- Increased default GATT Server storage (can be changed in mesh_srv.c)
+
+- Some source file cleanup
+
+== 0.6.3-SD8 Support for sdk 8 and sd 8 Jul 28
+Support for sdk 8.1 and softdevice S110 v8.0
+
+The pin maps for LEDs have been changed and include the boards PCA 10031 and PCA 10028.
+The softdevice calls have been modified to fit the interface to the sd S110 v8
+These calls are:
+
+ble_gap_sec_params_t has no param timeout any more
+
+sd_ble_gatts_sys_attr_set takes an optional flag parameter
+
+sd_ble_gatts_sys_attr_set and ..._get require a connection handle (can be BLE_CONN_HANDLE_INVALID) and an other structure for the passed parameters
+
+sd_ble_gap_sec_params_reply takes a keyset structure, can be NULL
+
+In addition, the project now utilizes the Softdevice handler to take care of all SD initialization.
+
+This release is a bugfix for the previously released SD8-support release, which was somewhat unstable.
+
 == 0.6.3 Bugfix-release May 4
 
-Fixed issues: 
+Fixed issues:
 
 #15 - uint32_t variables assigned to false in timeslot_handler by @AlexDM0
 

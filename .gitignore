@@ -5,7 +5,10 @@
 *.map
 *.tra
 *.dep
+*._2i
+*.l2p
 *.__i
+*.fed
 *.crf
 *.d
 *.o
@@ -20,3 +23,5 @@
 *.uvguix.*
 *.tmp
 **/arm/JLinkLog.txt
+**/_viminfo
+**/_vimtags

@@ -1,0 +1,38 @@
+#Single hop DFU transfer
+msc {
+    hscale = "2";
+
+    s [label="Host"], t [label="Target"];
+
+    t=>s [label = "Device Started Serial event"];
+    t=>s [label = "FWID(Company ID, App ID, version 1.0)"];
+    s=>t [label = "FWID(Company ID, App ID, version 2.0)"];
+    t=>>s [label = "ACK(DFU, FWID)"];
+    |||;
+    t=>s [label = "READY(APP, TID=0, AUTHORITY=0, Company ID, App ID, version 2.0)"];
+    s=>t [label = "READY(APP, TID > 0, AUTHORITY=7, Company ID, App ID, version 2.0)"];
+    --- [label = "1 second or so delay"];
+    t=>>s [label = "ACK(DFU, READY)"];
+    |||;
+    s=>t [label = "DFU_START(TID, start addr, size, sign_length=0, flags=(FIRST | LAST))"];
+    t=>>s [label = "ACK(DFU, DFU_START)"];
+    |||;
+    s=>t [label = "DATA(TID, segment = 1, contents)"];
+    t=>>s [label = "ACK(DFU, DATA)"];
+    |||;
+    s=>t [label = "DATA(TID, segment = 2, contents)"];
+    t=>>s [label = "ACK(DFU, DATA)"];
+    ...;
+    s=>t [label = "data(TID, segment = N - 1, contents)"];
+    t=>>s [label = "ACK(DFU, DATA)"];
+    |||;
+    s=>t [label = "data(TID, segment = N, contents)"];
+    t=>>s [label = "ACK(DFU, DATA)"];
+    |||;
+    --- [label = "All segments sent and verified"];
+    t=>>s [label = "FWID(v2.0)"];
+    ||| [label = "App is now running."];
+}
+
+
+

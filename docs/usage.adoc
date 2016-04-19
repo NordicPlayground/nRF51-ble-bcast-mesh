@@ -1,0 +1,357 @@
+= Understanding the inner workings
+
+In order to use the framework efficiently, a basic understanding of the employed transmission scheme is important. This section aims to provide a practical introduction to the underlying mechanics, while link:./how_it_works.adoc[the "How it works" document] provides a more thorough description of the details.
+
+== The Trickle algorithm
+
+The http://tools.ietf.org/html/rfc6206[Trickle algorithm] is a flood control algorithm for wireless networks. It helps reduce the amount of redundant traffic in the network by adapting the rate of transmissions to the network density. 
+
+The bcast-mesh is a _rebroadcasting_ mesh, where all devices acts as repeaters, rebroadcasting all incoming messages. In order to make sure that all devices in the mesh are up to date on the latest values, the devices never stop repeating the last messages. Every now and then, a device will wake up and transmit a the same message over and over. The interval at which a device retransmits a value is decided by the _Trickle_ algorithm and the setup parameters provided by the application. _Trickle_ states that the transmissions should be repeated forever, with exponentially increasing intervals. The lower boundary for these intervals are set by the application throught the `adv_int_ms` parameter in the `rbc_mesh_init()` function. In the example applications, this lower boundary is set to 100ms, which means that the device will wait no longer than 100ms to retransmit an incoming value. After the first retransmit, the framework will double the interval to 200ms, then wake up to transmit again once that interval has expired. The interval will keep doubling like this until it hits an upper boundary of *2000 x adv_int_ms*. When the interval hits this upper limit, it will stay there and the device will keep repeating the message over and over forever. If the device gets a new value from the application (or another device), it will reset it interval back to the lower boundary, `adv_int_ms`.
+
+In order to reduce the amount of packet collisions, the _Trickle_ algorithm also randomizes the transmission times within each interval. More specifically, a retransmission will occur at a random time in the second half of the current interval. So, say that you're using the default `adv_int_ms` of 100ms, the first retransmission of a value will occur sometime between 50 and 100ms after the value was first received. The second retransmission, which operates with an interval of 200ms, will occur after 200 to 300ms after the value was received.
+
+The bcast-mesh operates with one instance of these intervals per data value. Each data value is rebroadcasted to the network with exponentially increasing intervals, but when a data value gets an update, only that value's intervals will reset to `adv_int_ms`. The rest of the data value intervals will continue on their path towards the upper boundary, unaffected by the reset in the other values. This allows less frequently used values to retain their high intervals (and therefore low presence in the network).
+
+== Example usage: Implementing heartbeat functionality
+
+As an example for how to use the _Trickle_ mechanism correctly we can take a look at a heartbeat application. A heartbeat application will announce its presence on the network with regular intervals, allowing for other devices to discover it. In order to ensure that each heartbeat message is propagated to the rest of the network, a device must set its rebroadcast lower boundary (`adv_int_ms`) to a significantly lower interval than the heartbeat itself. If the device is to transmit a new heartbeat every N seconds, the `adv_int_ms` parameter must be set to a significantly lower interval, allowing the device to ensure that its neighbors gets the old heartbeat before it is overwritten by its successor. Preferrably, the device should be allowed to transmit at least two or three times before the heartbeat message is replaced, which equals an `adv_int_ms` of around 1-1.5 seconds. Note that the `adv_int_ms` parameter is shared by all data values on the device, and should cater to the most frequently updated value.
+
+Note that the rebroadcast in itself cannot serve as a heartbeat signal, as the framework will filter out repeated messages in the receiving nodes.
+
+== Structure
+The project is split into two parts: _/nRF51/_ and _/application_controller/_. 
+
+
+The _/nRF51/_ folder contains the main part of the framework (and was the top level 
+folder before version 0.6.x), and is meant to run on the nRF51 device-line from 
+Nordic Semiconductor. It contains both the framework and example projects
+displaying some simple behavior. 
+
+The _/application_controller/_ folder contains a serial interface controller 
+framework, that allows external MCUs to take part in the mesh through an
+nRF51 device.
+
+=== Framework Modules
+
+image:structure.png["Framework modules"]
+
+The framework is split into several separate modules, each of which is
+responsible for managing various aspects of the framework.
+
+* *mesh API* The top module of the framework, contains all API functions and is
+the only module that should be accessed by the application.
+
+* *mesh_gatt* The mesh-to-GATT interface module. Directs all mesh event to the 
+Softdevice GATT server, so external devices may interact with the mesh.
+
+* *version_handler* Takes care of the data versioning. Uses the trickle module to 
+schedule retransmissions and manage which versions of the data is currently presented 
+by the node. Is also responsible for managing the handle and data cache.
+
+* *timeslot_handler* A module communicating with and abstracting the nRF51
+Softdevice Timeslot API.
+
+* *transport_control* Lower level packet handler. Abstracts the radio interface and
+packet format for the higher modules.
+
+* *radio_control* Asynchronous radio abstraction. Offers a way for higher level
+modules to queue radio events and packets, and also provides callbacks on
+various radio events.
+
+* *timer_control* Interfaces the NRF_TIMER0 hardware module by managing timer
+capture allocations and callbacks. Tightly integrated with the radio module.
+
+* *mesh_aci* Controller for the Serial interface for the mesh. Emulates nRF8001 behavior,
+with a separate set of opcodes for the Mesh.
+
+* *SPI serial* Transport control for the SPI-version of the Serial interface.
+
+* *UART serial* Transport control for the UART-version of the Serial interface.
+
+* *mesh_packet* Packet pool for mesh packets. Used exclusively by the transport interface 
+to efficiently store and manage data packets.
+
+* *event_handler* Asynchronous event handler. Manages two event queues and executes them 
+in a FIFO manner in the SWI0 interrupt.
+
+* *trickle* Implementation of the IETF RFC6206 "Trickle" algorithm for
+mesh-global state propagation.
+
+* *FIFO* Generic FIFO implementation used throughout the framework.
+== API
+
+The API is exclusively contained in the _rbc_mesh.h_ file in _rbc_mesh/_, and
+while the other framework files need to be included in the build process or
+Keil project, they should not be interfaced directly. Note that all API
+functions except the getters for metadata calls Softdevice SVC functions, and
+consequently, all use of the API must happen in interrupt context APP_LOW or MAIN. 
+The framework event callback function runs in priority 3 (APP_LOW), and it is
+safe to use the API from this context.
+
+=== The API provides the following functions to the user:
+
+*Initialize framework*
+
+----
+uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
+        
+----
+This function must be called before any other framework function, and sets up
+the Mesh GATT service and enables listening for incoming mesh messages.
+
+The parameters to this function are collected in a struct defined in
+_rbc_mesh.h_.
+
+All nodes within the same mesh network must be set up with the same access
+address and channel, interval_min_ms and lfclksrc may be different. 
+
+'''
+
+*Start mesh radio activity*
+
+----
+uint32_t rbc_mesh_start(void);
+----
+Start radio operation after stopping it with `rbc_mesh_stop()`.
+It is not necessary to run this command when initializing the mesh, as the 
+`rbc_mesh_init()` function will start radio operation automatically.
+
+'''
+
+*Stop mesh radio activity*
+
+----
+uint32_t rbc_mesh_stop(void);
+----
+Stop all mesh-related radio activity immediately. This prevents the device
+from communicating with any other device in the mesh until the 
+`rbc_mesh_start()` function is called. It will still be possible to change 
+the local mesh-data values (both through an API call, a Softdevice 
+connection or the serial-interface), but these changes will not be 
+propagated to the rest of the mesh, while the device is stopped.
+
+'''
+
+*Manually enable broadcasting of a given value*
+
+----
+uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle);
+----
+Start broadcasting the indicated value to other nodes, without updating the
+contents of the value. If the handle-value pair has never been used before, the
+framework forces the node to broadcast an empty version 0-message to
+other nodes, which, in turn will answer with their version of the
+handle-value-pair. This way, new nodes may get up to date with the rest of the
+nodes in the mesh.
+
+'''
+
+*Disable broadcasting of a given value*
+
+----
+uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle);
+----
+Stop broadcasting the indicated handle-value pair. Note that the framework will
+keep updating the local version of the variable when external nodes write to
+it, and consequently notify the application about the update as usual. The
+framework will not, however, rebroadcast the value to other nodes, but rather
+take a passive role in the mesh for this handle-value pair.
+
+'''
+
+*Set cache persistence*
+
+----
+uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent);
+----
+Set or clear a flag marking the given handle as persistent in the local caches.
+A non-persistent value may be forgotten by the device, leading to "cache miss"
+if trying to get the current value of the handle, and potentially strange behavior
+if the device attempts to write to the handle value. It is recommended that 
+all values that the device intends to write to later are marked as persistent,
+as writing to non-persistent values increases the risk of dropping packets in the
+mesh.
+
+'''
+
+*Get cache persistence*
+
+----
+uint32_t rbc_mesh_persistence_get(rbc_mesh_value_handle_t handle, bool* is_persistent);
+----
+Get the current status of the persistence flag for the given handle. 
+
+'''
+
+*Set TX event*
+
+----
+uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event);
+----
+Set or clear a flag marking the given handle for reporting TX-events. TX-events
+are indicators that the value has been transmitted to the mesh, and can be used
+as device-local flow control.
+
+'''
+
+*Get TX event*
+
+----
+uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event);
+----
+Get the current status of the TX event flag. TX-events are indicators that the 
+value has been transmitted to the mesh, and can be used as device-local 
+flow control.
+
+'''
+
+*Update value*
+
+----
+uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t len);
+----
+Update the value represented by the given handle. This will bump the version
+number on the handle-value pair, and broadcast this new version to the rest of
+the nodes in the mesh. 
+
+The `data` array may at most be 23 bytes long, and an error will be returned if
+the len parameter exceeds this limitation.
+
+'''
+
+*Get value*
+
+----
+uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, 
+    uint8_t* data, 
+    uint16_t* len);
+----
+Returns the most recent value paired with this handle. The `data` buffer must
+be at least 23 bytes long in order to ensure memory safe behavior. The actual
+length of the data is returned in the `length` parameter. If the value isn't 
+present in the local value cache, the call returns `NRF_ERROR_NOT_FOUND`, and 
+the contents of `data` remains unchanged.
+
+'''
+
+*Get operational access address*
+
+----
+uint32_t rbc_mesh_access_address_get(uint32_t* access_address);
+----
+Returns the access address specified in the initialization function in the
+`access_address` parameter.
+
+'''
+
+*Get operational channel*
+
+----
+uint32_t rbc_mesh_channel_get(uint8_t* channel);
+----
+Returns the channel specified in the initialization function in the
+`channel` parameter.
+
+'''
+
+*Get minimum advertisement interval*
+
+----
+uint32_t rbc_mesh_adv_int_get(uint32_t* adv_int_ms);
+----
+Returns the minimum advertisement interval specified in the initialization
+function in the `adv_int_ms` parameter. 
+
+'''
+
+*BLE event handler*
+
+----
+uint32_t rbc_mesh_ble_evt_handler(ble_evt_t* evt);
+----
+Softdevice BLE event handler. Must be called by the application if the
+softdevice function `sd_ble_evt_get()` returns a new event. This will update
+version numbers and transmit data if any of the value-characteristics in the
+mesh service has been written to through an external softdevice connection. May
+be omitted if the application never uses any external connections through the
+softdevice.
+
+'''
+
+*Softdevice event handler*
+
+----
+uint32_t rbc_mesh_sd_evt_handler(uint32_t sd_evt);
+----
+Handles and consumes any pure softdevice events (excluding softdevice BLE
+events. See the official
+https://devzone.nordicsemi.com/docs/[Softdevice documentation] for
+details). Should be called on each SD event pulled with `sd_evt_get()`
+
+=== Return values
+All API functions return a 32bit status code, as defined by the nRF51 SDK. All 
+functions will return `NRF_SUCCESS` upon successful completion, and all
+functions except the `rbc_mesh_init()` function return
+`NRF_ERROR_INVALID_STATE` if the framework has not been initialized. All
+possible return codes for the individual API functions (and their meaning)
+are defined in the `rbc_mesh.h` file. 
+
+=== Framework events
+In addition to the provided API functions, the framework provides an event
+queue for the application. These events are generated in the framework and
+should be handled by the application in an implementation of the
+`rbc_mesh_event_handler()` function defined in _rbc_mesh.h_. The events come in
+the shape of `rbc_mesh_event_t*` structs, with an event type, a handle number and
+    a data array.
+
+The framework may produce the following events:
+
+* *Update*: The value addressed by the given handle has been updated from an
+external node with the given address, and now contains the data array
+provided in the event-structure.
+
+* *Conflicting*: A value with the same version number, but different data 
+has arrived at the node, and this new, conflicting value is provided
+within the event-structure. The value is *not* overwritten in the database, but
+the application is free to do this with a call to `rbc_mesh_value_set()`.
+
+* *New*: The node has received an update to the indicated handle-value pair,
+which was not previously active.
+
+== Examples
+
+The project contains two simple examples and one template project. The two
+examples are designed to operate together, and show off an extremely simple
+example scenario where two handle-value pairs decides the state of the two LEDs
+on the nRF51 evkit (or red and green LED on the nRF51 dongle). The examples
+have been tested with boards PCA10000, PCA10001, PCA10031 and PCA10003.
+
+The template provides a basis for implementing your own applications with the
+framework, and addresses the different eventhandlers and initialization
+functions, without any additional functionality.
+
+=== LED Mesh example
+This example reads the buttons on the nRF51 evkit boards, and sets the LEDs
+accordingly. It also broadcasts the state of the LEDs to the other nodes in the
+same mesh, which will copy the state of the node that registered a button push.
+This example can also be flashed to the nRF51 dongles (PCA10000 and PCA10031), 
+even though these boards don't have any GPIO actions enabled. The dongle-nodes 
+will act as active slaves, copying and rebroadcasting the LED states of other 
+nodes.
+
+=== BLE Gateway example
+This example uses the same configuration for LEDs as the LED Mesh example, but
+provides a S110 Softdevice profile for communication with external nodes in
+stead of a physical interface. The example application starts sending
+regular connectable BLE advertisements with the Softdevice, and displays the
+Mesh service in its GATT server, so that external nodes may write to the two
+LED config values as if they were regular characteristics. 
+
+=== Scaling example
+The scaling example illustrates how the Mesh-framework behaves with a variable 
+sized handle count. The example implements a simple serial interface for interaction
+through a terminal emulator, allowing the user to transmit values on specific handles,
+and may give a good overview of the expected behavior of the system as values 
+fall out of cache or conflict.
+
+link:../README.adoc[Back to README]

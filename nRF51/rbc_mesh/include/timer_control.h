@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -49,30 +44,35 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #define TIMER_PPI_CH_START  8
+#define TIMER_TIMEOUT_INVALID (0xFFFFFFFF)
+
+#define TIMER_INDEX_TS_END      (0)
+#define TIMER_INDEX_VH          (1)
+#define TIMER_INDEX_RADIO       (2)
+#define TIMER_INDEX_TIMESTAMP   (3)
 
 /** @brief Callback type for callbacks at finished timers */
-typedef void(*timer_callback)();
+typedef void(*timer_callback)(uint64_t timestamp);
 
 /** @brief hardware event handler, should be called at all TIMER0 events */
 void timer_event_handler(void);
 
 /** @brief order a timer with callback, execute in APP LOW */
-uint8_t timer_order_cb(uint32_t time, timer_callback callback);
+void timer_order_cb(uint8_t timer, uint32_t time, timer_callback callback);
 
 /** @brief order a timer with callback, execute in event handler context */
-uint8_t timer_order_cb_sync_exec(uint32_t time, timer_callback callback);
+void timer_order_cb_sync_exec(uint8_t timer, uint32_t time, timer_callback callback);
 
 /** @brief order a timer with both async callback and PPI to trigger HW task */
-uint8_t timer_order_cb_ppi(uint32_t time, timer_callback callback, uint32_t* task);
+void timer_order_cb_ppi(uint8_t timer, uint32_t time, timer_callback callback, uint32_t* task);
 
 /** @brief order a timer with a PPI channel to trigger HW task */
-uint8_t timer_order_ppi(uint32_t time, uint32_t* task);
+void timer_order_ppi(uint8_t timer, uint32_t time, uint32_t* task);
 
 /** 
-* @brief abort timer with given index. This index is the same as returned from 
-*   order function.
+* @brief abort timer with given index. 
 */
-void timer_abort(uint8_t timer_index);
+void timer_abort(uint8_t timer);
 
 /**
 * @brief Get current timestamp from HF timer. This timestamp is directly 
@@ -82,21 +82,14 @@ void timer_abort(uint8_t timer_index);
 uint32_t timer_get_timestamp(void);
 
 /** 
-* @brief Use PPI to trigger reference point to which all timers will be 
-*   relative to
-*/
-void timer_reference_point_trigger(uint32_t* trigger_event, int32_t time_offset);
-
-/** @brief Get reference point previously set by application, or 0 if not set*/
-uint32_t timer_get_reference_point(void);
-
-/** @brief Set timer reference point manually */
-void timer_reference_point_set(uint32_t ref_point);
-
-/** 
 * @brief initialize timer module. Must be called at the beginning of each 
 *   SD granted timeslot. Flushes all timer slots.
 */
 void timer_init(void);
+
+
+void timer_on_ts_begin(void);
+
+void timer_on_ts_end(void);
 
 #endif /* _TIMER_CONTROL_H__ */

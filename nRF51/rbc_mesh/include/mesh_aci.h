@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -36,11 +31,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _MESH_ACI_H__
 
 #include "rbc_mesh.h"
+#include "toolchain.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef enum
+typedef __packed_armcc enum
 {
   ACI_STATUS_SUCCESS                                        = 0x00,
   ACI_STATUS_ERROR_UNKNOWN                                  = 0x80,
@@ -51,10 +47,17 @@ typedef enum
   ACI_STATUS_ERROR_INVALID_PARAMETER                        = 0x85,
   ACI_STATUS_ERROR_BUSY                                     = 0x86,
   ACI_STATUS_ERROR_INVALID_DATA                             = 0x87,
+  ACI_STATUS_ERROR_PIPE_INVALID                             = 0x90,
   ACI_STATUS_RESERVED_START                                 = 0xF0,
   ACI_STATUS_RESERVED_END                                   = 0xFF
+} __packed_gcc aci_status_code_t;
 
-} __packed aci_status_code_t;
+typedef __packed_armcc enum
+{
+    ACI_FLAG_PERSISTENT = 0x00,
+    ACI_FLAG_TX_EVENT   = 0x01
+} __packed_gcc aci_flag_t;
+
 
 /** @brief Initialize serial handler */
 void mesh_aci_init(void);

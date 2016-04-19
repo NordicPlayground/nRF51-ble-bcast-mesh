@@ -1,0 +1,13 @@
+= Full flash hex files
+
+These hex files contains everything needed to test a single run of the bootloader. They are merged
+hex files of Softdevice, Bootloader, device page and potentially an application.
+
+The hex files are marked for whether they have an application in them (_app or _no_app), and
+whether the bootloader has the timeout flag set or not (_to or _no_to).
+
+The application has serial support, and will not be able to pick up an over-the-air transfer.
+
+The dfu_test.zip file is a pregenerated DFU transfer flashing the same application, but with a
+higher version number, and can be used to test whether the dfu runs to completion, and works as
+intended. The transfer is not signed.
