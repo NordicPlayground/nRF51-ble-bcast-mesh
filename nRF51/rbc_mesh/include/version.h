@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _VERSION_H__
 
 #define VERSION_MAJOR     (0)
-#define VERSION_MINOR1    (7)
-#define VERSION_MINOR2    (0)
+#define VERSION_MINOR1    (8)
+#define VERSION_MINOR2    (3)
 
 #endif /* _VERSION_H__ */
