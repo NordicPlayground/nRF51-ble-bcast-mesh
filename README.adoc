@@ -6,11 +6,11 @@ S120 and S130 SoftDevices (not tested). Support for both SDK6.x.x and SDK7.x.x a
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
-*NOTE:* The master branch is currently parked, and lacks some critical features compared to the latest version of the mesh
-framework. Currently, the link:../../tree/sdk-8-support[sdk-8-support] branch contains the latest updates, but you can always check the "Releases" tab above to keep track of all the latest versions. We will move back into the master branch in the future.
+*NOTE:* The legacy branch is currently parked, and lacks some critical features compared to the latest version of the mesh
+framework.
 
 == About
-This project was created in collaboration with The Norwegian University of 
+This project was created in collaboration with The Norwegian University of
 Science and Technology (NTNU), as part of a master thesis. The project is not
 part of the official Nordic Semiconductor SDK. Developers are welcome to contribute
 and provide feedback.
@@ -25,7 +25,7 @@ The framework adds a Mesh GATT service to the SoftDevice GATT server which
 contain all mesh-global states. This service may be accessed by external nodes,
 just as any other GATT service, through a connection established via the
 SoftDevice. See section link:docs/how_it_works.adoc#gatt-service[GATT service] for details about structure and
-access. 
+access.
 
 === Serial interface
 
@@ -35,9 +35,9 @@ The framework also has support for external control via SPI. The serial interfac
 
 The framework supports both nRF51 SDK 6.x.x and nRF51 SDK 7.x.x. Since the structure of the SDK changed between these versions, you have to clone the repo differently based on which version you utilize.
 
-If you're using 6.x.x, clone the repository into _<SDK6-folder>/nRF51822/boards/PCA10001/S110/<Project-folder>_. 
+If you're using 6.x.x, clone the repository into _<SDK6-folder>/nRF51822/boards/PCA10001/S110/<Project-folder>_.
 
-The SDK 7.x.x projects utilizes the *non-pack* version of the SDK, available at http://developer.nordicsemi.com/[Nordic Semiconductor's developer portal]. Clone this repo into _<SDK7-folder>/examples/<Project-folder>_. 
+The SDK 7.x.x projects utilizes the *non-pack* version of the SDK, available at http://developer.nordicsemi.com/[Nordic Semiconductor's developer portal]. Clone this repo into _<SDK7-folder>/examples/<Project-folder>_.
 
 This will ensure that all references to the SDK are correctly placed, so that you don't have to change all references to the SDK in the project files. If you still want to clone the repo into a different folder than suggested, you need to change the location of all the files under the _Lib_ group in Keil uVision, in addition to the include paths under the menu _Target options -> C/C++ -> Include Paths_.
 
@@ -48,31 +48,31 @@ link:docs/integrating_w_SD_apps.adoc[Guide to integrating rbc_mesh into existing
 
 == Basic concepts
 
-A rebroadcasting mesh network works by flooding all messages to all nodes 
+A rebroadcasting mesh network works by flooding all messages to all nodes
 in the network through broadcasts. Each time a device receives a broadcast
-message from some other device in the mesh, it repeats the message, or 
-_rebroadcasts_ it, letting its neighbors hear the new message. 
+message from some other device in the mesh, it repeats the message, or
+_rebroadcasts_ it, letting its neighbors hear the new message.
 The neighbors rebroadcast the message to their neighbors, and the process
-is repeated until all devices in the mesh have received the message. This 
-lets wireless devices talk to each other without being within direct radio 
+is repeated until all devices in the mesh have received the message. This
+lets wireless devices talk to each other without being within direct radio
 range, as devices between them help relaying the messages.
 
 The Rebroadcasting Mesh framework (hereby referred to as "the framework" or
 rbc_mesh) provides a connection-less, rebroadcasting infrastructure for
 synchronizing states across a set of BLE enabled nodes. All nodes receive all
 messages that are transmitted within their range, and any node may update the
-mesh-global states. There is no hierarchy, and no directed data links. 
+mesh-global states. There is no hierarchy, and no directed data links.
 
 The framework resides on top of the nRF51 SoftDevice, utilizing the Timeslot
 API to allocate radio time. The framework will attempt to allocate as much time
 as possible, in order to listen for other nodes' messages.
 
 All nodes in the mesh share a set of indexed data slots. The data contained at each
-index is propagated through the mesh with version numbers, with the objective of 
-synchronizing the same version of the data across all nodes in the mesh. Each 
-time a node overwrites a value, it increments the version number, and all nodes 
-that receive a broadcast message with a version number that is higher than the 
-one in its database, will adapt this new version of the value. 
+index is propagated through the mesh with version numbers, with the objective of
+synchronizing the same version of the data across all nodes in the mesh. Each
+time a node overwrites a value, it increments the version number, and all nodes
+that receive a broadcast message with a version number that is higher than the
+one in its database, will adapt this new version of the value.
 
 The value propagation is controlled by an implementation of the IETF RFC6206
 "Trickle", a flood control algorithm for lossy, low power networks. The Trickle
@@ -101,7 +101,7 @@ link:docs/how_it_works.adoc[How the mesh works]
 http://devzone.nordicsemi.com/[Nordic Developer Zone]
 
 == Resources
-http://www.nordicsemi.com[Nordic Semiconductor Homepage] 
+http://www.nordicsemi.com[Nordic Semiconductor Homepage]
 
 http://tools.ietf.org/html/rfc6206[Trickle Algorithm Specification]
 
