@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -34,25 +29,27 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "rbc_mesh.h"
+#include "timeslot_handler.h"
 #include "mesh_aci.h"
 
-#include "nrf_soc.h"
-#include "nrf_sdm.h"
+#include "softdevice_handler.h"
 #include "app_error.h"
+#include "nrf_gpio.h"
 #include "boards.h"
 #include <stdbool.h>
 #include <stdint.h>
-  
+#include <string.h>
+#include <stdio.h>
+
 /* Debug macros for debugging with logic analyzer */
 #define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
 #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
 #define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
 
-/* Aliases for LEDs */
-#ifdef BOARD_PCA10000
-    #define LED_0 LED_RGB_RED
-    #define LED_1 LED_RGB_GREEN
-#endif
+#define MESH_ACCESS_ADDR        (0xA541A68F)
+#define MESH_INTERVAL_MIN_MS    (100)
+#define MESH_CHANNEL            (38)
+#define MESH_CLOCK_SRC          (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
 
 /**
 * @brief General error handler.
@@ -98,33 +95,30 @@ void HardFault_Handler(void)
 
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
-*   events coming from the mesh. 
+*   events coming from the mesh.
 *
 * @param[in] evt RBC event propagated from framework
 */
-void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     switch (evt->event_type)
     {
-        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:   
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
+        case RBC_MESH_EVENT_TYPE_TX:
         case RBC_MESH_EVENT_TYPE_INITIALIZED:
-            break;
+            break;  
     }
 }
 
 
+/** @brief main function */
 int main(void)
 {
-    uint32_t error_code = 
-        sd_softdevice_enable(NRF_CLOCK_LFCLKSRC_XTAL_75_PPM, sd_assert_handler);
-    
-    ble_enable_params_t ble_enable_params;
-    ble_enable_params.gatts_enable_params.service_changed = 0;
-    
-    error_code = sd_ble_enable(&ble_enable_params);
-    APP_ERROR_CHECK(error_code);
+    /* Enable Softdevice (including sd_ble before framework */
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SRC, NULL);
+    softdevice_ble_evt_handler_set(rbc_mesh_ble_evt_handler);
     
 #ifdef RBC_MESH_SERIAL
     
@@ -132,25 +126,32 @@ int main(void)
     mesh_aci_init();
 
 #else    
-    /* Enable mesh framework on channel 37, min adv interval at 100ms, 
-        2 characteristics */
     rbc_mesh_init_params_t init_params;
 
-    init_params.access_addr = 0xA541A68F;
-    init_params.adv_int_ms = 100;
-    init_params.channel = 38;
-    init_params.handle_count = 1;
-    init_params.packet_format = RBC_MESH_PACKET_FORMAT_ORIGINAL;
-    init_params.radio_mode = RBC_MESH_RADIO_MODE_BLE_1MBIT;
-    
+    init_params.access_addr = MESH_ACCESS_ADDR;
+    init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
+    init_params.channel = MESH_CHANNEL;
+    init_params.lfclksrc = MESH_CLOCK_SRC;
+
+    uint32_t error_code;
     error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
     
+    error_code = rbc_mesh_value_enable(1);
+    APP_ERROR_CHECK(error_code);
+    error_code = rbc_mesh_value_enable(2);
+    APP_ERROR_CHECK(error_code);
 #endif
     
-    /* sleep */
+    rbc_mesh_event_t evt;
     while (true)
     {
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_packet_release(evt.data);
+        }
+        
         sd_app_evt_wait();
     }
 }

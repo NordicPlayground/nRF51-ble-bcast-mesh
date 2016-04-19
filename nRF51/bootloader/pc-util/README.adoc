@@ -1,0 +1,51 @@
+= Device page generator tool
+
+This simple tool is intended for PC/Linux/Mac, and will generate a device page from a
+specified input file. A device page is an in-flash storage area from which the bootloader can read
+device information required for correct operation. Values like application start address, public
+key for verifying dfu-transfers and firmware IDs allows the bootloader to make qualified decisions
+about whether to accept incoming dfu-transfers, and where the data belongs.
+
+== Build/run
+The GNU Makefile in this repository can be used to build the tool with GCC (tested on Linux with GCC
+4.8.1, and on Windows with MinGW + GCC4.8.1). The application
+only consists of a single file, and should be platform-independent. A pre-built version of the
+tool for Windows can also be found in this directory.
+
+*NOTE:* The tool depends on the objcopy executable distributed with the GCC toolchain or MinGW.
+Objcopy must present be either in the same directory as the generator tool, or in your PATH env.
+
+== Input file
+
+The input file is a text file consisting of a set of handle-value pairs.
+The handle-value pair assignment must follow this format:
+<handle>: <value>
+There can only be one handle per line. Lines starting with # are comments.
+
+The example file in this directory contains all allowed handles, and their values.
+
+Below is a list of all allowed handles, their format, whether they are mandatory for proper
+operation and a short description.
+
+.All handles allowed
+|===
+|Handle name    | Data type | Required  | Description
+|SD_START       | uint32_t  | Yes       | Start of permitted Softdevice area. Should be right after the MBR (see the Softdevice Specification for your favorite Softdevice)
+|SD_SIZE        | uint32_t  | Yes       | Size of permitted Softdevice area.
+|APP_START      | uint32_t  | Yes       | Start of permitted application area. Should be immediately after the Softdevice.
+|APP_SIZE       | uint32_t  | Yes       | Size of permitted application area.
+|BL_START       | uint32_t  | Yes       | Start of permitted bootloader area. Should be towards the end of the available flash-memory.
+|BL_SIZE        | uint32_t  | Yes       | Size of permitted bootloader area.
+|COMPANY_ID     | uint32_t  | Yes       | Company ID associated with the application on this device.
+|APP_ID         | uint16_t  | Yes       | Application ID associated with the application on this device.
+|APP_VERSION    | uint32_t  | Yes       | Currently flashed version of the application.
+|SD_VERSION     | uint16_t  | Yes       | Required Softdevice for the application on this device, or 0xFFFE if it doesn't matter.
+|BL_ID          | uint8_t   | Yes       | ID of the bootloader on this device.
+|BL_VERSION     | uint8_t   | Yes       | Version of the bootloader on this device.
+|Verification key Qx | uint8_t[32] | No | First part of the public signing key used to verify incoming DFU transfers.
+|Verification key Qy | uint8_t[32] | No | Second part of the public signing key used to verify incoming DFU transfers.
+|PUBLIC_KEY     | uint8_t[64] | No      | Alternative full-version of the public signing key used to verify incoming DFU transfers.
+|===
+
+
+For further documentation on the different handles and their uses, see the guide under /docs/dfu/.

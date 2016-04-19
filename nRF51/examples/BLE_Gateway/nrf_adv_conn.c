@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -49,6 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
                             
 #define BLE_ADV_INTERVAL_750MS (800)
+#define BLE_ADV_INTERVAL_200MS (320)
 
 /*****************************************************************************
 * Static Globals
@@ -63,19 +59,21 @@ static ble_gap_adv_params_t ble_adv_params = {
     NULL,                      /* Not used for this type of advertisement */
     BLE_GAP_ADV_FP_ANY,        /* Don't filter */
     NULL,                      /* Whitelist not in use */
-    BLE_ADV_INTERVAL_750MS,       /* Advertising interval set to intentionally disrupt the timeslot example */
-    0                          /* Timeout in seconds */
+    BLE_ADV_INTERVAL_200MS,    /* Advertising interval set to intentionally disrupt the timeslot example */
+    0,                         /* Timeout in seconds */
+        {
+            0, 0, 0
+        }
 };
 
 static ble_advdata_t ble_adv_data;
 static ble_gap_sec_params_t ble_gap_bond_params = {
-    .timeout = 30,                     /* Timeout in seconds */
-    .bond = 0,                      /* Don't perform bonding */
-    .mitm = 0,                      /* Man-in-the-middle protection not required */
+    .bond = 0,                         /* Don't perform bonding */
+    .mitm = 0,                         /* Man-in-the-middle protection not required */
     .io_caps = BLE_GAP_IO_CAPS_NONE,   /* No I/O capabilities */
-    .oob = 0,                      /* Out-of-band data not available */
-    .min_key_size = 7,                      /* Minimum encryption key size */
-    .max_key_size = 16                      /* Maximum encryption key size */
+    .oob = 0,                          /* Out-of-band data not available */
+    .min_key_size = 7,                 /* Minimum encryption key size */
+    .max_key_size = 16                 /* Maximum encryption key size */
 };
 
 /*****************************************************************************
@@ -90,7 +88,7 @@ static void ble_gatts_event_handler(ble_evt_t* evt)
         break;
 
     case BLE_GATTS_EVT_SYS_ATTR_MISSING:
-        sd_ble_gatts_sys_attr_set(evt->evt.gatts_evt.conn_handle, NULL, 0);
+        sd_ble_gatts_sys_attr_set(evt->evt.gatts_evt.conn_handle, NULL, 0, 0);
         break;
 
     case BLE_GATTS_EVT_WRITE:
@@ -109,12 +107,12 @@ static void ble_gap_event_handler(ble_evt_t* evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
-          sd_ble_gap_adv_start(&ble_adv_params);
-          break;
+        sd_ble_gap_adv_start(&ble_adv_params);
+        break;
 
     case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
           APP_ERROR_CHECK(sd_ble_gap_sec_params_reply(evt->evt.gap_evt.conn_handle,
-            BLE_GAP_SEC_STATUS_SUCCESS, &ble_gap_bond_params));
+            BLE_GAP_SEC_STATUS_SUCCESS, &ble_gap_bond_params, NULL));
           break;
 
     case BLE_GAP_EVT_CONN_SEC_UPDATE:
@@ -135,14 +133,22 @@ static void ble_gap_event_handler(ble_evt_t* evt)
 void nrf_adv_conn_init(void)
 {
     uint32_t error_code;
-    
+    ble_enable_params_t ble_enable;
+    ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
+    ble_enable.gatts_enable_params.service_changed = 0;
+    error_code = sd_ble_enable(&ble_enable);
+    if (error_code != NRF_SUCCESS && 
+        error_code != NRF_ERROR_INVALID_STATE)
+    {
+        APP_ERROR_CHECK(error_code);
+    }
     /* Fill advertisement data struct: */
-    uint8_t flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
+    uint8_t flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED |
+                    BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
 
     memset(&ble_adv_data, 0, sizeof(ble_adv_data));
 
-    ble_adv_data.flags.size = 1;
-    ble_adv_data.flags.p_data = &flags;
+    ble_adv_data.flags = flags;
     ble_adv_data.name_type    = BLE_ADVDATA_FULL_NAME;
     //ble_adv_data.p_manuf_specific_data = &man_data;
 
@@ -171,21 +177,17 @@ void nrf_adv_conn_init(void)
 
 void nrf_adv_conn_evt_handler(ble_evt_t* evt)
 {
-    if (rbc_mesh_ble_evt_handler(evt) == NRF_SUCCESS)
+    switch (evt->header.evt_id & 0xF0)
     {
-        
-        switch (evt->header.evt_id & 0xF0)
-        {
-        case BLE_GAP_EVT_BASE:
-            ble_gap_event_handler(evt);
-            break;
+    case BLE_GAP_EVT_BASE:
+        ble_gap_event_handler(evt);
+        break;
 
-        case BLE_GATTS_EVT_BASE:
-            ble_gatts_event_handler(evt);
-            break;
+    case BLE_GATTS_EVT_BASE:
+        ble_gatts_event_handler(evt);
+        break;
 
-        default:
-            break;
-        }
+    default:
+        break;
     }
 }

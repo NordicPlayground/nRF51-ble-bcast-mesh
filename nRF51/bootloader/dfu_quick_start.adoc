@@ -1,0 +1,203 @@
+= Mesh-DFU quick start guide
+Creating a DFU file and transfer it!
+
+This quick start guide offers step by step instructions on how you can do a Direct Firmware Upgrade
+(DFU) of your own, using example firmware. It should provide a reasonable basis for using the
+Mesh-DFU to transfer any firmware to any mesh.
+
+The steps are listed below, with a more detailed explanation for each step at the end. A set of
+example hex-files have been added under /test/ to help you to get started. The pc-nrfutil tool
+is available (and open sourced) at https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu[its repository].
+Note the branch: The master branch does not contain the additional code to handle a mesh-dfu.
+See the tool's documentation for installation and prerequisites.
+The guide assumes that you have at least 2 development kits or devices, where one is to be
+interfaced over the serial port, and one gets the DFU from the other over the mesh.
+
+NOTE: For each call to the `nrfjprog` command, you are expected to add the `-s <serial-number>` option, to
+match the Segger ID of your device.
+
+IMPORTANT: All precompiled hex-files are made for the 256k Flash/32k RAM version of the nRF51. Recompile to make them work on other hardware configurations.
+
+== LED color meanings
+- RED: Initial app, no serial
+- None: Bootloader
+- Green: New app
+
+== Steps
+
+1. Turn off mass storage driver on all devices
+2. Generate a signing key file with pc-nrfutil (optional)
+3. Paste the public key from pc-nrfutil into your device-page (optional)
+4. Generate a hex version of your device-page with the tool in /nRF51/bootloader/pc-util.
+5. Erase all chip memory including UICR on all devices.
+6. Flash the Softdevice on all devices.
+7. Flash the serial bootloader on all devices.
+8. Flash the device page on all devices.
+9. Flash the first application on all devices (serial version on the serial-gateway device).
+10. Verify your bootloader with the bootloader verification script.
+11. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
+12. Transfer the DFU-file over serial with the pc-nrfutil tool.
+
+== 1. Turn off mass storage driver on all devices (Windows only)
+
+For this step, you'll need JLink.exe, distributed with the
+link:https://www.segger.com/jlink-software.html[Segger JLink toolchain].
+
+Open Jlink Commander (JLink.exe) and type
+
+`usb`
+
+If you have more than one device connected, you'll get a prompt to select a serial number from a
+list. Select the first device that you'd like to flash a bootloader to.
+
+Wait for the device to be connected, then type
+
+`msddisable`
+
+Repeat the procedure for all devices. To move to the next device, simply call `usb` again.
+
+== 2. Generate a signing key file with pc-nrfutil (optional)
+You need a signing key if you want to verify and sign the DFU. Use nrfutil to generate a signing
+key:
+
+`nrfutil keys --gen-key private_key.txt`
+
+This will create a text file in your current directory named private_key. This key is top secret,
+and must not be shared with your enemies! Also make sure you don't lose it, because you'd also
+lose authorization to do DFU updates to your devices in the future, and the only way to
+recover from this is to reflash the device. If you don't have any enemies, you may skip this step,
+and move straight to step 3.
+
+== 3. Paste the public key from pc-nrfutil into your device-page (optional)
+Now that you have a private key, you can generate the public key for it:
+
+`nrfutil keys --show-vk hex private_key.txt`
+
+This will output something like
+
+`Verification key Qx: ed09a58df6db5cd15b8637304f31d31f4042492ed7c7e4839fbe903f260a2ba1`
+`Verification key Qy: a855e92b72885825481ad56282bcf549ad7455ec46f000f0f62d97eeec883ba6`
+
+These two hex-strings make up your public key, which you may safely show off to everyone (including
+any mortal enemies). The one above is mine, and will only work with my private key.
+
+Your device page is generated from a device page file. An example file (which we will use as a
+basis for this guide) is available at /nRF51/bootloader/pc-util/example. This example file already
+has entries for SD, App and Bootloader sections, firmware IDs and a public key. Replace the public
+key entry with the one you generated. This allows your device to verify that the person that started
+an incoming DFU transfer has your private key.
+
+You may also want to change the company-id entry. In the example, the company-ID is set to
+0x00000059, which is the 32bit version of Nordic Semiconductor's
+https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers[Bluetooth SIG assigned Company ID].
+If your company has an assigned ID, you use yours, but if you don't work for a company with an
+assigned ID, or for a company that  won't be signing up for it, you may use a random 32 bit number higher
+than 65535. The company ID works as an address space for application IDs in the Mesh-DFU. This way,
+any company with an assigned company ID may safely use any application ID for their products, without
+risking an app-ID conflict triggering unwarranted transfers. If you use a random number, the risk of
+getting conflicts is present, but highly unlikely given the large pool of numbers and the density
+of mesh networks actually using the DFU. You might still want to go with something more clever than
+0x12345678 though, someone else might have been just as lazy.
+
+== 4. Generate a hex version of your device-page with the tool in /nRF51/bootloader/pc-util.
+In the same folder as the example device page file, there's a main.c file that you can compile
+to create the device page generator. See its respective README for instructions. Once you have
+a working generator, generate an example device page file:
+
+`device_page example`
+
+This creates a device page .bin file (example.bin) and a device page .hex file (example.hex).
+We'll use the .hex file in step 8.
+
+== 5. Erase all chip memory including UICR on all devices.
+Using nrfjprog (available on www.nordicsemi.com), erase all previous data on
+your device (including UICR):
+
+`nrfjprog --eraseall`
+
+== 6. Flash the Softdevice on all devices.
+NOTE: It's important that steps 6-9 are executed in order.
+
+Get a copy of the S110 v8.0 Softdevice at www.nordicsemi.com, and flash it onto your device with
+nrfjprog:
+
+`nrfjprog --program <S110 hex-file>`
+
+== 7. Flash the serial bootloader on all devices.
+Flash the precompiled bootloader_serial.hex (in nRF51/bootloader/test/) to your device with nrfjprog:
+
+`nrfjprog --program <bootloader serial hex-file>`
+
+== 8. Flash the device page on all devices.
+Flash the device page .hex that you generated in step 4 to the device:
+
+`nrfjprog --program <device page hex-file>`
+
+== 9. Flash the first application on all devices (serial version on the serial-gateway device).
+Finally, flash the example application app_LED1.hex to all devices, except the device you want to
+connect to via serial. For this device, use app_serial_LED1.hex instead. When finished, your devices
+should have its LED1 lit if it's an nRF51 development kit, or the red LED lit if it's an nRF51 dongle.
+The example applications are compiled from he BLE_Gateway example in this repository.
+
+`nrfjprog --program <app hex-file>`
+
+Then reset your device:
+
+`nrfjprog --reset`
+
+== 10. Verify your bootloader with the bootloader_verify.py script (optional)
+Run the bootloader verification script located in nRF51/bootloader/pc-util:
+
+NOTE: bootloader_verify.py requires the link:https://pypi.python.org/pypi/pyserial[pyserial package],
+and that nrfjprog is present in your PATH.
+
+`python bootloader_verify.py <serial number> <COM-port>`
+
+The output should look like this:
+
+----
+Reading UICR..                  OK.
+Reading Device page..           OK.
+Resetting device..              OK.
+Checking serial connection..    OK.
+
+Bootloader verification OK
+----
+
+The bootloader verification script does not alter your setup in any way, and you may safely continue
+without it. It serves as a checkpoint and help utility in the process.
+
+== 11. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
+To do a DFU, you need to create a DFU-file. The DFU file is really
+a .zip, which contains the application binary, along with some metadata. Matching the FWIDs in
+your device page file, call the nrfutil tool from /nRF51/bootloader/:
+
+`nrfutil dfu genpkg --application test/app_LED2.hex --company-id 0x00000059 --application-id 1 --application-version 2 --key-file private.txt --sd-req 0x0064 --mesh dfu_test.zip`
+
+You can see that we still used the Nordic Semiconductor company ID, make sure you use your own. Also
+note that the application version is set to 2. A device will only accept application trasfers of
+DFUs that match its current company ID and app ID, and that has a higher version number.
+This will generate a DFU file called dfu_test.zip in the current directory. You can call
+`nrfutil dfu genpkg --help` to get a list of possible command line arguments and their meaning.
+Note that only some of them apply to mesh-DFU, as the tool still supports the regular
+Nordic Semiconductor DFU transfer.
+
+== 12. Transfer the DFU-file over serial with the pc-nrfutil tool.
+
+WARNING: For this step, it is important that you close any running instance of nRFgo Studio,
+as it has been known to trip up the reset procedure for the nRF51.
+
+Now for the interesting part: Doing a DFU! First off, figure out which COM-port your serial device
+is on. Mine is on COM138. Now call the nrfutil one final time:
+
+`nrfutil dfu serial -pkg dfu_test.zip -p COM138 -b 115200 -fc --mesh`
+
+A progress bar should pop up, and the transfer should take approximately 15 minutes. Your devices
+should start flashing their LED2 (the green LED on the dongle), while leaving the LED1 on (red on
+dongle). Note that the color blend will look like red and yellow on the dongle.
+
+Once finished, the bootloader should switch to the application, and only the LED2 (green on dongle)
+should be lit. You now have the app_LED2.hex on all your devices. You will not be able to do the DFU
+twice, as the application version in the device page on your device will have incremented to 2,
+and the bootloader will reject any attempt to retransfer the firmware. It would be redundant after
+all.

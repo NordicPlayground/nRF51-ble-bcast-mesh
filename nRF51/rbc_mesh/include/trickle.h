@@ -16,11 +16,6 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-  4. This software must only be used in a processor manufactured by Nordic
-  Semiconductor ASA, or in a processor manufactured by a third party that
-  is used in combination with a processor manufactured by Nordic Semiconductor.
-
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -36,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _TRICKLE_H__
 #define _TRICKLE_H__
 #include "nrf51.h"
+#include "toolchain.h"
 #include <stdint.h>
 #include <stdbool.h>
 /**
@@ -43,18 +39,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *   http://tools.ietf.org/html/rfc6206
 */
 
+#define TRICKLE_C_DISABLED  (0xFF)
+
 /**
 * @brief trickle instance type. Contains all values necessary for maintaining
 *   an isolated version of the algorithm
 */
-typedef struct
+typedef __packed_armcc struct
 {
     uint64_t        t;              /* Absolute value of t. Equals g_trickle_time (at set time) + t_relative */
-    uint64_t        volatile i;              /* Absolute value of i. Equals g_trickle_time (at set time) + i_relative */
-    uint64_t        volatile i_relative;     /* Relative value of i. Represents the actual i value in IETF RFC6206 */
+    uint64_t        i;              /* Absolute value of i. Equals g_trickle_time (at set time) + i_relative */
+    uint32_t        i_relative;     /* Relative value of i. Represents the actual i value in IETF RFC6206 */
     uint8_t         c;              /* Consistent messages counter */
-    uint8_t         trickle_flags;  /* Bitfield for various flags used for housekeeping */
-} trickle_t;
+} __packed_gcc trickle_t;
 
 
 /** 
@@ -63,43 +60,27 @@ typedef struct
 */
 void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k);
 
-/** 
-* @brief increment global trickle timestamp by one 
-*/
-void trickle_time_increment(void);
-
-/**
-* @brief set absolute value of global trickle timestamp
-*/
-void trickle_time_update(uint64_t time);
-
-/**
-* @brief initialize a trickle algorithm instance. Prepares all flags and 
-*   values used for book keeping
-*/
-void trickle_init(trickle_t* trickle);
-
 /**
 * @brief Register a consistent RX on the given trickle algorithm instance.
 *   Increments the instance's C value.
 */
-void trickle_rx_consistent(trickle_t* id);
+void trickle_rx_consistent(trickle_t* id, uint64_t time_now);
 
 /**
 * @brief register an inconsistent RX on the given trickle algorithm instance.
 *   Resets interval time.
 */
-void trickle_rx_inconsistent(trickle_t* id);
+void trickle_rx_inconsistent(trickle_t* id, uint64_t time_now);
 
 /**
 * @brief reset interval timer for the given trickle algorithm instance.
 */
-void trickle_timer_reset(trickle_t* trickle);
+void trickle_timer_reset(trickle_t* trickle, uint64_t time_now);
 
 /**
 * @brief register a successful TX on the given trickle algorithm instance.
 */
-void trickle_register_tx(trickle_t* trickle);
+void trickle_tx_register(trickle_t* trickle, uint64_t time_now);
 
 /**
 * @brief Check timeouts and check whether a TX on the trickle instance is 
@@ -108,16 +89,23 @@ void trickle_register_tx(trickle_t* trickle);
 * @param[in] trickle pointer to trickle algorithm instance object.
 * @param[out] out_do_tx returns whether the trickle instance is due for a TX
 */
-void trickle_step(trickle_t* trickle, bool* out_do_tx);
+void trickle_tx_timeout(trickle_t* trickle, bool* out_do_tx, uint64_t time_now);
 
 /**
-* @brief get current global trickle timestamp
+* @brief Disable the given trickle instance. It will always report that it is 
+*   not to perform a transmit when checked.
 */
-uint64_t trickle_timestamp_get(void);
+void trickle_disable(trickle_t* trickle);
+
+/** 
+* @brief enable a previously disabled trickle value
+*/
+void trickle_enable(trickle_t* trickle);
 
 /**
-* @brief get the next time the indicated trickle instance is required to do some processing
+* @brief return whether the given trickle instance is enabled, and should be
+*   considered for transmission.
 */
-uint64_t trickle_next_processing_get(trickle_t* trickle);
+bool trickle_is_enabled(trickle_t* trickle);
 
 #endif /* _TRICKLE_H__ */

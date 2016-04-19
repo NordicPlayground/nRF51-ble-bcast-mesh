@@ -1,0 +1,43 @@
+= Serial interface
+The format of the command and event format of the serial interface is described in the
+serial_interface.xlsx document.
+
+== Commands
+
+- echo
+- radio reset
+- init
+- value_set
+- value_enable
+- value_disable
+- start
+- stop
+- flag_set
+- flag_get
+- dfu_data
+- value_get
+- build_version_get
+- access_addr_get
+- channel_get
+- interval_min_ms_get
+
+== Events
+
+- device_started
+- echo_rsp
+- cmd_rsp
+- event_new
+- event_update
+- event_conflicting
+- event_tx
+
+=== TX event
+
+==== Description:
+
+The TX event occurs on every transmit on every channel of handles that have been marked with the
+TX-event flag.
+
+In Bootloader mode, the TX events will occur three times per advertisement event (one for each of
+the 3 advertisement channels), regardless of handle flags.
+

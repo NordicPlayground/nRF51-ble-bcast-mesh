@@ -3,3 +3,4 @@
 *.uvoptx binary
 *.uvopt binary
 *.map -crlf
+*.sh eol=lf
