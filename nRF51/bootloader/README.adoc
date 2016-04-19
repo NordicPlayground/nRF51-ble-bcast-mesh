@@ -10,15 +10,19 @@ makes it possible to use the bootloader on devices with 128K of flash.
 
 In addition to requirements stated in the main readme-file:
 
-- nRF5x-Command-Line-Tools version 8.2.0 and above
-- Segger Jlink drivers version 5.10n or greater
-- link:https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu[Prerequisites for pc-nrfutil (mesh_dfu branch)]
+* nRF5x-Command-Line-Tools version 8.2.0 and above
+* Segger Jlink drivers version 5.10n or greater
+* link:https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu[Prerequisites for pc-nrfutil (mesh_dfu branch)]
+
 For Windows:
-- MinGW (any version)
-    - Needed for objcopy.exe
+
+* MinGW (any version)
+    ** Needed for objcopy.exe in device-page generator
+    
 For Linux:
-- GCC toolchain 4.0.0 and above
-    - Needed for objcopy utility
+
+* GCC toolchain 4.0.0 and above
+** Needed for objcopy utility in device-page generator
 
 == Usage
 For a quick-start guide to the Mesh-DFU, see the
