@@ -45,7 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TRANSPORT_TX_SLOTS  (32)
 #define RTC_MARGIN          (2) /* ticks */
 #define INTERVAL            (3277) /* ticks */
-#define REDUNDANCY_MAX      (1)
+#define REDUNDANCY_MAX      (3)
 /******************************************************************************
 * Static typedefs
 ******************************************************************************/
