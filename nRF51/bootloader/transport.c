@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "rand.h"
 #include "bootloader_rtc.h"
+#include "serial_handler.h"
 
 /******************************************************************************
 * Static defines
@@ -126,6 +127,15 @@ static void order_scan(void)
 
 static void tx_cb(uint8_t* p_data)
 {
+    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
+    if (p_adv_data)
+    {
+        serial_evt_t serial_evt;
+        serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_TX;
+        serial_evt.params.event_tx.handle = p_adv_data->handle;
+        serial_evt.length = 3; /* opcode + Handle */
+        serial_handler_event_send(&serial_evt);
+    }
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
 
