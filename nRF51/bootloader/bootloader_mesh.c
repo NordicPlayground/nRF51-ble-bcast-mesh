@@ -699,14 +699,14 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 }
                 
                 m_transaction.p_indicated_start_addr = (uint32_t*) p_packet->payload.start.start_address;
-                
+                uint32_t start_address = p_packet->payload.start.start_address;
                 /* if the host doesn't know the start address, we use start of segment: */
-                if (p_packet->payload.start.start_address == START_ADDRESS_UNKNOWN)
+                if (start_address == START_ADDRESS_UNKNOWN)
                 {
-                    p_packet->payload.start.start_address = p_segment->start;
+                    start_address = p_segment->start;
                 }
 
-                uint32_t segment_count = ((p_packet->payload.start.length * 4) + (p_packet->payload.start.start_address & 0x0F) - 1) / 16 + 1;
+                uint32_t segment_count = ((p_packet->payload.start.length * 4) + (start_address & 0x0F) - 1) / 16 + 1;
                 
                 if (p_packet->payload.start.signature_length != 0)
                 {
@@ -720,7 +720,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
 
                 m_transaction.segments_remaining                = segment_count;
                 m_transaction.segment_count                     = segment_count;
-                m_transaction.p_start_addr                      = (uint32_t*) p_packet->payload.start.start_address;
+                m_transaction.p_start_addr                      = (uint32_t*) start_address;
                 m_transaction.length                            = p_packet->payload.start.length * 4;
                 m_transaction.signature_length                  = p_packet->payload.start.signature_length;
                 m_transaction.segment_is_valid_after_transfer   = p_packet->payload.start.last;
