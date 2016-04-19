@@ -1,5 +1,51 @@
 = Changelog
 
+== 0.8.3 Bugfixes, code restructure and merge to master
+
+After a long time releasing to the sdk-8-support branch, this release is moving development back
+into master. This means that we're moving the old master branch into a new legacy-sdk-6-7 branch, to
+allow those who are heavily invested in the old SDKs to continue using them. As with the old
+master, this legacy branch will not see new features. The sdk-8-support branch has been merged to
+master, and will no longer be present in the repository.
+
+As part of the move back to master, we'll be adding an alpha branch to which we will push commits
+fixing reported issues and other minor updates. This branch will allow for a shorter loop than the
+current process of releases, as critical bugfixes and feature requests can be responded to much
+faster. Releases will be published on the master branch, merging in fixes in the alpha branch.
+
+This release targets a series of issues reported since 0.8.2, in addition to a superficial
+change to the cache system: We've taken the caches out of the version_handler module into its own
+module, named handle_storage. The handle storage acts as a pure storage module, serving the
+version_handler. The version_handler (and it alone) manipulates the handle storage.
+
+=== New features
+
+- The bootloader now yields TX events after successful transmits, one per channel transmitted on.
+
+- Added a bootloader_verify.py script under _nRF51/bootloader/pc-util/_, to ease debugging of any
+unintended bootloader behavior.
+
+=== Fixes
+
+- Fix for Issues #72, #74, #75, #78, #79, #80, #82.
+
+- Fix for example case in Issue #91, still following up on this one.
+
+- CRC false-positives should no longer occur. Symptoms included unused handles getting data and
+erronous payloads getting through to the application.
+
+- DFU signature verification reboot-loophole closed.
+
+- Fixed some erronous DFU packet lengths.
+
+- Restructure of version_handler -> new module handle_storage encapsulating caches.
+
+- Removed Bootloader journaling function, replaced by full check verification.
+
+- Fix GCC linker script for Bootloader.
+
+- Improved documentation for Bootloader usage.
+
 == 0.8.2 Name change, Bootloader stability and RX reporting
 
 This release marks a name change for the project: you are now looking at the release notes of the
