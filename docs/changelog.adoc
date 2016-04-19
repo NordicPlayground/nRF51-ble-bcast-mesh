@@ -8,11 +8,6 @@ allow those who are heavily invested in the old SDKs to continue using them. As 
 master, this legacy branch will not see new features. The sdk-8-support branch has been merged to
 master, and will no longer be present in the repository.
 
-As part of the move back to master, we'll be adding an alpha branch to which we will push commits
-fixing reported issues and other minor updates. This branch will allow for a shorter loop than the
-current process of releases, as critical bugfixes and feature requests can be responded to much
-faster. Releases will be published on the master branch, merging in fixes in the alpha branch.
-
 This release targets a series of issues reported since 0.8.2, in addition to a superficial
 change to the cache system: We've taken the caches out of the version_handler module into its own
 module, named handle_storage. The handle storage acts as a pure storage module, serving the
