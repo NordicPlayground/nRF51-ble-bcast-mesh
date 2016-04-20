@@ -118,7 +118,7 @@ link:docs/usage.adoc[Using the framework]
 - A brief introduction to the Trickle mechanic, and overview of the API and the
 internal structure of the system.
 
-link:../docs/how_it_works.adoc[How the mesh works]
+link:docs/how_it_works.adoc[How the mesh works]
 
 - Detailed description of Trickle, the usage of the Softdevice (including GATT
 characteristic syntax) and the on-air packets.
