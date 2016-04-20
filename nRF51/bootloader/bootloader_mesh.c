@@ -542,6 +542,17 @@ static void start_target(void)
         case DFU_TYPE_BOOTLOADER:
             segment_size = m_bl_info_pointers.p_segment_bl->length;
             flags_entry.flags.bl_intact = false;
+            
+            /* check whether we're destroying the application: */
+            for (uint32_t* p_addr = m_transaction.p_bank_addr; 
+                 p_addr < (uint32_t*) (m_bl_info_pointers.p_segment_app->start + m_bl_info_pointers.p_segment_app->length); 
+                 p_addr++)
+            {
+                if (*p_addr != 0xFFFFFFFF)
+                {                    
+                    flags_entry.flags.app_intact = false;
+                }
+            }
             break;
         default:
             segment_size = 0;
@@ -736,6 +747,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                         (m_transaction.length & ((uint32_t) ~(PAGE_SIZE - 1))) -
                         (PAGE_SIZE)
                     );
+                    
                 }
                 else
                 {
