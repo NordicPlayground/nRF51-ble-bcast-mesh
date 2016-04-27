@@ -192,13 +192,6 @@ static void packet_release_callback(mesh_packet_t* p_packet)
         }
     }
 }
-static bool app_is_valid(uint32_t* app_start)
-{
-    return (m_bl_info_pointers.p_segment_app != NULL &&
-            *((uint32_t*) m_bl_info_pointers.p_segment_app->start) != 0xFFFFFFFF &&
-            m_bl_info_pointers.p_fwid->app.app_version != APP_VERSION_INVALID &&
-            fw_is_verified());
-}
 
 static void serial_tx(dfu_packet_t* p_packet, uint16_t len)
 {
@@ -536,8 +529,8 @@ static void start_target(void)
         {
             /* update inline */
             if (flash_write(
-                    (uint32_t*) m_bl_info_pointers.p_flags, 
-                    (uint8_t*) &flags_entry, 
+                    (uint32_t*) m_bl_info_pointers.p_flags,
+                    (uint8_t*) &flags_entry,
                     (BL_INFO_LEN_FLAGS + 3) & ~0x03UL) != NRF_SUCCESS)
             {
                 start_req(m_transaction.type, true);
@@ -1131,7 +1124,7 @@ void bootloader_abort(bl_end_t end_reason)
     evt.type = BL_EVT_TYPE_ABORT;
     evt.params.abort.reason = end_reason;
     bootloader_evt_send(&evt);
-#else    
+#else
     switch (end_reason)
     {
         case BL_END_SUCCESS:
@@ -1167,7 +1160,7 @@ void bootloader_abort(bl_end_t end_reason)
 #endif
 }
 
-void bootloader_rtc_irq_handler(void)
+void bootloader_timeout(void)
 {
     NRF_RTC0->INTENCLR = (1 << (RTC_BL_STATE_CH + RTC_INTENCLR_COMPARE0_Pos));
     switch (m_state)
