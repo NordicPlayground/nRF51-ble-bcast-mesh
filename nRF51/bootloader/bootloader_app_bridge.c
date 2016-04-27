@@ -27,7 +27,8 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#include <string.h>
+
+#include <stddef.h>
 //#include "bootloader_app_bridge.h"
 #include "bl_if.h"
 #include "bootloader_mesh.h"
@@ -60,19 +61,30 @@ static bl_if_cb_evt_t m_evt_handler = NULL;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
+static void bootloader_abort(bl_end_t end_reason)
+{
+    bl_evt_t abort_evt;
+    abort_evt.type = BL_EVT_TYPE_ABORT;
+    abort_evt.params.abort.reason = end_reason;
+    m_evt_handler(&abort_evt);
+}
 
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
 uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
 {
-    bl_evt_t rsp_evt;
     switch (p_bl_cmd->type)
     {
         case BL_CMD_TYPE_INIT:
+            if (bootloader_info_init((uint32_t*) (BOOTLOADER_INFO_ADDRESS),
+                                     (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE))
+                != NRF_SUCCESS)
+            {
+                bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
+                return NRF_ERROR_INTERNAL;
+            }
             m_evt_handler = p_bl_cmd->params.init.event_callback;
-            bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, 
-                                 (uint32_t*) BOOTLOADER_INFO_BANK_ADDRESS);
             bootloader_init();
             break;
         case BL_CMD_TYPE_ENABLE:
@@ -81,14 +93,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
         case BL_CMD_TYPE_RX:
             return bootloader_rx(p_bl_cmd->params.rx.p_dfu_packet, p_bl_cmd->params.rx.length, true);
         case BL_CMD_TYPE_TIMEOUT:
-            //bootloader_timeout();
-            break;
-        case BL_CMD_TYPE_ECHO:
-            rsp_evt.type = BL_EVT_TYPE_ECHO;
-            memcpy(rsp_evt.params.echo.str, 
-                p_bl_cmd->params.echo.str, 
-                sizeof(p_bl_cmd->params.echo.str));
-            m_evt_handler(&rsp_evt);
+            bootloader_timeout();
             break;
 
         case BL_CMD_TYPE_DFU_START_TARGET:
@@ -182,6 +187,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
             dfu_flash_write_complete(p_bl_cmd->params.flash.write.p_data);
             break;
         case BL_CMD_TYPE_FLASH_ERASE_COMPLETE:
+            /* don't care */
             break;
         default:
             return NRF_ERROR_NOT_SUPPORTED;
@@ -196,10 +202,10 @@ uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    bl_evt_t evt = 
+    bl_evt_t evt =
     {
         .type = BL_EVT_TYPE_FLASH_WRITE,
-        .params.flash.write = 
+        .params.flash.write =
         {
             .start_addr = (uint32_t) p_dest,
             .p_data = p_data,
@@ -215,35 +221,14 @@ uint32_t flash_erase(uint32_t* p_dest, uint32_t length)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    bl_evt_t evt = 
+    bl_evt_t evt =
     {
         .type = BL_EVT_TYPE_FLASH_ERASE,
-        .params.flash.erase = 
+        .params.flash.erase =
         {
             .start_addr = (uint32_t) p_dest,
             .length = length
         }
     };
     return m_evt_handler(&evt);
-}
-
-
-uint32_t bootloader_evt_send(bl_evt_t* p_evt)
-{
-    if (m_evt_handler == NULL)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-    return m_evt_handler(p_evt);
-}
-
-uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line)
-{
-    bl_evt_t error_evt;
-    error_evt.type = BL_EVT_TYPE_ERROR;
-    error_evt.params.error.error_code = error;
-    error_evt.params.error.p_file = file;
-    error_evt.params.error.line = line;
-    bootloader_evt_send(&error_evt);
-    while (1);
 }
