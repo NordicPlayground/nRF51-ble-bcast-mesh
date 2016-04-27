@@ -1261,6 +1261,20 @@ void bootloader_rtc_irq_handler(void)
 
                 _ENABLE_IRQS(was_masked);
 
+                if (m_transaction.type == DFU_TYPE_BOOTLOADER)
+                {
+                    /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must have been set. */
+                    sd_mbr_command_t sd_mbr_cmd;
+
+                    sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
+                    sd_mbr_cmd.params.copy_bl.bl_src = m_transaction.p_bank_addr;
+                    sd_mbr_cmd.params.copy_bl.bl_len = m_transaction.length / sizeof(uint32_t);
+
+                    if (sd_mbr_command(&sd_mbr_cmd) != NRF_SUCCESS)
+                    {
+                        bootloader_abort(BL_END_ERROR_MBR_CALL_FAILED);
+                    }
+                }
                 bootloader_abort(BL_END_SUCCESS);
             }
             else
