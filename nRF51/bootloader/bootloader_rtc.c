@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 #include "bootloader_rtc.h"
 #include "transport.h"
-#include "bootloader_mesh.h"
+#include "bootloader.h"
 
 
 void RTC0_IRQHandler(void)
@@ -44,7 +44,10 @@ void RTC0_IRQHandler(void)
         (NRF_RTC0->INTENSET & (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos))))
     {
         NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH] = 0;
-        bootloader_rtc_irq_handler();
+        bl_cmd_t timeout_cmd;
+        timeout_cmd.type = BL_CMD_TYPE_TIMEOUT;
+        timeout_cmd.params.timeout.timer_index = 0;
+        bootloader_cmd_send(&timeout_cmd);
     }
 }
 
