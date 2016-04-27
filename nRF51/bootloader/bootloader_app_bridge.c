@@ -1,0 +1,249 @@
+/***********************************************************************************
+Copyright (c) Nordic Semiconductor ASA
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright notice, this
+  list of conditions and the following disclaimer in the documentation and/or
+  other materials provided with the distribution.
+
+  3. Neither the name of Nordic Semiconductor ASA nor the names of other
+  contributors to this software may be used to endorse or promote products
+  derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+************************************************************************************/
+#include <string.h>
+//#include "bootloader_app_bridge.h"
+#include "bl_if.h"
+#include "bootloader_mesh.h"
+#include "bootloader_info.h"
+#include "dfu_mesh.h"
+
+
+/*****************************************************************************
+* Local defines
+*****************************************************************************/
+
+/*****************************************************************************
+* Local typedefs
+*****************************************************************************/
+
+/*****************************************************************************
+* Static globals
+*****************************************************************************/
+uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd); /**< Forward declaration of command handler */
+
+#if defined(__CC_ARM)
+bl_if_cmd_handler_t m_cmd_handler_ptr __attribute__((at(0x20007FFC))) = &bl_cmd_handler;
+#elif defined(__GNUC__)
+bl_if_cmd_handler_t* m_cmd_handler_ptr __attribute__((section(".blIfCmdAddress"))) = &bl_cmd_handler;
+#else
+#error "Unsupported toolchain."
+#endif
+
+static bl_if_cb_evt_t m_evt_handler = NULL;
+/*****************************************************************************
+* Static functions
+*****************************************************************************/
+
+/*****************************************************************************
+* Interface functions
+*****************************************************************************/
+uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
+{
+    bl_evt_t rsp_evt;
+    switch (p_bl_cmd->type)
+    {
+        case BL_CMD_TYPE_INIT:
+            m_evt_handler = p_bl_cmd->params.init.event_callback;
+            bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, 
+                                 (uint32_t*) BOOTLOADER_INFO_BANK_ADDRESS);
+            bootloader_init();
+            break;
+        case BL_CMD_TYPE_ENABLE:
+            bootloader_start();
+            break;
+        case BL_CMD_TYPE_RX:
+            return bootloader_rx(p_bl_cmd->params.rx.p_dfu_packet, p_bl_cmd->params.rx.length, true);
+        case BL_CMD_TYPE_TIMEOUT:
+            //bootloader_timeout();
+            break;
+        case BL_CMD_TYPE_ECHO:
+            rsp_evt.type = BL_EVT_TYPE_ECHO;
+            memcpy(rsp_evt.params.echo.str, 
+                p_bl_cmd->params.echo.str, 
+                sizeof(p_bl_cmd->params.echo.str));
+            m_evt_handler(&rsp_evt);
+            break;
+
+        case BL_CMD_TYPE_DFU_START_TARGET:
+            break;
+        case BL_CMD_TYPE_DFU_START_RELAY:
+            break;
+        case BL_CMD_TYPE_DFU_START_SOURCE:
+            return NRF_ERROR_NOT_SUPPORTED;
+        case BL_CMD_TYPE_DFU_ABORT:
+            break;
+        case BL_CMD_TYPE_DFU_FINALIZE:
+            break;
+
+        case BL_CMD_TYPE_INFO_GET:
+            p_bl_cmd->params.info.get.p_entry =
+                bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS,
+                                    p_bl_cmd->params.info.get.type);
+            if (p_bl_cmd->params.info.get.p_entry == NULL)
+            {
+                return NRF_ERROR_NOT_FOUND;
+            }
+            break;
+        case BL_CMD_TYPE_INFO_PUT:
+            if (bootloader_info_entry_put(
+                        p_bl_cmd->params.info.put.type,
+                        p_bl_cmd->params.info.put.p_entry,
+                        p_bl_cmd->params.info.put.length) < (bl_info_entry_t*) BOOTLOADER_INFO_ADDRESS)
+            {
+                return NRF_ERROR_INVALID_ADDR;
+            }
+            break;
+        case BL_CMD_TYPE_INFO_ERASE:
+            bootloader_info_entry_invalidate((uint32_t*) BOOTLOADER_INFO_ADDRESS,
+                    p_bl_cmd->params.info.erase.type);
+            break;
+#if 0
+        case BL_CMD_TYPE_UECC_SHARED_SECRET:
+            if (!uECC_shared_secret(p_bl_cmd->params.uecc.shared_secret.p_public_key,
+                                    p_bl_cmd->params.uecc.shared_secret.p_private_key,
+                                    p_bl_cmd->params.uecc.shared_secret.p_secret,
+                                    p_bl_cmd->params.uecc.shared_secret.curve))
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+            break;
+        case BL_CMD_TYPE_UECC_MAKE_KEY:
+            if (!uECC_make_key(p_bl_cmd->params.uecc.make_key.p_public_key,
+                               p_bl_cmd->params.uecc.make_key.p_private_key,
+                               p_bl_cmd->params.uecc.make_key.curve))
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+            break;
+        case BL_CMD_TYPE_UECC_VALID_PUBLIC_KEY:
+            if (!uECC_valid_public_key(p_bl_cmd->params.uecc.valid_public_key.p_public_key,
+                                       p_bl_cmd->params.uecc.valid_public_key.curve))
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+            break;
+        case BL_CMD_TYPE_UECC_COMPUTE_PUBLIC_KEY:
+            if (!uECC_compute_public_key(p_bl_cmd->params.uecc.compute_public_key.p_private_key,
+                                         p_bl_cmd->params.uecc.compute_public_key.p_public_key,
+                                         p_bl_cmd->params.uecc.compute_public_key.curve))
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+            break;
+        case BL_CMD_TYPE_UECC_SIGN:
+            if (!uECC_sign(p_bl_cmd->params.uecc.sign.p_private_key,
+                           p_bl_cmd->params.uecc.sign.p_hash,
+                           p_bl_cmd->params.uecc.sign.hash_size,
+                           p_bl_cmd->params.uecc.sign.p_signature,
+                           p_bl_cmd->params.uecc.sign.curve))
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+            break;
+        case BL_CMD_TYPE_UECC_VERIFY:
+            if (!uECC_verify(p_bl_cmd->params.uecc.verify.p_public_key,
+                             p_bl_cmd->params.uecc.verify.p_hash,
+                             p_bl_cmd->params.uecc.verify.hash_size,
+                             p_bl_cmd->params.uecc.verify.p_signature,
+                             p_bl_cmd->params.uecc.verify.curve))
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+            break;
+#endif
+        case BL_CMD_TYPE_FLASH_WRITE_COMPLETE:
+            dfu_flash_write_complete(p_bl_cmd->params.flash.write.p_data);
+            break;
+        case BL_CMD_TYPE_FLASH_ERASE_COMPLETE:
+            break;
+        default:
+            return NRF_ERROR_NOT_SUPPORTED;
+    }
+
+    return NRF_SUCCESS;
+}
+
+uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length)
+{
+    if (m_evt_handler == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    bl_evt_t evt = 
+    {
+        .type = BL_EVT_TYPE_FLASH_WRITE,
+        .params.flash.write = 
+        {
+            .start_addr = (uint32_t) p_dest,
+            .p_data = p_data,
+            .length = length
+        }
+    };
+    return m_evt_handler(&evt);
+}
+
+uint32_t flash_erase(uint32_t* p_dest, uint32_t length)
+{
+    if (m_evt_handler == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    bl_evt_t evt = 
+    {
+        .type = BL_EVT_TYPE_FLASH_ERASE,
+        .params.flash.erase = 
+        {
+            .start_addr = (uint32_t) p_dest,
+            .length = length
+        }
+    };
+    return m_evt_handler(&evt);
+}
+
+
+uint32_t bootloader_evt_send(bl_evt_t* p_evt)
+{
+    if (m_evt_handler == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    return m_evt_handler(p_evt);
+}
+
+uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line)
+{
+    bl_evt_t error_evt;
+    error_evt.type = BL_EVT_TYPE_ERROR;
+    error_evt.params.error.error_code = error;
+    error_evt.params.error.p_file = file;
+    error_evt.params.error.line = line;
+    bootloader_evt_send(&error_evt);
+    while (1);
+}

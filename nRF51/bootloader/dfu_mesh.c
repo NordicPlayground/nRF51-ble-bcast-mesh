@@ -33,13 +33,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "bootloader_mesh.h"
 #include "nrf51.h"
-#include "nrf_flash.h"
+#include "bootloader_app_bridge.h"
 #include "sha256.h"
 #include "app_error.h"
+#include "nrf_mbr.h"
 
 #ifndef MISSING_ENTRY_BACKLOG_COUNT
-#define MISSING_ENTRY_BACKLOG_COUNT (64)
+#define MISSING_ENTRY_BACKLOG_COUNT (8)
 #endif
+
+#define WRITE_BUFFER_SIZE   (64) /* must be a multiple of 16 */
+#define WRITE_BUFFER_ALIGN(p_addr) (((uint32_t) p_addr) & ~(WRITE_BUFFER_SIZE - 1))
+#define WRITE_BUFFER_OFFSET(p_addr) (((uint32_t) p_addr) & (WRITE_BUFFER_SIZE - 1))
 
 /*****************************************************************************
 * Local typedefs
@@ -57,8 +62,8 @@ typedef struct
     uint16_t        segment_count;
     bool            final_transfer;
     uint32_t        size;
-    uint32_t*       p_current_page;
-    uint32_t        first_invalid_byte_on_page;
+    uint32_t*       p_write_pointer;
+    uint32_t        first_invalid_byte_in_write_buffer;
     dfu_entry_t     p_missing_entry_backlog[MISSING_ENTRY_BACKLOG_COUNT];
     uint32_t        missing_entry_count;
 } dfu_transfer_t;
@@ -66,7 +71,8 @@ typedef struct
 * Static globals
 *****************************************************************************/
 static dfu_transfer_t   m_current_transfer;
-static uint8_t          mp_page_buffer[PAGE_SIZE];
+static uint8_t          mp_write_buffer[WRITE_BUFFER_SIZE];
+static uint32_t         m_write_buffer_busy;
 
 /*****************************************************************************
 * Static Functions
@@ -184,16 +190,16 @@ static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
     return NULL;
 }
 
-static void flash_page(void)
+static void flash_write_buffer(void)
 {
-    nrf_flash_store((uint32_t*) ((uint32_t) PAGE_ALIGN(m_current_transfer.p_bank_addr)
-            - (uint32_t) PAGE_ALIGN(m_current_transfer.p_start_addr)
-            + (uint32_t) m_current_transfer.p_current_page),
-            mp_page_buffer, PAGE_SIZE, 0);
+    m_write_buffer_busy = 1;
+    //TODO
+    flash_write((uint32_t*) ((uint32_t) m_current_transfer.p_bank_addr
+                               - (uint32_t) m_current_transfer.p_start_addr
+                               + (uint32_t) m_current_transfer.p_write_pointer),
+                    mp_write_buffer, WRITE_BUFFER_SIZE);
 
-    memset(mp_page_buffer, 0xFF, PAGE_SIZE);
-
-    m_current_transfer.first_invalid_byte_on_page = 0;
+    m_current_transfer.first_invalid_byte_in_write_buffer = 0;
 }
 
 /*****************************************************************************
@@ -201,102 +207,46 @@ static void flash_page(void)
 *****************************************************************************/
 void dfu_init(void)
 {
+    m_write_buffer_busy = 0;
     memset(&m_current_transfer, 0, sizeof(m_current_transfer));
-    memset(mp_page_buffer, 0xFF, PAGE_SIZE);
+    memset(mp_write_buffer, 0xFF, WRITE_BUFFER_SIZE);
 }
 
 uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer)
 {
     dfu_init();
     uint16_t segment_count = (((size + (uint32_t) p_start_addr) & 0xFFFFFFF0) - ((uint32_t) p_start_addr & 0xFFFFFFF0)) / 16;
-    uint32_t* p_end_addr = p_start_addr + size / 4;
-    if (p_bank_addr == p_start_addr || p_bank_addr == NULL)
+
+    if (PAGE_OFFSET(p_start_addr) != 0 ||
+        PAGE_OFFSET(p_bank_addr) != 0)
     {
-        bool reflash_front = false;
-        bool single_page = false;
+        return NRF_ERROR_INVALID_ADDR;
+    }
 
-        /* buffer front */
-        if (PAGE_OFFSET(p_start_addr) != 0)
-        {
-            reflash_front = true;
-            memcpy(mp_page_buffer,
-                   (void*) PAGE_ALIGN(p_start_addr),
-                   (uint32_t) PAGE_OFFSET(p_start_addr));
-        }
-
-        /* single page transfer */
-        if (PAGE_ALIGN(p_start_addr) == PAGE_ALIGN(p_end_addr))
-        {
-            single_page = true;
-            memcpy(&mp_page_buffer[PAGE_OFFSET(p_end_addr)],
-                    (uint32_t*) p_end_addr, PAGE_SIZE - PAGE_OFFSET(p_end_addr));
-        }
-        
-        /* Wipe all but the last page. This operation is super slow */
-        if (single_page)
-        {
-            nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_start_addr),
-                            PAGE_SIZE);
-        }
-        else
-        {
-            uint32_t count = (PAGE_ALIGN(p_end_addr) - PAGE_ALIGN(p_start_addr)) / PAGE_SIZE;
-            nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_start_addr),
-                            count * PAGE_SIZE);
-        }
-
-        /* Restore the beginning of the first page */
-        if (reflash_front)
-        {
-            nrf_flash_store((uint32_t*) PAGE_ALIGN(p_start_addr),
-                            mp_page_buffer,
-                            PAGE_OFFSET(p_start_addr), 0);
-        }
-
-        /* Restore the end of a single-page transfer */
-        if (single_page)
-        {
-            nrf_flash_store(p_end_addr,
-                            &mp_page_buffer[PAGE_OFFSET(p_end_addr)],
-                            PAGE_SIZE - PAGE_OFFSET(p_end_addr), 0);
-        }
-        else if (PAGE_OFFSET(p_end_addr) != 0)
-        {
-            /* Erase last page, but retain unaffected data. */
-            memcpy(mp_page_buffer, p_end_addr, PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr));
-            nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_end_addr), PAGE_SIZE);
-
-            nrf_flash_store(p_end_addr,
-                    mp_page_buffer,
-                    PAGE_SIZE - (uint32_t) PAGE_OFFSET(p_end_addr), 0);
-        }
-
+    if (p_bank_addr == NULL)
+    {
         m_current_transfer.p_bank_addr = p_start_addr;
     }
-    else /* dual bank */
-    {
-        /* dual banked transfers must be page-aligned to fit MBR */
-        if ((uint32_t) p_start_addr & (PAGE_SIZE - 1))
-        {
-            return NRF_ERROR_INVALID_ADDR;
-        }
-        uint32_t page_count = 1 + (segment_count * 16) / PAGE_SIZE;
-        nrf_flash_erase((uint32_t*) PAGE_ALIGN(p_bank_addr), page_count * PAGE_SIZE); /* This breaks the app */
-        m_current_transfer.p_bank_addr = p_bank_addr;
-    }
+
+    /* erase all affected pages. */
+    flash_erase((uint32_t*) PAGE_ALIGN(m_current_transfer.p_bank_addr),
+                                PAGE_ALIGN(size) + PAGE_SIZE);
+
     m_current_transfer.p_start_addr = p_start_addr;
     m_current_transfer.segment_count = segment_count;
     m_current_transfer.final_transfer = final_transfer;
-    m_current_transfer.p_current_page = (uint32_t*) (PAGE_ALIGN(m_current_transfer.p_start_addr));
-    m_current_transfer.first_invalid_byte_on_page = PAGE_OFFSET(p_start_addr);
+    m_current_transfer.p_write_pointer = m_current_transfer.p_start_addr;
+    m_current_transfer.first_invalid_byte_in_write_buffer = 0;
     m_current_transfer.size = size;
-
-    memset(mp_page_buffer, 0xFF, PAGE_SIZE);
     return NRF_SUCCESS;
 }
 
 uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
 {
+    if (m_write_buffer_busy)
+    {
+        return NRF_ERROR_BUSY;
+    }
     if (((uint32_t) p_addr) & 0x03)
     {
         /* unaligned */
@@ -306,18 +256,20 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
-    
+
     bool buffer_incoming_entry;
-    if (PAGE_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_current_page)
+    if (WRITE_BUFFER_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_write_pointer)
     {
+        /* still in current write buffer */
         buffer_incoming_entry = true;
-        if (m_current_transfer.first_invalid_byte_on_page < PAGE_OFFSET(p_addr))
+        if (m_current_transfer.first_invalid_byte_in_write_buffer < WRITE_BUFFER_OFFSET(p_addr))
         {
+            /* skipped an entry */
             entry_mark_as_missing(
-                PAGE_ALIGN(m_current_transfer.p_current_page) + m_current_transfer.first_invalid_byte_on_page,
-                PAGE_OFFSET(p_addr) - m_current_transfer.first_invalid_byte_on_page);
+                (uint32_t) (m_current_transfer.p_write_pointer + m_current_transfer.first_invalid_byte_in_write_buffer),
+                WRITE_BUFFER_OFFSET(p_addr) - m_current_transfer.first_invalid_byte_in_write_buffer);
         }
-        else if (m_current_transfer.first_invalid_byte_on_page > PAGE_OFFSET(p_addr))
+        else if (m_current_transfer.first_invalid_byte_in_write_buffer > WRITE_BUFFER_OFFSET(p_addr))
         {
             dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr, length);
             if (p_backlog_entry == NULL)
@@ -327,26 +279,30 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
             }
         }
     }
-    else if (PAGE_ALIGN(p_addr) > (uint32_t) m_current_transfer.p_current_page)
+    else if (WRITE_BUFFER_ALIGN(p_addr) > (uint32_t) m_current_transfer.p_write_pointer)
     {
-        /* This only happens if we miss the last entry on the previous page, mark that entry as
+        /* This only happens if we miss the last entry on the previous buffer, mark that entry as
            invalid. */
         entry_mark_as_missing(
-                PAGE_ALIGN(m_current_transfer.p_current_page) + m_current_transfer.first_invalid_byte_on_page,
-                PAGE_SIZE - m_current_transfer.first_invalid_byte_on_page);
+                PAGE_ALIGN(m_current_transfer.p_write_pointer) + m_current_transfer.first_invalid_byte_in_write_buffer,
+                PAGE_SIZE - m_current_transfer.first_invalid_byte_in_write_buffer);
 
-        /* moving to next page */
-        flash_page();
+        /* iterating the write buffer */
+        flash_write_buffer();
         buffer_incoming_entry = true;
-        m_current_transfer.p_current_page = (uint32_t*)((uint32_t) m_current_transfer.p_current_page + PAGE_SIZE);
+        m_current_transfer.p_write_pointer = (uint32_t*)((uint32_t) m_current_transfer.p_write_pointer + WRITE_BUFFER_SIZE);
     }
-    else
+    else /* entry belongs in a write buffer we've already flashed. */
     {
         dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr, length);
         if (p_backlog_entry != NULL)
         {
             /* Recovering an old entry, flash it individually. */
-            nrf_flash_store((uint32_t*) p_addr, p_data, length, 0);
+            uint32_t error_code = flash_write((uint32_t*) p_addr, p_data, length);
+            if (error_code != NRF_SUCCESS)
+            {
+                return NRF_ERROR_BUSY;
+            }
             buffer_incoming_entry = false;
         }
         else
@@ -360,17 +316,18 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
 
     if (buffer_incoming_entry)
     {
-        memcpy(&mp_page_buffer[PAGE_OFFSET(p_addr)], p_data, length);
-        if (m_current_transfer.first_invalid_byte_on_page < PAGE_OFFSET(p_addr) + length)
+        memcpy(&mp_write_buffer[WRITE_BUFFER_OFFSET(p_addr)], p_data, length);
+
+        if (m_current_transfer.first_invalid_byte_in_write_buffer < WRITE_BUFFER_OFFSET(p_addr) + length)
         {
-            m_current_transfer.first_invalid_byte_on_page = PAGE_OFFSET(p_addr) + length;
+            m_current_transfer.first_invalid_byte_in_write_buffer = WRITE_BUFFER_OFFSET(p_addr) + length;
         }
 
-        if (m_current_transfer.first_invalid_byte_on_page == PAGE_SIZE)
+        if (m_current_transfer.first_invalid_byte_in_write_buffer == WRITE_BUFFER_SIZE)
         {
             /* last entry in page */
-            flash_page();
-            m_current_transfer.p_current_page = (uint32_t*)((uint32_t) m_current_transfer.p_current_page + PAGE_SIZE);
+            flash_write_buffer();
+            m_current_transfer.p_write_pointer = (uint32_t*)((uint32_t) m_current_transfer.p_write_pointer + WRITE_BUFFER_SIZE);
         }
     }
     return NRF_SUCCESS;
@@ -379,20 +336,20 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
 bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len)
 {
     uint32_t* p_storage_addr;
-    if (PAGE_ALIGN(p_addr) > (uint32_t) m_current_transfer.p_current_page)
+    if (WRITE_BUFFER_ALIGN(p_addr) > (uint32_t) m_current_transfer.p_write_pointer)
     {
         return false;
     }
-    else if (PAGE_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_current_page)
+    else if (WRITE_BUFFER_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_write_pointer)
     {
-        if (PAGE_OFFSET(p_addr) + len >= m_current_transfer.first_invalid_byte_on_page)
+        if (WRITE_BUFFER_OFFSET(p_addr) + len >= m_current_transfer.first_invalid_byte_in_write_buffer)
         {
             return false;
         }
 
-        p_storage_addr = (uint32_t*) ((uint32_t) mp_page_buffer + (uint32_t) PAGE_OFFSET(p_addr));
+        p_storage_addr = (uint32_t*) ((uint32_t) mp_write_buffer + (uint32_t) WRITE_BUFFER_OFFSET(p_addr));
     }
-    else /* old page */
+    else /* already flashed */
     {
         p_storage_addr = (uint32_t*) ((uint32_t) p_addr
                 - (uint32_t) m_current_transfer.p_start_addr
@@ -442,26 +399,27 @@ void dfu_sha256(sha256_context_t* p_hash_context)
 
 void dfu_end(void)
 {
-    if (m_current_transfer.first_invalid_byte_on_page != 0)
+    if (m_current_transfer.first_invalid_byte_in_write_buffer != 0)
     {
-        flash_page();
-    }
-    if (m_current_transfer.p_bank_addr != m_current_transfer.p_start_addr &&
-        m_current_transfer.p_bank_addr != NULL)
-    {
-#if 0
-        /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must have been set. */
-        sd_mbr_command_t sd_mbr_cmd;
-
-        sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
-        sd_mbr_cmd.params.copy_bl.bl_src = (uint32_t *)(bl_image_start);
-        sd_mbr_cmd.params.copy_bl.bl_len = bootloader_settings.bl_image_size / sizeof(uint32_t);
-
-        if (sd_mbr_command(&sd_mbr_cmd) != NRF_SUCCESS)
-        {
-            bootloader_abort(BL_END_ERROR_MBR_FAIL);
-        }
-#endif
+        flash_write_buffer();
     }
 }
 
+void dfu_flash_bank(void)
+{
+    if (m_current_transfer.p_bank_addr != m_current_transfer.p_start_addr &&
+        m_current_transfer.p_bank_addr != NULL)
+    {
+        flash_erase(m_current_transfer.p_start_addr, m_current_transfer.size);
+        flash_write(m_current_transfer.p_start_addr, (uint8_t*) m_current_transfer.p_bank_addr, m_current_transfer.size);
+    }
+}
+
+void dfu_flash_write_complete(uint8_t* p_write_src)
+{
+    if (p_write_src == mp_write_buffer)
+    {
+        m_write_buffer_busy = 0;
+        memset(mp_write_buffer, 0xFF, WRITE_BUFFER_SIZE);
+    }
+}

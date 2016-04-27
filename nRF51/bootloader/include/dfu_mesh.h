@@ -41,5 +41,6 @@ bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len);
 bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, uint32_t* p_len);
 void dfu_sha256(sha256_context_t* p_hash_context);
 void dfu_end(void);
+void dfu_flash_write_complete(uint8_t* p_write_src);
 
 #endif /* DFU_MESH_H__ */

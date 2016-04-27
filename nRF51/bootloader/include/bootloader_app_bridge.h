@@ -27,31 +27,46 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef BOOTLOADER_INFO_H__
-#define BOOTLOADER_INFO_H__
+
+#ifndef BOOTLOADER_APP_BRIDGE_H__
+#define BOOTLOADER_APP_BRIDGE_H__
+
 #include <stdint.h>
-#include <stdbool.h>
-#include "dfu_types_mesh.h"
-#include "uECC.h"
+#include "bl_if.h"
 
+#ifdef DEBUG
+#define APP_ERROR_CHECK_BOOL(expr) do {\
+    if (!(expr))\
+    {\
+        bootloader_error_post(0, __FILE__, __LINE__);\
+    }\
+} while(0)
+#define APP_ERROR_CHECK(error) do {\
+    if (error != NRF_SUCCESS)\
+    {\
+        bootloader_error_post(error, __FILE__, __LINE__);\
+    }\
+} while(0)
+#else
+#define APP_ERROR_CHECK_BOOL(expr) do {\
+    if (!(expr))\
+    {\
+        bootloader_error_post(0, NULL, 0);\
+    }\
+} while(0)
+#define APP_ERROR_CHECK(error) do {\
+    if (error != NRF_SUCCESS)\
+    {\
+        bootloader_error_post(error, NULL, 0);\
+    }\
+} while(0)
+#endif
+        
 
-typedef struct
-{
-    struct
-    {
-        uint8_t metadata_len; /* in bytes */
-        uint8_t entry_header_length; /* in bytes */
-        uint8_t entry_len_length;  /* in bits */
-        uint8_t entry_type_length; /* in bits */
-    } metadata;
-    uint8_t data[];
-} bootloader_info_t;
+uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd);
+uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length);
+uint32_t flash_erase(uint32_t* p_dest, uint32_t length);
+uint32_t bootloader_evt_send(bl_evt_t* p_evt);
+uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line);
+#endif /* BOOTLOADER_APP_BRIDGE_H__ */
 
-uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank_page);
-bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_type_t type);
-bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type, bl_info_entry_t* p_entry, uint32_t length); /* p_entry must point to RAM */
-void bootloader_info_reset(void);
-void bootloader_info_entry_invalidate(uint32_t* p_info_page, bl_info_type_t type);
-
-
-#endif /* BOOTLOADER_INFO_H__ */

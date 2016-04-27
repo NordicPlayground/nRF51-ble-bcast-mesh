@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include "dfu_types_mesh.h"
 #include "mesh_packet.h"
+#include "bl_if.h"
 
 #define SD_VERSION_INVALID                  (0x0000)
 #define APP_VERSION_INVALID                 (0x00000000)
@@ -49,18 +50,6 @@ typedef enum
     BL_STATE_RELAY
 } bl_state_t;
 
-typedef enum
-{
-    BL_END_SUCCESS,
-    BL_END_FWID_VALID,
-    BL_END_ERROR_PACKET_LOSS,
-    BL_END_ERROR_UNAUTHORIZED,
-    BL_END_ERROR_NO_START,
-    BL_END_ERROR_TIMEOUT,
-    BL_END_ERROR_NO_MEM,
-    BL_END_ERROR_INVALID_PERSISTENT_STORAGE,
-    BL_END_ERROR_SEGMENT_VIOLATION,
-} bl_end_t;
 
 void bootloader_init(void);
 void bootloader_start(void);

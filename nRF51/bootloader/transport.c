@@ -42,7 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Static defines
 ******************************************************************************/
 #define RADIO_RX_FIFO_LEN   (32)
-#define TRANSPORT_TX_SLOTS  (32)
+#define TRANSPORT_TX_SLOTS  (8)
 #define RTC_MARGIN          (2) /* ticks */
 #define INTERVAL            (3277) /* ticks */
 #define REDUNDANCY_MAX      (3)
@@ -127,6 +127,7 @@ static void order_scan(void)
 
 static void tx_cb(uint8_t* p_data)
 {
+#if 0    
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
     if (p_adv_data)
     {
@@ -136,6 +137,7 @@ static void tx_cb(uint8_t* p_data)
         serial_evt.length = 3; /* opcode + Handle */
         serial_handler_event_send(&serial_evt);
     }
+#endif
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
 

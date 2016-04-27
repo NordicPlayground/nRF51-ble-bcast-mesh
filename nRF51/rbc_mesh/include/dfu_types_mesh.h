@@ -92,6 +92,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define SERIAL_PACKET_OVERHEAD      (1)
 
+#define DFU_PUBLIC_KEY_LEN          (64)
+#define DFU_SIGNATURE_LEN           (64)
+
+#define BL_INFO_LEN_PUBLIC_KEY      (DFU_PUBLIC_KEY_LEN)
+#define BL_INFO_LEN_SEGMENT         (9)
+#define BL_INFO_LEN_FWID            (14)
+#define BL_INFO_LEN_JOURNAL         ((2 * PAGE_COUNT) / 8)
+#define BL_INFO_LEN_FLAGS           (1)
+#define BL_INFO_LEN_SIGNATURE       (DFU_SIGNATURE_LEN)
+
 typedef uint16_t segment_t;
 typedef uint16_t seq_t;
 
@@ -194,5 +204,49 @@ typedef struct __attribute((packed))
         } rsp_data;
     } payload;
 } dfu_packet_t;
+
+typedef enum
+{
+    BL_INFO_TYPE_INVALID            = 0x00,
+    BL_INFO_TYPE_ECDSA_PUBLIC_KEY   = 0x01,
+    BL_INFO_TYPE_VERSION            = 0x02,
+    BL_INFO_TYPE_FLAGS              = 0x04,
+
+    BL_INFO_TYPE_SEGMENT_SD         = 0x10,
+    BL_INFO_TYPE_SEGMENT_BL         = 0x11,
+    BL_INFO_TYPE_SEGMENT_APP        = 0x12,
+
+    BL_INFO_TYPE_SIGNATURE_SD       = 0x1A,
+    BL_INFO_TYPE_SIGNATURE_BL       = 0x1B,
+    BL_INFO_TYPE_SIGNATURE_APP      = 0x1C,
+    BL_INFO_TYPE_SIGNATURE_BL_INFO  = 0x1D,
+
+    BL_INFO_TYPE_LAST               = 0x7FFF,
+} bl_info_type_t;
+
+typedef struct
+{
+    uint32_t start;
+    uint32_t length;
+} bl_info_segment_t;
+
+typedef fwid_t bl_info_version_t;
+
+typedef struct
+{
+    uint32_t sd_intact          :  1;
+    uint32_t bl_intact          :  1;
+    uint32_t app_intact         :  1;
+    uint32_t page_is_invalid    :  1;
+} bl_info_flags_t;
+
+typedef union
+{
+    uint8_t             public_key[BL_INFO_LEN_PUBLIC_KEY];
+    uint8_t             signature[BL_INFO_LEN_SIGNATURE];
+    bl_info_segment_t   segment;
+    bl_info_version_t   version;
+    bl_info_flags_t     flags;
+} bl_info_entry_t;
 
 #endif /* _DFU_TYPES_H__ */

@@ -44,7 +44,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_aci.h"
 #include "app_error.h"
 #include "dfu_types_mesh.h"
-#include "bootloader_info_app.h"
 #include "bootloader_app.h"
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
@@ -259,9 +258,6 @@ void tc_init(uint32_t access_address, uint8_t channel)
     m_state.access_address = access_address;
     m_state.channel = channel;
     mp_packet_peek_cb = NULL;
-
-    bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS);
-    mp_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
 }
 
 void tc_radio_params_set(uint32_t access_address, uint8_t channel)

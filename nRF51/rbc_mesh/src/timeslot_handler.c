@@ -44,6 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_assert.h"
 #include "nrf_soc.h"
 #include "fifo.h"
+#include "bootloader_app.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -153,7 +154,7 @@ void ts_sd_event_handler(uint32_t evt)
             {
                 timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
             }
-            break;
+            break; 
 
         case NRF_EVT_RADIO_SESSION_CLOSED:
             APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
@@ -173,6 +174,19 @@ void ts_sd_event_handler(uint32_t evt)
 
         case NRF_EVT_RADIO_CANCELED:
             timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+            break;
+        
+        case NRF_EVT_FLASH_OPERATION_ERROR:
+            NRF_GPIO->OUTSET = (1 << 6);
+            NRF_GPIO->OUTCLR = (1 << 6);
+            NRF_GPIO->OUTCLR = (1 << 5);
+            bootloader_flash_operation_end(false);
+            break;
+        case NRF_EVT_FLASH_OPERATION_SUCCESS:
+            NRF_GPIO->OUTSET = (1 << 8);
+            NRF_GPIO->OUTCLR = (1 << 5);
+            NRF_GPIO->OUTCLR = (1 << 8);
+            bootloader_flash_operation_end(true);
             break;
         default:
             break;
@@ -228,6 +242,8 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     static uint32_t requested_extend_time = 0;
     static uint32_t successful_extensions = 0;
     static uint32_t timeslot_count = 0;
+    
+    g_is_in_callback = true;
 
     if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START)
     {
@@ -262,7 +278,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     }
 
     g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
-    g_is_in_callback = true;
 
     SET_PIN(PIN_IN_CB);
 
@@ -518,8 +533,14 @@ void timeslot_stop(void)
 
 void timeslot_restart(void)
 {
-    g_timeslot_forced_command = TS_FORCED_COMMAND_RESTART;
-    NVIC_SetPendingIRQ(TIMER0_IRQn);
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
+    if (g_is_in_timeslot)
+    {
+        g_timeslot_forced_command = TS_FORCED_COMMAND_RESTART;
+        NVIC_SetPendingIRQ(TIMER0_IRQn);
+    }
+    _ENABLE_IRQS(was_masked);
 }
 
 uint64_t timeslot_get_global_time(void)

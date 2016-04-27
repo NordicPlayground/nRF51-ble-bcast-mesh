@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_info.h"
 #include "bootloader_mesh.h"
 #include "dfu_types_mesh.h"
-#include "nrf_flash.h"
+#include "bootloader_app_bridge.h"
 #include "app_error.h"
 #include "nrf51.h"
 
@@ -77,7 +77,7 @@ static void invalidate_entry(bootloader_info_header_t* p_header)
     old_header_ram.type = BL_INFO_TYPE_INVALID;
 
     uint32_t len = HEADER_LEN;
-    nrf_flash_store((uint32_t*) p_header, (uint8_t*) &old_header_ram, len, 0);
+    flash_write((uint32_t*) p_header, (uint8_t*) &old_header_ram, len);
 }
 
 static inline bootloader_info_header_t* bootloader_info_iterate(bootloader_info_header_t* p_info_header)
@@ -171,12 +171,12 @@ static bootloader_info_header_t* reset_with_replace(
     }
 
     /* bank page */
-    nrf_flash_erase((uint32_t*) mp_bl_info_bank_page, PAGE_SIZE);
-    nrf_flash_store((uint32_t*) mp_bl_info_bank_page, new_page, PAGE_SIZE, 0);
+    flash_erase((uint32_t*) mp_bl_info_bank_page, PAGE_SIZE);
+    flash_write((uint32_t*) mp_bl_info_bank_page, new_page, PAGE_SIZE);
 
     /* reflash original */
-    nrf_flash_erase((uint32_t*) mp_bl_info_page, PAGE_SIZE);
-    nrf_flash_store((uint32_t*) mp_bl_info_page, new_page, PAGE_SIZE, 0);
+    flash_erase((uint32_t*) mp_bl_info_page, PAGE_SIZE);
+    flash_write((uint32_t*) mp_bl_info_page, new_page, PAGE_SIZE);
 
     return p_replace_position;
 }
@@ -210,8 +210,8 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
             bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
         }
 
-        nrf_flash_erase((uint32_t*) mp_bl_info_page, PAGE_SIZE);
-        nrf_flash_store((uint32_t*) mp_bl_info_page, (uint8_t*) mp_bl_info_bank_page, PAGE_SIZE, 0);
+        flash_erase((uint32_t*) mp_bl_info_page, PAGE_SIZE);
+        flash_write((uint32_t*) mp_bl_info_page, (uint8_t*) mp_bl_info_bank_page, PAGE_SIZE);
     }
 
     return NRF_SUCCESS;
@@ -297,7 +297,7 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
         /* add end-of-entries-entry */
         ((bootloader_info_header_t*) &buffer[entry_length])->type = BL_INFO_TYPE_LAST;
 
-        nrf_flash_store((uint32_t*) p_new_header, buffer, entry_length + 4, 0);
+        flash_write((uint32_t*) p_new_header, buffer, entry_length + 4);
 
         /* invalidate old entry of this type */
         if (p_old_header != NULL)
@@ -317,7 +317,7 @@ void bootloader_info_entry_invalidate(uint32_t* p_info_page, bl_info_type_t type
         bootloader_info_header_t header;
         header.len = p_header->len;
         header.type = 0x0000;
-        nrf_flash_store((uint32_t*) p_header, (uint8_t*) &header, 4, 0);
+        flash_write((uint32_t*) p_header, (uint8_t*) &header, 4);
     }
 }
 

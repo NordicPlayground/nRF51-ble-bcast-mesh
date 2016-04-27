@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 #include "dfu_types_mesh.h"
-
+#include "bl_if.h"
 /**
 * Callback type for notifying the application of incoming dfu-transfers, and
 * get authorization to start the bootloader. Return true to accept the dfu
@@ -66,5 +66,10 @@ uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid);
 *   function.
 */
 void bootloader_authorize_callback_set(bootloader_authorize_cb_t authorize_callback);
+
+
+uint32_t bootloader_init(void);
+uint32_t bootloader_cmd_send(bl_cmd_t* p_cmd);
+void bootloader_flash_operation_end(bool success);
 
 #endif /* BOOTLOADER_APP_H__ */
