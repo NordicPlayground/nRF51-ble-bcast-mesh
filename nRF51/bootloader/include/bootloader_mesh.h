@@ -55,7 +55,7 @@ void bootloader_init(void);
 void bootloader_start(void);
 uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
 void bootloader_abort(bl_end_t end_reason);
-void bootloader_rtc_irq_handler(void);
+void bootloader_timeout(void);
 void bootloader_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
 
 #endif /* BOOTLOADER_H__ */
