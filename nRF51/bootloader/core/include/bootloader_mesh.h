@@ -27,20 +27,35 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef DFU_MESH_H__
-#define DFU_MESH_H__
+#ifndef BOOTLOADER_MESH_H__
+#define BOOTLOADER_MESH_H__
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "sha256.h"
+#include "dfu_types_mesh.h"
+#include "mesh_packet.h"
+#include "bl_if.h"
 
-void dfu_init(void);
-uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer);
-uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length);
-bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len);
-bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, uint32_t* p_len);
-void dfu_sha256(sha256_context_t* p_hash_context);
-void dfu_end(void);
-void dfu_flash_write_complete(uint8_t* p_write_src);
+#define SD_VERSION_INVALID                  (0x0000)
+#define APP_VERSION_INVALID                 (0x00000000)
 
-#endif /* DFU_MESH_H__ */
+typedef enum
+{
+    BL_STATE_FIND_FWID,
+    BL_STATE_DFU_REQ,
+    BL_STATE_DFU_READY,
+    BL_STATE_DFU_TARGET,
+    BL_STATE_VALIDATE,
+    BL_STATE_RELAY_CANDIDATE,
+    BL_STATE_RELAY
+} bl_state_t;
+
+
+void bootloader_init(uint8_t tx_slots);
+void bootloader_start(void);
+uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
+void bootloader_timeout(void);
+void bootloader_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
+bool bootloader_app_is_valid(uint32_t* p_app_start);
+
+#endif /* BOOTLOADER_MESH_H__ */

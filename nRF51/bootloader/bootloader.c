@@ -32,8 +32,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_rtc.h"
 #include "transport.h"
 #include "bootloader_util.h"
+#include "bootloader_info.h"
+#include "bootloader_mesh.h"
+#include "dfu_types_mesh.h"
 #include "nrf_mbr.h"
 #include "nrf_flash.h"
+#include "mesh_aci.h"
+#include "app_error.h"
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
@@ -46,31 +51,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-
+static bl_if_cmd_handler_t m_cmd_handler;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-static bool fw_is_verified(void)
+static void set_timeout(uint32_t time)
 {
-    bl_info_entry_t* p_flag_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
-    if (p_flag_entry)
-    {
-        return (p_flag_entry->flags.sd_intact &&
-                p_flag_entry->flags.app_intact &&
-                p_flag_entry->flags.bl_intact);
-    }
-
-    return true;
-}
-
-static bool app_is_valid(uint32_t* p_app_start)
-{
-    bl_info_entry_t* p_fwid_entry    = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
-
-    return (p_fwid_entry != NULL &&
-            *p_app_start != 0xFFFFFFFF &&
-            p_fwid_entry->version.app.app_version != APP_VERSION_INVALID &&
-            fw_is_verified());
+#ifndef NO_TIMEOUTS
+    NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH] = 0;
+    NRF_RTC0->CC[RTC_BL_STATE_CH] = (NRF_RTC0->COUNTER + time) & RTC_MASK;
+    NRF_RTC0->INTENSET = (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos));
+#endif
 }
 
 static void interrupts_disable(void)
@@ -109,7 +100,7 @@ static void rx_cb(mesh_packet_t* p_packet)
         rx_cmd.type = BL_CMD_TYPE_RX;
         rx_cmd.params.rx.p_dfu_packet = (dfu_packet_t*) &p_adv_data->handle;
         rx_cmd.params.rx.length = p_adv_data->adv_data_length - 3;
-        bl_cmd_handler(&rx_cmd);
+        m_cmd_handler(&rx_cmd);
     }
 }
 
@@ -121,6 +112,17 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
         case BL_EVT_TYPE_ABORT:
             bootloader_abort(p_evt->params.abort.reason);
             break;
+        case BL_EVT_TYPE_TX_RADIO:
+            if (!transport_tx(mesh_packet_get_aligned(p_evt->params.tx.radio.p_dfu_packet),
+                    p_evt->params.tx.radio.tx_count,
+                    (tx_interval_type_t) p_evt->params.tx.radio.interval_type))
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+            break;
+        case BL_EVT_TYPE_TIMER_SET:
+            set_timeout(p_evt->params.timer.set.delay_us);
+            break;
         case BL_EVT_TYPE_FLASH_WRITE:
             nrf_flash_store((uint32_t*) p_evt->params.flash.write.start_addr,
                                         p_evt->params.flash.write.p_data,
@@ -131,7 +133,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             rsp_cmd.params.flash.write.start_addr   = p_evt->params.flash.write.start_addr;
             rsp_cmd.params.flash.write.p_data       = p_evt->params.flash.write.p_data;
             rsp_cmd.params.flash.write.length       = p_evt->params.flash.write.length;
-            bl_cmd_handler(&rsp_cmd);
+            m_cmd_handler(&rsp_cmd);
             break;
         case BL_EVT_TYPE_FLASH_ERASE:
             nrf_flash_erase((uint32_t*) p_evt->params.flash.erase.start_addr,
@@ -141,7 +143,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             rsp_cmd.type                            = BL_CMD_TYPE_FLASH_ERASE_COMPLETE;
             rsp_cmd.params.flash.erase.start_addr   = p_evt->params.flash.erase.start_addr;
             rsp_cmd.params.flash.erase.length       = p_evt->params.flash.erase.length;
-            bl_cmd_handler(&rsp_cmd);
+            m_cmd_handler(&rsp_cmd);
             break;
         default:
             return NRF_ERROR_NOT_SUPPORTED;
@@ -153,6 +155,14 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
 *****************************************************************************/
 void bootloader_init(void)
 {
+    m_cmd_handler = *((bl_if_cmd_handler_t*) (0x20000000 + ((uint32_t) (NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK) - 4)));
+    if (m_cmd_handler == NULL ||
+        (uint32_t) m_cmd_handler >= 0x20000000)
+    {
+        m_cmd_handler = NULL;
+        return;
+    }
+
     rtc_init();
 
     bl_cmd_t init_cmd;
@@ -160,7 +170,7 @@ void bootloader_init(void)
     init_cmd.params.init.bl_if_version = BL_IF_VERSION;
     init_cmd.params.init.event_callback = bl_evt_handler;
     init_cmd.params.init.timer_count = 1;
-    bl_cmd_handler(&init_cmd);
+    m_cmd_handler(&init_cmd);
 
 #ifdef SERIAL
     mesh_aci_init();
@@ -173,13 +183,13 @@ void bootloader_enable(void)
 {
     bl_cmd_t enable_cmd;
     enable_cmd.type = BL_CMD_TYPE_ENABLE;
-    bl_cmd_handler(&enable_cmd);
+    m_cmd_handler(&enable_cmd);
     transport_start();
 }
 
 uint32_t bootloader_cmd_send(bl_cmd_t* p_bl_cmd)
 {
-    return bl_cmd_handler(p_bl_cmd);
+    return m_cmd_handler(p_bl_cmd);
 }
 
 void bootloader_abort(bl_end_t end_reason)
@@ -191,7 +201,7 @@ void bootloader_abort(bl_end_t end_reason)
         case BL_END_ERROR_TIMEOUT:
         case BL_END_FWID_VALID:
         case BL_END_ERROR_MBR_CALL_FAILED:
-            if (p_segment_entry && app_is_valid((uint32_t*) p_segment_entry->segment.start))
+            if (p_segment_entry && bootloader_app_is_valid((uint32_t*) p_segment_entry->segment.start))
             {
                 interrupts_disable();
 
@@ -212,4 +222,19 @@ void bootloader_abort(bl_end_t end_reason)
             NVIC_SystemReset();
             break;
     }
+}
+
+
+bl_info_entry_t* info_entry_get(bl_info_type_t type)
+{
+    bl_cmd_t get_cmd;
+    get_cmd.type = BL_CMD_TYPE_INFO_GET;
+    get_cmd.params.info.get.type = type;
+    get_cmd.params.info.get.p_entry = NULL;
+    if (m_cmd_handler(&get_cmd) != NRF_SUCCESS)
+    {
+        return NULL;
+    }
+    
+    return get_cmd.params.info.get.p_entry;
 }

@@ -27,46 +27,20 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-
-#ifndef BOOTLOADER_APP_BRIDGE_H__
-#define BOOTLOADER_APP_BRIDGE_H__
+#ifndef DFU_TRANSFER_MESH_H__
+#define DFU_TRANSFER_MESH_H__
 
 #include <stdint.h>
-#include "bl_if.h"
+#include <stdbool.h>
+#include "sha256.h"
 
-#ifdef DEBUG
-#define APP_ERROR_CHECK_BOOL(expr) do {\
-    if (!(expr))\
-    {\
-        bootloader_error_post(0, __FILE__, __LINE__);\
-    }\
-} while(0)
-#define APP_ERROR_CHECK(error) do {\
-    if (error != NRF_SUCCESS)\
-    {\
-        bootloader_error_post(error, __FILE__, __LINE__);\
-    }\
-} while(0)
-#else
-#define APP_ERROR_CHECK_BOOL(expr) do {\
-    if (!(expr))\
-    {\
-        bootloader_error_post(0, NULL, 0);\
-    }\
-} while(0)
-#define APP_ERROR_CHECK(error) do {\
-    if (error != NRF_SUCCESS)\
-    {\
-        bootloader_error_post(error, NULL, 0);\
-    }\
-} while(0)
-#endif
-        
+void dfu_transfer_init(void);
+uint32_t dfu_transfer_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer);
+uint32_t dfu_transfer_data(uint32_t p_addr, uint8_t* p_data, uint16_t length);
+bool dfu_transfer_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len);
+bool dfu_transfer_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, uint32_t* p_len);
+void dfu_transfer_sha256(sha256_context_t* p_hash_context);
+void dfu_transfer_end(void);
+void dfu_transfer_flash_write_complete(uint8_t* p_write_src);
 
-uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd);
-uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length);
-uint32_t flash_erase(uint32_t* p_dest, uint32_t length);
-uint32_t bootloader_evt_send(bl_evt_t* p_evt);
-uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line);
-#endif /* BOOTLOADER_APP_BRIDGE_H__ */
-
+#endif /* DFU_TRANSFER_MESH_H__ */

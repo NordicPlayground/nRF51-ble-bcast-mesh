@@ -29,13 +29,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 #include <string.h>
 #include <stdio.h>
-#include "dfu_mesh.h"
+#include "dfu_transfer_mesh.h"
 #include "dfu_types_mesh.h"
 #include "bootloader_mesh.h"
 #include "nrf51.h"
 #include "bootloader_app_bridge.h"
 #include "sha256.h"
-#include "app_error.h"
 #include "nrf_mbr.h"
 
 #ifndef MISSING_ENTRY_BACKLOG_COUNT
@@ -159,7 +158,7 @@ static void entry_mark_as_missing(uint32_t p_start, uint16_t length)
         }
     }
     /* backlog is full, abort. */
-    bootloader_abort(BL_END_ERROR_PACKET_LOSS);
+    send_abort_evt(BL_END_ERROR_PACKET_LOSS);
 }
 
 static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
@@ -193,7 +192,7 @@ static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
 static void flash_write_buffer(void)
 {
     m_write_buffer_busy = 1;
-    //TODO
+    
     flash_write((uint32_t*) ((uint32_t) m_current_transfer.p_bank_addr
                                - (uint32_t) m_current_transfer.p_start_addr
                                + (uint32_t) m_current_transfer.p_write_pointer),
@@ -205,16 +204,16 @@ static void flash_write_buffer(void)
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
-void dfu_init(void)
+void dfu_transfer_init(void)
 {
     m_write_buffer_busy = 0;
     memset(&m_current_transfer, 0, sizeof(m_current_transfer));
     memset(mp_write_buffer, 0xFF, WRITE_BUFFER_SIZE);
 }
 
-uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer)
+uint32_t dfu_transfer_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer)
 {
-    dfu_init();
+    dfu_transfer_init();
     uint16_t segment_count = (((size + (uint32_t) p_start_addr) & 0xFFFFFFF0) - ((uint32_t) p_start_addr & 0xFFFFFFF0)) / 16;
 
     if (PAGE_OFFSET(p_start_addr) != 0 ||
@@ -241,7 +240,7 @@ uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size,
     return NRF_SUCCESS;
 }
 
-uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
+uint32_t dfu_transfer_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
 {
     if (m_write_buffer_busy)
     {
@@ -333,7 +332,7 @@ uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
     return NRF_SUCCESS;
 }
 
-bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len)
+bool dfu_transfer_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len)
 {
     uint32_t* p_storage_addr;
     if (WRITE_BUFFER_ALIGN(p_addr) > (uint32_t) m_current_transfer.p_write_pointer)
@@ -368,7 +367,7 @@ bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len)
     return true;
 }
 
-bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, uint32_t* p_len)
+bool dfu_transfer_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, uint32_t* p_len)
 {
     *pp_entry = NULL;
     *p_len = 0;
@@ -390,14 +389,14 @@ bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, u
     return (*pp_entry != NULL);
 }
 
-void dfu_sha256(sha256_context_t* p_hash_context)
+void dfu_transfer_sha256(sha256_context_t* p_hash_context)
 {
     sha256_update(p_hash_context,
                   (uint8_t*) m_current_transfer.p_bank_addr,
                   m_current_transfer.size);
 }
 
-void dfu_end(void)
+void dfu_transfer_end(void)
 {
     if (m_current_transfer.first_invalid_byte_in_write_buffer != 0)
     {
@@ -405,7 +404,7 @@ void dfu_end(void)
     }
 }
 
-void dfu_flash_bank(void)
+void dfu_transfer_flash_bank(void)
 {
     if (m_current_transfer.p_bank_addr != m_current_transfer.p_start_addr &&
         m_current_transfer.p_bank_addr != NULL)
@@ -415,7 +414,7 @@ void dfu_flash_bank(void)
     }
 }
 
-void dfu_flash_write_complete(uint8_t* p_write_src)
+void dfu_transfer_flash_write_complete(uint8_t* p_write_src)
 {
     if (p_write_src == mp_write_buffer)
     {

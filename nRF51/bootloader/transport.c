@@ -52,7 +52,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef struct
 {
     mesh_packet_t* p_packet;
-    release_cb_t release_callback;
     uint32_t ticks_next;
     uint32_t ticks_start;
     uint8_t repeats;
@@ -254,7 +253,7 @@ void transport_start(void)
     }
 }
 
-bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type, release_cb_t release_cb)
+bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type)
 {
     if (type == TX_INTERVAL_TYPE_EXPONENTIAL && repeats > TX_REPEATS_EXPONENTIAL_MAX)
     {
@@ -277,7 +276,6 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t t
     p_tx->count = 0;
     p_tx->ticks_start = NRF_RTC0->COUNTER;
     p_tx->type = type;
-    p_tx->release_callback = release_cb;
     set_next_tx(p_tx);
     order_next_rtc();
     return true;
@@ -363,10 +361,6 @@ void transport_rtc_irq_handler(void)
             }
             else
             {
-                if (m_tx[i].release_callback)
-                {
-                    m_tx[i].release_callback(m_tx[i].p_packet);
-                }
                 mesh_packet_ref_count_dec(m_tx[i].p_packet);
                 memset(&m_tx[i], 0, sizeof(tx_t));
             }

@@ -27,35 +27,53 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef BOOTLOADER_H__
-#define BOOTLOADER_H__
+
+#ifndef BOOTLOADER_APP_BRIDGE_H__
+#define BOOTLOADER_APP_BRIDGE_H__
 
 #include <stdint.h>
-#include <stdbool.h>
-#include "dfu_types_mesh.h"
-#include "mesh_packet.h"
 #include "bl_if.h"
 
-#define SD_VERSION_INVALID                  (0x0000)
-#define APP_VERSION_INVALID                 (0x00000000)
+#ifdef DEBUG
+#define APP_ERROR_CHECK_BOOL(expr) do {\
+    if (!(expr))\
+    {\
+        bootloader_error_post(0, __FILE__, __LINE__);\
+    }\
+} while(0)
+#define APP_ERROR_CHECK(error) do {\
+    if (error != NRF_SUCCESS)\
+    {\
+        bootloader_error_post(error, __FILE__, __LINE__);\
+    }\
+} while(0)
+#else
+#define APP_ERROR_CHECK_BOOL(expr) do {\
+    if (!(expr))\
+    {\
+        bootloader_error_post(0, NULL, 0);\
+    }\
+} while(0)
+#define APP_ERROR_CHECK(error) do {\
+    if (error != NRF_SUCCESS)\
+    {\
+        bootloader_error_post(error, NULL, 0);\
+    }\
+} while(0)
+#endif
+        
 
-typedef enum
-{
-    BL_STATE_FIND_FWID,
-    BL_STATE_DFU_REQ,
-    BL_STATE_DFU_READY,
-    BL_STATE_DFU_TARGET,
-    BL_STATE_VALIDATE,
-    BL_STATE_RELAY_CANDIDATE,
-    BL_STATE_RELAY
-} bl_state_t;
+uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd);
+uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length);
+uint32_t flash_erase(uint32_t* p_dest, uint32_t length);
+uint32_t bootloader_evt_send(bl_evt_t* p_evt);
+uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line);
 
+uint32_t timer_set(uint32_t delay_us);
+uint32_t timer_abort(void);
 
-void bootloader_init(void);
-void bootloader_start(void);
-uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
-void bootloader_abort(bl_end_t end_reason);
-void bootloader_timeout(void);
-void bootloader_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
+uint32_t tx_abort(uint8_t slot);
+void send_abort_evt(bl_end_t end_reason);
 
-#endif /* BOOTLOADER_H__ */
+#endif /* BOOTLOADER_APP_BRIDGE_H__ */
+

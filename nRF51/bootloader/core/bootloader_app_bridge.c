@@ -29,12 +29,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include <stddef.h>
-//#include "bootloader_app_bridge.h"
+#include "bootloader_app_bridge.h"
 #include "bl_if.h"
 #include "bootloader_mesh.h"
 #include "bootloader_info.h"
-#include "dfu_mesh.h"
-
+#include "dfu_transfer_mesh.h"
 
 /*****************************************************************************
 * Local defines
@@ -61,13 +60,6 @@ static bl_if_cb_evt_t m_evt_handler = NULL;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-static void bootloader_abort(bl_end_t end_reason)
-{
-    bl_evt_t abort_evt;
-    abort_evt.type = BL_EVT_TYPE_ABORT;
-    abort_evt.params.abort.reason = end_reason;
-    m_evt_handler(&abort_evt);
-}
 
 /*****************************************************************************
 * Interface functions
@@ -77,15 +69,21 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
     switch (p_bl_cmd->type)
     {
         case BL_CMD_TYPE_INIT:
+            if (p_bl_cmd->params.init.timer_count == 0 ||
+                p_bl_cmd->params.init.tx_slots < 2)
+            {
+                return NRF_ERROR_INVALID_PARAM;
+            }
+            
             if (bootloader_info_init((uint32_t*) (BOOTLOADER_INFO_ADDRESS),
                                      (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE))
                 != NRF_SUCCESS)
             {
-                bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
+                send_abort_evt(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
                 return NRF_ERROR_INTERNAL;
             }
             m_evt_handler = p_bl_cmd->params.init.event_callback;
-            bootloader_init();
+            bootloader_init(p_bl_cmd->params.init.tx_slots);
             break;
         case BL_CMD_TYPE_ENABLE:
             bootloader_start();
@@ -184,7 +182,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
             break;
 #endif
         case BL_CMD_TYPE_FLASH_WRITE_COMPLETE:
-            dfu_flash_write_complete(p_bl_cmd->params.flash.write.p_data);
+            dfu_transfer_flash_write_complete(p_bl_cmd->params.flash.write.p_data);
             break;
         case BL_CMD_TYPE_FLASH_ERASE_COMPLETE:
             /* don't care */
@@ -194,6 +192,14 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
     }
 
     return NRF_SUCCESS;
+}
+
+void send_abort_evt(bl_end_t end_reason)
+{
+    bl_evt_t abort_evt;
+    abort_evt.type = BL_EVT_TYPE_ABORT;
+    abort_evt.params.abort.reason = end_reason;
+    m_evt_handler(&abort_evt);
 }
 
 uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length)
@@ -215,6 +221,7 @@ uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length)
     return m_evt_handler(&evt);
 }
 
+
 uint32_t flash_erase(uint32_t* p_dest, uint32_t length)
 {
     if (m_evt_handler == NULL)
@@ -231,4 +238,41 @@ uint32_t flash_erase(uint32_t* p_dest, uint32_t length)
         }
     };
     return m_evt_handler(&evt);
+}
+
+uint32_t timer_set(uint32_t delay_us)
+{
+    if (m_evt_handler == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    bl_evt_t set_evt;
+    set_evt.type = BL_EVT_TYPE_TIMER_SET;
+    set_evt.params.timer.set.delay_us = delay_us;
+    set_evt.params.timer.set.index = 0; 
+    return m_evt_handler(&set_evt);
+}
+
+uint32_t timer_abort(void)
+{
+    if (m_evt_handler == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    bl_evt_t abort_evt;
+    abort_evt.type = BL_EVT_TYPE_TIMER_ABORT;
+    abort_evt.params.timer.abort.index = 0; 
+    return m_evt_handler(&abort_evt);
+}
+
+uint32_t tx_abort(uint8_t slot)
+{
+    if (m_evt_handler == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    bl_evt_t abort_evt;
+    abort_evt.type = BL_EVT_TYPE_TX_ABORT;
+    abort_evt.params.tx.abort.tx_slot = slot; 
+    return m_evt_handler(&abort_evt);
 }

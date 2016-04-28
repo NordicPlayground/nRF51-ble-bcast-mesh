@@ -51,7 +51,7 @@ typedef void(*rx_cb_t)(mesh_packet_t* p_packet);
 
 void transport_init(rx_cb_t rx_cb, uint32_t access_addr);
 void transport_start(void);
-bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type, release_cb_t release_cb);
+bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type);
 void transport_tx_reset(mesh_packet_t* p_packet);
 void transport_tx_skip(mesh_packet_t* p_packet);
 void transport_tx_abort(mesh_packet_t* p_packet);

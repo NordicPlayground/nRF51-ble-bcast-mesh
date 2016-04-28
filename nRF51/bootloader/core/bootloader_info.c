@@ -33,7 +33,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_mesh.h"
 #include "dfu_types_mesh.h"
 #include "bootloader_app_bridge.h"
-#include "app_error.h"
 #include "nrf51.h"
 
 #define WORD_ALIGN(data) data = (((uint32_t) data + 4) & 0xFFFFFFFC)
@@ -207,7 +206,7 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
         if (bootloader_info_first_unused_get(mp_bl_info_bank_page) == NULL)
         {
             /* bank is invalid too, no way to recover */
-            bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
+            send_abort_evt(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
         }
 
         flash_erase((uint32_t*) mp_bl_info_page, PAGE_SIZE);
