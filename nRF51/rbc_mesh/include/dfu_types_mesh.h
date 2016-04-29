@@ -90,6 +90,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_PACKET_LEN_DATA_REQ     (2 + 2 + 4)
 #define DFU_PACKET_LEN_DATA_RSP     (2 + 2 + 4 + SEGMENT_LENGTH)
 
+
+#define DFU_PACKET_ADV_OVERHEAD     (1 /* adv_type */ + 2 /* UUID */) /* overhead inside adv data */
+#define DFU_PACKET_OVERHEAD         (MESH_PACKET_BLE_OVERHEAD + 1 + DFU_PACKET_ADV_OVERHEAD) /* dfu packet total overhead */
 #define SERIAL_PACKET_OVERHEAD      (1)
 
 #define DFU_PUBLIC_KEY_LEN          (64)
