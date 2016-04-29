@@ -36,9 +36,12 @@
 #include "timeslot_handler.h"
 #include "version.h"
 #include "mesh_packet.h"
+#include "dfu_types_mesh.h"
 
 #ifdef BOOTLOADER
-#include "bootloader_mesh.h"
+#include "bootloader.h"
+#else
+#include "bootloader_app.h"
 #endif
 
 
@@ -438,7 +441,6 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
 
                 /* do not attempt to police the length for this event type, as additional data might be added in future versions */
 
-#ifdef BOOTLOADER
                 /* attempt to allocate a packet for the buffer before entering the handler, allowing to catch
                    out-of-memory issues right away. */
                 mesh_packet_t* p_packet = NULL;
@@ -506,19 +508,26 @@ static void serial_command_handler(serial_cmd_t* serial_cmd)
                 /* propagate to handler */
                 if (error_code == NRF_SUCCESS)
                 {
-                    bootloader_packet_set_local_fields(p_packet, serial_cmd->length - SERIAL_PACKET_OVERHEAD);
+                    mesh_packet_set_local_addr(p_packet);
+                    p_packet->header.type = BLE_PACKET_TYPE_ADV_NONCONN_IND;
+                    p_packet->header.length = DFU_PACKET_OVERHEAD + serial_cmd->length - SERIAL_PACKET_OVERHEAD;
+                    ((ble_ad_t*) p_packet->payload)->adv_data_type = MESH_ADV_DATA_TYPE;
+                    ((ble_ad_t*) p_packet->payload)->data[0] = (MESH_UUID & 0xFF);
+                    ((ble_ad_t*) p_packet->payload)->data[1] = (MESH_UUID >> 8) & 0xFF;
+                    ((ble_ad_t*) p_packet->payload)->adv_data_length = DFU_PACKET_ADV_OVERHEAD + serial_cmd->length - SERIAL_PACKET_OVERHEAD;
                     memcpy(&p_packet->payload[4], &serial_cmd->params.dfu.packet, serial_cmd->length - SERIAL_PACKET_OVERHEAD);
 
-                    error_code = bootloader_rx((dfu_packet_t*) &p_packet->payload[4], serial_cmd->length - SERIAL_PACKET_OVERHEAD, true);
+                    bl_cmd_t rx_cmd;
+                    rx_cmd.type = BL_CMD_TYPE_RX;
+                    rx_cmd.params.rx.p_dfu_packet = (dfu_packet_t*) &p_packet->payload[4];
+                    rx_cmd.params.rx.length = serial_cmd->length - SERIAL_PACKET_OVERHEAD; //TODO: check this length. Is it correct?
+                    error_code = bootloader_cmd_send(&rx_cmd);
+                }
+
+                if (p_packet != NULL)
+                {
                     mesh_packet_ref_count_dec(p_packet);
                 }
-#else
-                error_code = NRF_ERROR_INVALID_STATE;
-                serial_evt.params.cmd_rsp.response.dfu.packet_type = serial_cmd->params.dfu.packet.packet_type;
-                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-                serial_handler_event_send(&serial_evt);
-
-#endif
             }
             break;
 
