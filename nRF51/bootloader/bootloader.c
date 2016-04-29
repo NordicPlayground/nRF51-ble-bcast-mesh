@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_flash.h"
 #include "mesh_aci.h"
 #include "app_error.h"
+#include "serial_handler.h"
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
@@ -113,13 +114,49 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             bootloader_abort(p_evt->params.abort.reason);
             break;
         case BL_EVT_TYPE_TX_RADIO:
-            if (!transport_tx(mesh_packet_get_aligned(p_evt->params.tx.radio.p_dfu_packet),
-                    p_evt->params.tx.radio.tx_count,
-                    (tx_interval_type_t) p_evt->params.tx.radio.interval_type))
+        {
+            mesh_packet_t* p_packet = NULL;
+            if (!mesh_packet_acquire(&p_packet))
+            {
+                return NRF_ERROR_NO_MEM;
+            }
+
+            mesh_packet_set_local_addr(p_packet);
+            p_packet->header.type = BLE_PACKET_TYPE_ADV_NONCONN_IND;
+            p_packet->header.length = DFU_PACKET_OVERHEAD + p_evt->params.tx.radio.length;
+            ((ble_ad_t*) p_packet->payload)->adv_data_type = MESH_ADV_DATA_TYPE;
+            ((ble_ad_t*) p_packet->payload)->data[0] = (MESH_UUID & 0xFF);
+            ((ble_ad_t*) p_packet->payload)->data[1] = (MESH_UUID >> 8) & 0xFF;
+            ((ble_ad_t*) p_packet->payload)->adv_data_length = DFU_PACKET_ADV_OVERHEAD + p_evt->params.tx.radio.length;
+            memcpy(&p_packet->payload[4], p_evt->params.tx.radio.p_dfu_packet, p_evt->params.tx.radio.length);
+
+            bool success = transport_tx(p_packet,
+                                        p_evt->params.tx.radio.tx_slot,
+                                        p_evt->params.tx.radio.tx_count,
+                                        (tx_interval_type_t) p_evt->params.tx.radio.interval_type);
+            mesh_packet_ref_count_dec(p_packet);
+
+            if (!success)
             {
                 return NRF_ERROR_INTERNAL;
             }
             break;
+        }
+        case BL_EVT_TYPE_TX_ABORT:
+            transport_tx_abort(p_evt->params.tx.abort.tx_slot);
+            break;
+        case BL_EVT_TYPE_TX_SERIAL:
+        {
+            serial_evt_t serial_evt;
+            serial_evt.opcode = SERIAL_EVT_OPCODE_DFU;
+            memcpy(&serial_evt.params.dfu.packet, p_evt->params.tx.serial.p_dfu_packet, p_evt->params.tx.serial.length);
+            serial_evt.length = SERIAL_PACKET_OVERHEAD + p_evt->params.tx.serial.length;
+            if (!serial_handler_event_send(&serial_evt))
+            {
+                return NRF_ERROR_INTERNAL;
+            }
+            break;
+        }
         case BL_EVT_TYPE_TIMER_SET:
             set_timeout(p_evt->params.timer.set.delay_us);
             break;
