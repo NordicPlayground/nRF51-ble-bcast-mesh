@@ -56,12 +56,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TX_INTERVAL_TYPE_RSP        (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR)
 
-#define STATE_TIMEOUT_FIND_FWID     (5000000) /*  5.0s */
-#define STATE_TIMEOUT_REQ           (1000000) /*  1.0s */
-#define STATE_TIMEOUT_READY         (3000000) /*  3.0s */
-#define STATE_TIMEOUT_TARGET        (5000000) /*  5.0s */
-#define STATE_TIMEOUT_RAMPDOWN      (1000000) /*  1.0s */
-#define STATE_TIMEOUT_RELAY         (0000000) /* 10.0s */
+#define STATE_TIMEOUT_FIND_FWID     ( 5000000) /*  5.0s */
+#define STATE_TIMEOUT_REQ           ( 1000000) /*  1.0s */
+#define STATE_TIMEOUT_READY         ( 3000000) /*  3.0s */
+#define STATE_TIMEOUT_TARGET        ( 5000000) /*  5.0s */
+#define STATE_TIMEOUT_RAMPDOWN      ( 1000000) /*  1.0s */
+#define STATE_TIMEOUT_RELAY         (10000000) /* 10.0s */
 
 #define TX_SLOT_BEACON              (0)    
 
@@ -134,7 +134,7 @@ typedef struct
 * Static globals
 *****************************************************************************/
 static transaction_t            m_transaction;
-static bl_state_t               m_state = BL_STATE_FIND_FWID;
+static dfu_state_t              m_state = DFU_STATE_FIND_FWID;
 static bl_info_pointers_t       m_bl_info_pointers;
 static req_cache_entry_t        m_req_cache[REQ_CACHE_SIZE];
 static uint8_t                  m_req_index;
@@ -323,7 +323,7 @@ static void beacon_set(beacon_type_t type)
         dfu_packet.payload.state.authority = m_transaction.authority;
         dfu_packet.payload.state.flood = m_transaction.flood;
         dfu_packet.payload.state.transaction_id = m_transaction.transaction_id;
-        dfu_packet.payload.state.relay_node = (m_state == BL_STATE_RELAY_CANDIDATE);
+        dfu_packet.payload.state.relay_node = (m_state == DFU_STATE_RELAY_CANDIDATE);
         dfu_packet.payload.state.fwid = m_transaction.target_fwid_union;
         repeats = TX_REPEATS_READY;
         interval_type = TX_INTERVAL_TYPE_READY;
@@ -401,7 +401,7 @@ static void start_find_fwid(void)
 {
     beacon_set(BEACON_TYPE_FWID);
     timer_set(STATE_TIMEOUT_FIND_FWID);
-    m_state = BL_STATE_FIND_FWID;
+    m_state = DFU_STATE_FIND_FWID;
     memset(&m_transaction, 0, sizeof(transaction_t));
 }
 
@@ -421,7 +421,7 @@ static void start_req(dfu_type_t type, bool timeout)
     {
         timer_set(STATE_TIMEOUT_REQ);
     }
-    m_state = BL_STATE_DFU_REQ;
+    m_state = DFU_STATE_DFU_REQ;
 
     beacon_set(state_beacon_type(type));
 }
@@ -438,7 +438,7 @@ static void start_ready(dfu_packet_t* p_ready_packet)
     m_transaction.authority = p_ready_packet->payload.state.authority;
     m_transaction.flood = p_ready_packet->payload.state.flood;
     timer_set(STATE_TIMEOUT_READY);
-    m_state = BL_STATE_DFU_READY;
+    m_state = DFU_STATE_DFU_READY;
 
     beacon_set(state_beacon_type(m_transaction.type));
 }
@@ -446,7 +446,7 @@ static void start_ready(dfu_packet_t* p_ready_packet)
 static void start_target(void)
 {
     timer_set(STATE_TIMEOUT_TARGET);
-    m_state = BL_STATE_DFU_TARGET;
+    m_state = DFU_STATE_DFU_TARGET;
 
     uint32_t segment_size = 0;
     bl_info_entry_t flags_entry;
@@ -528,7 +528,7 @@ static void start_rampdown(void)
     timer_evt.params.timer.set.index = 0;
     bootloader_evt_send(&timer_evt);
     
-    m_state = BL_STATE_VALIDATE;
+    m_state = DFU_STATE_VALIDATE;
 }
 
 static void start_relay_candidate(dfu_packet_t* p_packet)
@@ -538,7 +538,7 @@ static void start_relay_candidate(dfu_packet_t* p_packet)
     m_transaction.authority = p_packet->payload.state.authority;
     m_transaction.transaction_id = p_packet->payload.state.transaction_id;
     m_transaction.target_fwid_union = p_packet->payload.state.fwid;
-    m_state = BL_STATE_RELAY_CANDIDATE;
+    m_state = DFU_STATE_RELAY_CANDIDATE;
 
     beacon_set(state_beacon_type(m_transaction.type));
 }
@@ -601,7 +601,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             return;
         }
 
-        if (m_state == BL_STATE_DFU_READY)
+        if (m_state == DFU_STATE_DFU_READY)
         {
             if (p_packet->payload.start.segment == 0)
             {
@@ -679,7 +679,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 start_req(m_transaction.type, true); /* go back to req, we've missed packet 0 */
             }
         }
-        else if (m_state == BL_STATE_DFU_TARGET)
+        else if (m_state == DFU_STATE_DFU_TARGET)
         {
             if (p_packet->payload.data.segment > 0 &&
                 p_packet->payload.data.segment <= m_transaction.segment_count)
@@ -752,10 +752,10 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 start_rampdown();
             }
         }
-        else if (m_state == BL_STATE_RELAY_CANDIDATE ||
-                 m_state == BL_STATE_RELAY)
+        else if (m_state == DFU_STATE_RELAY_CANDIDATE ||
+                 m_state == DFU_STATE_RELAY)
         {
-            m_state = BL_STATE_RELAY;
+            m_state = DFU_STATE_RELAY;
             tx_abort(TX_SLOT_BEACON);
             timer_set(STATE_TIMEOUT_RELAY);
             do_relay = true;
@@ -774,7 +774,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
 {
     switch (m_state)
     {
-        case BL_STATE_FIND_FWID:
+        case DFU_STATE_FIND_FWID:
             if (p_packet->payload.state.authority > 0)
             {
                 m_transaction.type = (dfu_type_t) p_packet->payload.state.dfu_type;
@@ -790,7 +790,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                 }
             }
             break;
-        case BL_STATE_DFU_REQ:
+        case DFU_STATE_DFU_REQ:
             if (p_packet->payload.state.authority > 0)
             {
                 if (ready_packet_matches_our_req(p_packet) ||
@@ -807,7 +807,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                 }
             }
             break;
-        case BL_STATE_DFU_READY:
+        case DFU_STATE_DFU_READY:
             if (ready_packet_matches_our_req(p_packet))
             {
                 if (p_packet->payload.state.authority > m_transaction.authority ||
@@ -823,7 +823,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                 }
             }
             break;
-        case BL_STATE_RELAY_CANDIDATE:
+        case DFU_STATE_RELAY_CANDIDATE:
             if (m_transaction.type == p_packet->payload.state.dfu_type &&
                 fwid_union_cmp(&m_transaction.target_fwid_union, &p_packet->payload.state.fwid, m_transaction.type))
             {
@@ -845,7 +845,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
 
 static void handle_fwid_packet(dfu_packet_t* p_packet)
 {
-    if (m_state == BL_STATE_FIND_FWID)
+    if (m_state == DFU_STATE_FIND_FWID)
     {
         /* always upgrade bootloader first */
         if (bootloader_is_newer(p_packet->payload.fwid.bootloader))
@@ -876,7 +876,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
 {
     if (p_packet->payload.data.transaction_id == m_transaction.transaction_id)
     {
-        if (m_state == BL_STATE_RELAY)
+        if (m_state == DFU_STATE_RELAY)
         {
             /* only relay new packets, look for it in cache */
             if (!packet_in_cache(p_packet))
@@ -932,7 +932,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
 
 static void handle_data_rsp_packet(dfu_packet_t* p_packet, uint16_t length)
 {
-    if (m_state == BL_STATE_RELAY)
+    if (m_state == DFU_STATE_RELAY)
     {
         /* only relay new packets, look for it in cache */
         if (!packet_in_cache(p_packet))
@@ -964,7 +964,7 @@ static bool fw_is_verified(void)
 *****************************************************************************/
 void dfu_mesh_init(uint8_t tx_slots)
 {
-    m_state = BL_STATE_FIND_FWID;
+    m_state = DFU_STATE_FIND_FWID;
     m_transaction.transaction_id = 0;
     m_transaction.type = DFU_TYPE_NONE;
     memset(m_req_cache, 0, REQ_CACHE_SIZE * sizeof(m_req_cache[0]));
@@ -1112,20 +1112,20 @@ void dfu_mesh_timeout(void)
 {
     switch (m_state)
     {
-        case BL_STATE_FIND_FWID:
+        case DFU_STATE_FIND_FWID:
             send_abort_evt(BL_END_FWID_VALID);
             break;
 
-        case BL_STATE_DFU_REQ:
-        case BL_STATE_DFU_READY:
+        case DFU_STATE_DFU_REQ:
+        case DFU_STATE_DFU_READY:
             send_abort_evt(BL_END_ERROR_NO_START);
             break;
 
-        case BL_STATE_DFU_TARGET:
+        case DFU_STATE_DFU_TARGET:
             start_req(m_transaction.type, true);
             break;
 
-        case BL_STATE_VALIDATE:
+        case DFU_STATE_VALIDATE:
         {
             /* Don't want any interrupts disturbing this final stage */
             uint32_t was_masked;
@@ -1202,8 +1202,8 @@ void dfu_mesh_timeout(void)
             }
             break;
         }
-        case BL_STATE_RELAY:
-        case BL_STATE_RELAY_CANDIDATE:
+        case DFU_STATE_RELAY:
+        case DFU_STATE_RELAY_CANDIDATE:
             send_abort_evt(BL_END_SUCCESS);
             break;
         default:
@@ -1216,6 +1216,7 @@ bool dfu_mesh_app_is_valid(uint32_t* p_app_start)
     bl_info_entry_t* p_fwid_entry    = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
 
     return (p_fwid_entry != NULL &&
+            p_app_start != (uint32_t*) 0xFFFFFFFF &&
             *p_app_start != 0xFFFFFFFF &&
             p_fwid_entry->version.app.app_version != APP_VERSION_INVALID &&
             fw_is_verified());
