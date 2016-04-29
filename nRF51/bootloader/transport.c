@@ -42,7 +42,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Static defines
 ******************************************************************************/
 #define RADIO_RX_FIFO_LEN   (32)
-#define TRANSPORT_TX_SLOTS  (8)
 #define RTC_MARGIN          (2) /* ticks */
 #define INTERVAL            (3277) /* ticks */
 #define REDUNDANCY_MAX      (3)
@@ -75,18 +74,6 @@ static bool             m_started = false;
 static void tx_cb(uint8_t* p_data);
 static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
 static void idle_cb(void);
-
-static tx_t* find_tx_entry(mesh_packet_t* p_packet)
-{
-    for (uint32_t i = 0; i < TRANSPORT_TX_SLOTS; ++i)
-    {
-        if (m_tx[i].p_packet == p_packet)
-        {
-            return &m_tx[i];
-        }
-    }
-    return NULL;
-}
 
 static void set_next_tx(tx_t* p_tx)
 {
@@ -253,7 +240,7 @@ void transport_start(void)
     }
 }
 
-bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type)
+bool transport_tx(mesh_packet_t* p_packet, uint8_t slot, uint8_t repeats, tx_interval_type_t type)
 {
     if (type == TX_INTERVAL_TYPE_EXPONENTIAL && repeats > TX_REPEATS_EXPONENTIAL_MAX)
     {
@@ -264,12 +251,16 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t t
         return false;
     }
 
-    tx_t* p_tx = find_tx_entry(NULL);
-    if (p_tx == NULL)
+    if (slot >= TRANSPORT_TX_SLOTS)
     {
         return false;
     }
 
+    tx_t* p_tx = &m_tx[slot];
+    if (p_tx->p_packet)
+    {
+        mesh_packet_ref_count_dec(p_tx->p_packet);
+    }
     mesh_packet_ref_count_inc(p_packet);
     p_tx->p_packet = p_packet;
     p_tx->repeats = repeats;
@@ -281,11 +272,11 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t t
     return true;
 }
 
-void transport_tx_reset(mesh_packet_t* p_packet)
+void transport_tx_reset(uint8_t slot)
 {
-    tx_t* p_tx = find_tx_entry(p_packet);
-    if (p_tx != NULL)
+    if (slot < TRANSPORT_TX_SLOTS)
     {
+        tx_t* p_tx = &m_tx[slot];
         p_tx->count = 0;
         p_tx->ticks_start = NRF_RTC0->COUNTER;
         set_next_tx(p_tx);
@@ -293,29 +284,29 @@ void transport_tx_reset(mesh_packet_t* p_packet)
     }
 }
 
-void transport_tx_skip(mesh_packet_t* p_packet)
+void transport_tx_skip(uint8_t slot)
 {
     NVIC_DisableIRQ(RTC0_IRQn);
-    tx_t* p_tx = find_tx_entry(p_packet);
-    if (p_tx)
+    if (slot < TRANSPORT_TX_SLOTS)
     {
+        tx_t* p_tx = &m_tx[slot];
         p_tx->redundancy++;
     }
     NVIC_EnableIRQ(RTC0_IRQn);
 }
 
-void transport_tx_abort(mesh_packet_t* p_packet)
+void transport_tx_abort(uint8_t slot)
 {
     NVIC_DisableIRQ(RTC0_IRQn);
 
-    tx_t* p_tx = find_tx_entry(p_packet);
-    if (p_tx != NULL)
+    if (slot < TRANSPORT_TX_SLOTS)
     {
+        tx_t* p_tx = &m_tx[slot];
         mesh_packet_ref_count_dec(p_tx->p_packet);
         memset(p_tx, 0, sizeof(tx_t));
-    }
 
-    order_next_rtc();
+        order_next_rtc();
+    }
     NVIC_EnableIRQ(RTC0_IRQn);
 }
 
