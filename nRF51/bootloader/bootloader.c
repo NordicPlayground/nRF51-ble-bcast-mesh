@@ -158,7 +158,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             break;
         }
         case BL_EVT_TYPE_TIMER_SET:
-            set_timeout(p_evt->params.timer.set.delay_us);
+            set_timeout(US_TO_RTC_TICKS(p_evt->params.timer.set.delay_us));
             break;
         case BL_EVT_TYPE_FLASH_WRITE:
             nrf_flash_store((uint32_t*) p_evt->params.flash.write.start_addr,
@@ -207,6 +207,7 @@ void bootloader_init(void)
     init_cmd.params.init.bl_if_version = BL_IF_VERSION;
     init_cmd.params.init.event_callback = bl_evt_handler;
     init_cmd.params.init.timer_count = 1;
+    init_cmd.params.init.tx_slots = TRANSPORT_TX_SLOTS;
     m_cmd_handler(&init_cmd);
 
 #ifdef SERIAL
@@ -231,7 +232,7 @@ uint32_t bootloader_cmd_send(bl_cmd_t* p_bl_cmd)
 
 void bootloader_abort(bl_end_t end_reason)
 {
-    bl_info_entry_t* p_segment_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
+    bl_info_entry_t* p_segment_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_APP);
     switch (end_reason)
     {
         case BL_END_SUCCESS:
@@ -272,6 +273,6 @@ bl_info_entry_t* info_entry_get(bl_info_type_t type)
     {
         return NULL;
     }
-    
+
     return get_cmd.params.info.get.p_entry;
 }
