@@ -33,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport.h"
 #include "bootloader_util.h"
 #include "bootloader_info.h"
-#include "bootloader_mesh.h"
+#include "dfu_mesh.h"
 #include "dfu_types_mesh.h"
 #include "nrf_mbr.h"
 #include "nrf_flash.h"
@@ -201,7 +201,7 @@ void bootloader_abort(bl_end_t end_reason)
         case BL_END_ERROR_TIMEOUT:
         case BL_END_FWID_VALID:
         case BL_END_ERROR_MBR_CALL_FAILED:
-            if (p_segment_entry && bootloader_app_is_valid((uint32_t*) p_segment_entry->segment.start))
+            if (p_segment_entry && dfu_mesh_app_is_valid((uint32_t*) p_segment_entry->segment.start))
             {
                 interrupts_disable();
 

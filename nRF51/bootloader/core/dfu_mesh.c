@@ -28,7 +28,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 #include <string.h>
-#include "bootloader_mesh.h"
+#include "dfu_mesh.h"
 #include "sha256.h"
 #include "dfu_transfer_mesh.h"
 #include "dfu_types_mesh.h"
@@ -962,7 +962,7 @@ static bool fw_is_verified(void)
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
-void bootloader_init(uint8_t tx_slots)
+void dfu_mesh_init(uint8_t tx_slots)
 {
     m_state = BL_STATE_FIND_FWID;
     m_transaction.transaction_id = 0;
@@ -995,7 +995,7 @@ void bootloader_init(uint8_t tx_slots)
     }
 }
 
-void bootloader_start(void)
+void dfu_mesh_start(void)
 {
     if (!m_bl_info_pointers.p_flags->sd_intact ||
          m_bl_info_pointers.p_fwid->sd == SD_VERSION_INVALID)
@@ -1003,7 +1003,7 @@ void bootloader_start(void)
         m_transaction.target_fwid_union.sd = 0;
         start_req(DFU_TYPE_SD, false);
     }
-    else if (!bootloader_app_is_valid((uint32_t*) m_bl_info_pointers.p_segment_app->start))
+    else if (!dfu_mesh_app_is_valid((uint32_t*) m_bl_info_pointers.p_segment_app->start))
     {
         memcpy(&m_transaction.target_fwid_union.app, &m_bl_info_pointers.p_fwid->app, sizeof(app_id_t));
         start_req(DFU_TYPE_APP, false);
@@ -1015,7 +1015,7 @@ void bootloader_start(void)
 
 }
 
-uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
+uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
 {
 #ifdef DEBUG_LEDS
     static bool led = false;
@@ -1108,7 +1108,7 @@ void send_abort_evt(bl_end_t end_reason)
 }
 #endif
 
-void bootloader_timeout(void)
+void dfu_mesh_timeout(void)
 {
     switch (m_state)
     {
@@ -1211,7 +1211,7 @@ void bootloader_timeout(void)
     }
 }
 
-bool bootloader_app_is_valid(uint32_t* p_app_start)
+bool dfu_mesh_app_is_valid(uint32_t* p_app_start)
 {
     bl_info_entry_t* p_fwid_entry    = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
 

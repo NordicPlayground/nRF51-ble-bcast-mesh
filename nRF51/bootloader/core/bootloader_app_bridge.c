@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stddef.h>
 #include "bootloader_app_bridge.h"
 #include "bl_if.h"
-#include "bootloader_mesh.h"
+#include "dfu_mesh.h"
 #include "bootloader_info.h"
 #include "dfu_transfer_mesh.h"
 
@@ -64,6 +64,15 @@ static bl_if_cb_evt_t m_evt_handler = NULL;
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
+uint32_t bootloader_evt_send(bl_evt_t* p_evt)
+{
+    if (m_evt_handler == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    return m_evt_handler(p_evt);
+}
+
 uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
 {
     switch (p_bl_cmd->type)
@@ -83,15 +92,15 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
                 return NRF_ERROR_INTERNAL;
             }
             m_evt_handler = p_bl_cmd->params.init.event_callback;
-            bootloader_init(p_bl_cmd->params.init.tx_slots);
+            dfu_mesh_init(p_bl_cmd->params.init.tx_slots);
             break;
         case BL_CMD_TYPE_ENABLE:
-            bootloader_start();
+            dfu_mesh_start();
             break;
         case BL_CMD_TYPE_RX:
-            return bootloader_rx(p_bl_cmd->params.rx.p_dfu_packet, p_bl_cmd->params.rx.length, true);
+            return dfu_mesh_rx(p_bl_cmd->params.rx.p_dfu_packet, p_bl_cmd->params.rx.length, true);
         case BL_CMD_TYPE_TIMEOUT:
-            bootloader_timeout();
+            dfu_mesh_timeout();
             break;
 
         case BL_CMD_TYPE_DFU_START_TARGET:
@@ -199,15 +208,11 @@ void send_abort_evt(bl_end_t end_reason)
     bl_evt_t abort_evt;
     abort_evt.type = BL_EVT_TYPE_ABORT;
     abort_evt.params.abort.reason = end_reason;
-    m_evt_handler(&abort_evt);
+    bootloader_evt_send(&abort_evt);
 }
 
 uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length)
 {
-    if (m_evt_handler == NULL)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
     bl_evt_t evt =
     {
         .type = BL_EVT_TYPE_FLASH_WRITE,
@@ -218,16 +223,12 @@ uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length)
             .length = length
         }
     };
-    return m_evt_handler(&evt);
+    return bootloader_evt_send(&evt);
 }
 
 
 uint32_t flash_erase(uint32_t* p_dest, uint32_t length)
 {
-    if (m_evt_handler == NULL)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
     bl_evt_t evt =
     {
         .type = BL_EVT_TYPE_FLASH_ERASE,
@@ -237,42 +238,40 @@ uint32_t flash_erase(uint32_t* p_dest, uint32_t length)
             .length = length
         }
     };
-    return m_evt_handler(&evt);
+    return bootloader_evt_send(&evt);
 }
 
 uint32_t timer_set(uint32_t delay_us)
 {
-    if (m_evt_handler == NULL)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
     bl_evt_t set_evt;
     set_evt.type = BL_EVT_TYPE_TIMER_SET;
     set_evt.params.timer.set.delay_us = delay_us;
     set_evt.params.timer.set.index = 0; 
-    return m_evt_handler(&set_evt);
+    return bootloader_evt_send(&set_evt);
 }
 
 uint32_t timer_abort(void)
 {
-    if (m_evt_handler == NULL)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
     bl_evt_t abort_evt;
     abort_evt.type = BL_EVT_TYPE_TIMER_ABORT;
     abort_evt.params.timer.abort.index = 0; 
-    return m_evt_handler(&abort_evt);
+    return bootloader_evt_send(&abort_evt);
 }
 
 uint32_t tx_abort(uint8_t slot)
 {
-    if (m_evt_handler == NULL)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
     bl_evt_t abort_evt;
     abort_evt.type = BL_EVT_TYPE_TX_ABORT;
     abort_evt.params.tx.abort.tx_slot = slot; 
-    return m_evt_handler(&abort_evt);
+    return bootloader_evt_send(&abort_evt);
+}
+
+uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line)
+{
+    bl_evt_t error_evt;
+    error_evt.type = BL_EVT_TYPE_ERROR;
+    error_evt.params.error.error_code = error;
+    error_evt.params.error.p_file = file;
+    error_evt.params.error.line = line;
+    return bootloader_evt_send(&error_evt);
 }

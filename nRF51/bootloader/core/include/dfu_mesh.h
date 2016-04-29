@@ -27,8 +27,8 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef BOOTLOADER_MESH_H__
-#define BOOTLOADER_MESH_H__
+#ifndef DFU_MESH_H__
+#define DFU_MESH_H__
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -51,11 +51,11 @@ typedef enum
 } bl_state_t;
 
 
-void bootloader_init(uint8_t tx_slots);
-void bootloader_start(void);
-uint32_t bootloader_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
-void bootloader_timeout(void);
-void bootloader_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
-bool bootloader_app_is_valid(uint32_t* p_app_start);
+void dfu_mesh_init(uint8_t tx_slots);
+void dfu_mesh_start(void);
+uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
+void dfu_mesh_timeout(void);
+void dfu_mesh_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
+bool dfu_mesh_app_is_valid(uint32_t* p_app_start);
 
-#endif /* BOOTLOADER_MESH_H__ */
+#endif /* DFU_MESH_H__ */
