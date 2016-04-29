@@ -226,10 +226,14 @@ uint32_t dfu_transfer_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint3
     {
         m_current_transfer.p_bank_addr = p_start_addr;
     }
+    else
+    {
+        m_current_transfer.p_bank_addr = p_bank_addr;
+    }
 
     /* erase all affected pages. */
     flash_erase((uint32_t*) PAGE_ALIGN(m_current_transfer.p_bank_addr),
-                                PAGE_ALIGN(size) + PAGE_SIZE);
+                                PAGE_ALIGN(size + PAGE_SIZE - 1));
 
     m_current_transfer.p_start_addr = p_start_addr;
     m_current_transfer.segment_count = segment_count;
