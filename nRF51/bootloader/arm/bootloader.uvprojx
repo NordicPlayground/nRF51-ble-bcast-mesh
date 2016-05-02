@@ -363,9 +363,9 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99 --debug</MiscControls>
-              <Define>DEBUG_LEDS NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_DATA_CACHE_ENTRIES=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm APP_ERROR_H__</Define>
+              <Define>DEBUG_LEDS NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_DATA_CACHE_ENTRIES=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\rbc_mesh\include;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp</IncludePath>
+              <IncludePath>..\..\rbc_mesh\include;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp;..\core\include</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -691,9 +691,9 @@
               </FileOption>
             </File>
             <File>
-              <FileName>bootloader_mesh.c</FileName>
+              <FileName>dfu_mesh.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\core\bootloader_mesh.c</FilePath>
+              <FilePath>..\core\dfu_mesh.c</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -1561,9 +1561,9 @@
               </FileOption>
             </File>
             <File>
-              <FileName>bootloader_mesh.c</FileName>
+              <FileName>dfu_mesh.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\core\bootloader_mesh.c</FilePath>
+              <FilePath>..\core\dfu_mesh.c</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
