@@ -34,7 +34,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "bl_if.h"
 
-#ifdef DEBUG
+#ifndef APP_ERROR_CHECK
+#ifdef DEBUG 
+
 #define APP_ERROR_CHECK_BOOL(expr) do {\
     if (!(expr))\
     {\
@@ -61,7 +63,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     }\
 } while(0)
 #endif
-        
+#endif
 
 uint32_t bootloader_evt_send(bl_evt_t* p_evt);
 uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd);
