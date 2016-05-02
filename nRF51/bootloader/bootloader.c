@@ -40,6 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_aci.h"
 #include "app_error.h"
 #include "serial_handler.h"
+#include "bootloader_app_bridge.h"
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
@@ -52,7 +53,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static bl_if_cmd_handler_t m_cmd_handler;
+
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
@@ -101,7 +102,7 @@ static void rx_cb(mesh_packet_t* p_packet)
         rx_cmd.type = BL_CMD_TYPE_RX;
         rx_cmd.params.rx.p_dfu_packet = (dfu_packet_t*) &p_adv_data->handle;
         rx_cmd.params.rx.length = p_adv_data->adv_data_length - 3;
-        m_cmd_handler(&rx_cmd);
+        bl_cmd_handler(&rx_cmd);
     }
 }
 
@@ -147,6 +148,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             break;
         case BL_EVT_TYPE_TX_SERIAL:
         {
+#ifdef SERIAL            
             serial_evt_t serial_evt;
             serial_evt.opcode = SERIAL_EVT_OPCODE_DFU;
             memcpy(&serial_evt.params.dfu.packet, p_evt->params.tx.serial.p_dfu_packet, p_evt->params.tx.serial.length);
@@ -156,6 +158,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
                 return NRF_ERROR_INTERNAL;
             }
             break;
+#endif            
         }
         case BL_EVT_TYPE_TIMER_SET:
             set_timeout(US_TO_RTC_TICKS(p_evt->params.timer.set.delay_us));
@@ -170,7 +173,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             rsp_cmd.params.flash.write.start_addr   = p_evt->params.flash.write.start_addr;
             rsp_cmd.params.flash.write.p_data       = p_evt->params.flash.write.p_data;
             rsp_cmd.params.flash.write.length       = p_evt->params.flash.write.length;
-            m_cmd_handler(&rsp_cmd);
+            bl_cmd_handler(&rsp_cmd);
             break;
         case BL_EVT_TYPE_FLASH_ERASE:
             nrf_flash_erase((uint32_t*) p_evt->params.flash.erase.start_addr,
@@ -180,7 +183,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             rsp_cmd.type                            = BL_CMD_TYPE_FLASH_ERASE_COMPLETE;
             rsp_cmd.params.flash.erase.start_addr   = p_evt->params.flash.erase.start_addr;
             rsp_cmd.params.flash.erase.length       = p_evt->params.flash.erase.length;
-            m_cmd_handler(&rsp_cmd);
+            bl_cmd_handler(&rsp_cmd);
             break;
         default:
             return NRF_ERROR_NOT_SUPPORTED;
@@ -192,14 +195,6 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
 *****************************************************************************/
 void bootloader_init(void)
 {
-    m_cmd_handler = *((bl_if_cmd_handler_t*) (0x20000000 + ((uint32_t) (NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK) - 4)));
-    if (m_cmd_handler == NULL ||
-        (uint32_t) m_cmd_handler >= 0x20000000)
-    {
-        m_cmd_handler = NULL;
-        return;
-    }
-
     rtc_init();
 
     bl_cmd_t init_cmd;
@@ -208,7 +203,7 @@ void bootloader_init(void)
     init_cmd.params.init.event_callback = bl_evt_handler;
     init_cmd.params.init.timer_count = 1;
     init_cmd.params.init.tx_slots = TRANSPORT_TX_SLOTS;
-    m_cmd_handler(&init_cmd);
+    bl_cmd_handler(&init_cmd);
 
 #ifdef SERIAL
     mesh_aci_init();
@@ -221,13 +216,13 @@ void bootloader_enable(void)
 {
     bl_cmd_t enable_cmd;
     enable_cmd.type = BL_CMD_TYPE_ENABLE;
-    m_cmd_handler(&enable_cmd);
+    bl_cmd_handler(&enable_cmd);
     transport_start();
 }
 
 uint32_t bootloader_cmd_send(bl_cmd_t* p_bl_cmd)
 {
-    return m_cmd_handler(p_bl_cmd);
+    return bl_cmd_handler(p_bl_cmd);
 }
 
 void bootloader_abort(bl_end_t end_reason)
@@ -269,7 +264,7 @@ bl_info_entry_t* info_entry_get(bl_info_type_t type)
     get_cmd.type = BL_CMD_TYPE_INFO_GET;
     get_cmd.params.info.get.type = type;
     get_cmd.params.info.get.p_entry = NULL;
-    if (m_cmd_handler(&get_cmd) != NRF_SUCCESS)
+    if (bl_cmd_handler(&get_cmd) != NRF_SUCCESS)
     {
         return NULL;
     }
