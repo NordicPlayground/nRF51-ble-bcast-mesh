@@ -32,8 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "handle_storage.h"
 #include "transport_control.h"
-#include "timeslot_handler.h"
-#include "timer_control.h"
+#include "timer.h"
+#include "timer_scheduler.h"
 #include "event_handler.h"
 #include "rbc_mesh_common.h"
 #include "toolchain.h"
@@ -61,6 +61,7 @@ extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 * Static globals
 ******************************************************************************/
 static bool             m_is_initialized = false;
+static timer_event_t    m_tx_timer_evt;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -116,32 +117,44 @@ static bool payload_has_conflict(mesh_adv_data_t* p_old_adv, mesh_adv_data_t* p_
 }
 
 
-static void transmit_all_instances(uint64_t timestamp);
+static void transmit_all_instances(uint32_t timestamp, void* p_context);
 
-static void order_next_transmission(uint64_t time_now)
+static void order_next_transmission(uint32_t time_now)
 {
-    uint64_t timeout = handle_storage_next_timeout_get();
-    time_now = timer_get_timestamp();
-    uint64_t ts_begin_time = timeslot_get_global_time();
-    if (timeout < ts_begin_time + time_now + 1000)
+    bool found_value;
+    uint32_t timeout = handle_storage_next_timeout_get(&found_value);
+    if (!found_value)
     {
-        vh_order_update(timeout - ts_begin_time);
+        return;
+    }
+    if (timeout < time_now + 1000)
+    {
+        vh_order_update(timeout);
     }
     else
     {
-        timer_order_cb(TIMER_INDEX_VH, timeout - ts_begin_time, transmit_all_instances);
+        m_tx_timer_evt.cb = transmit_all_instances;
+        m_tx_timer_evt.interval = 0;
+        m_tx_timer_evt.p_context = NULL;
+        m_tx_timer_evt.timestamp = timeout;
+        if (timer_sch_schedule(&m_tx_timer_evt) != NRF_SUCCESS)
+        {
+            vh_order_update(timeout); 
+        }
+        else
+        {
+            TICK_PIN(1);
+        }
     }
 }
 
-static void transmit_all_instances(uint64_t timestamp)
+static void transmit_all_instances(uint32_t timestamp, void* p_context)
 {
     SET_PIN(8);
-    //timestamp = timer_get_timestamp();
-    uint64_t timeslot_start = timeslot_get_global_time();
     mesh_packet_t* pp_tx_packets[RBC_MESH_RADIO_QUEUE_LENGTH - 1];
     uint32_t count = RBC_MESH_RADIO_QUEUE_LENGTH - 1;
 
-    uint32_t error_code = handle_storage_tx_packets_get(timestamp + timeslot_start, pp_tx_packets, &count);
+    uint32_t error_code = handle_storage_tx_packets_get(timestamp, pp_tx_packets, &count);
     if (error_code == NRF_SUCCESS)
     {
         uint32_t was_masked;
@@ -155,7 +168,7 @@ static void transmit_all_instances(uint64_t timestamp)
                 if (p_adv)
                 {
                     PIN_OUT(p_adv->handle, 8);
-                    APP_ERROR_CHECK(handle_storage_transmitted(p_adv->handle, timestamp + timeslot_start));
+                    APP_ERROR_CHECK(handle_storage_transmitted(p_adv->handle, timestamp));
                 }
                 else
                 {
@@ -190,7 +203,7 @@ uint32_t vh_min_interval_set(uint32_t min_interval_us)
     return handle_storage_min_interval_set(min_interval_us);
 }
 
-uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
+uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)
 {
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
     if (p_adv_data == NULL)
@@ -344,7 +357,7 @@ uint32_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t 
     error_code = handle_storage_local_packet_push(p_packet);
     if (error_code == NRF_SUCCESS)
     {
-        vh_order_update(timer_get_timestamp()); /* will be executed after the packet push */
+        vh_order_update(timer_now()); /* will be executed after the packet push */
     }
 
     mesh_packet_ref_count_dec(p_packet);
@@ -353,16 +366,17 @@ uint32_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t 
 
 uint32_t vh_on_timeslot_begin(void)
 {
-    return vh_order_update(TIMESLOT_STARTUP_DELAY_US);
+    return vh_order_update(timer_now());
 }
 
-uint32_t vh_order_update(uint64_t time_now)
+uint32_t vh_order_update(uint32_t time_now)
 {
     /* handle expired trickle timers */
     async_event_t tx_event;
-    tx_event.type = EVENT_TYPE_TIMER;
-    tx_event.callback.timer.cb = transmit_all_instances;
-    tx_event.callback.timer.timestamp = time_now;
+    tx_event.type = EVENT_TYPE_TIMER_SCH;
+    tx_event.callback.timer_sch.cb = transmit_all_instances;
+    tx_event.callback.timer_sch.timestamp = time_now;
+    tx_event.callback.timer_sch.p_context = NULL;
     return event_handler_push(&tx_event);
 }
 

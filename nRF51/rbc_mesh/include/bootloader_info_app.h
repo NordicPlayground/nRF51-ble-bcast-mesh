@@ -43,6 +43,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BL_INFO_LEN_FLAGS       (1)
 #define BL_INFO_LEN_SIGNATURE   (DFU_SIGNATURE_LEN)
 
+
+typedef struct
+{
+    struct
+    {
+        uint8_t metadata_len; /* in bytes */
+        uint8_t entry_header_length; /* in bytes */
+        uint8_t entry_len_length;  /* in bits */
+        uint8_t entry_type_length; /* in bits */
+    } metadata;
+    uint8_t data[];
+} bootloader_info_t;
+
 uint32_t bootloader_info_init(uint32_t* p_bl_info_page);
 bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_type_t type);
 

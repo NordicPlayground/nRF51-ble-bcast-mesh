@@ -33,7 +33,6 @@
 
 #include "serial_handler.h"
 #include "event_handler.h"
-#include "timeslot_handler.h"
 #include "version.h"
 #include "mesh_packet.h"
 #include "dfu_types_mesh.h"

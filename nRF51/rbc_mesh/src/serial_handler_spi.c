@@ -232,7 +232,8 @@ void spi_event_handler(spi_slave_evt_t evt)
                 {
 
                     /* notify ACI handler */
-                    async_event_t async_evt = {0};
+                    async_event_t async_evt;
+                    memset(&async_evt, 0, sizeof(async_event_t));
                     async_evt.callback.generic.cb = mesh_aci_command_check_cb;
                     async_evt.type = EVENT_TYPE_GENERIC;
                     event_handler_push(&async_evt);

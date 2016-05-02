@@ -30,7 +30,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rbc_mesh.h"
 #include "rbc_mesh_common.h"
-#include "timeslot_handler.h"
+#include "timeslot.h"
+#include "timer_scheduler.h"
 #include "event_handler.h"
 #include "version_handler.h"
 #include "transport_control.h"
@@ -88,7 +89,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return NRF_ERROR_INVALID_PARAM;
     }
 
-
+    timer_sch_init();
     event_handler_init();
     mesh_packet_init();
     tc_init(init_params.access_addr, init_params.channel);
@@ -117,7 +118,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return error_code;
     }
 
-    timeslot_handler_init(init_params.lfclksrc);
+    timeslot_init(init_params.lfclksrc);
 
     g_access_addr = init_params.access_addr;
     g_channel = init_params.channel;
@@ -130,6 +131,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     g_rbc_event_fifo.elem_size = sizeof(rbc_mesh_event_t);
     g_rbc_event_fifo.memcpy_fptr = NULL;
     fifo_init(&g_rbc_event_fifo);
+    timeslot_resume();
 
     return NRF_SUCCESS;
 }
@@ -140,9 +142,8 @@ uint32_t rbc_mesh_start(void)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-
-    timeslot_order_earliest(10000, true);
-
+    timeslot_resume();
+    
     g_mesh_state = MESH_STATE_RUNNING;
 
     return NRF_SUCCESS;
@@ -302,7 +303,7 @@ void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
 
 void rbc_mesh_sd_evt_handler(uint32_t sd_evt)
 {
-    ts_sd_event_handler(sd_evt);
+    timeslot_sd_event_handler(sd_evt);
 }
 
 uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)

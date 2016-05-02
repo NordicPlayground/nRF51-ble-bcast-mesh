@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 #include "app_error.h"
 #include "rand.h"
+#include "timer.h"
 
 #include "nrf_soc.h"
 #include "nrf51_bitfields.h"
@@ -73,10 +74,10 @@ static void trickle_interval_begin(trickle_t* trickle)
     }
 }
 
-static void refresh_t(trickle_t* trickle, uint64_t time_now)
+static void refresh_t(trickle_t* trickle, uint32_t time_now)
 {
-    static uint64_t time_prev = 0;
-    if (time_now < time_prev)
+    static uint32_t time_prev = 0;
+    if (TIMER_OLDER_THAN(time_now, time_prev))
     {
         time_now = time_prev;
     }
@@ -84,14 +85,14 @@ static void refresh_t(trickle_t* trickle, uint64_t time_now)
 
     uint32_t rand_number = rand_prng_get(&g_rand);
 
-    uint64_t i_half = trickle->i_relative >> 1;
+    uint32_t i_half = trickle->i_relative >> 1;
 
     trickle->t = trickle->i + i_half + (rand_number & (i_half - 1));
 }
 
-static void check_interval(trickle_t* trickle, uint64_t time_now)
+static void check_interval(trickle_t* trickle, uint32_t time_now)
 {
-    if (time_now >= trickle->i && trickle_is_enabled(trickle))
+    if (!TIMER_OLDER_THAN(time_now, trickle->i) && trickle_is_enabled(trickle))
     {
         if (trickle->i_relative < g_i_max * g_i_min)
             trickle->i_relative <<= 1;
@@ -115,7 +116,7 @@ void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k)
     rand_prng_seed(&g_rand);
 }
 
-void trickle_rx_consistent(trickle_t* trickle, uint64_t time_now)
+void trickle_rx_consistent(trickle_t* trickle, uint32_t time_now)
 {
     if (trickle_is_enabled(trickle))
     {
@@ -128,7 +129,7 @@ void trickle_rx_consistent(trickle_t* trickle, uint64_t time_now)
     }
 }
 
-void trickle_rx_inconsistent(trickle_t* trickle, uint64_t time_now)
+void trickle_rx_inconsistent(trickle_t* trickle, uint32_t time_now)
 {
     TICK_PIN(PIN_INCONSISTENT);
     if (trickle->i_relative > g_i_min)
@@ -137,7 +138,7 @@ void trickle_rx_inconsistent(trickle_t* trickle, uint64_t time_now)
     }
 }
 
-void trickle_timer_reset(trickle_t* trickle, uint64_t time_now)
+void trickle_timer_reset(trickle_t* trickle, uint32_t time_now)
 {
     trickle->i = time_now;
     trickle->i_relative = g_i_min;
@@ -146,16 +147,16 @@ void trickle_timer_reset(trickle_t* trickle, uint64_t time_now)
     trickle_interval_begin(trickle);
 }
 
-void trickle_tx_register(trickle_t* trickle, uint64_t time_now)
+void trickle_tx_register(trickle_t* trickle, uint32_t time_now)
 {
-    if (trickle->i < time_now)
+    if (TIMER_OLDER_THAN(trickle->i, time_now))
     {
         trickle->i = time_now;
     }
     refresh_t(trickle, time_now); /* order next t */
 }
 
-void trickle_tx_timeout(trickle_t* trickle, bool* out_do_tx, uint64_t time_now)
+void trickle_tx_timeout(trickle_t* trickle, bool* out_do_tx, uint32_t time_now)
 {
     if (!trickle_is_enabled(trickle))
     {

@@ -35,10 +35,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "radio_control.h"
 #include "mesh_gatt.h"
 #include "mesh_packet.h"
-#include "timer_control.h"
+#include "timer.h"
 #include "rbc_mesh.h"
 #include "event_handler.h"
-#include "timeslot_handler.h"
+#include "timeslot.h"
 #include "rbc_mesh_common.h"
 #include "version_handler.h"
 #include "mesh_aci.h"
@@ -110,7 +110,7 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
         evt.type = EVENT_TYPE_PACKET;
         evt.callback.packet.payload = p_data;
         evt.callback.packet.crc = crc;
-        evt.callback.packet.timestamp = timer_get_timestamp();
+        evt.callback.packet.timestamp = timer_now();
         evt.callback.packet.rssi = rssi;
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
@@ -194,7 +194,7 @@ static void radio_idle_callback(void)
         order_search();
 }
 
-static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint64_t timestamp)
+static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t timestamp)
 {
     if (mp_fwid_entry == NULL)
     {
@@ -304,7 +304,7 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
 }
 
 /* packet processing, executed in APP_LOW */
-void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t rssi)
+void tc_packet_handler(uint8_t* data, uint32_t crc, uint32_t timestamp, uint8_t rssi)
 {
     APP_ERROR_CHECK_BOOL(data != NULL);
     SET_PIN(PIN_RX);
@@ -322,7 +322,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
     /* Pass packet to packet peek function */
     if (mp_packet_peek_cb)
     {
-        mp_packet_peek_cb(p_packet, crc, timeslot_get_global_time() + timestamp, rssi);
+        mp_packet_peek_cb(p_packet, crc, timestamp, rssi);
     }
 
     ble_gap_addr_t addr;

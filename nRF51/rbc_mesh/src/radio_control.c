@@ -29,8 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "radio_control.h"
-#include "timeslot_handler.h"
 #include "rbc_mesh_common.h"
+#include "timeslot.h"
 #include "trickle.h"
 #include "fifo.h"
 #include "nrf.h"

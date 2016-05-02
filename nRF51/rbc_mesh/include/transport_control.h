@@ -44,7 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** @brief Function pointer type for packet peek callback. */
 typedef void (*packet_peek_cb_t)(mesh_packet_t* p_packet, 
                                  uint32_t crc, 
-                                 uint64_t timestamp, 
+                                 uint32_t timestamp, 
                                  uint8_t rssi); 
 
 
@@ -60,7 +60,7 @@ void tc_on_ts_begin(void);
 */
 uint32_t tc_tx(mesh_packet_t* p_packet);
 
-void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t rssi);
+void tc_packet_handler(uint8_t* data, uint32_t crc, uint32_t timestamp, uint8_t rssi);
 
 /** 
 * @brief Set packet peek function pointer. Every received packet will be 

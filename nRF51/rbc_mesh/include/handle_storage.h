@@ -33,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "timer_control.h"
+#include "timer.h"
 #include "mesh_packet.h"
 
 
@@ -75,11 +75,11 @@ uint32_t handle_storage_flag_set_async(uint16_t handle, handle_flag_t flag, bool
 
 uint32_t handle_storage_flag_get(uint16_t handle, handle_flag_t flag, bool* p_value);
 
-uint32_t handle_storage_rx_consistent(uint16_t handle, uint64_t timestamp);
+uint32_t handle_storage_rx_consistent(uint16_t handle, uint32_t timestamp);
 
-uint32_t handle_storage_rx_inconsistent(uint16_t handle, uint64_t timestamp);
+uint32_t handle_storage_rx_inconsistent(uint16_t handle, uint32_t timestamp);
 
-uint64_t handle_storage_next_timeout_get(void);
+uint32_t handle_storage_next_timeout_get(bool* p_found_value);
 
 /**
 * Get a list of packets ready for transmit at the timestamp provided. Each
@@ -93,12 +93,12 @@ uint64_t handle_storage_next_timeout_get(void);
 *   hold. When returned, the argument contains the number of packets filled
 *   into the array by the function.
 */
-uint32_t handle_storage_tx_packets_get(uint64_t time_now, mesh_packet_t** pp_packets, uint32_t* p_count);
+uint32_t handle_storage_tx_packets_get(uint32_t time_now, mesh_packet_t** pp_packets, uint32_t* p_count);
 
 /**
 * Report a successful transmit on the given handle at the given timestamp.
 */
-uint32_t handle_storage_transmitted(uint16_t handle, uint64_t timestamp);
+uint32_t handle_storage_transmitted(uint16_t handle, uint32_t timestamp);
 
 
 #endif /* _HANDLE_STORAGE_H__ */
