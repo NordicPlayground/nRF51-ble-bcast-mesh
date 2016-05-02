@@ -28,7 +28,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#include <stddef.h>
+#include <string.h>
 #include "bootloader_app_bridge.h"
 #include "bl_if.h"
 #include "dfu_mesh.h"
@@ -75,6 +75,7 @@ uint32_t bootloader_evt_send(bl_evt_t* p_evt)
 
 uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
 {
+    bl_evt_t rsp_evt;
     switch (p_bl_cmd->type)
     {
         case BL_CMD_TYPE_INIT:
@@ -102,6 +103,10 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
         case BL_CMD_TYPE_TIMEOUT:
             dfu_mesh_timeout();
             break;
+        case BL_CMD_TYPE_ECHO:
+            rsp_evt.type = BL_EVT_TYPE_ECHO;
+            memcpy(rsp_evt.params.echo.str, p_bl_cmd->params.echo.str, 16);
+            return m_evt_handler(&rsp_evt);
 
         case BL_CMD_TYPE_DFU_START_TARGET:
             break;
