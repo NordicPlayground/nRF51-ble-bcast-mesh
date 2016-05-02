@@ -32,9 +32,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _RBC_MESH_COMMON_H__
 #include "toolchain.h"
 #include <stdint.h>
+#if DEBUG_LOG_RTT
+#include "SEGGER_RTT.h"
+#endif
 
-#define RBC_MESH_DEBUG  (0)
-
+#ifndef RBC_MESH_DEBUG
+#define RBC_MESH_DEBUG  (1)
+#endif
 /******************************************************************************
 * Debug related defines
 ******************************************************************************/
@@ -106,6 +110,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #define PIN_OUT(val,bitcount)   
 #endif
 
+#if RBC_MESH_DEBUG && DEBUG_LOG_RTT
+        #define _LOG(str, ...) SEGGER_RTT_printf(0, "%s[%s:%d]: %s" str, RTT_CTRL_TEXT_GREEN, __MODULE__, __LINE__, RTT_CTRL_TEXT_WHITE, ##__VA_ARGS__)
+#else
+#ifndef _LOG
+        #define _LOG(str, ...) 
+#endif
+#endif
         
 #define CHECK_FP(fp) if ((uint32_t)fp < 0x18000UL || (uint32_t)fp > 0x20000000UL){APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);}
         

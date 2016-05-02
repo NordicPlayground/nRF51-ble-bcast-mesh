@@ -31,13 +31,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stddef.h>
 #include "bootloader_app.h"
 #include "bootloader_util.h"
+#include "timeslot.h"
 #include "rbc_mesh.h"
 #include "dfu_types_mesh.h"
 #include "toolchain.h"
 #include "bl_if.h"
 #include "nrf_flash.h"
 #include "mesh_packet.h"
-#include "timeslot_handler.h"
+#include "rbc_mesh_common.h"
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
@@ -132,33 +133,11 @@ static uint32_t bootloader_event_handler(bl_evt_t* p_evt)
     switch (p_evt->type)
     {
         case BL_EVT_TYPE_ECHO:
-            break;
-        case BL_EVT_TYPE_ABORT:
-            break;
-        case BL_EVT_TYPE_ERROR:
-            break;
-        case BL_EVT_TYPE_REQ_TARGET:
-            break;
-        case BL_EVT_TYPE_REQ_RELAY:
-            break;
-        case BL_EVT_TYPE_REQ_SOURCE:
-            break;
-
-        case BL_EVT_TYPE_START_TARGET:
-            break;
-        case BL_EVT_TYPE_START_RELAY:
-            break;
-        case BL_EVT_TYPE_START_SOURCE:
-            break;
-
-        case BL_EVT_TYPE_END_TARGET:
-            break;
-        case BL_EVT_TYPE_END_RELAY:
-            break;
-        case BL_EVT_TYPE_END_SOURCE:
+            _LOG("Echo: %s\n", p_evt->params.echo.str);
             break;
 
         case BL_EVT_TYPE_FLASH_ERASE:
+            _LOG("Erase flash at: 0x%x (length %d)\n", p_evt->params.flash.erase.start_addr, p_evt->params.flash.erase.length);
             if (m_flash_op.type != FLASH_OP_TYPE_NONE)
             {
                 return NRF_ERROR_BUSY;
@@ -177,6 +156,7 @@ static uint32_t bootloader_event_handler(bl_evt_t* p_evt)
             return flash_operation_execute();
         case BL_EVT_TYPE_FLASH_WRITE:
         {
+            _LOG("Write flash at: 0x%x (length %d)\n", p_evt->params.flash.write.start_addr, p_evt->params.flash.write.length);
             if (m_flash_op.type != FLASH_OP_TYPE_NONE)
             {
                 return NRF_ERROR_BUSY;
@@ -202,11 +182,26 @@ static uint32_t bootloader_event_handler(bl_evt_t* p_evt)
         }
 
         case BL_EVT_TYPE_TX_RADIO:
+            _LOG("RADIO TX! SLOT %d, count %d, interval: %s, handle: %x\n", 
+                p_evt->params.tx.radio.tx_slot, 
+                p_evt->params.tx.radio.tx_count,
+                p_evt->params.tx.radio.interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL ? "exponential" : "periodic",
+                p_evt->params.tx.radio.p_dfu_packet->packet_type
+            );
             break;
         case BL_EVT_TYPE_TX_SERIAL:
+            _LOG("SERIAL TX!\n");
+            break;
+        
+        case BL_EVT_TYPE_TIMER_SET:
+            _LOG("TIMER event: @%d us\n", p_evt->params.timer.set.delay_us);
+            break;
+        case BL_EVT_TYPE_TIMER_ABORT:
+            _LOG("TIMER abort: %d\n", p_evt->params.timer.abort.index);
             break;
 
         default:
+            _LOG("Got unsupported event: 0x%x\n", p_evt->type);
             return NRF_ERROR_NOT_SUPPORTED;
     }
     return NRF_SUCCESS;
@@ -258,7 +253,7 @@ uint32_t bootloader_init(void)
 {
     m_cmd_handler = *((bl_if_cmd_handler_t*) (0x20000000 + ((uint32_t) (NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK) - 4)));
     if (m_cmd_handler == NULL ||
-        (uint32_t) m_cmd_handler >= 0x20000000)
+        (uint32_t) m_cmd_handler >= (NRF_FICR->CODESIZE * NRF_FICR->CODEPAGESIZE))
     {
         m_cmd_handler = NULL;
         return NRF_ERROR_NOT_SUPPORTED;
@@ -271,7 +266,8 @@ uint32_t bootloader_init(void)
         {
             .bl_if_version = BL_IF_VERSION,
             .event_callback = bootloader_event_handler,
-            .timer_count = 1
+            .timer_count = 1,
+            .tx_slots = 8
         }
     };
 
