@@ -244,37 +244,31 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     static uint32_t timeslot_count = 0;
     
     g_is_in_callback = true;
-
-    if (sig == NRF_RADIO_CALLBACK_SIGNAL_TYPE_START)
+    
+    switch (g_timeslot_forced_command)
     {
-        g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
-    }
-    else /* on forced command */
-    {
-        switch (g_timeslot_forced_command)
-        {
-            case TS_FORCED_COMMAND_STOP:
-                g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_END;
-                g_is_in_timeslot = false;
-                g_end_timer_triggered = false;
-                CLEAR_PIN(PIN_IN_TS);
-                event_handler_on_ts_end();
-                timeslot_count = 0;
-                return &g_ret_param;
+        case TS_FORCED_COMMAND_STOP:
+            g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_END;
+            g_is_in_timeslot = false;
+            g_end_timer_triggered = false;
+            CLEAR_PIN(PIN_IN_TS);
+            event_handler_on_ts_end();
+            timeslot_count = 0;
+            TICK_PIN(1);
+            g_is_in_callback = false;
+            return &g_ret_param;
 
-            case TS_FORCED_COMMAND_RESTART:
-                timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
-                g_is_in_timeslot = false;
-                g_end_timer_triggered = false;
-                CLEAR_PIN(PIN_IN_TS);
-                event_handler_on_ts_end();
-                radio_disable();
+        case TS_FORCED_COMMAND_RESTART:
+            timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
+            g_is_in_timeslot = false;
+            g_end_timer_triggered = false;
+            CLEAR_PIN(PIN_IN_TS);
+            event_handler_on_ts_end();
+            radio_disable();
+            return &g_ret_param;
 
-                return &g_ret_param;
-
-            default:
-                break;
-        }
+        default:
+            break;
     }
 
     g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
@@ -373,8 +367,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
 
-
-
     if (g_end_timer_triggered)
     {
         timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
@@ -460,10 +452,9 @@ void timeslot_handler_init(nrf_clock_lfclksrc_t lfclksrc)
     timeslot_order_earliest(g_timeslot_length, true);
 }
 
-
-
 void timeslot_order_earliest(uint32_t length_us, bool immediately)
 {
+    g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
     if (immediately)
     {
         radio_request_earliest.params.earliest.length_us = length_us;
@@ -472,10 +463,10 @@ void timeslot_order_earliest(uint32_t length_us, bool immediately)
 
         g_next_timeslot_length = length_us;
 
-        if (!g_is_in_callback)
+        if (!g_is_in_callback && !g_is_in_timeslot)
         {
             uint32_t error_code = sd_radio_request(&radio_request_earliest);
-            APP_ERROR_CHECK(error_code);
+            //APP_ERROR_CHECK(error_code);
         }
     }
     else
@@ -486,9 +477,9 @@ void timeslot_order_earliest(uint32_t length_us, bool immediately)
     }
 }
 
-
 void timeslot_order_normal(uint32_t length_us, uint32_t distance_us, bool immediately)
 {
+    g_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
     if (immediately)
     {
         radio_request_normal.params.normal.length_us = length_us;
@@ -527,17 +518,26 @@ void timeslot_extend(uint32_t extra_time_us)
 
 void timeslot_stop(void)
 {
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
     g_timeslot_forced_command = TS_FORCED_COMMAND_STOP;
-    NVIC_SetPendingIRQ(TIMER0_IRQn);
+    NRF_GPIO->OUTSET = (1 << 3);
+    if (g_is_in_timeslot)
+    {
+        NVIC_SetPendingIRQ(TIMER0_IRQn);
+    }
+    NRF_GPIO->OUTCLR = (1 << 3);
+    _ENABLE_IRQS(was_masked);
 }
 
 void timeslot_restart(void)
 {
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
+    g_timeslot_forced_command = TS_FORCED_COMMAND_RESTART;
+    
     if (g_is_in_timeslot)
     {
-        g_timeslot_forced_command = TS_FORCED_COMMAND_RESTART;
         NVIC_SetPendingIRQ(TIMER0_IRQn);
     }
     _ENABLE_IRQS(was_masked);
