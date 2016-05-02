@@ -71,6 +71,7 @@ static void async_event_execute(async_event_t* p_evt)
                               p_evt->callback.packet.crc,
                               p_evt->callback.packet.timestamp,
                               p_evt->callback.packet.rssi);
+            break;
         case EVENT_TYPE_SET_FLAG:
             handle_storage_flag_set(p_evt->callback.set_flag.handle,
                                     (handle_flag_t) p_evt->callback.set_flag.flag,
