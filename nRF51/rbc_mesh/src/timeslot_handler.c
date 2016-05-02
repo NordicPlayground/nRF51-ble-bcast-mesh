@@ -248,20 +248,21 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     switch (g_timeslot_forced_command)
     {
         case TS_FORCED_COMMAND_STOP:
+            timeslot_count = 0;
             g_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_END;
             g_is_in_timeslot = false;
             g_end_timer_triggered = false;
+            g_is_in_callback = false;
             CLEAR_PIN(PIN_IN_TS);
             event_handler_on_ts_end();
-            timeslot_count = 0;
-            TICK_PIN(1);
-            g_is_in_callback = false;
+            radio_disable();
             return &g_ret_param;
 
         case TS_FORCED_COMMAND_RESTART:
             timeslot_order_earliest(TIMESLOT_SLOT_LENGTH, true);
             g_is_in_timeslot = false;
             g_end_timer_triggered = false;
+            g_is_in_callback = false;
             CLEAR_PIN(PIN_IN_TS);
             event_handler_on_ts_end();
             radio_disable();
