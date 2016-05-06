@@ -33,11 +33,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 /** @brief callbacks for after radio event is complete */
-typedef void (*radio_rx_cb)(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
-typedef void (*radio_tx_cb)(uint8_t* p_data);
+typedef void (*radio_rx_cb_t)(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index);
+typedef void (*radio_tx_cb_t)(uint8_t* p_data);
 
 /** @brief callback for when the radio is out of things to do */
-typedef void (*radio_idle_cb)(void);
+typedef void (*radio_idle_cb_t)(void);
 
 typedef enum
 {
@@ -51,24 +51,37 @@ typedef enum
 */
 typedef struct
 {
-    radio_event_type_t event_type;  /* RX/TX */
-    uint8_t access_address;         /* If TX: access address index to send on. If RX: AA enabled bitfield */
-    uint8_t channel;                /* Channel to execute event on */
-    uint8_t* packet_ptr;            /* packet pointer to use. */
-    union
-    {
-        radio_rx_cb rx;
-        radio_tx_cb tx;
-    } callback;
+    uint8_t* packet_ptr;            /**< Packet pointer to use. */
+    
+    /* Access address index to operate on. Must be either 0 (the default BLE advertisement address) or 1 (the alternate address set through a call to radio_alt_aa_set()).  */
+    uint8_t access_address;        
+    radio_event_type_t event_type;  /**< RX/TX */
+    uint8_t channel;                /**< Channel to execute event on */
 } radio_event_t;
 
 /**
 * @brief Starts the radio init procedure
 *   Must be called at the beginning of each timeslot
 *
-* @param[in] access_addr access address to put in aa slot 0
+* @param[in] idle_cb Callback indicating that the radio is out of events in its queue.
+* @param[in] rx_cb Callback indicating that an RX event finished.
+* @param[in] tx_cb Callback indicating that an TX event finished.
 */
-void radio_init(uint32_t access_address, radio_idle_cb idle_callback);
+void radio_init(radio_idle_cb_t idle_cb,
+                radio_rx_cb_t   rx_cb,
+                radio_tx_cb_t   tx_cb);
+
+/**
+* @brief Set the alternate access address. 
+*
+* @detail The first access address is always the standard BLE advertisement 
+*   access address, 0x8E89BED6. Setting the alternate access address to 
+*   something other than the standard address allows you to transmit and 
+*   receive on both addresses.
+*
+* @param[in] access_address The 32bit alternate access address.
+*/
+void radio_alt_aa_set(uint32_t access_address);
 
 /**
 * @brief Schedule a radio event (tx/rx)
@@ -76,7 +89,7 @@ void radio_init(uint32_t access_address, radio_idle_cb idle_callback);
 * @param[in] radio_event pointer to user-created radio event to be queued.
 *   Is copied into queue, may be stack allocated
 */
-bool radio_order(radio_event_t* radio_event);
+uint32_t radio_order(radio_event_t* radio_event);
 
 /**
 * @brief Disable the radio. Overrides any ongoing rx or tx procedures
