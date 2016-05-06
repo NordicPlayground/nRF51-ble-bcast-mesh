@@ -77,7 +77,7 @@ static struct
 /******************************************************************************
 * Static functions
 ******************************************************************************/
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_addr_index);
 static void tx_cb(uint8_t* p_data);
 
 static void order_search(void)
@@ -85,16 +85,14 @@ static void order_search(void)
     radio_event_t evt;
 
     evt.event_type = RADIO_EVENT_TYPE_RX_PREEMPTABLE;
-    evt.access_address = 1;
     evt.channel = m_state.channel;
-    evt.callback.rx = rx_cb;
 
     if (!mesh_packet_acquire((mesh_packet_t**) &evt.packet_ptr))
     {
         return; /* something is hogging all the packets */
     }
 
-    if (!radio_order(&evt))
+    if (radio_order(&evt) != NRF_SUCCESS)
     {
         /* couldn't queue the packet for reception, immediately free its only ref */
         mesh_packet_ref_count_dec((mesh_packet_t*) evt.packet_ptr);
@@ -102,7 +100,7 @@ static void order_search(void)
 }
 
 /* immediate radio callback, executed in STACK_LOW */
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index)
 {
     if (success && ((mesh_packet_t*) p_data)->header.length <= MESH_PACKET_BLE_OVERHEAD + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
     {
@@ -128,7 +126,7 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 #endif
         }
     }
-    else if (crc < 0x1000000) /* don't want to trigger on abnormally high crcs */
+    else if (crc < 0x1000000) /* don't want to trigger on artifical crc values */
     {
 #ifdef PACKET_STATS
         m_packet_stats.crc_fail++;
@@ -272,10 +270,10 @@ void tc_radio_params_set(uint32_t access_address, uint8_t channel)
 
 void tc_on_ts_begin(void)
 {
-    radio_init(m_state.access_address, radio_idle_callback);
+    radio_init(radio_idle_callback, rx_cb, tx_cb);
 }
 
-uint32_t tc_tx(mesh_packet_t* p_packet)
+uint32_t tc_tx(mesh_packet_t* p_packet, const tc_tx_config_t* p_config)
 {
     TICK_PIN(PIN_MESH_TX);
     /* queue the packet for transmission */
@@ -286,18 +284,30 @@ uint32_t tc_tx(mesh_packet_t* p_packet)
     p_packet->header._rfu1 = 0;
     p_packet->header._rfu2 = 0;
     p_packet->header._rfu3 = 0;
-
-    mesh_packet_ref_count_inc(p_packet); /* queue will have a reference until tx_cb */
+    
     event.packet_ptr = (uint8_t*) p_packet;
     event.access_address = 0;
-    event.channel = m_state.channel;
-    event.callback.tx = tx_cb;
+    event.channel = p_config->first_channel;
     event.event_type = RADIO_EVENT_TYPE_TX;
-
-    if (!radio_order(&event))
+    
+    /* send packet on each channel in the channel map */
+    for (uint32_t i = 0; i < 32; ++i)
     {
-        mesh_packet_ref_count_dec(p_packet); /* queue couldn't hold the ref */
-        return NRF_ERROR_NO_MEM;
+        if (p_config->channel_map & (1 << i))
+        {
+            mesh_packet_ref_count_inc(p_packet); /* queue will have a reference until tx_cb */
+            if (radio_order(&event) != NRF_SUCCESS)
+            {
+                mesh_packet_ref_count_dec(p_packet); /* queue couldn't hold the ref */
+                return NRF_ERROR_NO_MEM;
+            }
+        }
+        else if ((p_config->channel_map >> i) == 0) /* all channels hit */
+        {
+            break;
+        }
+        
+        event.channel++;
     }
 
     return NRF_SUCCESS;
