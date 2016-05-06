@@ -65,6 +65,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 #endif
 
+uint32_t bootloader_app_bridge_init(void);
 uint32_t bootloader_evt_send(bl_evt_t* p_evt);
 uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd);
 uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length);

@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
-
+#define LAST_RAM_WORD    (0x20007FFC)
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
@@ -48,14 +48,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *****************************************************************************/
 uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd); /**< Forward declaration of command handler */
 
-#if defined(__CC_ARM)
-bl_if_cmd_handler_t m_cmd_handler_ptr __attribute__((at(0x20007FFC))) = &bl_cmd_handler;
-#elif defined(__GNUC__)
-bl_if_cmd_handler_t* m_cmd_handler_ptr __attribute__((section(".blIfCmdAddress"))) = &bl_cmd_handler;
-#else
-#error "Unsupported toolchain."
-#endif
-
 static bl_if_cb_evt_t m_evt_handler = NULL;
 /*****************************************************************************
 * Static functions
@@ -64,6 +56,13 @@ static bl_if_cb_evt_t m_evt_handler = NULL;
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
+uint32_t bootloader_app_bridge_init(void)
+{    
+    volatile bl_if_cmd_handler_t* p_last = (bl_if_cmd_handler_t*) LAST_RAM_WORD;
+    *p_last = bl_cmd_handler;
+    return NRF_SUCCESS;
+}
+
 uint32_t bootloader_evt_send(bl_evt_t* p_evt)
 {
     if (m_evt_handler == NULL)
