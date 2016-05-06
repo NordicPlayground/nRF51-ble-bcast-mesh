@@ -57,5 +57,6 @@ uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
 void dfu_mesh_timeout(void);
 void dfu_mesh_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
 bool dfu_mesh_app_is_valid(uint32_t* p_app_start);
+uint32_t dfu_mesh_finalize(void);
 
 #endif /* DFU_MESH_H__ */

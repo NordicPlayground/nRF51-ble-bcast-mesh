@@ -959,6 +959,7 @@ static bool fw_is_verified(void)
 
     return true;
 }
+
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
@@ -1063,51 +1064,6 @@ uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
     return NRF_SUCCESS;
 }
 
-#if 0
-void send_abort_evt(bl_end_t end_reason)
-{
-#if 1
-    bl_evt_t evt;
-    evt.type = BL_EVT_TYPE_ABORT;
-    evt.params.send_abort_evt.reason = end_reason;
-    bootloader_evt_send(&evt);
-#else
-    switch (end_reason)
-    {
-        case BL_END_SUCCESS:
-        case BL_END_ERROR_TIMEOUT:
-        case BL_END_FWID_VALID:
-        case BL_END_ERROR_MBR_CALL_FAILED:
-            if (bootloader_app_is_valid((uint32_t*) m_bl_info_pointers.p_segment_app->start))
-            {
-                interrupts_disable();
-#ifdef DEBUG_LEDS
-                NRF_GPIO->OUTCLR = (1 << 22);
-#endif
-                sd_mbr_command_t com = {SD_MBR_COMMAND_INIT_SD, };
-
-                volatile uint32_t err_code = sd_mbr_command(&com);
-                APP_ERROR_CHECK(err_code);
-
-                err_code = sd_softdevice_vector_table_base_set(m_bl_info_pointers.p_segment_app->start);
-                APP_ERROR_CHECK(err_code);
-#ifdef DEBUG_LEDS
-                NRF_GPIO->OUTSET = (1 << 21);
-                NRF_GPIO->OUTSET = (1 << 22);
-#endif
-                bootloader_util_app_start(m_bl_info_pointers.p_segment_app->start);
-            }
-            break;
-        case BL_END_ERROR_INVALID_PERSISTENT_STORAGE:
-            APP_ERROR_CHECK_BOOL(false);
-        default:
-            NVIC_SystemReset();
-            break;
-    }
-#endif
-}
-#endif
-
 void dfu_mesh_timeout(void)
 {
     switch (m_state)
@@ -1126,82 +1082,22 @@ void dfu_mesh_timeout(void)
             break;
 
         case DFU_STATE_VALIDATE:
-        {
-            /* Don't want any interrupts disturbing this final stage */
-            uint32_t was_masked;
-            _DISABLE_IRQS(was_masked);
             if (signature_check())
             {
-
-                /* write new version in bl info: */
-                bl_info_entry_t new_version_entry;
-                memcpy(&new_version_entry.version, m_bl_info_pointers.p_fwid, sizeof(fwid_t));
-                bl_info_type_t sign_info_type = BL_INFO_TYPE_INVALID;
-
-                if (m_bl_info_pointers.p_flags == NULL)
-                {
-                    APP_ERROR_CHECK(NRF_ERROR_NULL);
-                }
-
-                /* copy flags, then mark the type we just verified as intact before reflashing it. */
-                bl_info_entry_t flags_entry;
-                memcpy(&flags_entry, m_bl_info_pointers.p_flags, ((BL_INFO_LEN_FLAGS + 3) & ~0x03UL));
-
-                switch (m_transaction.type)
-                {
-                    case DFU_TYPE_APP:
-                        memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
-                        sign_info_type = BL_INFO_TYPE_SIGNATURE_APP;
-                        flags_entry.flags.app_intact = true;
-                        break;
-                    case DFU_TYPE_SD:
-                        memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
-                        sign_info_type = BL_INFO_TYPE_SIGNATURE_SD;
-                        flags_entry.flags.sd_intact = true;
-                        break;
-                    case DFU_TYPE_BOOTLOADER:
-                        memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
-                        sign_info_type = BL_INFO_TYPE_SIGNATURE_BL;
-                        flags_entry.flags.bl_intact = true;
-                        break;
-                    default:
-                        break;
-                }
-                m_bl_info_pointers.p_fwid = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
-                m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
-
-                /* add signature to bl info, if applicable: */
-                if (m_transaction.signature_length != 0)
-                {
-                    bootloader_info_entry_put(sign_info_type, (bl_info_entry_t*) m_transaction.signature, DFU_SIGNATURE_LEN);
-                }
-
-                _ENABLE_IRQS(was_masked);
-
-                if (m_transaction.type == DFU_TYPE_BOOTLOADER)
-                {
-                    /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must have been set. */
-                    sd_mbr_command_t sd_mbr_cmd;
-
-                    sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
-                    sd_mbr_cmd.params.copy_bl.bl_src = m_transaction.p_bank_addr;
-                    sd_mbr_cmd.params.copy_bl.bl_len = m_transaction.length / sizeof(uint32_t);
-
-                    if (sd_mbr_command(&sd_mbr_cmd) != NRF_SUCCESS)
-                    {
-                        send_abort_evt(BL_END_ERROR_MBR_CALL_FAILED);
-                    }
-                }
-                send_abort_evt(BL_END_SUCCESS);
+                bl_evt_t end_evt;
+                end_evt.type = BL_EVT_TYPE_END_TARGET;
+                end_evt.params.end.dfu_type = m_transaction.type;
+                memcpy(&end_evt.params.end.fwid, &m_transaction.target_fwid_union, sizeof(fwid_union_t));
+                bootloader_evt_send(&end_evt);
+                //dfu_mesh_finalize();
             }
             else
             {
-                /* someone gave us anauthorized firmware, and we're broken.
+                /* someone gave us unauthorized firmware, and we're broken.
                    need to reboot and try to request a new transfer */
                 send_abort_evt(BL_END_ERROR_UNAUTHORIZED);
             }
             break;
-        }
         case DFU_STATE_RELAY:
         case DFU_STATE_RELAY_CANDIDATE:
             send_abort_evt(BL_END_SUCCESS);
@@ -1220,4 +1116,92 @@ bool dfu_mesh_app_is_valid(uint32_t* p_app_start)
             *p_app_start != 0xFFFFFFFF &&
             p_fwid_entry->version.app.app_version != APP_VERSION_INVALID &&
             fw_is_verified());
+}
+
+uint32_t dfu_mesh_finalize(void)
+{
+    /* write new version in bl info: */
+    bl_info_entry_t new_version_entry;
+    memcpy(&new_version_entry.version, m_bl_info_pointers.p_fwid, sizeof(fwid_t));
+    bl_info_type_t sign_info_type = BL_INFO_TYPE_INVALID;
+
+    if (m_bl_info_pointers.p_flags == NULL)
+    {
+        APP_ERROR_CHECK(NRF_ERROR_NULL);
+    }
+
+    /* copy flags, then mark the type we just verified as intact before reflashing it. */
+    bl_info_entry_t flags_entry;
+    memcpy(&flags_entry, m_bl_info_pointers.p_flags, ((BL_INFO_LEN_FLAGS + 3) & ~0x03UL));
+
+    switch (m_transaction.type)
+    {
+        case DFU_TYPE_APP:
+            memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
+            sign_info_type = BL_INFO_TYPE_SIGNATURE_APP;
+            flags_entry.flags.app_intact = true;
+            break;
+        case DFU_TYPE_SD:
+            memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
+            sign_info_type = BL_INFO_TYPE_SIGNATURE_SD;
+            flags_entry.flags.sd_intact = true;
+            break;
+        case DFU_TYPE_BOOTLOADER:
+            memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
+            sign_info_type = BL_INFO_TYPE_SIGNATURE_BL;
+            flags_entry.flags.bl_intact = true;
+            break;
+        default:
+            break;
+    }
+    m_bl_info_pointers.p_fwid  = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
+    m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
+
+    /* add signature to bl info, if applicable: */
+    if (m_transaction.signature_length != 0)
+    {
+        bootloader_info_entry_put(sign_info_type, (bl_info_entry_t*) m_transaction.signature, DFU_SIGNATURE_LEN);
+    }
+    
+    switch (m_transaction.type)
+    {
+        case DFU_TYPE_BOOTLOADER:
+        {
+            /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must have been set. */
+            sd_mbr_command_t sd_mbr_cmd;
+
+            sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
+            sd_mbr_cmd.params.copy_bl.bl_src = m_transaction.p_bank_addr;
+            sd_mbr_cmd.params.copy_bl.bl_len = m_transaction.length / sizeof(uint32_t);
+
+            if (sd_mbr_command(&sd_mbr_cmd) != NRF_SUCCESS)
+            {
+                send_abort_evt(BL_END_ERROR_MBR_CALL_FAILED);
+            }
+        }
+            break;
+        case DFU_TYPE_SD:
+        {
+            /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must have been set. */
+            sd_mbr_command_t sd_mbr_cmd;
+
+            sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
+            sd_mbr_cmd.params.copy_bl.bl_src = m_transaction.p_bank_addr;
+            sd_mbr_cmd.params.copy_bl.bl_len = m_transaction.length / sizeof(uint32_t);
+
+            if (sd_mbr_command(&sd_mbr_cmd) != NRF_SUCCESS)
+            {
+                send_abort_evt(BL_END_ERROR_MBR_CALL_FAILED);
+            }
+        }
+            break;
+        default:
+            /* This nukes the call stack. */
+            dfu_transfer_flash_bank();
+            
+            ///@TODO: Mark the target as intact.
+            
+            /* Let's just kill ourself! */
+            NVIC_SystemReset();        
+    }
 }
