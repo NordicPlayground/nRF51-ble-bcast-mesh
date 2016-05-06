@@ -170,6 +170,28 @@ struct bl_cmd
         {
             char str[16];
         } echo;
+        
+        union
+        {
+            union
+            {
+                struct
+                {
+                    dfu_type_t type;
+                    fwid_union_t fwid;
+                    uint32_t* p_bank_start;
+                } target;
+                struct
+                {
+                    dfu_type_t type;
+                    fwid_union_t fwid;
+                } relay;
+            } start;
+            union
+            {
+                uint32_t TODO;///@TODO
+            } finalize;
+        } dfu;
         union
         {
             struct
