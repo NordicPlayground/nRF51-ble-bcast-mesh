@@ -28,7 +28,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#include <stddef.h>
+#include <string.h>
 #include "bootloader_app.h"
 #include "bootloader_util.h"
 #include "timeslot.h"
@@ -78,9 +78,14 @@ typedef struct
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static bootloader_authorize_cb_t    m_authorize_callback = NULL;
-static bl_if_cmd_handler_t          m_cmd_handler = NULL;
-static flash_op_t                   m_flash_op;
+static bl_if_cmd_handler_t          m_cmd_handler = NULL;           /**< Command handler in shared code space */
+static flash_op_t                   m_flash_op;                     /**< Flash operation in progress. */
+static timer_event_t                m_timer_evt;                    /**< Timer event for scheduler. */
+static timer_event_t                m_tx_timer_evt;                 /**< TX event for scheduler. */
+static bool                         m_tx_scheduled;                 /**< Whether the TX event is scheduled. */
+static dfu_tx_t                     m_tx_slots[DFU_TX_SLOTS];       /**< TX slots for concurrent transmits. */
+static prng_t                       m_prng;                         /**< PRNG for time delays. */  
+static tc_tx_config_t               m_tx_config;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
@@ -216,15 +221,6 @@ uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid)
     {
         interrupts_disable();
 
-        if (m_authorize_callback)
-        {
-            /* Ask the application whether we should accept the transfer. */
-            if (!m_authorize_callback(type, p_fwid))
-            {
-                return NRF_ERROR_BUSY;
-            }
-        }
-
 #ifdef SOFTDEVICE_PRESENT
         sd_power_reset_reason_clr(0x0F000F);
         sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
@@ -241,12 +237,6 @@ uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid)
         /* the UICR->BOOTLOADERADDR isn't set, and we have no way to find the bootloader-address. */
         return NRF_ERROR_FORBIDDEN;
     }
-}
-
-void bootloader_authorize_callback_set(bootloader_authorize_cb_t authorize_callback)
-{
-    /* or would it work with an event? */
-    m_authorize_callback = authorize_callback;
 }
 
 uint32_t bootloader_init(void)
