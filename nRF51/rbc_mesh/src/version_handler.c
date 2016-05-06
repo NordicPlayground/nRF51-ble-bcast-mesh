@@ -62,6 +62,7 @@ extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 ******************************************************************************/
 static bool             m_is_initialized = false;
 static timer_event_t    m_tx_timer_evt;
+static tc_tx_config_t   m_tx_config;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -133,11 +134,7 @@ static void order_next_transmission(uint32_t time_now)
     }
     else
     {
-        m_tx_timer_evt.cb = transmit_all_instances;
-        m_tx_timer_evt.interval = 0;
-        m_tx_timer_evt.p_context = NULL;
-        m_tx_timer_evt.timestamp = timeout;
-        if (timer_sch_schedule(&m_tx_timer_evt) != NRF_SUCCESS)
+        if (timer_sch_reschedule(&m_tx_timer_evt, timeout) != NRF_SUCCESS)
         {
             vh_order_update(timeout); 
         }
@@ -161,7 +158,7 @@ static void transmit_all_instances(uint32_t timestamp, void* p_context)
         _DISABLE_IRQS(was_masked);
         for (uint32_t i = 0; i < count; ++i)
         {
-            error_code = tc_tx(pp_tx_packets[i]);
+            error_code = tc_tx(pp_tx_packets[i], &m_tx_config);
             if (error_code == NRF_SUCCESS)
             {
                 mesh_adv_data_t* p_adv = mesh_packet_adv_data_get(pp_tx_packets[i]);
@@ -186,14 +183,25 @@ static void transmit_all_instances(uint32_t timestamp, void* p_context)
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
-uint32_t vh_init(uint32_t min_interval_us)
+uint32_t vh_init(uint32_t min_interval_us, 
+                 uint32_t access_address,
+                 uint8_t channel)
 {
     uint32_t error_code = handle_storage_init(min_interval_us);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
+    
+    m_tx_timer_evt.p_next = NULL;
+    m_tx_timer_evt.cb = transmit_all_instances;
+    m_tx_timer_evt.interval = 0;
+    m_tx_timer_evt.p_context = NULL;
 
+    m_tx_config.access_address = access_address;
+    m_tx_config.first_channel = channel;
+    m_tx_config.channel_map = 1; /* Only the first channel */
+    
     m_is_initialized = true;
     return NRF_SUCCESS;
 }

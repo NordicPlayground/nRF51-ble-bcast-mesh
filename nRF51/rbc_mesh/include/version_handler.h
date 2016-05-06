@@ -36,7 +36,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-uint32_t vh_init(uint32_t min_interval_us);
+uint32_t vh_init(uint32_t min_interval_us, 
+                 uint32_t access_address,
+                 uint8_t channel);
 
 uint32_t vh_min_interval_set(uint32_t min_interval_us);
 
