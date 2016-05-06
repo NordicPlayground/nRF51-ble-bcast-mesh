@@ -52,15 +52,6 @@ static prng_t g_rand;
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
-/* utility function to ensure that the g_i_min and max is a power of two. Rounding up. */
-static uint32_t nearest_power_of_two(uint32_t x)
-{
-    uint32_t pow = 1;
-    while (pow < (x))
-        pow <<= 1;
-    return pow;
-}
-
 /**
 * @brief Do calculations for beginning of a trickle interval. Is called from
 *   trickle_step function.
@@ -87,7 +78,7 @@ static void refresh_t(trickle_t* trickle, uint32_t time_now)
 
     uint32_t i_half = trickle->i_relative >> 1;
 
-    trickle->t = trickle->i + i_half + (rand_number & (i_half - 1));
+    trickle->t = trickle->i + i_half + (rand_number % i_half);
 }
 
 static void check_interval(trickle_t* trickle, uint32_t time_now)
@@ -109,8 +100,8 @@ static void check_interval(trickle_t* trickle, uint32_t time_now)
 *****************************************************************************/
 void trickle_setup(uint32_t i_min, uint32_t i_max, uint8_t k)
 {
-    g_i_min = nearest_power_of_two(i_min);
-    g_i_max = nearest_power_of_two(i_max);
+    g_i_min = i_min;
+    g_i_max = i_max;
     g_k = k;
 
     rand_prng_seed(&g_rand);
