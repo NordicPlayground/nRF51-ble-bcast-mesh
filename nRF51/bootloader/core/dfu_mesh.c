@@ -161,6 +161,13 @@ static beacon_type_t state_beacon_type(dfu_type_t transfer_type)
     }
 }
 
+static void keep_alive(void)
+{
+    bl_evt_t keep_alive_evt;
+    keep_alive_evt.type = BL_EVT_TYPE_KEEP_ALIVE;
+    bootloader_evt_send(&keep_alive_evt);
+}
+
 static void packet_tx_dynamic(dfu_packet_t* p_packet, 
     uint32_t length, 
     bl_radio_interval_type_t interval_type, 
@@ -400,7 +407,6 @@ static bool bootloader_is_newer(bl_id_t bl_id)
 static void start_find_fwid(void)
 {
     beacon_set(BEACON_TYPE_FWID);
-    timer_set(STATE_TIMEOUT_FIND_FWID);
     m_state = DFU_STATE_FIND_FWID;
     memset(&m_transaction, 0, sizeof(transaction_t));
 }
@@ -417,10 +423,6 @@ static void start_req(dfu_type_t type, bool timeout)
     m_transaction.signature_length = 0;
     m_transaction.transaction_id = 0;
     m_transaction.type = type;
-    if (timeout)
-    {
-        timer_set(STATE_TIMEOUT_REQ);
-    }
     m_state = DFU_STATE_DFU_REQ;
 
     beacon_set(state_beacon_type(type));
@@ -437,7 +439,6 @@ static void start_ready(dfu_packet_t* p_ready_packet)
     m_transaction.transaction_id = p_ready_packet->payload.state.transaction_id;
     m_transaction.authority = p_ready_packet->payload.state.authority;
     m_transaction.flood = p_ready_packet->payload.state.flood;
-    timer_set(STATE_TIMEOUT_READY);
     m_state = DFU_STATE_DFU_READY;
 
     beacon_set(state_beacon_type(m_transaction.type));
@@ -445,7 +446,6 @@ static void start_ready(dfu_packet_t* p_ready_packet)
 
 static void start_target(void)
 {
-    timer_set(STATE_TIMEOUT_TARGET);
     m_state = DFU_STATE_DFU_TARGET;
 
     uint32_t segment_size = 0;
@@ -521,7 +521,6 @@ static void start_target(void)
 
 static void start_rampdown(void)
 {
-    /* the final timeout should be set regardless of NO_TIMEOUTS flag. */
     bl_evt_t timer_evt;
     timer_evt.type = BL_EVT_TYPE_TIMER_SET;
     timer_evt.params.timer.set.delay_us = STATE_TIMEOUT_RAMPDOWN;
@@ -533,8 +532,6 @@ static void start_rampdown(void)
 
 static void start_relay_candidate(dfu_packet_t* p_packet)
 {
-    timer_set(STATE_TIMEOUT_RELAY);
-
     m_transaction.authority = p_packet->payload.state.authority;
     m_transaction.transaction_id = p_packet->payload.state.transaction_id;
     m_transaction.target_fwid_union = p_packet->payload.state.fwid;
@@ -716,7 +713,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
 
                 if (error_code == NRF_SUCCESS)
                 {
-                    timer_set(STATE_TIMEOUT_TARGET);
+                    keep_alive();
                     m_transaction.segments_remaining--;
                     do_relay = true;
                     /* check whether we've lost any entries, and request them */
@@ -757,7 +754,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
         {
             m_state = DFU_STATE_RELAY;
             tx_abort(TX_SLOT_BEACON);
-            timer_set(STATE_TIMEOUT_RELAY);
+            keep_alive();
             do_relay = true;
         }
     }
@@ -782,12 +779,22 @@ static void handle_state_packet(dfu_packet_t* p_packet)
 
                 if (ready_packet_is_upgrade(p_packet))
                 {
-                    start_ready(p_packet);
+                    bl_evt_t fw_evt;
+                    fw_evt.type = BL_EVT_TYPE_NEW_FW;
+                    fw_evt.params.new_fw.fw_type = p_packet->payload.state.dfu_type;
+                    memcpy(&fw_evt.params.new_fw.fwid, &p_packet->payload.state.fwid, sizeof(fwid_union_t));
+                    bootloader_evt_send(&fw_evt);
                 }
                 else
                 {
+                    //TODO
                     start_relay_candidate(p_packet);
                 }
+            }
+            else
+            {
+                //TODO
+                //handle relaying of requests
             }
             break;
         case DFU_STATE_DFU_REQ:
@@ -799,6 +806,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                     /* assume that the other device knows what to upgrade */
                     m_transaction.type = (dfu_type_t) p_packet->payload.state.dfu_type;
                     m_transaction.target_fwid_union = p_packet->payload.state.fwid;
+                    
                     start_ready(p_packet);
                 }
                 else if (packet_is_from_serial(p_packet))
@@ -850,23 +858,31 @@ static void handle_fwid_packet(dfu_packet_t* p_packet)
         /* always upgrade bootloader first */
         if (bootloader_is_newer(p_packet->payload.fwid.bootloader))
         {
-            timer_abort();
-            m_transaction.target_fwid_union.bootloader = p_packet->payload.fwid.bootloader;
-            start_req(DFU_TYPE_BOOTLOADER, true);
+            bl_evt_t fwid_evt;
+            fwid_evt.type = BL_EVT_TYPE_NEW_FW;
+            fwid_evt.params.new_fw.fw_type = DFU_TYPE_BOOTLOADER;
+            fwid_evt.params.new_fw.fwid.bootloader.id  = p_packet->payload.fwid.bootloader.id;
+            fwid_evt.params.new_fw.fwid.bootloader.ver = p_packet->payload.fwid.bootloader.ver;
+            bootloader_evt_send(&fwid_evt);
         }
         else if (app_is_newer(&p_packet->payload.fwid.app))
         {
-            timer_abort();
             /* SD shall only be upgraded if a newer version of our app requires a different SD */
             if (p_packet->payload.fwid.sd != 0xFFFE && p_packet->payload.fwid.sd != m_bl_info_pointers.p_fwid->sd)
             {
-                m_transaction.target_fwid_union.sd = p_packet->payload.fwid.sd;
-                start_req(DFU_TYPE_SD, true);
+                bl_evt_t fwid_evt;
+                fwid_evt.type = BL_EVT_TYPE_NEW_FW;
+                fwid_evt.params.new_fw.fw_type = DFU_TYPE_SD;
+                fwid_evt.params.new_fw.fwid.sd = p_packet->payload.fwid.sd;
+                bootloader_evt_send(&fwid_evt);
             }
             else
             {
-                memcpy(&m_transaction.target_fwid_union.app, &p_packet->payload.fwid.app, sizeof(app_id_t));
-                start_req(DFU_TYPE_APP, true);
+                bl_evt_t fwid_evt;
+                fwid_evt.type = BL_EVT_TYPE_NEW_FW;
+                fwid_evt.params.new_fw.fw_type = DFU_TYPE_APP;
+                memcpy(&fwid_evt.params.new_fw.fwid.app, &p_packet->payload.fwid.app, sizeof(app_id_t));
+                bootloader_evt_send(&fwid_evt);
             }
         }
     }
@@ -881,7 +897,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
             /* only relay new packets, look for it in cache */
             if (!packet_in_cache(p_packet))
             {
-                timer_set(STATE_TIMEOUT_RELAY);
+                keep_alive();
                 relay_packet(p_packet, 8);
             }
         }
@@ -916,7 +932,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
                 packet_tx_dynamic(&dfu_rsp, DFU_PACKET_LEN_DATA_RSP, TX_INTERVAL_TYPE_RSP, TX_REPEATS_RSP);
 
                 /* reset time to allow for more updates */
-                timer_set(STATE_TIMEOUT_RELAY);
+                keep_alive();
             }
 
             /* log our attempt at responding */
@@ -937,7 +953,7 @@ static void handle_data_rsp_packet(dfu_packet_t* p_packet, uint16_t length)
         /* only relay new packets, look for it in cache */
         if (!packet_in_cache(p_packet))
         {
-            timer_set(STATE_TIMEOUT_RELAY);
+            keep_alive();
             relay_packet(p_packet, length);
         }
     }
@@ -998,13 +1014,14 @@ void dfu_mesh_init(uint8_t tx_slots)
 
 void dfu_mesh_start(void)
 {
+#if 0
     if (!m_bl_info_pointers.p_flags->sd_intact ||
          m_bl_info_pointers.p_fwid->sd == SD_VERSION_INVALID)
     {
         m_transaction.target_fwid_union.sd = 0;
         start_req(DFU_TYPE_SD, false);
     }
-    else if (!dfu_mesh_app_is_valid((uint32_t*) m_bl_info_pointers.p_segment_app->start))
+    else if (!dfu_mesh_app_is_valid())
     {
         memcpy(&m_transaction.target_fwid_union.app, &m_bl_info_pointers.p_fwid->app, sizeof(app_id_t));
         start_req(DFU_TYPE_APP, false);
@@ -1013,7 +1030,32 @@ void dfu_mesh_start(void)
     {
         start_find_fwid();
     }
+#else
+    const bl_info_type_t bank_types[] = {BL_INFO_TYPE_BANK_BL, BL_INFO_TYPE_BANK_SD, BL_INFO_TYPE_BANK_APP}; 
+    const dfu_type_t dfu_types[] = {DFU_TYPE_BOOTLOADER, DFU_TYPE_SD, DFU_TYPE_APP};
+    const void* p_curr_fwid[] = {&m_bl_info_pointers.p_fwid->bootloader, &m_bl_info_pointers.p_fwid->sd, &m_bl_info_pointers.p_fwid->app};
 
+    for (uint32_t i = 0; i < 3; ++i)
+    {
+        bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, bank_types[i]);
+        if (p_bank_entry)
+        {
+            if (fwid_union_cmp(&p_bank_entry->bank.fwid, (fwid_union_t*) p_curr_fwid[i], dfu_types[i]))
+            {
+                bl_evt_t bank_evt;
+                bank_evt.type = BL_EVT_TYPE_BANK_AVAILABLE;
+                bank_evt.params.bank_available.bank_dfu_type = dfu_types[i];
+                memcpy(&bank_evt.params.bank_available.bank_fwid, &p_bank_entry->bank.fwid, sizeof(fwid_union_t));
+                memcpy(&bank_evt.params.bank_available.current_fwid, (fwid_union_t*) p_curr_fwid[i], sizeof(fwid_union_t));
+                bank_evt.params.bank_available.p_bank_addr = p_bank_entry->bank.p_bank_addr;
+                bank_evt.params.bank_available.bank_length = p_bank_entry->bank.length;
+                bootloader_evt_send(&bank_evt);
+            }
+        }
+    }
+    
+    start_find_fwid();
+#endif
 }
 
 uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
@@ -1089,7 +1131,6 @@ void dfu_mesh_timeout(void)
                 end_evt.params.end.dfu_type = m_transaction.type;
                 memcpy(&end_evt.params.end.fwid, &m_transaction.target_fwid_union, sizeof(fwid_union_t));
                 bootloader_evt_send(&end_evt);
-                //dfu_mesh_finalize();
             }
             else
             {
@@ -1107,13 +1148,13 @@ void dfu_mesh_timeout(void)
     }
 }
 
-bool dfu_mesh_app_is_valid(uint32_t* p_app_start)
+bool dfu_mesh_app_is_valid(void)
 {
     bl_info_entry_t* p_fwid_entry    = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
 
     return (p_fwid_entry != NULL &&
-            p_app_start != (uint32_t*) 0xFFFFFFFF &&
-            *p_app_start != 0xFFFFFFFF &&
+            (uint32_t*) m_bl_info_pointers.p_segment_app->start != (uint32_t*) 0xFFFFFFFF &&
+            *((uint32_t*) m_bl_info_pointers.p_segment_app->start) != 0xFFFFFFFF &&
             p_fwid_entry->version.app.app_version != APP_VERSION_INVALID &&
             fw_is_verified());
 }
@@ -1125,45 +1166,89 @@ uint32_t dfu_mesh_finalize(void)
     memcpy(&new_version_entry.version, m_bl_info_pointers.p_fwid, sizeof(fwid_t));
     bl_info_type_t sign_info_type = BL_INFO_TYPE_INVALID;
 
-    if (m_bl_info_pointers.p_flags == NULL)
+    if (m_transaction.p_bank_addr != m_transaction.p_start_addr) /* Dual bank! */
     {
-        APP_ERROR_CHECK(NRF_ERROR_NULL);
+        bl_info_entry_t bank_entry;
+        memcpy(&bank_entry.bank.fwid, &m_transaction.target_fwid_union, sizeof(fwid_union_t));
+        bank_entry.bank.length = m_transaction.length;
+        bank_entry.bank.p_bank_addr = m_transaction.p_bank_addr;
+        uint32_t entry_length = BL_INFO_LEN_BANK;
+        
+        if (m_transaction.signature_length > 0)
+        {
+            memcpy(bank_entry.bank.signature, m_transaction.signature, BL_INFO_LEN_SIGNATURE);
+            entry_length = BL_INFO_LEN_BANK_SIGNED;
+        }
+        
+        switch (m_transaction.type)
+        {
+            case DFU_TYPE_APP:    
+                bootloader_info_entry_put(BL_INFO_TYPE_BANK_APP, &bank_entry, entry_length);
+                break;
+            case DFU_TYPE_BOOTLOADER:
+                bootloader_info_entry_put(BL_INFO_TYPE_BANK_BL, &bank_entry, entry_length);
+                break;
+            case DFU_TYPE_SD:    
+                bootloader_info_entry_put(BL_INFO_TYPE_BANK_SD, &bank_entry, entry_length);
+                break;
+            default:
+                return NRF_ERROR_INVALID_DATA;
+        }
+        
     }
-
-    /* copy flags, then mark the type we just verified as intact before reflashing it. */
-    bl_info_entry_t flags_entry;
-    memcpy(&flags_entry, m_bl_info_pointers.p_flags, ((BL_INFO_LEN_FLAGS + 3) & ~0x03UL));
-
-    switch (m_transaction.type)
+    else
     {
-        case DFU_TYPE_APP:
-            memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
-            sign_info_type = BL_INFO_TYPE_SIGNATURE_APP;
-            flags_entry.flags.app_intact = true;
-            break;
-        case DFU_TYPE_SD:
-            memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
-            sign_info_type = BL_INFO_TYPE_SIGNATURE_SD;
-            flags_entry.flags.sd_intact = true;
-            break;
-        case DFU_TYPE_BOOTLOADER:
-            memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
-            sign_info_type = BL_INFO_TYPE_SIGNATURE_BL;
-            flags_entry.flags.bl_intact = true;
-            break;
-        default:
-            break;
-    }
-    m_bl_info_pointers.p_fwid  = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
-    m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
+        if (m_bl_info_pointers.p_flags == NULL)
+        {
+            APP_ERROR_CHECK(NRF_ERROR_NULL);
+        }
+        
+        /* copy flags, then mark the type we just verified as intact before reflashing it. */
+        bl_info_entry_t flags_entry;
+        memcpy(&flags_entry, m_bl_info_pointers.p_flags, ((BL_INFO_LEN_FLAGS + 3) & ~0x03UL));
 
-    /* add signature to bl info, if applicable: */
-    if (m_transaction.signature_length != 0)
-    {
-        bootloader_info_entry_put(sign_info_type, (bl_info_entry_t*) m_transaction.signature, DFU_SIGNATURE_LEN);
+        switch (m_transaction.type)
+        {
+            case DFU_TYPE_APP:
+                memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
+                sign_info_type = BL_INFO_TYPE_SIGNATURE_APP;
+                flags_entry.flags.app_intact = true;
+                break;
+            case DFU_TYPE_SD:
+                memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
+                sign_info_type = BL_INFO_TYPE_SIGNATURE_SD;
+                flags_entry.flags.sd_intact = true;
+                break;
+            case DFU_TYPE_BOOTLOADER:
+                memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
+                sign_info_type = BL_INFO_TYPE_SIGNATURE_BL;
+                flags_entry.flags.bl_intact = true;
+                break;
+            default:
+                break;
+        }
+        m_bl_info_pointers.p_fwid  = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
+        m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
+
+        /* add signature to bl info, if applicable: */
+        if (m_transaction.signature_length != 0)
+        {
+            bootloader_info_entry_put(sign_info_type, (bl_info_entry_t*) m_transaction.signature, DFU_SIGNATURE_LEN);
+        }
     }
     
-    switch (m_transaction.type)
+
+}
+
+void dfu_mesh_restart(void)
+{
+    start_find_fwid();
+}
+
+uint32_t dfu_mesh_flash_bank(dfu_type_t type, uint32_t* p_bank_addr, uint32_t bank_len)
+{
+    uint32_t error_code;            
+    switch (type)
     {
         case DFU_TYPE_BOOTLOADER:
         {
@@ -1171,28 +1256,21 @@ uint32_t dfu_mesh_finalize(void)
             sd_mbr_command_t sd_mbr_cmd;
 
             sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
-            sd_mbr_cmd.params.copy_bl.bl_src = m_transaction.p_bank_addr;
-            sd_mbr_cmd.params.copy_bl.bl_len = m_transaction.length / sizeof(uint32_t);
-
-            if (sd_mbr_command(&sd_mbr_cmd) != NRF_SUCCESS)
-            {
-                send_abort_evt(BL_END_ERROR_MBR_CALL_FAILED);
-            }
+            sd_mbr_cmd.params.copy_bl.bl_src = p_bank_addr;
+            sd_mbr_cmd.params.copy_bl.bl_len = bank_len / sizeof(uint32_t);
+            error_code = sd_mbr_command(&sd_mbr_cmd);
         }
             break;
         case DFU_TYPE_SD:
         {
-            /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must have been set. */
+            /* move the bank with MBR. */
             sd_mbr_command_t sd_mbr_cmd;
 
-            sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
-            sd_mbr_cmd.params.copy_bl.bl_src = m_transaction.p_bank_addr;
-            sd_mbr_cmd.params.copy_bl.bl_len = m_transaction.length / sizeof(uint32_t);
-
-            if (sd_mbr_command(&sd_mbr_cmd) != NRF_SUCCESS)
-            {
-                send_abort_evt(BL_END_ERROR_MBR_CALL_FAILED);
-            }
+            sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_SD;
+            sd_mbr_cmd.params.copy_sd.src    = p_bank_addr;
+            sd_mbr_cmd.params.copy_sd.len    = bank_len / sizeof(uint32_t);
+            sd_mbr_cmd.params.copy_sd.dst    = (uint32_t*) m_bl_info_pointers.p_segment_sd->start;
+            error_code = sd_mbr_command(&sd_mbr_cmd);
         }
             break;
         default:
@@ -1204,4 +1282,5 @@ uint32_t dfu_mesh_finalize(void)
             /* Let's just kill ourself! */
             NVIC_SystemReset();        
     }
+    return error_code;
 }

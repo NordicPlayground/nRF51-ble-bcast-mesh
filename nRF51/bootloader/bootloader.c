@@ -190,6 +190,68 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
     }
     return NRF_SUCCESS;
 }
+
+/** Check if the bank of the given type matches the firmware we're running. */
+static bool bank_was_flashed(bl_info_type_t bank_type, bl_info_type_t segment_type)
+{
+    bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, bank_type);
+    if (!p_bank_entry)
+    {
+        return false; /* no bank of this type */
+    }
+    
+    bl_info_entry_t* p_segment_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, segment_type);
+    if (!p_segment_entry)
+    {
+        return false; /* no segment of this type */
+    }
+    if (p_segment_entry->segment.length < p_bank_entry->bank.length)
+    {
+        return false; /* bank wouldn't fit */
+    }
+    
+    /* check that the fwid is different */
+    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
+    if (!p_fwid_entry)
+    {
+        return false;
+    }
+    switch (bank_type)
+    {
+        case BL_INFO_TYPE_BANK_APP:
+            if (memcmp(&p_fwid_entry->version.app, &p_bank_entry->bank.fwid.app, sizeof(app_id_t)) == 0)
+            {
+                return false;
+            }
+            break;
+        case BL_INFO_TYPE_BANK_BL:
+            if (memcmp(&p_fwid_entry->version.bootloader, &p_bank_entry->bank.fwid.bootloader, sizeof(bl_id_t)) == 0)
+            {
+                return false;
+            }
+            break;
+        case BL_INFO_TYPE_BANK_SD:
+            if (p_fwid_entry->version.sd == p_bank_entry->bank.fwid.sd)
+            {
+                return false;
+            }
+            break;
+        default:
+            return false;
+    }
+            
+    /* compare the bank and the fw word by word */
+    for (uint32_t i = 0; i < p_bank_entry->bank.length; i += 4)
+    {
+        if (*((uint32_t*) (p_segment_entry->segment.length + i)) != *((uint32_t*) ((uint32_t) p_bank_entry->bank.p_bank_addr + i)))
+        {
+            /* no match */
+            return false;
+        }
+    }
+    
+    return true;
+}
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
@@ -197,6 +259,8 @@ void bootloader_init(void)
 {
     rtc_init();
 
+    bootloader_app_bridge_init();
+    
     bl_cmd_t init_cmd;
     init_cmd.type = BL_CMD_TYPE_INIT;
     init_cmd.params.init.bl_if_version = BL_IF_VERSION;
@@ -205,11 +269,61 @@ void bootloader_init(void)
     init_cmd.params.init.tx_slots = TRANSPORT_TX_SLOTS;
     bl_cmd_handler(&init_cmd);
 
+    
 #ifdef SERIAL
     mesh_aci_init();
 #endif
 
     transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
+    
+    /* If we've flashed a bank, we should check to see if it worked. */
+    if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_BANK_FLASH || !dfu_mesh_app_is_valid())
+    {
+        bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
+        bl_info_entry_t* p_flag_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
+
+        bl_info_entry_t new_fwid_entry;
+        memcpy(&new_fwid_entry, p_fwid_entry, sizeof(BL_INFO_LEN_FWID));
+        bl_info_entry_t new_flag_entry;
+        memcpy(&new_flag_entry, p_flag_entry, sizeof(BL_INFO_LEN_FLAGS));
+        bool new_fw = false;
+        
+        
+        if (bank_was_flashed(BL_INFO_TYPE_BANK_BL, BL_INFO_TYPE_SEGMENT_BL))
+        {
+            new_fw = true;
+            bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_BL);
+            if (p_bank_entry)
+            {
+                memcpy(&new_fwid_entry.version.bootloader, &p_bank_entry->bank.fwid.bootloader, sizeof(bl_id_t));
+                new_flag_entry.flags.bl_intact = true;
+            }
+        }
+        if (bank_was_flashed(BL_INFO_TYPE_BANK_SD, BL_INFO_TYPE_SEGMENT_SD))
+        {
+            new_fw = true;
+            bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_SD);
+            if (p_bank_entry)
+            {
+                new_fwid_entry.version.sd = p_bank_entry->bank.fwid.sd;
+                new_flag_entry.flags.sd_intact = true;
+            }
+        }
+        if (bank_was_flashed(BL_INFO_TYPE_BANK_APP, BL_INFO_TYPE_SEGMENT_APP))
+        {
+            new_fw = true;
+            bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_APP);
+            if (p_bank_entry)
+            {
+                memcpy(&new_fwid_entry.version.app, &p_bank_entry->bank.fwid.app, sizeof(app_id_t));
+                new_flag_entry.flags.app_intact = true;
+            }
+        }
+        
+        bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_fwid_entry, BL_INFO_LEN_FWID);
+        bootloader_info_entry_put(
+        
+    }
 }
 
 void bootloader_enable(void)

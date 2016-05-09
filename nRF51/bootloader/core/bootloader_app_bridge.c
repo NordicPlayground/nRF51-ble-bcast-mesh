@@ -108,6 +108,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
             return m_evt_handler(&rsp_evt);
 
         case BL_CMD_TYPE_DFU_START_TARGET:
+            
             break;
         case BL_CMD_TYPE_DFU_START_RELAY:
             break;
@@ -116,6 +117,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
         case BL_CMD_TYPE_DFU_ABORT:
             break;
         case BL_CMD_TYPE_DFU_FINALIZE:
+            dfu_mesh_finalize();
             break;
 
         case BL_CMD_TYPE_INFO_GET:

@@ -72,8 +72,8 @@ uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length);
 uint32_t flash_erase(uint32_t* p_dest, uint32_t length);
 uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line);
 
-uint32_t timer_set(uint32_t delay_us);
-uint32_t timer_abort(void);
+//uint32_t timer_set(uint32_t delay_us);
+//uint32_t timer_abort(void);
 
 uint32_t tx_abort(uint8_t slot);
 void send_abort_evt(bl_end_t end_reason);
