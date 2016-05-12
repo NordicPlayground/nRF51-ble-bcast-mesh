@@ -62,7 +62,6 @@ typedef struct
 * Static globals
 ******************************************************************************/
 static tc_state_t m_state;
-static bl_info_entry_t* mp_fwid_entry = NULL;
 static packet_peek_cb_t mp_packet_peek_cb;
 
 /* STATS */
@@ -194,11 +193,12 @@ static void radio_idle_callback(void)
 
 static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t timestamp)
 {
+    mesh_dfu_adv_data_t* p_dfu = (mesh_dfu_adv_data_t*) p_adv_data;
+#if 0    
     if (mp_fwid_entry == NULL)
     {
         return; /* no fwid to compare against */
     }
-    mesh_dfu_adv_data_t* p_dfu = (mesh_dfu_adv_data_t*) p_adv_data;
 
     switch ((dfu_packet_type_t) p_dfu->dfu_packet.packet_type)
     {
@@ -247,6 +247,14 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t t
         default:
             break;
     }
+#else
+    /* Tell the shared BL about the packet */
+    bl_cmd_t rx_cmd;
+    rx_cmd.type = BL_CMD_TYPE_RX;
+    rx_cmd.params.rx.length = p_dfu->adv_data_length - DFU_PACKET_ADV_OVERHEAD;
+    rx_cmd.params.rx.p_dfu_packet = &p_dfu->dfu_packet;
+    bootloader_cmd_send(&rx_cmd);
+#endif
 }
 /******************************************************************************
 * Interface functions
