@@ -39,56 +39,58 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_flash.h"
 #include "mesh_packet.h"
 #include "rbc_mesh_common.h"
+#include "timer_scheduler.h"
+#include "mesh_flash.h"
+#include "rand.h"
+#include "transport_control.h"
+#include "app_error.h"
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
-#define IRQ_ENABLED            0x01     /**< Field that identifies if an interrupt is enabled. */
-#define MAX_NUMBER_INTERRUPTS  32       /**< Maximum number of interrupts available. */
+#define IRQ_ENABLED                 (0x01)      /**< Field that identifies if an interrupt is enabled. */
+#define MAX_NUMBER_INTERRUPTS       (32)        /**< Maximum number of interrupts available. */
 
-
-
+#define DFU_TX_SLOTS                (8)         /**< Number of concurrent transmits available. */
+#define DFU_TX_INTERVAL_US          (100000)    /**< Time between transmits on regular interval, and base-interval on exponential. */
+#define DFU_TX_START_DELAY_MASK_US  (0xFFFF)    /**< Must be power of two. */
+#define DFU_TX_TIMER_MARGIN_US      (1000)      /**< Time margin for a timeout to be considered instant. */
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
-typedef enum
-{
-    FLASH_OP_TYPE_NONE,
-    FLASH_OP_TYPE_WRITE,
-    FLASH_OP_TYPE_ERASE
-} flash_op_type_t;
 
 typedef struct
 {
-    flash_op_type_t type;
-    union
-    {
-        struct
-        {
-            uint32_t start_addr;
-            uint8_t* p_data;
-            uint32_t length;
-        } write;
-        struct
-        {
-            uint32_t start_addr;
-            uint32_t length;
-        } erase;
-    } params;
-} flash_op_t;
+    mesh_packet_t* p_packet;
+    uint32_t order_time;
+    bl_radio_interval_type_t interval_type;
+    uint8_t repeats;
+    uint8_t tx_count;
+} dfu_tx_t;
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
 static bl_if_cmd_handler_t          m_cmd_handler = NULL;           /**< Command handler in shared code space */
-static flash_op_t                   m_flash_op;                     /**< Flash operation in progress. */
 static timer_event_t                m_timer_evt;                    /**< Timer event for scheduler. */
 static timer_event_t                m_tx_timer_evt;                 /**< TX event for scheduler. */
 static bool                         m_tx_scheduled;                 /**< Whether the TX event is scheduled. */
 static dfu_tx_t                     m_tx_slots[DFU_TX_SLOTS];       /**< TX slots for concurrent transmits. */
-static prng_t                       m_prng;                         /**< PRNG for time delays. */  
+static prng_t                       m_prng;                         /**< PRNG for time delays. */
 static tc_tx_config_t               m_tx_config;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
+static uint32_t next_tx_timeout(dfu_tx_t* p_tx)
+{
+    if (p_tx->interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
+    {
+        return (p_tx->order_time + DFU_TX_INTERVAL_US * ((1 << (p_tx->tx_count)) - 1));
+    }
+    else
+    {
+        return (p_tx->order_time + DFU_TX_INTERVAL_US * p_tx->tx_count);
+    }
+}
+
 static void interrupts_disable(void)
 {
     uint32_t interrupt_setting_mask;
@@ -106,110 +108,74 @@ static void interrupts_disable(void)
     }
 }
 
-static uint32_t flash_operation_execute(void)
+static void tx_timeout(uint32_t timestamp, void* p_context)
 {
-    uint32_t error_code;
-    switch (m_flash_op.type)
+    _LOG("TX Timeout @ %d\n", timestamp);
+    uint32_t next_timeout = timestamp + (UINT32_MAX / 2);
+    for (uint32_t i = 0; i < DFU_TX_SLOTS; ++i)
     {
-        case FLASH_OP_TYPE_WRITE:
-            error_code = sd_flash_write(
-                    (uint32_t*) m_flash_op.params.write.start_addr,
-                    (uint32_t*) m_flash_op.params.write.p_data,
-                    m_flash_op.params.write.length / 4); /* sd takes length in words */
-            break;
-        case FLASH_OP_TYPE_ERASE:
-            error_code = sd_flash_page_erase(m_flash_op.params.erase.start_addr / (NRF_FICR->CODEPAGESIZE));
-            break;
-        default:
-            error_code = NRF_ERROR_INTERNAL;
-            break;
+        if (m_tx_slots[i].p_packet)
+        {
+            uint32_t timeout = next_tx_timeout(&m_tx_slots[i]);
+            if (TIMER_OLDER_THAN(timeout, (timestamp + DFU_TX_TIMER_MARGIN_US)))
+            {
+                if (tc_tx(m_tx_slots[i].p_packet, &m_tx_config) == NRF_SUCCESS)
+                {
+                    _LOG("DFU TX\n");
+                    m_tx_slots[i].tx_count++;
+
+                    if (m_tx_slots[i].tx_count == TX_REPEATS_INF &&
+                        m_tx_slots[i].repeats  == TX_REPEATS_INF)
+                    {
+                        m_tx_slots[i].order_time = timeout;
+                        m_tx_slots[i].tx_count = 0;
+                    }
+                    else if (m_tx_slots[i].tx_count >= m_tx_slots[i].repeats)
+                    {
+                        mesh_packet_ref_count_dec(m_tx_slots[i].p_packet);
+                        memset(&m_tx_slots[i], 0, sizeof(dfu_tx_t));
+                    }
+                    timeout = next_tx_timeout(&m_tx_slots[i]);
+                }
+            }
+            if (TIMER_DIFF(timeout, timestamp) < TIMER_DIFF(next_timeout, timestamp))
+            {
+                next_timeout = timeout;
+            }
+        }
     }
-    if (error_code == NRF_SUCCESS)
+    m_tx_timer_evt.timestamp = next_timeout;
+    if (timer_sch_schedule(&m_tx_timer_evt) != NRF_SUCCESS)
     {
-        timeslot_restart();
+        m_tx_scheduled = true;
+        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
-    
-    return error_code;
 }
 
-static uint32_t bootloader_event_handler(bl_evt_t* p_evt)
+static void timer_timeout(uint32_t timestamp, void* p_context)
 {
-    //rbc_mesh_event_t app_evt;
-    switch (p_evt->type)
+    NRF_GPIO->OUTCLR = (1 << 1);
+    _LOG("Timeout fired @%d\n", timestamp);
+    bl_cmd_t timeout_cmd;
+    timeout_cmd.type = BL_CMD_TYPE_TIMEOUT;
+    timeout_cmd.params.timeout.timer_index = 0;
+    m_cmd_handler(&timeout_cmd);
+}
+
+static void flash_op_complete(flash_op_type_t type, void* p_context)
+{
+    bl_cmd_t end_cmd;
+    if (type == FLASH_OP_TYPE_WRITE)
     {
-        case BL_EVT_TYPE_ECHO:
-            _LOG("Echo: %s\n", p_evt->params.echo.str);
-            break;
-
-        case BL_EVT_TYPE_FLASH_ERASE:
-            _LOG("Erase flash at: 0x%x (length %d)\n", p_evt->params.flash.erase.start_addr, p_evt->params.flash.erase.length);
-            if (m_flash_op.type != FLASH_OP_TYPE_NONE)
-            {
-                return NRF_ERROR_BUSY;
-            }
-            if (p_evt->params.flash.erase.start_addr & (NRF_FICR->CODEPAGESIZE - 1))
-            {
-                return NRF_ERROR_INVALID_ADDR;
-            }
-            if (p_evt->params.flash.erase.length & (NRF_FICR->CODEPAGESIZE - 1))
-            {
-                return NRF_ERROR_INVALID_LENGTH;
-            }
-            m_flash_op.type = FLASH_OP_TYPE_ERASE;
-            m_flash_op.params.erase.start_addr  = p_evt->params.flash.erase.start_addr;
-            m_flash_op.params.erase.length      = p_evt->params.flash.erase.length;
-            return flash_operation_execute();
-        case BL_EVT_TYPE_FLASH_WRITE:
-        {
-            _LOG("Write flash at: 0x%x (length %d)\n", p_evt->params.flash.write.start_addr, p_evt->params.flash.write.length);
-            if (m_flash_op.type != FLASH_OP_TYPE_NONE)
-            {
-                return NRF_ERROR_BUSY;
-            }
-            if (p_evt->params.flash.write.start_addr & 0x03)
-            {
-                return NRF_ERROR_INVALID_ADDR;
-            }
-            if (p_evt->params.flash.write.length & 0x03)
-            {
-                return NRF_ERROR_INVALID_LENGTH;
-            }
-            m_flash_op.type = FLASH_OP_TYPE_WRITE;
-            m_flash_op.params.write.start_addr  = p_evt->params.flash.write.start_addr;
-            m_flash_op.params.write.p_data      = p_evt->params.flash.write.p_data;
-            m_flash_op.params.write.length      = p_evt->params.flash.write.length;
-            mesh_packet_t* p_packet = mesh_packet_get_aligned(p_evt->params.flash.write.p_data);
-            if (p_packet)
-            {
-                mesh_packet_ref_count_inc(p_packet);
-            }
-            return flash_operation_execute();
-        }
-
-        case BL_EVT_TYPE_TX_RADIO:
-            _LOG("RADIO TX! SLOT %d, count %d, interval: %s, handle: %x\n", 
-                p_evt->params.tx.radio.tx_slot, 
-                p_evt->params.tx.radio.tx_count,
-                p_evt->params.tx.radio.interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL ? "exponential" : "periodic",
-                p_evt->params.tx.radio.p_dfu_packet->packet_type
-            );
-            break;
-        case BL_EVT_TYPE_TX_SERIAL:
-            _LOG("SERIAL TX!\n");
-            break;
-        
-        case BL_EVT_TYPE_TIMER_SET:
-            _LOG("TIMER event: @%d us\n", p_evt->params.timer.set.delay_us);
-            break;
-        case BL_EVT_TYPE_TIMER_ABORT:
-            _LOG("TIMER abort: %d\n", p_evt->params.timer.abort.index);
-            break;
-
-        default:
-            _LOG("Got unsupported event: 0x%x\n", p_evt->type);
-            return NRF_ERROR_NOT_SUPPORTED;
+        end_cmd.type = BL_CMD_TYPE_FLASH_WRITE_COMPLETE;
+        end_cmd.params.flash.write.p_data = p_context;
     }
-    return NRF_SUCCESS;
+    else
+    {
+        end_cmd.type = BL_CMD_TYPE_FLASH_ERASE_COMPLETE;
+        end_cmd.params.flash.erase.p_dest = p_context;
+    }
+    bootloader_cmd_send(&end_cmd); /* don't care about the return code */
 }
 
 /*****************************************************************************
@@ -243,11 +209,31 @@ uint32_t bootloader_init(void)
 {
     m_cmd_handler = *((bl_if_cmd_handler_t*) (0x20000000 + ((uint32_t) (NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK) - 4)));
     if (m_cmd_handler == NULL ||
-        (uint32_t) m_cmd_handler >= (NRF_FICR->CODESIZE * NRF_FICR->CODEPAGESIZE))
+        (uint32_t) m_cmd_handler >= (NRF_FICR->CODESIZE * NRF_FICR->CODEPAGESIZE) ||
+        (uint32_t) m_cmd_handler < NRF_UICR->BOOTLOADERADDR)
     {
+        _LOG(RTT_CTRL_TEXT_RED "ERROR, command handler @0x%x\n" RTT_CTRL_TEXT_WHITE, m_cmd_handler);
         m_cmd_handler = NULL;
         return NRF_ERROR_NOT_SUPPORTED;
     }
+
+    rand_prng_seed(&m_prng);
+
+    m_timer_evt.cb = timer_timeout;
+    m_timer_evt.interval = 0;
+    m_timer_evt.p_context = NULL;
+    m_timer_evt.p_next = NULL;
+    m_tx_timer_evt.cb = tx_timeout;
+    m_tx_timer_evt.interval = 0;
+    m_tx_timer_evt.p_context = NULL;
+    m_tx_timer_evt.p_next = NULL;
+    m_tx_scheduled = true;
+
+    m_tx_config.access_address = RBC_MESH_ACCESS_ADDRESS_BLE_ADV;
+    m_tx_config.first_channel = 37;
+    m_tx_config.channel_map = (1 << 0) | (1 << 1) | (1 << 2); /* 37, 38, 39 */
+    
+    mesh_flash_init(flash_op_complete);
 
     bl_cmd_t init_cmd =
     {
@@ -257,13 +243,14 @@ uint32_t bootloader_init(void)
             .bl_if_version = BL_IF_VERSION,
             .event_callback = bootloader_event_handler,
             .timer_count = 1,
-            .tx_slots = 8
+            .tx_slots = DFU_TX_SLOTS
         }
     };
 
     return m_cmd_handler(&init_cmd);
 }
 
+//TODO DUPLICATE?
 uint32_t bootloader_enable(void)
 {
     if (m_cmd_handler == NULL)
@@ -277,6 +264,120 @@ uint32_t bootloader_enable(void)
     };
 
     return m_cmd_handler(&enable_cmd);
+}
+
+
+uint32_t bootloader_event_handler(bl_evt_t* p_evt)
+{
+    switch (p_evt->type)
+    {
+        case BL_EVT_TYPE_ECHO:
+            _LOG("Echo: %s\n", p_evt->params.echo.str);
+            break;
+        case BL_EVT_TYPE_ABORT:
+            _LOG("Abort event - ignored. Reason: 0x%x\n", p_evt->params.abort.reason);
+#if 0
+            switch (p_evt->params.abort.reason)
+            {
+                case BL_END_ERROR_INVALID_TRANSFER:
+
+                    break;
+                default:
+                    break;
+            }
+#endif
+            break;
+        case BL_EVT_TYPE_FLASH_ERASE:
+            _LOG("Erase flash at: 0x%x (length %d)\n", p_evt->params.flash.erase.start_addr, p_evt->params.flash.erase.length);
+
+            if (p_evt->params.flash.erase.start_addr & (NRF_FICR->CODEPAGESIZE - 1))
+            {
+                return NRF_ERROR_INVALID_ADDR;
+            }
+            if (p_evt->params.flash.erase.length & (NRF_FICR->CODEPAGESIZE - 1))
+            {
+                return NRF_ERROR_INVALID_LENGTH;
+            }
+
+            return mesh_flash_op_push(FLASH_OP_TYPE_ERASE, &p_evt->params.flash);
+
+        case BL_EVT_TYPE_FLASH_WRITE:
+            _LOG("Write flash at: 0x%x (length %d)\n", p_evt->params.flash.write.start_addr, p_evt->params.flash.write.length);
+
+            if (p_evt->params.flash.write.start_addr & 0x03)
+            {
+                return NRF_ERROR_INVALID_ADDR;
+            }
+            if (p_evt->params.flash.write.length & 0x03)
+            {
+                return NRF_ERROR_INVALID_LENGTH;
+            }
+            return mesh_flash_op_push(FLASH_OP_TYPE_WRITE, &p_evt->params.flash);
+
+        case BL_EVT_TYPE_TX_RADIO:
+            _LOG("RADIO TX! SLOT %d, count %d, interval: %s, handle: %x\n",
+                p_evt->params.tx.radio.tx_slot,
+                p_evt->params.tx.radio.tx_count,
+                p_evt->params.tx.radio.interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL ? "exponential" : "periodic",
+                p_evt->params.tx.radio.p_dfu_packet->packet_type
+            );
+
+            if (m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet)
+            {
+                mesh_packet_ref_count_dec(m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet);
+                m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet = NULL;
+            }
+            if (mesh_packet_acquire(&m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet))
+            {
+                uint32_t time_now = timer_now();
+                /* build packet */
+                mesh_packet_set_local_addr(m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet);
+                m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet->header.type = BLE_PACKET_TYPE_ADV_NONCONN_IND;
+                m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet->header.length = DFU_PACKET_OVERHEAD + p_evt->params.tx.radio.length;
+                ((ble_ad_t*) m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet->payload)->adv_data_type = MESH_ADV_DATA_TYPE;
+                ((ble_ad_t*) m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet->payload)->data[0] = (MESH_UUID & 0xFF);
+                ((ble_ad_t*) m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet->payload)->data[1] = (MESH_UUID >> 8) & 0xFF;
+                ((ble_ad_t*) m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet->payload)->adv_data_length = DFU_PACKET_ADV_OVERHEAD + p_evt->params.tx.radio.length;
+                memcpy(&m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet->payload[4], p_evt->params.tx.radio.p_dfu_packet, p_evt->params.tx.radio.length);
+
+                /* fill other fields in the TX slot. */
+                m_tx_slots[p_evt->params.tx.radio.tx_slot].interval_type = p_evt->params.tx.radio.interval_type;
+                m_tx_slots[p_evt->params.tx.radio.tx_slot].repeats = p_evt->params.tx.radio.tx_count;
+                m_tx_slots[p_evt->params.tx.radio.tx_slot].tx_count = 0;
+                m_tx_slots[p_evt->params.tx.radio.tx_slot].order_time = time_now + DFU_TX_TIMER_MARGIN_US + (rand_prng_get(&m_prng) & (DFU_TX_START_DELAY_MASK_US));
+
+                if (!m_tx_scheduled || TIMER_DIFF(m_tx_slots[p_evt->params.tx.radio.tx_slot].order_time, time_now) < TIMER_DIFF(m_tx_timer_evt.timestamp, time_now))
+                {
+                    m_tx_scheduled = true;
+                    timer_sch_reschedule(&m_tx_timer_evt, m_tx_slots[p_evt->params.tx.radio.tx_slot].order_time);
+                }
+            }
+            else
+            {
+                return NRF_ERROR_NO_MEM;
+            }
+            break;
+        case BL_EVT_TYPE_TX_SERIAL:
+            _LOG("SERIAL TX!\n");
+            break;
+
+        case BL_EVT_TYPE_TIMER_SET:
+            NRF_GPIO->OUTSET = (1 << 1);
+            _LOG("TIMER event: @%d us\n", p_evt->params.timer.set.delay_us);
+            return timer_sch_reschedule(&m_timer_evt, timer_now() + p_evt->params.timer.set.delay_us);
+        case BL_EVT_TYPE_TIMER_ABORT:
+            _LOG("TIMER abort: %d\n", p_evt->params.timer.abort.index);
+            return timer_sch_abort(&m_timer_evt);
+
+        case BL_EVT_TYPE_ERROR:
+            app_error_handler(p_evt->params.error.error_code,
+                              p_evt->params.error.line,
+                              (uint8_t*) p_evt->params.error.p_file);
+        default:
+            _LOG("Got unsupported event: 0x%x\n", p_evt->type);
+            return NRF_ERROR_NOT_SUPPORTED;
+    }
+    return NRF_SUCCESS;
 }
 
 uint32_t bootloader_rx(mesh_adv_data_t* p_adv)
@@ -319,61 +420,5 @@ uint32_t bootloader_cmd_send(bl_cmd_t* p_cmd)
         return NRF_ERROR_INVALID_STATE;
     }
     return m_cmd_handler(p_cmd);
-}
-
-void bootloader_flash_operation_end(bool success)
-{
-    if (m_cmd_handler == NULL)
-    {
-        return;
-    }
-    if (m_flash_op.type == FLASH_OP_TYPE_WRITE)
-    {
-        if (success)
-        {
-            bl_cmd_t status_cmd =
-            {
-                .type = BL_CMD_TYPE_FLASH_WRITE_COMPLETE,
-                .params.flash.write.start_addr  = m_flash_op.params.write.start_addr,
-                .params.flash.write.p_data      = m_flash_op.params.write.p_data,
-                .params.flash.write.length      = m_flash_op.params.write.length,
-            };
-            m_flash_op.type = FLASH_OP_TYPE_NONE;
-            m_cmd_handler(&status_cmd);
-            mesh_packet_t* p_packet = mesh_packet_get_aligned(status_cmd.params.flash.write.p_data);
-            if (p_packet)
-            {
-                mesh_packet_ref_count_dec(p_packet);
-            }
-        }
-        else
-        {
-            flash_operation_execute();
-        }
-    }
-    else if (m_flash_op.type == FLASH_OP_TYPE_ERASE)
-    {
-        if (success)
-        {
-            m_flash_op.params.erase.start_addr += NRF_FICR->CODEPAGESIZE;
-            m_flash_op.params.erase.length     -= NRF_FICR->CODEPAGESIZE;
-        }
-        
-        if (m_flash_op.params.erase.length == 0)
-        {
-            m_flash_op.type = FLASH_OP_TYPE_NONE;
-            bl_cmd_t status_cmd =
-            {
-                .type = BL_CMD_TYPE_FLASH_ERASE_COMPLETE,
-                .params.flash.erase.start_addr  = m_flash_op.params.erase.start_addr,
-                .params.flash.erase.length      = m_flash_op.params.erase.length,
-            };
-            m_cmd_handler(&status_cmd);
-        }
-        else
-        {
-            flash_operation_execute();
-        }
-    }
 }
 

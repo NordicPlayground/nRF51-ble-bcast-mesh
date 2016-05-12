@@ -70,6 +70,7 @@ typedef enum
     /* Flash status */
     BL_CMD_TYPE_FLASH_WRITE_COMPLETE = 0x60,
     BL_CMD_TYPE_FLASH_ERASE_COMPLETE,
+
 } bl_cmd_type_t;
 
 typedef enum
@@ -80,15 +81,39 @@ typedef enum
 
 typedef enum
 {
+    FLASH_OP_TYPE_WRITE,
+    FLASH_OP_TYPE_ERASE
+} flash_op_type_t;
+
+typedef union
+{
+    struct
+    {
+        uint32_t    start_addr;
+        uint32_t    length;
+    } erase;
+    struct
+    {
+        uint32_t    start_addr;
+        uint8_t*    p_data;
+        uint32_t    length;
+    } write;
+} flash_op_t;
+
+typedef enum
+{
     /* Generic */
     BL_EVT_TYPE_ECHO = 0x00,
     BL_EVT_TYPE_ABORT,
     BL_EVT_TYPE_ERROR,
+    BL_EVT_TYPE_KEEP_ALIVE,             /**< The DFU module got a packet indicating that the current state should be kept for some time still. */
+    BL_EVT_TYPE_BANK_AVAILABLE,
 
     /* Req */
     BL_EVT_TYPE_REQ_TARGET = 0x20,
     BL_EVT_TYPE_REQ_RELAY,
     BL_EVT_TYPE_REQ_SOURCE,
+    BL_EVT_TYPE_NEW_FW,
 
     /* Start */
     BL_EVT_TYPE_START_TARGET = 0x30,
@@ -108,7 +133,7 @@ typedef enum
     BL_EVT_TYPE_TX_RADIO = 0x60,
     BL_EVT_TYPE_TX_SERIAL,
     BL_EVT_TYPE_TX_ABORT,
-    
+
     /* Timer */
     BL_EVT_TYPE_TIMER_SET = 0x70,
     BL_EVT_TYPE_TIMER_ABORT,
@@ -170,7 +195,7 @@ struct bl_cmd
         {
             char str[16];
         } echo;
-        
+
         union
         {
             union
@@ -257,14 +282,11 @@ struct bl_cmd
         {
             struct
             {
-                uint32_t start_addr;
-                uint8_t* p_data;
-                uint32_t length;
+                void* p_data;
             } write;
             struct
             {
-                uint32_t start_addr;
-                uint32_t length;
+                void* p_dest;
             } erase;
         } flash;
     } params;
@@ -282,6 +304,11 @@ struct bl_evt
         } req;
         struct
         {
+            dfu_type_t      fw_type;
+            fwid_union_t    fwid;
+        } new_fw;
+        struct
+        {
             dfu_type_t      dfu_type;
             fwid_union_t    fwid;
         } start;
@@ -290,6 +317,14 @@ struct bl_evt
             dfu_type_t      dfu_type;
             fwid_union_t    fwid;
         } end;
+        struct
+        {
+            dfu_type_t      bank_dfu_type;
+            fwid_union_t    bank_fwid;
+            fwid_union_t    current_fwid;
+            uint32_t*       p_bank_addr;
+            uint32_t        bank_length;
+        } bank_available;
         struct
         {
             char str[16];
@@ -304,20 +339,9 @@ struct bl_evt
             const char* p_file;
             uint32_t line;
         } error;
-        union
-        {
-            struct
-            {
-                uint32_t    start_addr;
-                uint32_t    length;
-            } erase;
-            struct
-            {
-                uint32_t    start_addr;
-                uint8_t*    p_data;
-                uint32_t    length;
-            } write;
-        } flash;
+
+        flash_op_t flash;
+
         union
         {
             struct
