@@ -39,6 +39,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 #include "event_handler.h"
 #include "rbc_mesh_common.h"
+#include "bootloader_app.h"
+#include "mesh_flash.h"
 
 #include "app_error.h"
 #include "nrf_sdm.h"
@@ -47,10 +49,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define TIMESLOT_END_SAFETY_MARGIN_US       (1000)          /**< Allocated time between end timer timeout and actual timeslot end. */
 #define TIMESLOT_SLOT_LENGTH_US             (10000)         /**< Base timeslot length. */
-#define TIMESLOT_SLOT_EXTEND_LENGTH_US      (1000000)       /**< Base extension length. */
+#define TIMESLOT_SLOT_EXTEND_LENGTH_US      ( 1000000)       /**< Base extension length. */
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH_US   (3000)          /**< Base timeslot length for when a regular request is denied. */
 #define TIMESLOT_TIMEOUT_DEFAULT_US         (50000)         /**< Timeout supplied to SD for "earliest" request. */
 #define TIMESLOT_MAX_LENGTH_US              (10000000UL)    /**< The upper limit for timeslot extensions. */
+#define TIMESLOT_MAX_LENGTH_FIRST_US        ( 1000000UL)    /**< The upper limit for timeslot extensions for the first timeslot. */
 #define RTC_MAX_TIME_TICKS                  (0xFFFFFF)      /**< RTC-clock rollover time. */
 
 /*****************************************************************************
@@ -93,7 +96,6 @@ static bool                 m_framework_initialized     = false; /** The timeslo
 static bool                 m_end_timer_triggered       = false; /** The timeslot end timer has been triggered, and the timeslot is about to end. */
 static ts_forced_command_t  m_timeslot_forced_command   = TS_FORCED_COMMAND_NONE; /** Forced command, checked in radio signal callback. */
 static uint32_t             m_lfclk_ppm                 = 250; /** The set drift accuracy for the LF clock source. */
-NRF_RTC_Type*               mp_rtc                      = NRF_RTC0; /** Pointer to RTC hardware module */
 static uint32_t             m_timeslot_count            = 0;
 
 /*****************************************************************************
@@ -135,7 +137,7 @@ static void ts_extend(timestamp_t extra_time_us)
 void start_time_update(void)
 {
     static uint64_t s_last_rtc_value = 0;
-    uint64_t rtc_time = mp_rtc->COUNTER;
+    uint64_t rtc_time = NRF_RTC0->COUNTER;
 
     /* First run, no delta. */
     if(m_timeslot_count == 0)
@@ -167,6 +169,7 @@ static void timeslot_end(void)
     m_end_timer_triggered = false;
     CLEAR_PIN(PIN_IN_TS);
     CLEAR_PIN(PIN_IN_CB);
+    NRF_GPIO->OUTCLR = (1 << 4);
 }
 
 /*****************************************************************************
@@ -225,6 +228,9 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     static uint32_t requested_extend_time = 0;
     static uint32_t successful_extensions = 0;
     SET_PIN(PIN_IN_CB);
+    m_is_in_callback = true;
+
+    NRF_GPIO->OUTSET = (1 << 7);
 
     switch (m_timeslot_forced_command)
     {
@@ -232,11 +238,14 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
             m_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_END;
             m_timeslot_count = 0;
             timeslot_end();
+            NRF_GPIO->OUTCLR = (1 << 7);
             return &m_ret_param;
 
         case TS_FORCED_COMMAND_RESTART:
             ts_order_earliest(TIMESLOT_SLOT_LENGTH_US);
             timeslot_end();
+            NRF_GPIO->OUTCLR = (1 << 7);
+            m_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
             return &m_ret_param;
 
         default:
@@ -244,12 +253,11 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     }
 
     m_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
-    m_is_in_callback = true;
-
     switch (sig)
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
         {
+            NRF_GPIO->OUTSET = (1 << 4);
             SET_PIN(PIN_IN_TS);
             m_is_in_timeslot = true;
             m_end_timer_triggered = false;
@@ -300,9 +308,19 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 
             m_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_NONE;
 
-            if (m_timeslot_length + m_negotiate_timeslot_length < TIMESLOT_MAX_LENGTH_US)
+            if (m_timeslot_count == 1)
             {
-                ts_extend(m_negotiate_timeslot_length);
+                if (m_timeslot_length + m_negotiate_timeslot_length < TIMESLOT_MAX_LENGTH_FIRST_US)
+                {
+                    ts_extend(m_negotiate_timeslot_length);
+                }
+            }
+            else
+            {
+                if (m_timeslot_length + m_negotiate_timeslot_length < TIMESLOT_MAX_LENGTH_US)
+                {
+                    ts_extend(m_negotiate_timeslot_length);
+                }
             }
 
             break;
@@ -330,11 +348,13 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     }
     else
     {
+        mesh_flash_op_execute(timeslot_remaining_time_get());
         requested_extend_time = 0;
     }
 
     m_is_in_callback = false;
     CLEAR_PIN(PIN_IN_CB);
+    NRF_GPIO->OUTCLR = (1 << 7);
     return &m_ret_param;
 }
 
@@ -451,7 +471,7 @@ timestamp_t timeslot_remaining_time_get(void)
     {
         return 0;
     }
-    return m_timeslot_length + TIMER_DIFF(m_start_time, timer_now());
+    return TIMER_DIFF((m_timeslot_length + m_start_time), timer_now());
 }
 
 bool timeslot_is_in_ts(void)
