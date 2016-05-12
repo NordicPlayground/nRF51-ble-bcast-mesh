@@ -57,7 +57,7 @@ static bl_if_cb_evt_t m_evt_handler = NULL;
 * Interface functions
 *****************************************************************************/
 uint32_t bootloader_app_bridge_init(void)
-{    
+{
     volatile bl_if_cmd_handler_t* p_last = (bl_if_cmd_handler_t*) LAST_RAM_WORD;
     *p_last = bl_cmd_handler;
     return NRF_SUCCESS;
@@ -83,7 +83,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
             {
                 return NRF_ERROR_INVALID_PARAM;
             }
-            
+
             if (bootloader_info_init((uint32_t*) (BOOTLOADER_INFO_ADDRESS),
                                      (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE))
                 != NRF_SUCCESS)
@@ -108,7 +108,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
             return m_evt_handler(&rsp_evt);
 
         case BL_CMD_TYPE_DFU_START_TARGET:
-            
+
             break;
         case BL_CMD_TYPE_DFU_START_RELAY:
             break;
@@ -219,6 +219,8 @@ void send_abort_evt(bl_end_t end_reason)
 
 uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length)
 {
+    NRF_GPIO->OUTSET = (1 << 2);
+    uint32_t error_code;
     bl_evt_t evt =
     {
         .type = BL_EVT_TYPE_FLASH_WRITE,
@@ -229,12 +231,21 @@ uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length)
             .length = length
         }
     };
-    return bootloader_evt_send(&evt);
+    error_code = bootloader_evt_send(&evt);
+    if (error_code == NRF_SUCCESS)
+    {
+        NRF_GPIO->OUTSET = (1 << 16);
+        NRF_GPIO->OUTSET = (1 << 0);
+    }
+    NRF_GPIO->OUTCLR = (1 << 2);
+    NRF_GPIO->OUTCLR = (1 << 16);
+    return error_code;
 }
-
 
 uint32_t flash_erase(uint32_t* p_dest, uint32_t length)
 {
+    NRF_GPIO->OUTSET = (1 << 1);
+    uint32_t error_code;
     bl_evt_t evt =
     {
         .type = BL_EVT_TYPE_FLASH_ERASE,
@@ -244,7 +255,13 @@ uint32_t flash_erase(uint32_t* p_dest, uint32_t length)
             .length = length
         }
     };
-    return bootloader_evt_send(&evt);
+    error_code = bootloader_evt_send(&evt);
+    if (error_code == NRF_SUCCESS)
+    {
+        NRF_GPIO->OUTSET = (1 << 0);
+    }
+    NRF_GPIO->OUTCLR = (1 << 1);
+    return error_code;
 }
 
 uint32_t timer_set(uint32_t delay_us)
@@ -252,7 +269,7 @@ uint32_t timer_set(uint32_t delay_us)
     bl_evt_t set_evt;
     set_evt.type = BL_EVT_TYPE_TIMER_SET;
     set_evt.params.timer.set.delay_us = delay_us;
-    set_evt.params.timer.set.index = 0; 
+    set_evt.params.timer.set.index = 0;
     return bootloader_evt_send(&set_evt);
 }
 
@@ -260,7 +277,7 @@ uint32_t timer_abort(void)
 {
     bl_evt_t abort_evt;
     abort_evt.type = BL_EVT_TYPE_TIMER_ABORT;
-    abort_evt.params.timer.abort.index = 0; 
+    abort_evt.params.timer.abort.index = 0;
     return bootloader_evt_send(&abort_evt);
 }
 
@@ -268,7 +285,7 @@ uint32_t tx_abort(uint8_t slot)
 {
     bl_evt_t abort_evt;
     abort_evt.type = BL_EVT_TYPE_TX_ABORT;
-    abort_evt.params.tx.abort.tx_slot = slot; 
+    abort_evt.params.tx.abort.tx_slot = slot;
     return bootloader_evt_send(&abort_evt);
 }
 

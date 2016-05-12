@@ -71,9 +71,9 @@ static bool             m_started = false;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
-static void tx_cb(uint8_t* p_data);
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
-static void idle_cb(void);
+static void radio_tx_cb(uint8_t* p_data);
+static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address);
+static void radio_idle_cb(void);
 
 static void set_next_tx(tx_t* p_tx)
 {
@@ -103,15 +103,14 @@ static void order_scan(void)
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
     evt.access_address = 0;
-    evt.callback.rx = rx_cb;
     evt.channel = 37;
-    if (!radio_order(&evt))
+    if (radio_order(&evt) != NRF_SUCCESS)
     {
         mesh_packet_ref_count_dec((mesh_packet_t*) &evt.packet_ptr);
     }
 }
 
-static void tx_cb(uint8_t* p_data)
+static void radio_tx_cb(uint8_t* p_data)
 {
 #if 0    
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
@@ -127,7 +126,7 @@ static void tx_cb(uint8_t* p_data)
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
 
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
+static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index)
 {
     APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) p_data) == 1);
     if (success &&
@@ -145,7 +144,7 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
     }
 }
 
-static void idle_cb(void)
+static void radio_idle_cb(void)
 {
     if (m_started)
     {
@@ -228,7 +227,7 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 
     NVIC_SetPriority(RADIO_IRQn, 0);
 
-    radio_init(access_addr, idle_cb);
+    radio_init(radio_idle_cb, radio_rx_cb, radio_tx_cb);
 }
 
 void transport_start(void)
@@ -324,13 +323,13 @@ void transport_rtc_irq_handler(void)
             radio_evt.event_type = RADIO_EVENT_TYPE_TX;
             radio_evt.packet_ptr = (uint8_t*) m_tx[i].p_packet;
             radio_evt.access_address = 0;
-            radio_evt.callback.tx = tx_cb;
+            
             uint8_t radio_refs = 0;
             if (m_tx[i].redundancy < REDUNDANCY_MAX)
             {
                 for (radio_evt.channel = 37; radio_evt.channel <= 39; ++radio_evt.channel)
                 {
-                    if (radio_order(&radio_evt))
+                    if (radio_order(&radio_evt) == NRF_SUCCESS)
                     {
                         radio_refs++;
                         mesh_packet_ref_count_inc(m_tx[i].p_packet);

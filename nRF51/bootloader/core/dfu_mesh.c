@@ -63,7 +63,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define STATE_TIMEOUT_RAMPDOWN      ( 1000000) /*  1.0s */
 #define STATE_TIMEOUT_RELAY         (10000000) /* 10.0s */
 
-#define TX_SLOT_BEACON              (0)    
+#define TX_SLOT_BEACON              (0)
 
 #define START_ADDRESS_UNKNOWN       (0xFFFFFFFF)
 
@@ -168,9 +168,9 @@ static void keep_alive(void)
     bootloader_evt_send(&keep_alive_evt);
 }
 
-static void packet_tx_dynamic(dfu_packet_t* p_packet, 
-    uint32_t length, 
-    bl_radio_interval_type_t interval_type, 
+static void packet_tx_dynamic(dfu_packet_t* p_packet,
+    uint32_t length,
+    bl_radio_interval_type_t interval_type,
     uint8_t repeats)
 {
     static uint8_t tx_slot = 1;
@@ -182,7 +182,7 @@ static void packet_tx_dynamic(dfu_packet_t* p_packet,
     tx_evt.params.tx.radio.tx_count = repeats;
     tx_evt.params.tx.radio.tx_slot = tx_slot;
     bootloader_evt_send(&tx_evt);
-    
+
     if (++tx_slot >= m_tx_slots)
     {
         tx_slot = 1;
@@ -359,7 +359,7 @@ static void beacon_set(beacon_type_t type)
             dfu_packet.payload.state.dfu_type = DFU_TYPE_BOOTLOADER;
             break;
     }
-    
+
     bl_evt_t tx_evt;
     tx_evt.type = BL_EVT_TYPE_TX_RADIO;
     tx_evt.params.tx.radio.p_dfu_packet = &dfu_packet;
@@ -367,9 +367,9 @@ static void beacon_set(beacon_type_t type)
     tx_evt.params.tx.radio.interval_type = interval_type;
     tx_evt.params.tx.radio.tx_count = repeats;
     tx_evt.params.tx.radio.tx_slot = TX_SLOT_BEACON;
-    
+
     bootloader_evt_send(&tx_evt);
-    
+
 #ifdef SERIAL
     tx_evt.type = BL_EVT_TYPE_TX_SERIAL;
     tx_evt.params.tx.serial.p_dfu_packet = &dfu_packet;
@@ -526,7 +526,7 @@ static void start_rampdown(void)
     timer_evt.params.timer.set.delay_us = STATE_TIMEOUT_RAMPDOWN;
     timer_evt.params.timer.set.index = 0;
     bootloader_evt_send(&timer_evt);
-    
+
     m_state = DFU_STATE_VALIDATE;
 }
 
@@ -719,7 +719,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                     /* check whether we've lost any entries, and request them */
                     uint32_t* p_req_entry = NULL;
                     uint32_t req_entry_len = 0;
-                    
+
                     if (dfu_transfer_get_oldest_missing_entry(
                             m_transaction.p_last_requested_entry,
                             &p_req_entry,
@@ -735,7 +735,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                         req_packet.packet_type = DFU_PACKET_TYPE_DATA_REQ;
                         req_packet.payload.req_data.segment = ADDR_SEGMENT(p_req_entry, m_transaction.p_start_addr);
                         req_packet.payload.req_data.transaction_id = m_transaction.transaction_id;
-                        
+
                         packet_tx_dynamic(&req_packet, DFU_PACKET_LEN_DATA_REQ, TX_INTERVAL_TYPE_REQ, TX_REPEATS_REQ);
                         m_transaction.p_last_requested_entry = (uint32_t*) p_req_entry;
                     }
@@ -758,9 +758,9 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             do_relay = true;
         }
     }
-    
+
     packet_cache_put(p_packet);
-    
+
     if (do_relay)
     {
         relay_packet(p_packet, length);
@@ -781,7 +781,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                 {
                     bl_evt_t fw_evt;
                     fw_evt.type = BL_EVT_TYPE_NEW_FW;
-                    fw_evt.params.new_fw.fw_type = p_packet->payload.state.dfu_type;
+                    fw_evt.params.new_fw.fw_type = (dfu_type_t) p_packet->payload.state.dfu_type;
                     memcpy(&fw_evt.params.new_fw.fwid, &p_packet->payload.state.fwid, sizeof(fwid_union_t));
                     bootloader_evt_send(&fw_evt);
                 }
@@ -806,7 +806,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                     /* assume that the other device knows what to upgrade */
                     m_transaction.type = (dfu_type_t) p_packet->payload.state.dfu_type;
                     m_transaction.target_fwid_union = p_packet->payload.state.fwid;
-                    
+
                     start_ready(p_packet);
                 }
                 else if (packet_is_from_serial(p_packet))
@@ -1031,9 +1031,9 @@ void dfu_mesh_start(void)
         start_find_fwid();
     }
 #else
-    const bl_info_type_t bank_types[] = {BL_INFO_TYPE_BANK_BL, BL_INFO_TYPE_BANK_SD, BL_INFO_TYPE_BANK_APP}; 
+    const bl_info_type_t bank_types[] = {BL_INFO_TYPE_BANK_BL, BL_INFO_TYPE_BANK_SD, BL_INFO_TYPE_BANK_APP};
     const dfu_type_t dfu_types[] = {DFU_TYPE_BOOTLOADER, DFU_TYPE_SD, DFU_TYPE_APP};
-    const void* p_curr_fwid[] = {&m_bl_info_pointers.p_fwid->bootloader, &m_bl_info_pointers.p_fwid->sd, &m_bl_info_pointers.p_fwid->app};
+    const void* p_curr_fwid[] = {&m_bl_info_pointers.p_fwid->bootloader, (void*) &m_bl_info_pointers.p_fwid->sd, &m_bl_info_pointers.p_fwid->app};
 
     for (uint32_t i = 0; i < 3; ++i)
     {
@@ -1053,7 +1053,7 @@ void dfu_mesh_start(void)
             }
         }
     }
-    
+
     start_find_fwid();
 #endif
 }
@@ -1126,6 +1126,8 @@ void dfu_mesh_timeout(void)
         case DFU_STATE_VALIDATE:
             if (signature_check())
             {
+                dfu_mesh_finalize();
+
                 bl_evt_t end_evt;
                 end_evt.type = BL_EVT_TYPE_END_TARGET;
                 end_evt.params.end.dfu_type = m_transaction.type;
@@ -1150,7 +1152,7 @@ void dfu_mesh_timeout(void)
 
 bool dfu_mesh_app_is_valid(void)
 {
-    bl_info_entry_t* p_fwid_entry    = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
+    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
 
     return (p_fwid_entry != NULL &&
             (uint32_t*) m_bl_info_pointers.p_segment_app->start != (uint32_t*) 0xFFFFFFFF &&
@@ -1173,28 +1175,27 @@ uint32_t dfu_mesh_finalize(void)
         bank_entry.bank.length = m_transaction.length;
         bank_entry.bank.p_bank_addr = m_transaction.p_bank_addr;
         uint32_t entry_length = BL_INFO_LEN_BANK;
-        
+
         if (m_transaction.signature_length > 0)
         {
             memcpy(bank_entry.bank.signature, m_transaction.signature, BL_INFO_LEN_SIGNATURE);
             entry_length = BL_INFO_LEN_BANK_SIGNED;
         }
-        
+
         switch (m_transaction.type)
         {
-            case DFU_TYPE_APP:    
+            case DFU_TYPE_APP:
                 bootloader_info_entry_put(BL_INFO_TYPE_BANK_APP, &bank_entry, entry_length);
                 break;
             case DFU_TYPE_BOOTLOADER:
                 bootloader_info_entry_put(BL_INFO_TYPE_BANK_BL, &bank_entry, entry_length);
                 break;
-            case DFU_TYPE_SD:    
+            case DFU_TYPE_SD:
                 bootloader_info_entry_put(BL_INFO_TYPE_BANK_SD, &bank_entry, entry_length);
                 break;
             default:
                 return NRF_ERROR_INVALID_DATA;
         }
-        
     }
     else
     {
@@ -1202,7 +1203,7 @@ uint32_t dfu_mesh_finalize(void)
         {
             APP_ERROR_CHECK(NRF_ERROR_NULL);
         }
-        
+
         /* copy flags, then mark the type we just verified as intact before reflashing it. */
         bl_info_entry_t flags_entry;
         memcpy(&flags_entry, m_bl_info_pointers.p_flags, ((BL_INFO_LEN_FLAGS + 3) & ~0x03UL));
@@ -1210,34 +1211,39 @@ uint32_t dfu_mesh_finalize(void)
         switch (m_transaction.type)
         {
             case DFU_TYPE_APP:
-                memcpy((void*) &new_version_entry.version.app, (void*) &m_transaction.target_fwid_union.app, DFU_FWID_LEN_APP);
+                memcpy((void*) &new_version_entry.version.app,
+                       (void*) &m_transaction.target_fwid_union.app,
+                       DFU_FWID_LEN_APP);
                 sign_info_type = BL_INFO_TYPE_SIGNATURE_APP;
                 flags_entry.flags.app_intact = true;
                 break;
             case DFU_TYPE_SD:
-                memcpy((void*) &new_version_entry.version.sd, (void*) &m_transaction.target_fwid_union.sd, DFU_FWID_LEN_SD);
+                memcpy((void*) &new_version_entry.version.sd,
+                       (void*) &m_transaction.target_fwid_union.sd,
+                       DFU_FWID_LEN_SD);
                 sign_info_type = BL_INFO_TYPE_SIGNATURE_SD;
                 flags_entry.flags.sd_intact = true;
                 break;
             case DFU_TYPE_BOOTLOADER:
-                memcpy((void*) &new_version_entry.version.bootloader, (void*) &m_transaction.target_fwid_union.bootloader, DFU_FWID_LEN_BL);
+                memcpy((void*) &new_version_entry.version.bootloader,
+                       (void*) &m_transaction.target_fwid_union.bootloader,
+                       DFU_FWID_LEN_BL);
                 sign_info_type = BL_INFO_TYPE_SIGNATURE_BL;
                 flags_entry.flags.bl_intact = true;
                 break;
             default:
                 break;
         }
-        m_bl_info_pointers.p_fwid  = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
-        m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
-
         /* add signature to bl info, if applicable: */
         if (m_transaction.signature_length != 0)
         {
             bootloader_info_entry_put(sign_info_type, (bl_info_entry_t*) m_transaction.signature, DFU_SIGNATURE_LEN);
         }
-    }
-    
 
+        m_bl_info_pointers.p_fwid  = &bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_version_entry, BL_INFO_LEN_FWID)->version;
+        m_bl_info_pointers.p_flags = &bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &flags_entry, BL_INFO_LEN_FLAGS)->flags;
+    }
+    return NRF_SUCCESS;
 }
 
 void dfu_mesh_restart(void)
@@ -1247,7 +1253,8 @@ void dfu_mesh_restart(void)
 
 uint32_t dfu_mesh_flash_bank(dfu_type_t type, uint32_t* p_bank_addr, uint32_t bank_len)
 {
-    uint32_t error_code;            
+    uint32_t error_code;
+    bl_info_entry_t* p_flags_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
     switch (type)
     {
         case DFU_TYPE_BOOTLOADER:
@@ -1276,11 +1283,12 @@ uint32_t dfu_mesh_flash_bank(dfu_type_t type, uint32_t* p_bank_addr, uint32_t ba
         default:
             /* This nukes the call stack. */
             dfu_transfer_flash_bank();
-            
+
             ///@TODO: Mark the target as intact.
-            
+
+
             /* Let's just kill ourself! */
-            NVIC_SystemReset();        
+            NVIC_SystemReset();
     }
     return error_code;
 }

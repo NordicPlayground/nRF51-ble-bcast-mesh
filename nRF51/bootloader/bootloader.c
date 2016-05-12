@@ -148,7 +148,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             break;
         case BL_EVT_TYPE_TX_SERIAL:
         {
-#ifdef SERIAL            
+#ifdef SERIAL
             serial_evt_t serial_evt;
             serial_evt.opcode = SERIAL_EVT_OPCODE_DFU;
             memcpy(&serial_evt.params.dfu.packet, p_evt->params.tx.serial.p_dfu_packet, p_evt->params.tx.serial.length);
@@ -158,7 +158,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
                 return NRF_ERROR_INTERNAL;
             }
             break;
-#endif            
+#endif
         }
         case BL_EVT_TYPE_TIMER_SET:
             set_timeout(US_TO_RTC_TICKS(p_evt->params.timer.set.delay_us));
@@ -199,7 +199,7 @@ static bool bank_was_flashed(bl_info_type_t bank_type, bl_info_type_t segment_ty
     {
         return false; /* no bank of this type */
     }
-    
+
     bl_info_entry_t* p_segment_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, segment_type);
     if (!p_segment_entry)
     {
@@ -209,7 +209,7 @@ static bool bank_was_flashed(bl_info_type_t bank_type, bl_info_type_t segment_ty
     {
         return false; /* bank wouldn't fit */
     }
-    
+
     /* check that the fwid is different */
     bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
     if (!p_fwid_entry)
@@ -239,7 +239,7 @@ static bool bank_was_flashed(bl_info_type_t bank_type, bl_info_type_t segment_ty
         default:
             return false;
     }
-            
+
     /* compare the bank and the fw word by word */
     for (uint32_t i = 0; i < p_bank_entry->bank.length; i += 4)
     {
@@ -249,9 +249,10 @@ static bool bank_was_flashed(bl_info_type_t bank_type, bl_info_type_t segment_ty
             return false;
         }
     }
-    
+
     return true;
 }
+
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
@@ -260,7 +261,7 @@ void bootloader_init(void)
     rtc_init();
 
     bootloader_app_bridge_init();
-    
+
     bl_cmd_t init_cmd;
     init_cmd.type = BL_CMD_TYPE_INIT;
     init_cmd.params.init.bl_if_version = BL_IF_VERSION;
@@ -269,60 +270,93 @@ void bootloader_init(void)
     init_cmd.params.init.tx_slots = TRANSPORT_TX_SLOTS;
     bl_cmd_handler(&init_cmd);
 
-    
+
 #ifdef SERIAL
     mesh_aci_init();
 #endif
 
     transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
-    
+
     /* If we've flashed a bank, we should check to see if it worked. */
     if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_BANK_FLASH || !dfu_mesh_app_is_valid())
     {
+        
         bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
         bl_info_entry_t* p_flag_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
 
         bl_info_entry_t new_fwid_entry;
         memcpy(&new_fwid_entry, p_fwid_entry, sizeof(BL_INFO_LEN_FWID));
+        bl_info_entry_t temp_flag_entry;
+        memcpy(&temp_flag_entry, p_flag_entry, sizeof(BL_INFO_LEN_FLAGS));
         bl_info_entry_t new_flag_entry;
         memcpy(&new_flag_entry, p_flag_entry, sizeof(BL_INFO_LEN_FLAGS));
+
         bool new_fw = false;
-        
-        
+        bl_info_entry_t* p_bank_entry;
+
+        /* find all flashed banks */
         if (bank_was_flashed(BL_INFO_TYPE_BANK_BL, BL_INFO_TYPE_SEGMENT_BL))
         {
             new_fw = true;
-            bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_BL);
+            p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_BL);
             if (p_bank_entry)
             {
                 memcpy(&new_fwid_entry.version.bootloader, &p_bank_entry->bank.fwid.bootloader, sizeof(bl_id_t));
                 new_flag_entry.flags.bl_intact = true;
+                if (p_bank_entry->bank.has_signature)
+                {
+                    bl_info_entry_t sign_entry;
+                    memcpy(sign_entry.signature, p_bank_entry->bank.signature, BL_INFO_LEN_SIGNATURE);
+                    bootloader_info_entry_put(BL_INFO_TYPE_SIGNATURE_BL, &sign_entry, BL_INFO_LEN_SIGNATURE);
+                }
             }
         }
         if (bank_was_flashed(BL_INFO_TYPE_BANK_SD, BL_INFO_TYPE_SEGMENT_SD))
         {
             new_fw = true;
-            bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_SD);
+            p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_SD);
             if (p_bank_entry)
             {
                 new_fwid_entry.version.sd = p_bank_entry->bank.fwid.sd;
                 new_flag_entry.flags.sd_intact = true;
+                if (p_bank_entry->bank.has_signature)
+                {
+                    bl_info_entry_t sign_entry;
+                    memcpy(sign_entry.signature, p_bank_entry->bank.signature, BL_INFO_LEN_SIGNATURE);
+                    bootloader_info_entry_put(BL_INFO_TYPE_SIGNATURE_SD, &sign_entry, BL_INFO_LEN_SIGNATURE);
+                }
             }
         }
         if (bank_was_flashed(BL_INFO_TYPE_BANK_APP, BL_INFO_TYPE_SEGMENT_APP))
         {
             new_fw = true;
-            bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_APP);
+            p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_APP);
             if (p_bank_entry)
             {
                 memcpy(&new_fwid_entry.version.app, &p_bank_entry->bank.fwid.app, sizeof(app_id_t));
                 new_flag_entry.flags.app_intact = true;
+                if (p_bank_entry->bank.has_signature)
+                {
+                    bl_info_entry_t sign_entry;
+                    memcpy(sign_entry.signature, p_bank_entry->bank.signature, BL_INFO_LEN_SIGNATURE);
+                    bootloader_info_entry_put(BL_INFO_TYPE_SIGNATURE_APP, &sign_entry, BL_INFO_LEN_SIGNATURE);
+                }
             }
         }
-        
-        bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_fwid_entry, BL_INFO_LEN_FWID);
-        bootloader_info_entry_put(
-        
+
+        if (new_fw)
+        {
+            bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_fwid_entry, BL_INFO_LEN_FWID);
+            bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &new_flag_entry, BL_INFO_LEN_FLAGS);
+
+            /* Don't want the retention register to make us recheck this. */
+            NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_GO_TO_APP;
+            /* Restart the bootloader! */
+            NVIC_SystemReset();
+        }
+
+        /* Don't want the retention register to make us recheck this. */
+        NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_GO_TO_APP;
     }
 }
 
@@ -348,7 +382,7 @@ void bootloader_abort(bl_end_t end_reason)
         case BL_END_ERROR_TIMEOUT:
         case BL_END_FWID_VALID:
         case BL_END_ERROR_MBR_CALL_FAILED:
-            if (p_segment_entry && dfu_mesh_app_is_valid((uint32_t*) p_segment_entry->segment.start))
+            if (p_segment_entry && dfu_mesh_app_is_valid())
             {
                 interrupts_disable();
 
@@ -359,7 +393,9 @@ void bootloader_abort(bl_end_t end_reason)
 
                 err_code = sd_softdevice_vector_table_base_set(p_segment_entry->segment.start);
                 APP_ERROR_CHECK(err_code);
-
+#ifdef DEBUG_LEDS
+                NRF_GPIO->OUTSET = (1 << 21) | (1 << 22) | (1 << 23) | (1 << 24);
+#endif
                 bootloader_util_app_start(p_segment_entry->segment.start);
             }
             break;
