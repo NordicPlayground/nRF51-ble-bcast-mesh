@@ -36,14 +36,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_PUBLIC_KEY_LEN      (64)
 #define DFU_SIGNATURE_LEN       (64)
 
-#define BL_INFO_LEN_PUBLIC_KEY  (DFU_PUBLIC_KEY_LEN)
-#define BL_INFO_LEN_SEGMENT     (9)
-#define BL_INFO_LEN_FWID        (14)
-#define BL_INFO_LEN_JOURNAL     ((2 * PAGE_COUNT) / 8)
-#define BL_INFO_LEN_FLAGS       (1)
-#define BL_INFO_LEN_SIGNATURE   (DFU_SIGNATURE_LEN)
-
-
 typedef struct
 {
     struct
