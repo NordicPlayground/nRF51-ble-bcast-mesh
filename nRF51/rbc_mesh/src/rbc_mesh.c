@@ -95,8 +95,9 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     tc_init(init_params.access_addr, init_params.channel);
 
     uint32_t error_code;
-    /* multiply with 1024 instead of 1000 as the number will be easier to set accurately  */
-    error_code = vh_init(init_params.interval_min_ms * 1024);
+    error_code = vh_init(init_params.interval_min_ms * 1000, /* ms -> us */
+                         init_params.access_addr, 
+                         init_params.channel);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
