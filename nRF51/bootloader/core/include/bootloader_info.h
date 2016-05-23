@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "uECC.h"
 
+#define INFO_ENTRY_MAX_LEN  (64)
 
 typedef struct
 {
