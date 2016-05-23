@@ -44,7 +44,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RBC_MESH_APP_MAX_HANDLE                     (0xFFEF) /**< Upper limit to application defined handles. The last 16 handles are reserved for mesh-maintenance. */
 
 #define RBC_MESH_GPREGRET_CODE_GO_TO_APP            (0x00) /**< Retention register code for immediately starting application when entering bootloader. The default behavior. */
-#define RBC_MESH_GPREGRET_CODE_FORCED_REBOOT        (0x01) /**< Retention register code for telling the bootloader it's been started on purpose */
+#define RBC_MESH_GPREGRET_CODE_FORCED_REBOOT        (0x01) /**< Retention register code for telling the bootloader it's been started on purpose. */
+#define RBC_MESH_GPREGRET_CODE_BANK_FLASH           (0x02) /**< Retention register code for telling the bootloader we've flashed a bank. */
 /*
    There are two caches in the framework:
    - The handle cache keeps track of the latest version number for each handle.
@@ -149,6 +150,20 @@ typedef struct
     uint32_t interval_min_ms;
     nrf_clock_lfclksrc_t lfclksrc;
 } rbc_mesh_init_params_t;
+
+/** @brief Packet peek callback parameters. */
+typedef struct
+{
+    ble_gap_addr_t adv_addr;    /**< Advertisement address of the received packet. */
+    uint8_t rssi;               /**< Negative RSSI value of the received packet. */
+    uint8_t payload_len;        /**< Length of p_payload. */
+    uint8_t* p_payload;         /**< Advertisement packet payload (not including advertisement address) */
+    uint32_t crc;               /**< CRC value of the received packet. */
+    uint64_t timestamp;         /**< Timestamp of the received packet. */
+} rbc_mesh_packet_peek_params_t;
+
+/** @brief Function pointer type for packet peek callback. */
+typedef void (*rbc_mesh_packet_peek_cb_t)(rbc_mesh_packet_peek_params_t* p_peek_params);
 /*****************************************************************************
      Interface Functions
 *****************************************************************************/
@@ -447,6 +462,23 @@ uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
 uint32_t rbc_mesh_packet_release(uint8_t* p_data);
+
+/**
+* @brief Set packet peek function pointer. Every received packet will be
+*   passed to the peek function before being processed by the stack -
+*   including non-mesh packets. This allows the application to read
+*   out parameters like RSSI from nearby devices.
+*
+* @warning This is considered an advanced feature, and should be used with some
+*   care. The packet memory will be invalid after the function is finished, and
+*   users should not store any direct pointers to it. Also note that the
+*   function is called from APP_LOW priority, which means it takes away from
+*   stack-internal processing time. Excessive usage may lead to starvation of
+*   internal functionality, and potentially packet drops.
+*
+* @param[in] packet_peek_cb Function pointer to a packet-peek function.
+*/
+void rbc_mesh_packet_peek_cb_set(rbc_mesh_packet_peek_cb_t packet_peek_cb);
 
 #endif /* _RBC_MESH_H__ */
 

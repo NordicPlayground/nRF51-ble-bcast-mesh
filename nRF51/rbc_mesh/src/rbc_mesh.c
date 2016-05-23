@@ -367,3 +367,8 @@ uint32_t rbc_mesh_packet_release(uint8_t* p_data)
     return NRF_SUCCESS;
 }
 
+void rbc_mesh_packet_peek_cb_set(rbc_mesh_packet_peek_cb_t packet_peek_cb)
+{
+    tc_packet_peek_cb_set(packet_peek_cb);
+}
+

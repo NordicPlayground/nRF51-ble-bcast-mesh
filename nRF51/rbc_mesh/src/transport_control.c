@@ -64,7 +64,7 @@ typedef struct
 ******************************************************************************/
 static tc_state_t m_state;
 static bl_info_entry_t* mp_fwid_entry = NULL;
-static packet_peek_cb_t mp_packet_peek_cb;
+static rbc_mesh_packet_peek_cb_t mp_packet_peek_cb;
 
 /* STATS */
 #ifdef PACKET_STATS
@@ -326,7 +326,15 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
     /* Pass packet to packet peek function */
     if (mp_packet_peek_cb)
     {
-        mp_packet_peek_cb(p_packet, crc, timeslot_get_global_time() + timestamp, rssi);
+        rbc_mesh_packet_peek_params_t peek_params;
+        peek_params.rssi = rssi;
+        peek_params.p_payload = p_packet->payload;
+        peek_params.payload_len = p_packet->header.length - MESH_PACKET_BLE_OVERHEAD;
+        memcpy(peek_params.adv_addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
+        peek_params.adv_addr.addr_type = p_packet->header.addr_type;
+        peek_params.crc = crc;
+        peek_params.timestamp = timestamp + timeslot_get_global_time();
+        mp_packet_peek_cb(&peek_params);
     }
 
     ble_gap_addr_t addr;
@@ -360,7 +368,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
     CLEAR_PIN(PIN_RX);
 }
 
-void tc_packet_peek_cb_set(packet_peek_cb_t packet_peek_cb)
+void tc_packet_peek_cb_set(rbc_mesh_packet_peek_cb_t packet_peek_cb)
 {
     mp_packet_peek_cb = packet_peek_cb;
 }
