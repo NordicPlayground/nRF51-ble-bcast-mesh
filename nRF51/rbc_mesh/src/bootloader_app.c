@@ -219,20 +219,20 @@ uint32_t bootloader_init(void)
 
     rand_prng_seed(&m_prng);
 
-    m_timer_evt.cb = timer_timeout;
-    m_timer_evt.interval = 0;
-    m_timer_evt.p_context = NULL;
-    m_timer_evt.p_next = NULL;
-    m_tx_timer_evt.cb = tx_timeout;
-    m_tx_timer_evt.interval = 0;
+    m_timer_evt.cb           = timer_timeout;
+    m_timer_evt.interval     = 0;
+    m_timer_evt.p_context    = NULL;
+    m_timer_evt.p_next       = NULL;
+    m_tx_timer_evt.cb        = tx_timeout;
+    m_tx_timer_evt.interval  = 0;
     m_tx_timer_evt.p_context = NULL;
-    m_tx_timer_evt.p_next = NULL;
-    m_tx_scheduled = true;
+    m_tx_timer_evt.p_next    = NULL;
+    m_tx_scheduled           = true;
 
     m_tx_config.access_address = RBC_MESH_ACCESS_ADDRESS_BLE_ADV;
     m_tx_config.first_channel = 37;
     m_tx_config.channel_map = (1 << 0) | (1 << 1) | (1 << 2); /* 37, 38, 39 */
-    
+
     mesh_flash_init(flash_op_complete);
 
     bl_cmd_t init_cmd =
@@ -260,7 +260,7 @@ uint32_t bootloader_enable(void)
     bl_cmd_t enable_cmd =
     {
         .type = BL_CMD_TYPE_ENABLE,
-        .params = {0}
+        .params = {{0}}
     };
 
     return m_cmd_handler(&enable_cmd);
