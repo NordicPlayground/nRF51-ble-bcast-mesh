@@ -232,6 +232,7 @@ typedef enum
     BL_INFO_TYPE_TEST               = 0x100,
 
     BL_INFO_TYPE_LAST               = 0x7FFF,
+    BL_INFO_TYPE_UNUSED             = 0xFFFF,
 } bl_info_type_t;
 
 typedef struct

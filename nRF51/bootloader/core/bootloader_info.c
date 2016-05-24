@@ -230,6 +230,65 @@ static inline info_buffer_t* bootloader_info_first_unused_get(bootloader_info_t*
     return (info_buffer_t*) (p_entry ? bootloader_info_header_get(p_entry) : NULL);
 }
 
+static void reset_info(void)
+{
+    static uint8_t* sp_new_page_next_space;
+    static info_buffer_t* sp_info;
+    m_state = BL_INFO_STATE_RECOVERING;
+
+    if (mp_bl_info_bank_page->metadata.metadata_len != 0xFF &&
+        bootloader_info_first_unused_get(mp_bl_info_bank_page) != NULL)
+    {
+        if (flash_erase(mp_bl_info_bank_page, PAGE_SIZE) != NRF_SUCCESS)
+        {
+            return;
+        }
+    }
+
+    if (mp_bl_info_bank_page->metadata.metadata_len == 0xFF)
+    {
+        /* Write metadata header */
+        if (flash_write(&mp_bl_info_bank_page->metadata,
+                        &mp_bl_info_page->metadata,
+                        sizeof(mp_bl_info_page->metadata)) != NRF_SUCCESS)
+        {
+            return;
+        }
+    }
+
+    sp_new_page_next_space = mp_bl_info_bank_page->data;
+
+    sp_info = ((info_buffer_t*) ((uint8_t*) mp_bl_info_page + mp_bl_info_page->metadata.metadata_len));
+
+    while ((uint32_t) sp_info < ((uint32_t) mp_bl_info_page + PAGE_SIZE))
+    {
+        bl_info_type_t type = (bl_info_type_t) sp_info->header.type;
+
+        if (type == BL_INFO_TYPE_LAST)
+        {
+            break;
+        }
+
+        if (type != BL_INFO_TYPE_INVALID)
+        {
+            /* copy from main info page to bank */
+            uint32_t len = sp_info->header.len * 4;
+            if (sp_new_page_next_space + len > (uint8_t*) mp_bl_info_bank_page + PAGE_SIZE)
+            {
+                APP_ERROR_CHECK(NRF_ERROR_INTERNAL);
+            }
+
+            if (flash_write(sp_new_page_next_space, sp_info, len) != NRF_SUCCESS)
+            {
+                return;
+            }
+
+            sp_new_page_next_space += len;
+        }
+        sp_info = bootloader_info_iterate(sp_info);
+    }
+}
+
 #if 0
 static bootloader_info_header_t* reset_with_replace(
         bl_info_type_t replace_type,
@@ -431,6 +490,7 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
             invalidate_entry(p_old_header);
         }
 
+        /* We've run out of space, and need to recover. */
         if (((uint32_t) p_new_buf + HEADER_LEN + length + HEADER_LEN) >= (uint32_t) ((uint32_t) mp_bl_info_page + PAGE_SIZE))
         {
 

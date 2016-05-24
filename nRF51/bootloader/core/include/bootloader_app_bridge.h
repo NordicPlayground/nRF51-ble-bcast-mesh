@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bl_if.h"
 
 #ifndef APP_ERROR_CHECK
-#ifdef DEBUG 
+#ifdef DEBUG
 
 #define APP_ERROR_CHECK_BOOL(expr) do {\
     if (!(expr))\
@@ -68,8 +68,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 uint32_t bootloader_app_bridge_init(void);
 uint32_t bootloader_evt_send(bl_evt_t* p_evt);
 uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd);
-uint32_t flash_write(uint32_t* p_dest, uint8_t* p_data, uint32_t length);
-uint32_t flash_erase(uint32_t* p_dest, uint32_t length);
+uint32_t flash_write(void* p_dest, void* p_data, uint32_t length);
+uint32_t flash_erase(void* p_dest, uint32_t length);
 uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line);
 
 //uint32_t timer_set(uint32_t delay_us);
