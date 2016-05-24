@@ -47,17 +47,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /******************************************************************************
 * Public typedefs
 ******************************************************************************/
-typedef __packed_armcc enum
-{
-    BLE_PACKET_TYPE_ADV_IND,
-    BLE_PACKET_TYPE_ADV_DIRECT_IND,
-    BLE_PACKET_TYPE_ADV_NONCONN_IND,
-    BLE_PACKET_TYPE_SCAN_REQ,
-    BLE_PACKET_TYPE_SCAN_RSP,
-    BLE_PACKET_TYPE_CONN_REQ,
-    BLE_PACKET_TYPE_ADV_DISCOVER_IND
-} __packed_gcc ble_packet_type_t;
-
 typedef __packed_armcc struct
 {
     uint8_t type : 4;

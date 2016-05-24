@@ -151,15 +151,27 @@ typedef struct
     nrf_clock_lfclksrc_t lfclksrc;
 } rbc_mesh_init_params_t;
 
+typedef enum
+{
+    BLE_PACKET_TYPE_ADV_IND,
+    BLE_PACKET_TYPE_ADV_DIRECT_IND,
+    BLE_PACKET_TYPE_ADV_NONCONN_IND,
+    BLE_PACKET_TYPE_SCAN_REQ,
+    BLE_PACKET_TYPE_SCAN_RSP,
+    BLE_PACKET_TYPE_CONN_REQ,
+    BLE_PACKET_TYPE_ADV_DISCOVER_IND
+} ble_packet_type_t;
+
 /** @brief Packet peek callback parameters. */
 typedef struct
 {
-    ble_gap_addr_t adv_addr;    /**< Advertisement address of the received packet. */
-    uint8_t rssi;               /**< Negative RSSI value of the received packet. */
-    uint8_t payload_len;        /**< Length of p_payload. */
-    uint8_t* p_payload;         /**< Advertisement packet payload (not including advertisement address) */
-    uint32_t crc;               /**< CRC value of the received packet. */
-    uint64_t timestamp;         /**< Timestamp of the received packet. */
+    ble_gap_addr_t adv_addr;        /**< Advertisement address of the received packet. */
+    ble_packet_type_t packet_type;  /**< BLE packet type of the received packet. */
+    uint8_t rssi;                   /**< Negative RSSI value of the received packet. */
+    uint8_t payload_len;            /**< Length of p_payload. */
+    uint8_t* p_payload;             /**< Advertisement packet payload (not including advertisement address) */
+    uint32_t crc;                   /**< CRC value of the received packet. */
+    uint64_t timestamp;             /**< Timestamp of the received packet. */
 } rbc_mesh_packet_peek_params_t;
 
 /** @brief Function pointer type for packet peek callback. */

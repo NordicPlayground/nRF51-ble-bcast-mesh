@@ -168,9 +168,9 @@ static void async_tx_cb(void* p_context)
 /* radio callback, executed in STACK_LOW */
 static void tx_cb(uint8_t* p_data)
 {
-    /* have to defer tx-event handling to async context to avoid race 
+    /* have to defer tx-event handling to async context to avoid race
        conditions in the handle_storage */
-    async_event_t tx_cb_evt = 
+    async_event_t tx_cb_evt =
     {
         .type = EVENT_TYPE_GENERIC,
         .callback.generic =
@@ -183,7 +183,7 @@ static void tx_cb(uint8_t* p_data)
     {
         mesh_packet_ref_count_inc((mesh_packet_t*) p_data);
     }
-    
+
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
 }
 
@@ -333,6 +333,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t 
         memcpy(peek_params.adv_addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
         peek_params.adv_addr.addr_type = p_packet->header.addr_type;
         peek_params.crc = crc;
+        peek_params.packet_type = p_packet->header.type;
         peek_params.timestamp = timestamp + timeslot_get_global_time();
         mp_packet_peek_cb(&peek_params);
     }
