@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include "dfu_types_mesh.h"
 #include "uECC.h"
+#include "bl_if.h"
 
 #define INFO_ENTRY_MAX_LEN  (64)
 
@@ -49,10 +50,14 @@ typedef struct
 } bootloader_info_t;
 
 uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank_page);
-bl_info_entry_t* bootloader_info_entry_get(uint32_t* p_bl_info_page, bl_info_type_t type);
+bl_info_entry_t* bootloader_info_entry_get(bl_info_type_t type);
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type, bl_info_entry_t* p_entry, uint32_t length); /* p_entry must point to RAM */
-void bootloader_info_reset(void);
-void bootloader_info_entry_invalidate(uint32_t* p_info_page, bl_info_type_t type);
+uint32_t bootloader_info_entry_overwrite(bl_info_type_t type, bl_info_entry_t* p_entry);
+bool bootloader_info_available(void);
+uint32_t bootloader_info_reset(void);
+uint32_t bootloader_info_entry_invalidate(bl_info_type_t type);
 
+void bootloader_info_on_flash_op_end(flash_op_type_t type, void* p_context);
+void bootloader_info_on_flash_idle(void);
 
 #endif /* BOOTLOADER_INFO_H__ */
