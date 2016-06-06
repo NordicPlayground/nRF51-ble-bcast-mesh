@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf51.h"
 #include "nrf_sdm.h"
 #include "ble.h"
-#include "bl_if.h"
+#include "dfu_types_mesh.h"
 
 #define RBC_MESH_ACCESS_ADDRESS_BLE_ADV             (0x8E89BED6) /**< BLE spec defined access address. */
 #define RBC_MESH_INTERVAL_MIN_MIN_MS                (5) /**< Lowest min-interval allowed. */
@@ -498,20 +498,6 @@ uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
 uint32_t rbc_mesh_packet_release(uint8_t* p_data);
-
-/**
-* @brief Get all firmware IDs on the device.
-*
-* @param[out] p_fwid A pointer to a firmware ID structure, which will be
-* filled by the function.
-*
-* @return NRF_SUCCESS The firmware ID was successfully retrieved.
-* @return NRF_ERROR_NOT_AVAILABLE The device does not have any DFU
-* functionality available.
-* @return NRF_ERROR_INVALID_STATE The dfu storage was not available for
-* reading. Try again later.
-*/
-uint32_t rbc_mesh_fwid_get(fwid_t* p_fwid);
 
 #endif /* _RBC_MESH_H__ */
 

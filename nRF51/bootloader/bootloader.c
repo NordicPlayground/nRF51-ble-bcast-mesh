@@ -34,25 +34,40 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_util.h"
 #include "bootloader_info.h"
 #include "dfu_mesh.h"
+#include "dfu_bank.h"
 #include "dfu_types_mesh.h"
 #include "nrf_mbr.h"
 #include "nrf_flash.h"
 #include "mesh_aci.h"
+#include "SEGGER_RTT.h"
 #include "app_error.h"
+#include "fifo.h"
 #include "serial_handler.h"
 #include "bootloader_app_bridge.h"
+#include "bl_log.h"
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
-#define IRQ_ENABLED                 (0x01)     /**< Field that identifies if an interrupt is enabled. */
-#define MAX_NUMBER_INTERRUPTS       (32)       /**< Maximum number of interrupts available. */
+#define IRQ_ENABLED                 (0x01)  /**< Field that identifies if an interrupt is enabled. */
+#define MAX_NUMBER_INTERRUPTS       (32)    /**< Maximum number of interrupts available. */
+#define FLASH_FIFO_SIZE             (8)     /**< Size of the async-flash queue. Must be greater than 4 to end a transfer. */
+#define FLASH_HANDLER_IRQn          (SWI3_IRQn)
+#define FLASH_HANDLER_IRQHandler    SWI3_IRQHandler
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
+typedef struct
+{
+    flash_op_type_t type;
+    flash_op_t      op;
+} flash_queue_entry_t;
+
 
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
+static fifo_t               m_flash_fifo;
+static flash_queue_entry_t  m_flash_fifo_buf[FLASH_FIFO_SIZE];
 
 /*****************************************************************************
 * Static functions
@@ -93,6 +108,62 @@ void SWI2_IRQHandler(void)
 }
 #endif
 
+/** Interrupt handling Flash operations. */
+void FLASH_HANDLER_IRQHandler(void)
+{
+    flash_queue_entry_t flash_entry;
+    uint32_t op_count = 0;
+    while (fifo_pop(&m_flash_fifo, &flash_entry) == NRF_SUCCESS)
+    {
+        op_count++;
+        bl_cmd_t rsp_cmd;
+        if (flash_entry.type == FLASH_OP_TYPE_WRITE)
+        {
+            __LOG("WRITING to 0x%x.(len %d)\n", flash_entry.op.write.start_addr, flash_entry.op.write.length);
+            if (flash_entry.op.write.start_addr >= 0x20000000)
+            {
+                uint8_t* p_dst = ((uint8_t*) flash_entry.op.write.start_addr);
+                for (uint32_t i = 0; i < flash_entry.op.write.length; ++i, p_dst++)
+                {
+                    *p_dst = (*p_dst & flash_entry.op.write.p_data[i]);
+                }
+            }
+            else
+            {
+                nrf_flash_store((uint32_t*) flash_entry.op.write.start_addr,
+                                            flash_entry.op.write.p_data,
+                                            flash_entry.op.write.length, 0);
+            }
+
+            rsp_cmd.type                      = BL_CMD_TYPE_FLASH_WRITE_COMPLETE;
+            rsp_cmd.params.flash.write.p_data = flash_entry.op.write.p_data;
+        }
+        else
+        {
+            __LOG("ERASING 0x%x.\n", flash_entry.op.erase.start_addr);
+            if (flash_entry.op.erase.start_addr >= 0x20000000)
+            {
+                memset((uint32_t*) flash_entry.op.erase.start_addr, 0xFF, flash_entry.op.erase.length);
+            }
+            else
+            {
+                nrf_flash_erase((uint32_t*) flash_entry.op.erase.start_addr,
+                                            flash_entry.op.erase.length);
+            }
+            rsp_cmd.type                      = BL_CMD_TYPE_FLASH_ERASE_COMPLETE;
+            rsp_cmd.params.flash.erase.p_dest = (uint32_t*) flash_entry.op.erase.start_addr;
+        }
+        bl_cmd_handler(&rsp_cmd);
+    }
+
+    if (op_count > 0)
+    {
+        bl_cmd_t idle_cmd;
+        idle_cmd.type = BL_CMD_TYPE_FLASH_ALL_COMPLETE;
+        bl_cmd_handler(&idle_cmd);
+    }
+}
+
 static void rx_cb(mesh_packet_t* p_packet)
 {
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
@@ -108,7 +179,8 @@ static void rx_cb(mesh_packet_t* p_packet)
 
 static uint32_t bl_evt_handler(bl_evt_t* p_evt)
 {
-    bl_cmd_t rsp_cmd;
+    static bl_cmd_t rsp_cmd;
+    bool respond = false;
     switch (p_evt->type)
     {
         case BL_EVT_TYPE_ABORT:
@@ -163,94 +235,65 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
         case BL_EVT_TYPE_TIMER_SET:
             set_timeout(US_TO_RTC_TICKS(p_evt->params.timer.set.delay_us));
             break;
-        case BL_EVT_TYPE_FLASH_WRITE:
-            nrf_flash_store((uint32_t*) p_evt->params.flash.write.start_addr,
-                                        p_evt->params.flash.write.p_data,
-                                        p_evt->params.flash.write.length, 0);
 
-            /* respond immediately */
-            rsp_cmd.type                            = BL_CMD_TYPE_FLASH_WRITE_COMPLETE;
-            rsp_cmd.params.flash.write.start_addr   = p_evt->params.flash.write.start_addr;
-            rsp_cmd.params.flash.write.p_data       = p_evt->params.flash.write.p_data;
-            rsp_cmd.params.flash.write.length       = p_evt->params.flash.write.length;
-            bl_cmd_handler(&rsp_cmd);
+        case BL_EVT_TYPE_NEW_FW:
+            {
+                __LOG("New FW event\n");
+                /* accept all new firmware, as the bootloader wouldn't run
+                   unless there's an actual reason for it. */
+                rsp_cmd.type = BL_CMD_TYPE_DFU_START_TARGET;
+                rsp_cmd.params.dfu.start.target.p_bank_start = (uint32_t*) 0xFFFFFFFF; /* no banking */
+                rsp_cmd.params.dfu.start.target.type = p_evt->params.new_fw.fw_type;
+                rsp_cmd.params.dfu.start.target.fwid = p_evt->params.new_fw.fwid;
+                respond = true;
+            }
+            break;
+
+        case BL_EVT_TYPE_BANK_AVAILABLE:
+
+            break;
+
+        /* Defer the flash operations to an asynchronous handler. Doing it
+         * inline causes stack overflow, as the bootloader continues in the
+         * response callback. */
+        case BL_EVT_TYPE_FLASH_WRITE:
+            {
+                flash_queue_entry_t queue_entry;
+                queue_entry.type = FLASH_OP_TYPE_WRITE;
+                memcpy(&queue_entry.op, &p_evt->params.flash, sizeof(flash_op_t));
+                if (fifo_push(&m_flash_fifo, &queue_entry) != NRF_SUCCESS)
+                {
+                    __LOG(RTT_CTRL_TEXT_RED "FLASH FIFO FULL :(\n");
+                    return NRF_ERROR_NO_MEM;
+                }
+                NVIC_SetPendingIRQ(FLASH_HANDLER_IRQn);
+            }
             break;
         case BL_EVT_TYPE_FLASH_ERASE:
-            nrf_flash_erase((uint32_t*) p_evt->params.flash.erase.start_addr,
-                                        p_evt->params.flash.erase.length);
-
-            /* respond immediately */
-            rsp_cmd.type                            = BL_CMD_TYPE_FLASH_ERASE_COMPLETE;
-            rsp_cmd.params.flash.erase.start_addr   = p_evt->params.flash.erase.start_addr;
-            rsp_cmd.params.flash.erase.length       = p_evt->params.flash.erase.length;
-            bl_cmd_handler(&rsp_cmd);
+            {
+                flash_queue_entry_t queue_entry;
+                queue_entry.type = FLASH_OP_TYPE_ERASE;
+                memcpy(&queue_entry.op, &p_evt->params.flash, sizeof(flash_op_t));
+                if (fifo_push(&m_flash_fifo, &queue_entry) != NRF_SUCCESS)
+                {
+                    __LOG(RTT_CTRL_TEXT_RED "FLASH FIFO FULL :(\n");
+                    return NRF_ERROR_NO_MEM;
+                }
+                NVIC_SetPendingIRQ(FLASH_HANDLER_IRQn);
+            }
             break;
         default:
             return NRF_ERROR_NOT_SUPPORTED;
     }
-    return NRF_SUCCESS;
-}
-
-/** Check if the bank of the given type matches the firmware we're running. */
-static bool bank_was_flashed(bl_info_type_t bank_type, bl_info_type_t segment_type)
-{
-    bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, bank_type);
-    if (!p_bank_entry)
+    if (respond)
     {
-        return false; /* no bank of this type */
+        /* tail recursion */
+        return bl_cmd_handler(&rsp_cmd);
     }
-
-    bl_info_entry_t* p_segment_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, segment_type);
-    if (!p_segment_entry)
+    else
     {
-        return false; /* no segment of this type */
+        return NRF_SUCCESS;
     }
-    if (p_segment_entry->segment.length < p_bank_entry->bank.length)
-    {
-        return false; /* bank wouldn't fit */
-    }
-
-    /* check that the fwid is different */
-    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
-    if (!p_fwid_entry)
-    {
-        return false;
-    }
-    switch (bank_type)
-    {
-        case BL_INFO_TYPE_BANK_APP:
-            if (memcmp(&p_fwid_entry->version.app, &p_bank_entry->bank.fwid.app, sizeof(app_id_t)) == 0)
-            {
-                return false;
-            }
-            break;
-        case BL_INFO_TYPE_BANK_BL:
-            if (memcmp(&p_fwid_entry->version.bootloader, &p_bank_entry->bank.fwid.bootloader, sizeof(bl_id_t)) == 0)
-            {
-                return false;
-            }
-            break;
-        case BL_INFO_TYPE_BANK_SD:
-            if (p_fwid_entry->version.sd == p_bank_entry->bank.fwid.sd)
-            {
-                return false;
-            }
-            break;
-        default:
-            return false;
-    }
-
-    /* compare the bank and the fw word by word */
-    for (uint32_t i = 0; i < p_bank_entry->bank.length; i += 4)
-    {
-        if (*((uint32_t*) (p_segment_entry->segment.length + i)) != *((uint32_t*) ((uint32_t) p_bank_entry->bank.p_bank_addr + i)))
-        {
-            /* no match */
-            return false;
-        }
-    }
-
-    return true;
 }
 
 /*****************************************************************************
@@ -260,6 +303,14 @@ void bootloader_init(void)
 {
     rtc_init();
 
+    memset(&m_flash_fifo, 0, sizeof(fifo_t));
+    m_flash_fifo.elem_array = m_flash_fifo_buf;
+    m_flash_fifo.elem_size = sizeof(flash_queue_entry_t);
+    m_flash_fifo.array_len = FLASH_FIFO_SIZE;
+    fifo_init(&m_flash_fifo);
+    NVIC_SetPriority(FLASH_HANDLER_IRQn, 3);
+    NVIC_EnableIRQ(FLASH_HANDLER_IRQn);
+
     bootloader_app_bridge_init();
 
     bl_cmd_t init_cmd;
@@ -268,8 +319,7 @@ void bootloader_init(void)
     init_cmd.params.init.event_callback = bl_evt_handler;
     init_cmd.params.init.timer_count = 1;
     init_cmd.params.init.tx_slots = TRANSPORT_TX_SLOTS;
-    bl_cmd_handler(&init_cmd);
-
+    APP_ERROR_CHECK(bl_cmd_handler(&init_cmd));
 
 #ifdef SERIAL
     mesh_aci_init();
@@ -277,87 +327,8 @@ void bootloader_init(void)
 
     transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
 
-    /* If we've flashed a bank, we should check to see if it worked. */
-    if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_BANK_FLASH || !dfu_mesh_app_is_valid())
-    {
-        
-        bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_VERSION);
-        bl_info_entry_t* p_flag_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_FLAGS);
+    dfu_bank_scan();
 
-        bl_info_entry_t new_fwid_entry;
-        memcpy(&new_fwid_entry, p_fwid_entry, sizeof(BL_INFO_LEN_FWID));
-        bl_info_entry_t temp_flag_entry;
-        memcpy(&temp_flag_entry, p_flag_entry, sizeof(BL_INFO_LEN_FLAGS));
-        bl_info_entry_t new_flag_entry;
-        memcpy(&new_flag_entry, p_flag_entry, sizeof(BL_INFO_LEN_FLAGS));
-
-        bool new_fw = false;
-        bl_info_entry_t* p_bank_entry;
-
-        /* find all flashed banks */
-        if (bank_was_flashed(BL_INFO_TYPE_BANK_BL, BL_INFO_TYPE_SEGMENT_BL))
-        {
-            new_fw = true;
-            p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_BL);
-            if (p_bank_entry)
-            {
-                memcpy(&new_fwid_entry.version.bootloader, &p_bank_entry->bank.fwid.bootloader, sizeof(bl_id_t));
-                new_flag_entry.flags.bl_intact = true;
-                if (p_bank_entry->bank.has_signature)
-                {
-                    bl_info_entry_t sign_entry;
-                    memcpy(sign_entry.signature, p_bank_entry->bank.signature, BL_INFO_LEN_SIGNATURE);
-                    bootloader_info_entry_put(BL_INFO_TYPE_SIGNATURE_BL, &sign_entry, BL_INFO_LEN_SIGNATURE);
-                }
-            }
-        }
-        if (bank_was_flashed(BL_INFO_TYPE_BANK_SD, BL_INFO_TYPE_SEGMENT_SD))
-        {
-            new_fw = true;
-            p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_SD);
-            if (p_bank_entry)
-            {
-                new_fwid_entry.version.sd = p_bank_entry->bank.fwid.sd;
-                new_flag_entry.flags.sd_intact = true;
-                if (p_bank_entry->bank.has_signature)
-                {
-                    bl_info_entry_t sign_entry;
-                    memcpy(sign_entry.signature, p_bank_entry->bank.signature, BL_INFO_LEN_SIGNATURE);
-                    bootloader_info_entry_put(BL_INFO_TYPE_SIGNATURE_SD, &sign_entry, BL_INFO_LEN_SIGNATURE);
-                }
-            }
-        }
-        if (bank_was_flashed(BL_INFO_TYPE_BANK_APP, BL_INFO_TYPE_SEGMENT_APP))
-        {
-            new_fw = true;
-            p_bank_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_BANK_APP);
-            if (p_bank_entry)
-            {
-                memcpy(&new_fwid_entry.version.app, &p_bank_entry->bank.fwid.app, sizeof(app_id_t));
-                new_flag_entry.flags.app_intact = true;
-                if (p_bank_entry->bank.has_signature)
-                {
-                    bl_info_entry_t sign_entry;
-                    memcpy(sign_entry.signature, p_bank_entry->bank.signature, BL_INFO_LEN_SIGNATURE);
-                    bootloader_info_entry_put(BL_INFO_TYPE_SIGNATURE_APP, &sign_entry, BL_INFO_LEN_SIGNATURE);
-                }
-            }
-        }
-
-        if (new_fw)
-        {
-            bootloader_info_entry_put(BL_INFO_TYPE_VERSION, &new_fwid_entry, BL_INFO_LEN_FWID);
-            bootloader_info_entry_put(BL_INFO_TYPE_FLAGS, &new_flag_entry, BL_INFO_LEN_FLAGS);
-
-            /* Don't want the retention register to make us recheck this. */
-            NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_GO_TO_APP;
-            /* Restart the bootloader! */
-            NVIC_SystemReset();
-        }
-
-        /* Don't want the retention register to make us recheck this. */
-        NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_GO_TO_APP;
-    }
 }
 
 void bootloader_enable(void)
@@ -366,6 +337,46 @@ void bootloader_enable(void)
     enable_cmd.type = BL_CMD_TYPE_ENABLE;
     bl_cmd_handler(&enable_cmd);
     transport_start();
+
+    /* Recover from broken state */
+    if (!dfu_mesh_app_is_valid())
+    {
+#ifdef BL_LOG
+        __LOG(RTT_CTRL_TEXT_RED "APP is invalid.\n");
+        bl_info_flags_t* p_flags = &bootloader_info_entry_get(BL_INFO_TYPE_FLAGS)->flags;
+        bl_info_segment_t* p_seg = &bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP)->segment;
+        __LOG("\tINTACT: SD: %d APP: %d BL: %d\n",
+                p_flags->sd_intact,
+                p_flags->app_intact,
+                p_flags->bl_intact);
+        if (*((uint32_t*) p_seg->start) == 0xFFFFFFFF)
+        {
+            __LOG("\tNo application at 0x%x\n", p_seg->start);
+        }
+#endif
+
+        dfu_type_t missing = dfu_mesh_missing_type_get();
+        if (missing != DFU_TYPE_NONE && dfu_bank_flash(missing) == NRF_ERROR_NOT_FOUND)
+        {
+            fwid_union_t req_fwid;
+            bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+            APP_ERROR_CHECK_BOOL(p_fwid_entry != NULL);
+
+            switch (missing)
+            {
+                case DFU_TYPE_SD:
+                    req_fwid.sd = p_fwid_entry->version.sd;
+                    break;
+                case DFU_TYPE_APP:
+                    req_fwid.app = p_fwid_entry->version.app;
+                    break;
+                default:
+                    APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
+            }
+
+            dfu_mesh_req(missing, &req_fwid, (uint32_t*) 0xFFFFFFFF);
+        }
+    }
 }
 
 uint32_t bootloader_cmd_send(bl_cmd_t* p_bl_cmd)
@@ -373,17 +384,18 @@ uint32_t bootloader_cmd_send(bl_cmd_t* p_bl_cmd)
     return bl_cmd_handler(p_bl_cmd);
 }
 
-void bootloader_abort(bl_end_t end_reason)
+void bootloader_abort(dfu_end_t end_reason)
 {
-    bl_info_entry_t* p_segment_entry = bootloader_info_entry_get((uint32_t*) BOOTLOADER_INFO_ADDRESS, BL_INFO_TYPE_SEGMENT_APP);
+    bl_info_entry_t* p_segment_entry = bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP);
     switch (end_reason)
     {
-        case BL_END_SUCCESS:
-        case BL_END_ERROR_TIMEOUT:
-        case BL_END_FWID_VALID:
-        case BL_END_ERROR_MBR_CALL_FAILED:
+        case DFU_END_SUCCESS:
+        case DFU_END_ERROR_TIMEOUT:
+        case DFU_END_FWID_VALID:
+        case DFU_END_ERROR_MBR_CALL_FAILED:
             if (p_segment_entry && dfu_mesh_app_is_valid())
             {
+                __LOG("BOOTLOADER ABORT!\n");
                 interrupts_disable();
 
                 sd_mbr_command_t com = {SD_MBR_COMMAND_INIT_SD, };
@@ -399,14 +411,15 @@ void bootloader_abort(bl_end_t end_reason)
                 bootloader_util_app_start(p_segment_entry->segment.start);
             }
             break;
-        case BL_END_ERROR_INVALID_PERSISTENT_STORAGE:
+        case DFU_END_ERROR_INVALID_PERSISTENT_STORAGE:
             APP_ERROR_CHECK_BOOL(false);
         default:
-            NVIC_SystemReset();
-            break;
+            __LOG(RTT_CTRL_TEXT_RED "SYSTEM RESET\n");
+            __disable_irq();
+            while(1);
+            //NVIC_SystemReset();
     }
 }
-
 
 bl_info_entry_t* info_entry_get(bl_info_type_t type)
 {
@@ -421,3 +434,4 @@ bl_info_entry_t* info_entry_get(bl_info_type_t type)
 
     return get_cmd.params.info.get.p_entry;
 }
+

@@ -31,15 +31,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include <stdio.h>
 #include <stdarg.h>
 
 #include "bl_if.h"
 #include "bootloader.h"
+#include "bootloader_info.h"
+#include "bl_log.h"
+#include "rbc_mesh.h"
 
 #include "app_error.h"
 #include "nrf_gpio.h"
-
+#include "SEGGER_RTT.h"
 
 /* Magic UICR overwrite to convince the MBR to start in bootloader. */
 #if defined(__CC_ARM)
@@ -56,6 +58,7 @@ volatile uint32_t* m_uicr_bootloader_start_address
 
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
+    __LOG(RTT_CTRL_TEXT_RED "APP ERROR %d, @%s:L%d\n", error_code, p_file_name, line_num);
 #ifdef DEBUG_LEDS
     __disable_irq();
     NRF_GPIO->OUTSET = (1 << 7);
@@ -67,6 +70,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 
 void HardFault_Handler(uint32_t pc, uint32_t lr)
 {
+    __LOG(RTT_CTRL_TEXT_RED "HARDFAULT pc=0x%x\n", pc);
 #ifdef DEBUG_LEDS
     NRF_GPIO->OUTSET = (1 << 7);
     NRF_GPIO->OUTCLR = (1 << 23);
@@ -109,14 +113,18 @@ int main(void)
     NVIC_SetPriority(SWI2_IRQn, 2);
     NVIC_EnableIRQ(SWI2_IRQn);
     __enable_irq();
+#ifdef BL_LOG
+    SEGGER_RTT_Init();
+    __LOG(RTT_CTRL_CLEAR "=====================\n= START =============\n=====================\n");
+#endif
 
     init_leds();
     bootloader_init();
-    
+
     /* check whether we should go to application */
     if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_GO_TO_APP)
     {
-        bootloader_abort(BL_END_SUCCESS);
+        bootloader_abort(DFU_END_SUCCESS);
     }
     NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_GO_TO_APP;
 
@@ -127,3 +135,4 @@ int main(void)
         __WFE();
     }
 }
+

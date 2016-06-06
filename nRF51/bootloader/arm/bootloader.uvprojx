@@ -363,9 +363,9 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99 --debug</MiscControls>
-              <Define>DEBUG_LEDS NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_DATA_CACHE_ENTRIES=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
+              <Define>DEBUG DEBUG_LEDS NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_DATA_CACHE_ENTRIES=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm BL_LOG</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\rbc_mesh\include;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp;..\core\include</IncludePath>
+              <IncludePath>..\..\rbc_mesh\include;..\..\RTT;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp;..\core\include</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -427,6 +427,11 @@
               <FileName>bootloader.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\bootloader.c</FilePath>
+            </File>
+            <File>
+              <FileName>bl_test.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\bl_test.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -495,6 +500,16 @@
                   </Cads>
                 </FileArmAds>
               </FileOption>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\RTT\SEGGER_RTT.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT_printf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\RTT\SEGGER_RTT_printf.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -785,6 +800,11 @@
                   </Cads>
                 </FileArmAds>
               </FileOption>
+            </File>
+            <File>
+              <FileName>dfu_bank.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\core\dfu_bank.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1212,6 +1232,11 @@
               <FileType>1</FileType>
               <FilePath>..\bootloader.c</FilePath>
             </File>
+            <File>
+              <FileName>bl_test.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\bl_test.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1279,6 +1304,16 @@
                   </Cads>
                 </FileArmAds>
               </FileOption>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\RTT\SEGGER_RTT.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT_printf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\RTT\SEGGER_RTT_printf.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1655,6 +1690,11 @@
                   </Cads>
                 </FileArmAds>
               </FileOption>
+            </File>
+            <File>
+              <FileName>dfu_bank.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\core\dfu_bank.c</FilePath>
             </File>
           </Files>
         </Group>

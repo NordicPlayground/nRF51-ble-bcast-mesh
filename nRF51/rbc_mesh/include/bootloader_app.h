@@ -47,8 +47,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @return NRF_ERROR_FORBIDDEN The NRF_UICR->BOOTLOADERADDR persistent register
 *   has not been set, and the bootloader could not start.
 */
-uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid);
-uint32_t bootloader_init(void);
+uint32_t dfu_request(dfu_type_t type, fwid_union_t* p_fwid);
+
+/**
+ * Initialize the dfu functionality. Called by the framework as part of mesh
+ * initialization.
+ *
+ * @return NRF_SUCCESS The bootloader was successfully initialized.
+ */
+uint32_t dfu_init(void);
 uint32_t bootloader_cmd_send(bl_cmd_t* p_cmd);
 uint32_t bootloader_event_handler(bl_evt_t* p_evt);
 void bootloader_flash_operation_end(bool success);

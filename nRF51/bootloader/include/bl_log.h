@@ -27,28 +27,27 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef DFU_MESH_H__
-#define DFU_MESH_H__
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "dfu_types_mesh.h"
-#include "mesh_packet.h"
-#include "bl_if.h"
+#ifndef BL_LOG_H__
+#define BL_LOG_H__
 
-#define SD_VERSION_INVALID                  (0x0000)
-#define APP_VERSION_INVALID                 (0x00000000)
+#include <stdarg.h>
+#include "SEGGER_RTT.h"
 
-void dfu_mesh_init(uint8_t tx_slots);
-void dfu_mesh_start(void);
-uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
-void dfu_mesh_timeout(void);
-void dfu_mesh_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
-uint32_t dfu_mesh_req(dfu_type_t type, fwid_union_t* p_fwid, uint32_t* p_bank_addr);
-dfu_type_t dfu_mesh_missing_type_get(void);
-bool dfu_mesh_app_is_valid(void);
-uint32_t dfu_mesh_finalize(void);
-void dfu_mesh_restart(void);
-uint32_t dfu_mesh_flash_bank(dfu_type_t type, uint32_t* p_bank_addr, uint32_t bank_len);
+#ifdef BL_LOG
 
-#endif /* DFU_MESH_H__ */
+#ifndef __MODULE__
+/** ARMCC defines __MODULE__ as __FILE__ without the path. GCC does not. */
+#define __MODULE__ __FILE__
+#endif
+
+#define __LOG(str, ...) SEGGER_RTT_printf(0, RTT_CTRL_RESET str, ##__VA_ARGS__)
+
+#else /* BL_LOG */
+
+#define __LOG(str, ...)
+
+#endif /* BL_LOG */
+
+#endif /* BL_LOG_H__ */
+

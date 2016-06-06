@@ -76,7 +76,8 @@ uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line);
 //uint32_t timer_abort(void);
 
 uint32_t tx_abort(uint8_t slot);
-void send_abort_evt(bl_end_t end_reason);
+void send_abort_evt(dfu_end_t end_reason);
+bool bootloader_is_in_application(void);
 
 #endif /* BOOTLOADER_APP_BRIDGE_H__ */
 

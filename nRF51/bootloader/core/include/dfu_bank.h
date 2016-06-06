@@ -27,28 +27,39 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef DFU_MESH_H__
-#define DFU_MESH_H__
 
-#include <stdint.h>
-#include <stdbool.h>
+#ifndef DFU_BANK_H__
+#define DFU_BANK_H__
+
 #include "dfu_types_mesh.h"
-#include "mesh_packet.h"
 #include "bl_if.h"
 
-#define SD_VERSION_INVALID                  (0x0000)
-#define APP_VERSION_INVALID                 (0x00000000)
+/**
+ * Look for available banks, finalize any ongoing flash operations.
+ *
+ * @return NRF_SUCCESS All available banks found and handled.
+ * @return NRF_ERROR_BUSY A bank operation was started
+ */
+uint32_t dfu_bank_scan(void);
 
-void dfu_mesh_init(uint8_t tx_slots);
-void dfu_mesh_start(void);
-uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
-void dfu_mesh_timeout(void);
-void dfu_mesh_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
-uint32_t dfu_mesh_req(dfu_type_t type, fwid_union_t* p_fwid, uint32_t* p_bank_addr);
-dfu_type_t dfu_mesh_missing_type_get(void);
-bool dfu_mesh_app_is_valid(void);
-uint32_t dfu_mesh_finalize(void);
-void dfu_mesh_restart(void);
-uint32_t dfu_mesh_flash_bank(dfu_type_t type, uint32_t* p_bank_addr, uint32_t bank_len);
+/**
+ * Flash the bank of the given type.
+ * If called from the application, this will trigger a restart of the chip. Any
+ * data stored in non-volatile memory will be erased.
+ *
+ * @param[in] dfu_type The type of bank to flash.
+ *
+ * @return NRF_SUCCESS The given bank was successfully flashed.
+ * @return NRF_ERROR_INVALID_PARAM The given DFU type is not available.
+ * @return NRF_ERROR_INVALID_STATE A bank flash is already underway.
+ * @return NRF_ERROR_NOT_FOUND There are no banks of the given type available.
+ */
+uint32_t dfu_bank_flash(dfu_type_t dfu_type);
 
-#endif /* DFU_MESH_H__ */
+/** Check whether a bank of the given type exists. */
+bool dfu_bank_is_available(dfu_type_t dfu_type);
+
+void dfu_bank_on_flash_idle(void);
+
+#endif /* DFU_BANK_H__ */
+

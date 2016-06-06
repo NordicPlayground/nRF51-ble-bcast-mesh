@@ -54,6 +54,7 @@ bl_info_entry_t* bootloader_info_entry_get(bl_info_type_t type);
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type, bl_info_entry_t* p_entry, uint32_t length); /* p_entry must point to RAM */
 uint32_t bootloader_info_entry_overwrite(bl_info_type_t type, bl_info_entry_t* p_entry);
 bool bootloader_info_available(void);
+bool bootloader_info_stable(void);
 uint32_t bootloader_info_reset(void);
 uint32_t bootloader_info_entry_invalidate(bl_info_type_t type);
 

@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf51.h"
 #include "nrf_error.h"
 #include "toolchain.h"
-#include "SEGGER_RTT.h"
+#include "bl_log.h"
 
 #define WORD_ALIGN(data) data = (((uint32_t) data + 4) & 0xFFFFFFFC)
 
@@ -101,12 +101,14 @@ static uint8_t                          mp_info_entry_buffer[INFO_WRITE_BUFLEN] 
 static info_buffer_t*                   mp_info_entry_head;
 static info_buffer_t*                   mp_info_entry_tail;
 static const bootloader_info_header_t   m_invalid_header = {0xFFFF, 0x0000}; /**< Flash buffer used for invalidating entries. */
-static const bootloader_info_header_t   m_last_header = {0xFFFF, BL_INFO_TYPE_LAST}; /**< Flash buffer used for flashing the "last" header. */
 static bl_info_state_t                  m_state;
 static bool                             m_page_full;
+static bool                             m_write_in_progress;
 static info_copy_t                      m_info_copy;
+static void*                            mp_write_pos;
+#ifdef BL_LOG
 static char*                            mp_copy_state_str[] = {"IDLE", "ERASE", "METAWRITE", "DATAWRITE", "WAIT FOR IDLE"};
-
+#endif
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -240,7 +242,6 @@ static info_buffer_t* get_write_buffer(uint32_t req_space)
         if (req_space <= (uint32_t) mp_info_entry_head->header.len * 4 - space_until_rollover)
         {
             /* the last entry before the rollover is now padding, let's mark it as unused */
-            uint16_t old_head_len = mp_info_entry_head->header.len;
             mp_info_entry_head->header.type = BL_INFO_TYPE_LAST;
             mp_info_entry_head->header.len = space_until_rollover / 4;
 
@@ -292,14 +293,14 @@ static inline info_buffer_t* bootloader_info_first_unused_get(bootloader_info_t*
 static void info_copy_state_set(info_copy_state_t state)
 {
     m_info_copy.state = state;
-    SEGGER_RTT_printf(0, "STATE: %s\n", mp_copy_state_str[state]);
+    __LOG( "STATE: %s\n", mp_copy_state_str[state]);
 }
 
 /* COPY PAGE FUNCTIONS */
 static void copy_page_write_meta(void)
 {
     /* Write metadata header */
-    SEGGER_RTT_WriteString(0, "Writing meta to dest\n");
+    __LOG( "Writing meta to dest\n");
     flash_write(&m_info_copy.p_dst->metadata,
                 &m_info_copy.p_src->metadata,
                 sizeof(m_info_copy.p_src->metadata));
@@ -319,7 +320,7 @@ static void copy_page_write_next_data(void)
 
         if (type != BL_INFO_TYPE_INVALID)
         {
-            SEGGER_RTT_printf(0, "Write entry 0x%x to dest... ", type);
+            __LOG( "Write entry 0x%x to dest... ", type);
             /* copy entry */
             uint32_t len = m_info_copy.p_src_info->header.len * 4;
 
@@ -337,11 +338,11 @@ static void copy_page_write_next_data(void)
             if (flash_write(m_info_copy.p_dst_info, m_info_copy.p_src_info, len) != NRF_SUCCESS)
             {
                 /* We've filled the flash queue. Wait for a slot to open to move on. */
-                SEGGER_RTT_WriteString(0, "FAIL\n");
+                __LOG( "FAIL\n");
                 return;
             }
 
-            SEGGER_RTT_WriteString(0, "OK\n");
+            __LOG( "OK\n");
             /* Only iterate the dst entry if we actually wrote anything. */
             m_info_copy.p_dst_info = (info_buffer_t*) ((uint8_t*) m_info_copy.p_dst_info + len);
         }
@@ -377,7 +378,6 @@ static void copy_page_on_flash_idle(void)
 static void copy_page_on_flash_op_end(flash_op_type_t op, void* p_context)
 {
     /* execute next step in the process. */
-    SEGGER_RTT_WriteString(0, "\tflash op end\n");
     switch (m_info_copy.state)
     {
         case INFO_COPY_STATE_ERASE:
@@ -390,7 +390,7 @@ static void copy_page_on_flash_op_end(flash_op_type_t op, void* p_context)
         case INFO_COPY_STATE_METAWRITE:
             if (op == FLASH_OP_TYPE_WRITE && p_context == &m_info_copy.p_src->metadata)
             {
-                SEGGER_RTT_WriteString(0, "Writing data to dest\n");
+                __LOG( "Writing data to dest\n");
                 info_copy_state_set(INFO_COPY_STATE_DATAWRITE);
                 m_info_copy.p_src_info = (info_buffer_t*) m_info_copy.p_src->data;
                 m_info_copy.p_dst_info = (info_buffer_t*) m_info_copy.p_dst->data;
@@ -398,7 +398,7 @@ static void copy_page_on_flash_op_end(flash_op_type_t op, void* p_context)
             }
             else
             {
-                SEGGER_RTT_printf(0, "METAWRITE FAIL: op=0x%x, context = 0x%x\n", op, p_context);
+                __LOG( "METAWRITE FAIL: op=0x%x, context = 0x%x\n", op, p_context);
             }
             break;
         case INFO_COPY_STATE_DATAWRITE:
@@ -416,12 +416,15 @@ static uint32_t copy_page(bootloader_info_t* p_dst, bootloader_info_t* p_src)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    SEGGER_RTT_printf(0, "COPYING 0x%x->0x%x\n", p_src, p_dst);
+    __LOG( "COPYING 0x%x->0x%x\n", p_src, p_dst);
 
     m_info_copy.p_dst = p_dst;
     m_info_copy.p_src = p_src;
     info_copy_state_set(INFO_COPY_STATE_ERASE);
-    flash_erase(p_dst, PAGE_SIZE);
+    if (!m_write_in_progress)
+    {
+        flash_erase(p_dst, PAGE_SIZE);
+    }
     return NRF_SUCCESS;
 }
 
@@ -478,7 +481,7 @@ uint32_t entry_write(info_buffer_t* p_dst, bl_info_type_t type, bl_info_entry_t*
     p_write_buf->header.type = type;
     memcpy(&p_write_buf->entry, p_entry, entry_len);
 
-    APP_ERROR_CHECK(flash_write((uint32_t*) p_dst, (uint8_t*) p_write_buf, entry_length + (is_last_entry * HEADER_LEN)));
+    APP_ERROR_CHECK(flash_write((uint32_t*) p_dst, (uint8_t*) p_write_buf, ((entry_len + HEADER_LEN + 3) & ~0x03) + (is_last_entry * HEADER_LEN)));
 
     return NRF_SUCCESS;
 }
@@ -501,9 +504,10 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
     mp_info_entry_head = (info_buffer_t*) mp_info_entry_buffer;
     mp_info_entry_tail = (info_buffer_t*) mp_info_entry_buffer;
     mp_info_entry_head->header.len = INFO_WRITE_BUFLEN / 4;
+    mp_write_pos = bootloader_info_first_unused_get(mp_bl_info_page);
 
     /* make sure we have an end-of-entries entry */
-    if (bootloader_info_first_unused_get(mp_bl_info_page) == NULL)
+    if (mp_write_pos == NULL)
     {
         /* need to restore the bank */
         info_buffer_t* p_first_unused = bootloader_info_first_unused_get(mp_bl_info_bank_page);
@@ -538,46 +542,58 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
                                            uint32_t length)
 {
     APP_ERROR_CHECK_BOOL(m_state == BL_INFO_STATE_IDLE);
+    APP_ERROR_CHECK_BOOL(length <= INFO_ENTRY_MAX_LEN);
+    APP_ERROR_CHECK_BOOL((((uint32_t) mp_write_pos) & 0x03) == 0); /* must be word aligned */
 
     /* previous entry, to be invalidated after we've stored the current entry. */
     bootloader_info_header_t* p_old_header =
         bootloader_info_header_get(bootloader_info_entry_get(type));
 
     /* find first unused space */
-    info_buffer_t* p_new_buf =
-        bootloader_info_first_unused_get(mp_bl_info_page);
+    info_buffer_t* p_new_buf = mp_write_pos;
 
-    /* we have to be able to fit the end-of-entries entry at the last word, therefore check entry
-       length + HEADER_LEN */
-    if (p_new_buf == NULL ||
-        ((uint32_t) p_new_buf + HEADER_LEN + length + HEADER_LEN) >= (uint32_t) ((uint32_t) mp_bl_info_page + PAGE_SIZE))
+    /* we have to be able to fit the end-of-entries entry at the last word,
+       therefore check entry length + HEADER_LEN */
+    if (p_new_buf == NULL)
     {
+        APP_ERROR_CHECK(NRF_ERROR_NULL);
+        return NULL;
+    }
+    if (((uint32_t) p_new_buf + HEADER_LEN + length + HEADER_LEN) >= (uint32_t) ((uint32_t) mp_bl_info_page + PAGE_SIZE))
+    {
+        /* we've run out of space. This should have been handled before.. */
         APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
         return NULL;
     }
+
+    m_write_in_progress = true;
 
     /* store new entry in the available space, and pad */
     if (entry_write(p_new_buf, type, p_entry, length, true) != NRF_SUCCESS)
     {
-        APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
+        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
         return NULL;
     }
+
+    /* iterate write pos */
+    mp_write_pos = (uint8_t*) mp_write_pos + ((length + HEADER_LEN + 3) & ~0x03);
 
     /* invalidate old entry of this type */
     if (p_old_header != NULL)
     {
         if (entry_header_invalidate(p_old_header) != NRF_SUCCESS)
         {
+            APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
             return NULL;
         }
     }
 
     /* We've run out of space, and need to recover. */
-    if (((uint32_t) p_new_buf + HEADER_LEN + length + HEADER_LEN) >= (uint32_t) ((uint32_t) mp_bl_info_page + PAGE_SIZE))
+    if (((uint32_t) mp_write_pos + HEADER_LEN + INFO_ENTRY_MAX_LEN) >= ((uint32_t) mp_bl_info_page + PAGE_SIZE))
     {
         bootloader_info_reset();
     }
-    SEGGER_RTT_printf(0, "PUT 0x%x @0x%x\n", type, &p_new_buf->entry);
+    __LOG( "PUT 0x%x @0x%x\n", type, &p_new_buf->entry);
     return &p_new_buf->entry;
 }
 
@@ -603,8 +619,9 @@ uint32_t bootloader_info_reset(void)
 {
     APP_ERROR_CHECK_BOOL(m_state == BL_INFO_STATE_IDLE);
 
-    SEGGER_RTT_WriteString(0, "RESET\n");
+    __LOG( "RESET\n");
     m_state = BL_INFO_STATE_RESET;
+    mp_write_pos = mp_bl_info_page->data;
     m_page_full = true;
     return backup();
 }
@@ -612,6 +629,11 @@ uint32_t bootloader_info_reset(void)
 bool bootloader_info_available(void)
 {
     return (m_state == BL_INFO_STATE_IDLE);
+}
+
+bool bootloader_info_stable(void)
+{
+    return (m_state == BL_INFO_STATE_IDLE && !m_write_in_progress);
 }
 
 void bootloader_info_on_flash_op_end(flash_op_type_t type, void* p_context)
@@ -636,7 +658,7 @@ void bootloader_info_on_flash_op_end(flash_op_type_t type, void* p_context)
 
 void bootloader_info_on_flash_idle(void)
 {
-    SEGGER_RTT_WriteString(0, "IDLE\n");
+    m_write_in_progress = false;
     if (m_info_copy.state != INFO_COPY_STATE_IDLE)
     {
         copy_page_on_flash_idle();
@@ -647,5 +669,4 @@ void bootloader_info_on_flash_idle(void)
         }
     }
 }
-
 

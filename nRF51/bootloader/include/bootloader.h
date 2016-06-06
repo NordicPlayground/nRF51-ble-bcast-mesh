@@ -38,7 +38,7 @@ void bootloader_init(void);
 void bootloader_enable(void);
 uint32_t bootloader_cmd_send(bl_cmd_t* p_bl_cmd);
 
-void bootloader_abort(bl_end_t end_reason);
+void bootloader_abort(dfu_end_t end_reason);
 
 #endif /* BOOTLOADER_H__ */
 

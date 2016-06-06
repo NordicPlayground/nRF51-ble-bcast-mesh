@@ -52,7 +52,7 @@ typedef enum
     BL_CMD_TYPE_DFU_START_RELAY,
     BL_CMD_TYPE_DFU_START_SOURCE,
     BL_CMD_TYPE_DFU_ABORT,
-    BL_CMD_TYPE_DFU_FINALIZE,
+    BL_CMD_TYPE_DFU_BANK_FLASH,                 /**< Tell the bootloader to flash a bank. App will restart afterwards. */
 
     /* info opcodes */
     BL_CMD_TYPE_INFO_GET = 0x30,
@@ -70,8 +70,48 @@ typedef enum
     /* Flash status */
     BL_CMD_TYPE_FLASH_WRITE_COMPLETE = 0x60,
     BL_CMD_TYPE_FLASH_ERASE_COMPLETE,
+    BL_CMD_TYPE_FLASH_ALL_COMPLETE,
 
 } bl_cmd_type_t;
+
+typedef enum
+{
+    /* Generic */
+    BL_EVT_TYPE_ECHO = 0x00,            /**< Response to an echo command. */
+    BL_EVT_TYPE_ABORT,                  /**< Request to abort dfu operation and start over. */
+    BL_EVT_TYPE_ERROR,                  /**< Request to reset a previously requested timer. */
+    BL_EVT_TYPE_KEEP_ALIVE,             /**< The DFU module got a packet indicating that the current state should be kept for some time still. */
+    BL_EVT_TYPE_BANK_AVAILABLE,         /**< A DFU has been received and banked, and is available for flashing. */
+
+    /* Req */
+    BL_EVT_TYPE_REQ_TARGET = 0x20,      /**< Request to become the target of a transfer. */
+    BL_EVT_TYPE_REQ_RELAY,              /**< Request to become a relay in a transfer. */
+    BL_EVT_TYPE_REQ_SOURCE,             /**< Request to source a transfer. */
+    BL_EVT_TYPE_NEW_FW,                 /**< A neighbor device has a newer version of our firmware. */
+
+    /* Start */
+    BL_EVT_TYPE_START_TARGET = 0x30,    /**< The device started acting as a target of a transfer. */
+    BL_EVT_TYPE_START_RELAY,            /**< The device started acting as a relay of a transfer. */
+    BL_EVT_TYPE_START_SOURCE,           /**< The device started acting as the source of a transfer. */
+
+    /* End */
+    BL_EVT_TYPE_END_TARGET = 0x40,      /**< The device stopped acting as a target of a transfer. */
+    BL_EVT_TYPE_END_RELAY,              /**< The device stopped acting as a relay of a transfer. */
+    BL_EVT_TYPE_END_SOURCE,             /**< The device stopped acting as the source of a transfer. */
+
+    /* Flash */
+    BL_EVT_TYPE_FLASH_ERASE = 0x50,     /**< Request to erase a flash section. */
+    BL_EVT_TYPE_FLASH_WRITE,            /**< Request to write to a flash section. */
+
+    /* TX */
+    BL_EVT_TYPE_TX_RADIO = 0x60,        /**< Request to transmit a packet over the radio. */
+    BL_EVT_TYPE_TX_SERIAL,              /**< Request to transmit a packet over the serial connection. */
+    BL_EVT_TYPE_TX_ABORT,               /**< Request to stop transmitting a given packet. */
+
+    /* Timer */
+    BL_EVT_TYPE_TIMER_SET = 0x70,       /**< Request to start a timer. */
+    BL_EVT_TYPE_TIMER_ABORT,            /**< Request to abort a running timer. */
+} bl_evt_type_t;
 
 typedef enum
 {
@@ -100,45 +140,6 @@ typedef union
     } write;
 } flash_op_t;
 
-typedef enum
-{
-    /* Generic */
-    BL_EVT_TYPE_ECHO = 0x00,
-    BL_EVT_TYPE_ABORT,
-    BL_EVT_TYPE_ERROR,
-    BL_EVT_TYPE_KEEP_ALIVE,             /**< The DFU module got a packet indicating that the current state should be kept for some time still. */
-    BL_EVT_TYPE_BANK_AVAILABLE,
-
-    /* Req */
-    BL_EVT_TYPE_REQ_TARGET = 0x20,
-    BL_EVT_TYPE_REQ_RELAY,
-    BL_EVT_TYPE_REQ_SOURCE,
-    BL_EVT_TYPE_NEW_FW,
-
-    /* Start */
-    BL_EVT_TYPE_START_TARGET = 0x30,
-    BL_EVT_TYPE_START_RELAY,
-    BL_EVT_TYPE_START_SOURCE,
-
-    /* End */
-    BL_EVT_TYPE_END_TARGET = 0x40,
-    BL_EVT_TYPE_END_RELAY,
-    BL_EVT_TYPE_END_SOURCE,
-
-    /* Flash */
-    BL_EVT_TYPE_FLASH_ERASE = 0x50,
-    BL_EVT_TYPE_FLASH_WRITE,
-
-    /* TX */
-    BL_EVT_TYPE_TX_RADIO = 0x60,
-    BL_EVT_TYPE_TX_SERIAL,
-    BL_EVT_TYPE_TX_ABORT,
-
-    /* Timer */
-    BL_EVT_TYPE_TIMER_SET = 0x70,
-    BL_EVT_TYPE_TIMER_ABORT,
-} bl_evt_type_t;
-
 /** uECC */
 typedef enum
 {
@@ -148,21 +149,6 @@ typedef enum
     UECC_CURVE_SECP256R1,
     UECC_CURVE_SECP256K1,
 } uECC_curve_t;
-
-typedef enum
-{
-    BL_END_SUCCESS,
-    BL_END_FWID_VALID,
-    BL_END_ERROR_PACKET_LOSS,
-    BL_END_ERROR_UNAUTHORIZED,
-    BL_END_ERROR_NO_START,
-    BL_END_ERROR_TIMEOUT,
-    BL_END_ERROR_NO_MEM,
-    BL_END_ERROR_INVALID_PERSISTENT_STORAGE,
-    BL_END_ERROR_SEGMENT_VIOLATION,
-    BL_END_ERROR_MBR_CALL_FAILED,
-    BL_END_ERROR_INVALID_TRANSFER
-} bl_end_t;
 
 typedef struct bl_evt bl_evt_t;
 typedef struct bl_cmd bl_cmd_t;
@@ -214,8 +200,8 @@ struct bl_cmd
             } start;
             union
             {
-                uint32_t TODO;///@TODO
-            } finalize;
+                dfu_type_t bank_dfu_type; /**< There's only ever one bank of each DFU type. Specify which bank should be flashed. */
+            } bank_flash;
         } dfu;
         union
         {
@@ -299,11 +285,13 @@ struct bl_evt
     {
         struct
         {
+            dfu_state_t     state;
             dfu_type_t      dfu_type;
             fwid_union_t    fwid;
         } req;
         struct
         {
+            dfu_state_t     state;
             dfu_type_t      fw_type;
             fwid_union_t    fwid;
         } new_fw;
@@ -331,7 +319,7 @@ struct bl_evt
         } echo;
         struct
         {
-            bl_end_t reason;
+            dfu_end_t reason;
         } abort;
         struct
         {

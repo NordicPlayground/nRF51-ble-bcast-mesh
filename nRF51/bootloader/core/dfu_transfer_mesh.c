@@ -66,6 +66,7 @@ typedef struct
     dfu_entry_t     p_missing_entry_backlog[MISSING_ENTRY_BACKLOG_COUNT];
     uint32_t        missing_entry_count;
 } dfu_transfer_t;
+
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
@@ -158,7 +159,7 @@ static void entry_mark_as_missing(uint32_t p_start, uint16_t length)
         }
     }
     /* backlog is full, abort. */
-    send_abort_evt(BL_END_ERROR_PACKET_LOSS);
+    send_abort_evt(DFU_END_ERROR_PACKET_LOSS);
 }
 
 static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
@@ -192,7 +193,7 @@ static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)
 static void flash_write_buffer(void)
 {
     m_write_buffer_busy = 1;
-    
+
     flash_write((uint32_t*) ((uint32_t) m_current_transfer.p_bank_addr
                                - (uint32_t) m_current_transfer.p_start_addr
                                + (uint32_t) m_current_transfer.p_write_pointer),
@@ -211,7 +212,11 @@ void dfu_transfer_init(void)
     memset(mp_write_buffer, 0xFF, WRITE_BUFFER_SIZE);
 }
 
-uint32_t dfu_transfer_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer)
+uint32_t dfu_transfer_start(uint32_t* p_start_addr,
+        uint32_t* p_bank_addr,
+        uint32_t size,
+        uint32_t section_size,
+        bool final_transfer)
 {
     dfu_transfer_init();
     uint16_t segment_count = (((size + (uint32_t) p_start_addr) & 0xFFFFFFF0) - ((uint32_t) p_start_addr & 0xFFFFFFF0)) / 16;
@@ -260,6 +265,7 @@ uint32_t dfu_transfer_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         return NRF_ERROR_INVALID_LENGTH;
     }
 
+#if 1
     bool buffer_incoming_entry;
     if (WRITE_BUFFER_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_write_pointer)
     {
@@ -296,9 +302,10 @@ uint32_t dfu_transfer_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         m_current_transfer.p_write_pointer = (uint32_t*)((uint32_t) m_current_transfer.p_write_pointer + WRITE_BUFFER_SIZE);
     }
     else /* entry belongs in a write buffer we've already flashed. */
+#endif
     {
         dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr, length);
-        if (p_backlog_entry != NULL)
+        if (*((uint32_t*) p_addr) != 0xFFFFFFFF && p_backlog_entry != NULL)
         {
             /* Recovering an old entry, flash it individually. */
             uint32_t error_code = flash_write((uint32_t*) p_addr, p_data, length);

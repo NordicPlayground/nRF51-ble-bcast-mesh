@@ -40,10 +40,11 @@ void RTC0_IRQHandler(void)
         NRF_RTC0->EVENTS_COMPARE[RTC_TRANSPORT_CH] = 0;
         transport_rtc_irq_handler();
     }
-    if ((NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH]) && 
+    if ((NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH]) &&
         (NRF_RTC0->INTENSET & (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos))))
     {
         NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH] = 0;
+        NRF_RTC0->INTENCLR = (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos));
         bl_cmd_t timeout_cmd;
         timeout_cmd.type = BL_CMD_TYPE_TIMEOUT;
         timeout_cmd.params.timeout.timer_index = 0;
@@ -54,7 +55,7 @@ void RTC0_IRQHandler(void)
 void rtc_init(void)
 {
     NRF_RTC0->PRESCALER = 0;
-    NRF_RTC0->EVTENSET  = (1 << (RTC_TRANSPORT_CH + RTC_EVTEN_COMPARE0_Pos)) 
+    NRF_RTC0->EVTENSET  = (1 << (RTC_TRANSPORT_CH + RTC_EVTEN_COMPARE0_Pos))
                         | (1 << (RTC_BL_STATE_CH  + RTC_EVTEN_COMPARE0_Pos));
     NRF_RTC0->TASKS_CLEAR = 1;
     NRF_RTC0->TASKS_START = 1;
