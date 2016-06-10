@@ -56,7 +56,7 @@
           <ListingPath>.\</ListingPath>
           <HexFormatSelection>1</HexFormatSelection>
           <Merge32K>0</Merge32K>
-          <CreateBatchFile>0</CreateBatchFile>
+          <CreateBatchFile>1</CreateBatchFile>
           <BeforeCompile>
             <RunUserProg1>0</RunUserProg1>
             <RunUserProg2>0</RunUserProg2>
@@ -398,7 +398,7 @@
             <ScatterFile></ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
-            <Misc></Misc>
+            <Misc>--diag-suppress 6314</Misc>
             <LinkerInputFile></LinkerInputFile>
             <DisabledWarnings></DisabledWarnings>
           </LDads>
@@ -805,6 +805,11 @@
               <FileName>dfu_bank.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\core\dfu_bank.c</FilePath>
+            </File>
+            <File>
+              <FileName>dfu_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\core\dfu_util.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1695,6 +1700,11 @@
               <FileName>dfu_bank.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\core\dfu_bank.c</FilePath>
+            </File>
+            <File>
+              <FileName>dfu_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\core\dfu_util.c</FilePath>
             </File>
           </Files>
         </Group>
