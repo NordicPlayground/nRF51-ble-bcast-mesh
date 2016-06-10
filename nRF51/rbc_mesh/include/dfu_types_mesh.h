@@ -266,6 +266,34 @@ typedef enum
     DFU_STATE_RELAY             /**< Passively relaying a transfer. */
 } dfu_state_t;
 
+/** The various roles a device can play in a dfu transfer. */
+typedef enum
+{
+    DFU_ROLE_NONE,      /**< No role. */
+    DFU_ROLE_TARGET,    /**< The target role. A receiver of a transfer. */
+    DFU_ROLE_RELAY,     /**< The relay role. A passive forwarding role. */
+    DFU_ROLE_SOURCE     /**< The source role. The originator of a transfer. */
+} dfu_role_t;
+
+/** Current state of a transfer. */
+typedef struct
+{
+    dfu_role_t      role;           /**< This device's intended role in the transfer. */
+    dfu_type_t      type;           /**< The DFU type of the transfer. */
+    fwid_union_t    fwid;           /**< The FWID of the new data in the transfer. */
+    dfu_state_t     state;          /**< The current global state of the transfer. */
+    uint8_t         data_progress;  /**< The progress of the transfer in percent (0-100). */
+} dfu_transfer_state_t;
+
+/** DFU Bank info structure. */
+typedef struct
+{
+    dfu_type_t dfu_type;    /**< DFU type of the bank. */
+    fwid_union_t fwid;      /**< Firmware ID of the bank. */
+    bool is_signed;         /**< Flag indicating whether the bank is signed with an encryption key. */
+    uint32_t* p_start_addr; /**< Start address of the bank. */
+    uint32_t length;        /**< Length of the firmware in the bank. */
+} dfu_bank_info_t;
 
 typedef fwid_t bl_info_version_t;
 

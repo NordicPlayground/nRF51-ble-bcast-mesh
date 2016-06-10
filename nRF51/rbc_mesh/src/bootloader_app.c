@@ -44,6 +44,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rand.h"
 #include "transport_control.h"
 #include "app_error.h"
+
+extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event);
+
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
@@ -54,6 +57,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_TX_INTERVAL_US          (100000)    /**< Time between transmits on regular interval, and base-interval on exponential. */
 #define DFU_TX_START_DELAY_MASK_US  (0xFFFF)    /**< Must be power of two. */
 #define DFU_TX_TIMER_MARGIN_US      (1000)      /**< Time margin for a timeout to be considered instant. */
+
+#define TIMER_REQ_TIMEOUT           (100000000) /**< Time to wait before giving up on an ongoing request. */
+#define TIMER_START_TIMEOUT         ( 50000000) /**< Time to wait for first data during a transfer. */
+#define TIMER_DATA_TIMEOUT          ( 10000000) /**< Time to wait for next data during a transfer. */
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
@@ -76,9 +83,30 @@ static bool                         m_tx_scheduled;                 /**< Whether
 static dfu_tx_t                     m_tx_slots[DFU_TX_SLOTS];       /**< TX slots for concurrent transmits. */
 static prng_t                       m_prng;                         /**< PRNG for time delays. */
 static tc_tx_config_t               m_tx_config;
+static fwid_t*                      mp_curr_fwid;
+static dfu_transfer_state_t         m_transfer_state;               /**< State of the ongoing dfu transfer. */
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
+static uint32_t get_curr_fwid(dfu_type_t type, fwid_union_t* p_fwid)
+{
+    switch (type)
+    {
+        case DFU_TYPE_SD:
+            p_fwid->sd = mp_curr_fwid->sd;
+            break;
+        case DFU_TYPE_BOOTLOADER:
+            p_fwid->bootloader = mp_curr_fwid->bootloader;
+            break;
+        case DFU_TYPE_APP:
+            p_fwid->app = mp_curr_fwid->app;
+            break;
+        default:
+            return NRF_ERROR_NOT_SUPPORTED;
+    }
+    return NRF_SUCCESS;
+}
+
 static uint32_t next_tx_timeout(dfu_tx_t* p_tx)
 {
     if (p_tx->interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
@@ -110,7 +138,7 @@ static void interrupts_disable(void)
 
 static void tx_timeout(uint32_t timestamp, void* p_context)
 {
-    _LOG("TX Timeout @ %d\n", timestamp);
+    __LOG("TX Timeout @ %d\n", timestamp);
     uint32_t next_timeout = timestamp + (UINT32_MAX / 2);
     for (uint32_t i = 0; i < DFU_TX_SLOTS; ++i)
     {
@@ -121,7 +149,7 @@ static void tx_timeout(uint32_t timestamp, void* p_context)
             {
                 if (tc_tx(m_tx_slots[i].p_packet, &m_tx_config) == NRF_SUCCESS)
                 {
-                    _LOG("DFU TX\n");
+                    __LOG("DFU TX\n");
                     m_tx_slots[i].tx_count++;
 
                     if (m_tx_slots[i].tx_count == TX_REPEATS_INF &&
@@ -152,10 +180,19 @@ static void tx_timeout(uint32_t timestamp, void* p_context)
     }
 }
 
+static void abort_timeout(uint32_t timestamp, void* p_context)
+{
+    NRF_GPIO->OUTCLR = (1 << 1);
+    __LOG("ABORT Timeout fired @%d\n", timestamp);
+    bl_cmd_t abort_cmd;
+    abort_cmd.type = BL_CMD_TYPE_DFU_ABORT;
+    m_cmd_handler(&abort_cmd);
+}
+
 static void timer_timeout(uint32_t timestamp, void* p_context)
 {
     NRF_GPIO->OUTCLR = (1 << 1);
-    _LOG("Timeout fired @%d\n", timestamp);
+    __LOG("Timeout fired @%d\n", timestamp);
     bl_cmd_t timeout_cmd;
     timeout_cmd.type = BL_CMD_TYPE_TIMEOUT;
     timeout_cmd.params.timeout.timer_index = 0;
@@ -212,7 +249,7 @@ uint32_t bootloader_init(void)
         (uint32_t) m_cmd_handler >= (NRF_FICR->CODESIZE * NRF_FICR->CODEPAGESIZE) ||
         (uint32_t) m_cmd_handler < NRF_UICR->BOOTLOADERADDR)
     {
-        _LOG(RTT_CTRL_TEXT_RED "ERROR, command handler @0x%x\n" RTT_CTRL_TEXT_WHITE, m_cmd_handler);
+        __LOG(RTT_CTRL_TEXT_RED "ERROR, command handler @0x%x\n" RTT_CTRL_TEXT_WHITE, m_cmd_handler);
         m_cmd_handler = NULL;
         return NRF_ERROR_NOT_SUPPORTED;
     }
@@ -247,7 +284,26 @@ uint32_t bootloader_init(void)
         }
     };
 
-    return m_cmd_handler(&init_cmd);
+    uint32_t error_code = m_cmd_handler(&init_cmd);
+
+    if (error_code != NRF_SUCCESS)
+    {
+        return error_code;
+    }
+
+    bl_cmd_t fwid_cmd;
+    fwid_cmd.type = BL_CMD_TYPE_INFO_GET;
+    fwid_cmd.params.info.get.type = BL_INFO_TYPE_VERSION;
+    fwid_cmd.params.info.get.p_entry = NULL;
+    error_code = m_cmd_handler(&fwid_cmd);
+    if (error_code != NRF_SUCCESS)
+    {
+        /* no version info */
+        return error_code;
+    }
+
+    mp_curr_fwid = &fwid_cmd.params.info.get.p_entry->version;
+    return error_code;
 }
 
 //TODO DUPLICATE?
@@ -266,29 +322,110 @@ uint32_t bootloader_enable(void)
     return m_cmd_handler(&enable_cmd);
 }
 
-
 uint32_t bootloader_event_handler(bl_evt_t* p_evt)
 {
     switch (p_evt->type)
     {
         case BL_EVT_TYPE_ECHO:
-            _LOG("Echo: %s\n", p_evt->params.echo.str);
+            __LOG("Echo: %s\n", p_evt->params.echo.str);
             break;
-        case BL_EVT_TYPE_ABORT:
-            _LOG("Abort event - ignored. Reason: 0x%x\n", p_evt->params.abort.reason);
-#if 0
-            switch (p_evt->params.abort.reason)
+        case BL_EVT_TYPE_DFU_ABORT:
             {
-                case BL_END_ERROR_INVALID_TRANSFER:
-
-                    break;
-                default:
-                    break;
+                __LOG("Abort event. Reason: 0x%x\n", p_evt->params.dfu.abort.reason);
+                rbc_mesh_event_t evt;
+                evt.type = RBC_MESH_EVENT_TYPE_DFU_END;
+                evt.params.dfu.end.dfu_type = m_transfer_state.type;
+                evt.params.dfu.end.role = m_transfer_state.role;
+                evt.params.dfu.end.fwid = m_transfer_state.fwid;
+                evt.params.dfu.end.end_reason = p_evt->params.dfu.abort.reason;
+                memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+                rbc_mesh_event_push(&evt);
             }
-#endif
             break;
+
+        case BL_EVT_TYPE_DFU_NEW_FW:
+            {
+                rbc_mesh_event_t evt;
+                evt.type = RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE;
+                evt.params.dfu.new_fw.dfu_type = p_evt->params.dfu.new_fw.fw_type;
+                evt.params.dfu.new_fw.new_fwid = p_evt->params.dfu.new_fw.fwid;
+                if (get_curr_fwid(
+                            p_evt->params.dfu.new_fw.fw_type,
+                            &evt.params.dfu.new_fw.current_fwid) == NRF_SUCCESS)
+                {
+                    rbc_mesh_event_push(&evt);
+                }
+            }
+            break;
+
+        case BL_EVT_TYPE_DFU_REQ:
+            {
+                /* Forward to application */
+                rbc_mesh_event_t evt;
+                switch (p_evt->params.dfu.req.role)
+                {
+                    case DFU_ROLE_RELAY:
+                        evt.type = RBC_MESH_EVENT_TYPE_DFU_RELAY_REQ;
+                        evt.params.dfu.relay_req.dfu_type = p_evt->params.dfu.req.dfu_type;
+                        evt.params.dfu.relay_req.fwid = p_evt->params.dfu.req.fwid;
+                        evt.params.dfu.relay_req.authority = p_evt->params.dfu.req.dfu_type;
+                        break;
+                    case DFU_ROLE_SOURCE:
+                        evt.type = RBC_MESH_EVENT_TYPE_DFU_SOURCE_REQ;
+                        evt.params.dfu.source_req.dfu_type = p_evt->params.dfu.req.dfu_type;
+                        break;
+                    default:
+                        return NRF_ERROR_NOT_SUPPORTED;
+                }
+                rbc_mesh_event_push(&evt);
+            }
+            break;
+
+        case BL_EVT_TYPE_DFU_START:
+            {
+                rbc_mesh_event_t evt;
+                evt.type = RBC_MESH_EVENT_TYPE_DFU_START;
+                evt.params.dfu.start.dfu_type = p_evt->params.dfu.start.dfu_type;
+                evt.params.dfu.start.fwid = p_evt->params.dfu.start.fwid;
+                evt.params.dfu.start.role = p_evt->params.dfu.start.role;
+                rbc_mesh_event_push(&evt);
+                m_timer_evt.cb = abort_timeout;
+                return timer_sch_reschedule(&m_timer_evt, timer_now() + TIMER_START_TIMEOUT);
+            }
+
+
+        case BL_EVT_TYPE_DFU_DATA_SEGMENT_RX:
+            m_timer_evt.cb = abort_timeout;
+            return timer_sch_reschedule(&m_timer_evt, timer_now() + TIMER_DATA_TIMEOUT);
+
+        case BL_EVT_TYPE_DFU_END:
+            {
+                rbc_mesh_event_t evt;
+                evt.type = RBC_MESH_EVENT_TYPE_DFU_END;
+                evt.params.dfu.end.dfu_type = p_evt->params.dfu.end.dfu_type;
+                evt.params.dfu.end.fwid = p_evt->params.dfu.end.fwid;
+                evt.params.dfu.end.end_reason = DFU_END_SUCCESS;
+                evt.params.dfu.end.role = p_evt->params.dfu.end.role;
+                rbc_mesh_event_push(&evt);
+                m_timer_evt.cb = abort_timeout;
+                return timer_sch_reschedule(&m_timer_evt, timer_now() + TIMER_START_TIMEOUT);
+            }
+
+
+        case BL_EVT_TYPE_BANK_AVAILABLE:
+            {
+                rbc_mesh_event_t evt;
+                evt.type = RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE;
+                evt.params.dfu.bank.dfu_type     = p_evt->params.bank_available.bank_dfu_type;
+                evt.params.dfu.bank.fwid         = p_evt->params.bank_available.bank_fwid;
+                evt.params.dfu.bank.is_signed    = p_evt->params.bank_available.is_signed;
+                evt.params.dfu.bank.p_start_addr = p_evt->params.bank_available.p_bank_addr;
+                rbc_mesh_event_push(&evt);
+            }
+            break;
+
         case BL_EVT_TYPE_FLASH_ERASE:
-            _LOG("Erase flash at: 0x%x (length %d)\n", p_evt->params.flash.erase.start_addr, p_evt->params.flash.erase.length);
+            __LOG("Erase flash at: 0x%x (length %d)\n", p_evt->params.flash.erase.start_addr, p_evt->params.flash.erase.length);
 
             if (p_evt->params.flash.erase.start_addr & (NRF_FICR->CODEPAGESIZE - 1))
             {
@@ -302,7 +439,7 @@ uint32_t bootloader_event_handler(bl_evt_t* p_evt)
             return mesh_flash_op_push(FLASH_OP_TYPE_ERASE, &p_evt->params.flash);
 
         case BL_EVT_TYPE_FLASH_WRITE:
-            _LOG("Write flash at: 0x%x (length %d)\n", p_evt->params.flash.write.start_addr, p_evt->params.flash.write.length);
+            __LOG("Write flash at: 0x%x (length %d)\n", p_evt->params.flash.write.start_addr, p_evt->params.flash.write.length);
 
             if (p_evt->params.flash.write.start_addr & 0x03)
             {
@@ -315,7 +452,7 @@ uint32_t bootloader_event_handler(bl_evt_t* p_evt)
             return mesh_flash_op_push(FLASH_OP_TYPE_WRITE, &p_evt->params.flash);
 
         case BL_EVT_TYPE_TX_RADIO:
-            _LOG("RADIO TX! SLOT %d, count %d, interval: %s, handle: %x\n",
+            __LOG("RADIO TX! SLOT %d, count %d, interval: %s, handle: %x\n",
                 p_evt->params.tx.radio.tx_slot,
                 p_evt->params.tx.radio.tx_count,
                 p_evt->params.tx.radio.interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL ? "exponential" : "periodic",
@@ -358,15 +495,36 @@ uint32_t bootloader_event_handler(bl_evt_t* p_evt)
             }
             break;
         case BL_EVT_TYPE_TX_SERIAL:
-            _LOG("SERIAL TX!\n");
+            __LOG("SERIAL TX!\n");
             break;
+
+        case BL_EVT_TYPE_TX_ABORT:
+            if (p_evt->params.tx.abort.tx_slot >= DFU_TX_SLOTS)
+            {
+                return NRF_ERROR_INVALID_PARAM;
+            }
+            if (m_tx_slots[p_evt->params.tx.abort.tx_slot].p_packet == NULL)
+            {
+                return NRF_ERROR_INVALID_STATE;
+            }
+            else
+            {
+                /* set to NULL before deleting reference to avoid freak orphan
+                   packet */
+                mesh_packet_t* p_packet = m_tx_slots[p_evt->params.tx.abort.tx_slot].p_packet;
+                m_tx_slots[p_evt->params.tx.abort.tx_slot].p_packet = NULL;
+                mesh_packet_ref_count_dec(p_packet);
+                return NRF_SUCCESS;
+            }
 
         case BL_EVT_TYPE_TIMER_SET:
             NRF_GPIO->OUTSET = (1 << 1);
-            _LOG("TIMER event: @%d us\n", p_evt->params.timer.set.delay_us);
+            __LOG("TIMER event: @%d us\n", p_evt->params.timer.set.delay_us);
+            m_timer_evt.cb = timer_timeout;
             return timer_sch_reschedule(&m_timer_evt, timer_now() + p_evt->params.timer.set.delay_us);
+
         case BL_EVT_TYPE_TIMER_ABORT:
-            _LOG("TIMER abort: %d\n", p_evt->params.timer.abort.index);
+            __LOG("TIMER abort: %d\n", p_evt->params.timer.abort.index);
             return timer_sch_abort(&m_timer_evt);
 
         case BL_EVT_TYPE_ERROR:
@@ -374,7 +532,7 @@ uint32_t bootloader_event_handler(bl_evt_t* p_evt)
                               p_evt->params.error.line,
                               (uint8_t*) p_evt->params.error.p_file);
         default:
-            _LOG("Got unsupported event: 0x%x\n", p_evt->type);
+            __LOG("Got unsupported event: 0x%x\n", p_evt->type);
             return NRF_ERROR_NOT_SUPPORTED;
     }
     return NRF_SUCCESS;

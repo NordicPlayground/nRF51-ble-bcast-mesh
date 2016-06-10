@@ -34,15 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "bl_if.h"
 
-/** DFU Bank info structure. */
-typedef struct
-{
-    dfu_type_t dfu_type;    /**< DFU type of the bank. */
-    fwid_union_t fwid;      /**< Firmware ID of the bank. */
-    uint32_t* p_start_addr; /**< Start address of the bank. */
-    uint32_t length;        /**< Length of the firmware in the bank. */
-    bool is_signed;         /**< Flag indicating whether the bank is signed with an encryption key. */
-} dfu_bank_info_t;
 
 /**
  * Initialize the dfu functionality. Called by the framework as part of mesh
@@ -73,21 +64,48 @@ uint32_t dfu_jump_to_bootloader(void);
 * Generates events:
 *   @RBC_MESH_EVT_DFU_BANK_AVAILABLE: The DFU transfer is finished, and is
 *   available for flashing.
-*   @RBC_MESH_EVT_DFU_TARGET_START: The dfu module got a response to the DFU
+*   @RBC_MESH_EVT_DFU_START: The dfu module got a response to the DFU
 *   request, and started receiving the transfer.
-*   @RBC_MESH_EVT_DFU_TARGET_END: The dfu module finished its transfer.
+*   @RBC_MESH_EVT_DFU_END: The dfu module finished its transfer.
 *
 * @param[in] type DFU type to request.
 * @param[in] p_fwid Firmware ID to request.
 *
 * @return NRF_SUCCESS The dfu module has started requesting the given transfer.
+* @return NRF_ERROR_NULL The FWID pointer provided was NULL.
 * @return NRF_ERROR_NOT_AVAILABLE The dfu functionality is not available.
 * @return NRF_ERROR_INVALID_PARAM The given dfu type is not available.
 * @return NRF_ERROR_INVALID_STATE The dfu module is currently running another
 * dfu operation. Stop it with @ref dfu_abort() or wait for an end-event
 * before requesting a new transfer.
 */
-uint32_t dfu_request(dfu_type_t type, fwid_union_t* p_fwid, uint32_t* p_bank_addr);
+uint32_t dfu_request(dfu_type_t type,
+        fwid_union_t* p_fwid,
+        uint32_t* p_bank_addr);
+
+/**
+* Relay an ongoing transfer. Should only be used as a response to an
+* @ref RBC_MESH_EVENT_DFU_RELAY_REQ.
+*
+* Generates events:
+*   @RBC_MESH_EVT_DFU_START: The transfer has started, and the device is
+*   actively relaying data packets.
+*   @RBC_MESH_EVT_DFU_END: The dfu module finished its transfer.
+*
+* @param[in] type DFU type to request.
+* @param[in] p_fwid Firmware ID to request.
+*
+* @return NRF_SUCCESS The dfu module has started advertising its intention to
+* relay the given transfer.
+* @return NRF_ERROR_NULL The FWID pointer provided was NULL.
+* @return NRF_ERROR_NOT_AVAILABLE The dfu functionality is not available.
+* @return NRF_ERROR_INVALID_PARAM The given dfu type is not available.
+* @return NRF_ERROR_INVALID_STATE The dfu module is currently running another
+* dfu operation. Stop it with @ref dfu_abort() or wait for an end-event
+* before requesting a new transfer.
+*/
+uint32_t dfu_relay(dfu_type_t type,
+        fwid_union_t* p_fwid);
 
 /**
 * Abort the ongoing dfu operation.
@@ -109,6 +127,7 @@ uint32_t dfu_abort(void);
 *
 * @return NRF_SUCCESS The bank was found, and the @p_bank parameter was filled
 * with the correct paramters.
+* @return NRF_ERROR_NULL The bank info pointer provided was NULL.
 * @return NRF_ERROR_NOT_AVAILABLE The dfu functionality is not available.
 * @return NRF_ERROR_NOT_FOUND No bank of the given type was found.
 */
@@ -131,13 +150,16 @@ uint32_t dfu_bank_flash(dfu_type_t bank_type);
 /**
 * Get the current state of the DFU module.
 *
-* @param[out] p_dfu_state A pointer to a dfu-state variable, which the
-* framework will store the state in.
+* @param[out] p_dfu_transfer_state A pointer to a dfu transfer state variable,
+* which the framework will fill with the current state/progress of an ongoing
+* transfer, if any.
 *
 * @return NRF_SUCCESS The dfu state was successfully retrieved.
+* @return NRF_ERROR_NULL The transfer state pointer provided was NULL.
 * @return NRF_ERROR_NOT_AVAILABLE The dfu functionality is not available.
+* @return NRF_ERROR_INVALID_STATE No dfu transfer currently in progress.
 */
-uint32_t dfu_state_get(dfu_state_t* p_dfu_state);
+uint32_t dfu_state_get(dfu_transfer_state_t* p_dfu_transfer_state);
 
 
 

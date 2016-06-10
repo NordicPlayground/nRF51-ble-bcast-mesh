@@ -54,7 +54,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define FLASH_HANDLER_IRQn          (SWI3_IRQn)
 #define FLASH_HANDLER_IRQHandler    SWI3_IRQHandler
 
-#define TIMER_DATA_TIMEOUT          (US_TO_RTC_TICKS(10000000)) /**< Time to wait for next data during a transfer. */
+#define TIMER_REQ_TIMEOUT           (US_TO_RTC_TICKS(100000000)) /**< Time to wait before giving up on an ongoing request. */
+#define TIMER_START_TIMEOUT         (US_TO_RTC_TICKS( 50000000)) /**< Time to wait for first data during a transfer. */
+#define TIMER_DATA_TIMEOUT          (US_TO_RTC_TICKS( 10000000)) /**< Time to wait for next data during a transfer. */
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
@@ -327,24 +329,41 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             }
             break;
 
-        case BL_EVT_TYPE_DFU_START_RELAY:
-        case BL_EVT_TYPE_DFU_START_TARGET:
+        case BL_EVT_TYPE_DFU_REQ:
+            {
+                /* Always attempt to relay incoming transfers in BL mode. Will
+                   not abort ongoing transfers. */
+                if (p_evt->params.dfu.req.role == DFU_ROLE_RELAY)
+                {
+                    bl_cmd_t relay_cmd;
+                    relay_cmd.type = BL_CMD_TYPE_DFU_START_RELAY;
+                    relay_cmd.params.dfu.start.relay.fwid = p_evt->params.dfu.req.fwid;
+                    relay_cmd.params.dfu.start.relay.type = p_evt->params.dfu.req.dfu_type;
+                    relay_cmd.params.dfu.start.relay.transaction_id = p_evt->params.dfu.req.transaction_id;
+                    bootloader_cmd_send(&relay_cmd);
+                }
+            }
+            break;
+
+        case BL_EVT_TYPE_DFU_START:
+            set_timeout(TIMER_START_TIMEOUT, TIMEOUT_ACTION_DFU_ABORT);
+            break;
         case BL_EVT_TYPE_DFU_DATA_SEGMENT_RX:
             set_timeout(TIMER_DATA_TIMEOUT, TIMEOUT_ACTION_DFU_ABORT);
             break;
 
-        case BL_EVT_TYPE_DFU_END_TARGET:
+        case BL_EVT_TYPE_DFU_END:
             if (p_evt->params.dfu.end.dfu_type == DFU_TYPE_APP ||
                 p_evt->params.dfu.end.dfu_type == DFU_TYPE_SD)
             {
+                /* attempt to reboot to app */
                 bootloader_abort(DFU_END_SUCCESS);
             }
             break;
 
-
         /* Defer the flash operations to an asynchronous handler. Doing it
-         * inline causes stack overflow, as the bootloader continues in the
-         * response callback. */
+           inline causes stack overflow, as the bootloader continues in the
+           response callback. */
         case BL_EVT_TYPE_FLASH_WRITE:
             {
                 if (p_evt->params.flash.write.start_addr & 0x03 ||
@@ -493,6 +512,7 @@ uint32_t bootloader_cmd_send(bl_cmd_t* p_bl_cmd)
 
 void bootloader_abort(dfu_end_t end_reason)
 {
+    __LOG("ABORT...\n");
     bl_info_entry_t* p_segment_entry = bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP);
     switch (end_reason)
     {
@@ -520,8 +540,17 @@ void bootloader_abort(dfu_end_t end_reason)
                 }
                 else
                 {
+                    __LOG("->Will go to app once flash is finished.\n");
                     m_go_to_app = true;
                 }
+            }
+            else if (p_segment_entry)
+            {
+                __LOG("->App not valid.\n");
+            }
+            else
+            {
+                __LOG("->No segment entry found\n");
             }
             break;
         case DFU_END_ERROR_INVALID_PERSISTENT_STORAGE:
@@ -536,6 +565,7 @@ void bootloader_abort(dfu_end_t end_reason)
 
 void bootloader_timeout(void)
 {
+    __LOG("BL: TIMEOUT!\n");
     bl_cmd_t cmd;
     switch (m_timeout_action)
     {

@@ -35,21 +35,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bl_if.h"
 
 /**
-* Manually trigger the bootloader. The device will be reset immediately, and
-* may not be available for regular operation for several minutes. Will trigger
-* the authorize callback, which must return true for the bootloader to start.
-* If successful and authorized, this function call will not return.
-*
-* @param[in] type Type of transfer expected, or DFU_TYPE_NONE.
-* @param[in] p_fwid FWID union to identify the incoming transfer.
-*
-* @return NRF_ERROR_BUSY The application rejected the bootloader start request.
-* @return NRF_ERROR_FORBIDDEN The NRF_UICR->BOOTLOADERADDR persistent register
-*   has not been set, and the bootloader could not start.
-*/
-uint32_t dfu_request(dfu_type_t type, fwid_union_t* p_fwid);
-
-/**
  * Initialize the dfu functionality. Called by the framework as part of mesh
  * initialization.
  *

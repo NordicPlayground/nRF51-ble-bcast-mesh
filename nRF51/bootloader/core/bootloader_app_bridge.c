@@ -98,19 +98,22 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
                                      (uint32_t*) (BOOTLOADER_INFO_BANK_ADDRESS))
                 != NRF_SUCCESS)
             {
-                send_abort_evt(DFU_END_ERROR_INVALID_PERSISTENT_STORAGE);
                 return NRF_ERROR_INTERNAL;
             }
             dfu_mesh_init(p_bl_cmd->params.init.tx_slots);
             break;
+
         case BL_CMD_TYPE_ENABLE:
             dfu_mesh_start();
             break;
+
         case BL_CMD_TYPE_RX:
             return dfu_mesh_rx(p_bl_cmd->params.rx.p_dfu_packet, p_bl_cmd->params.rx.length, true);
+
         case BL_CMD_TYPE_TIMEOUT:
             dfu_mesh_timeout();
             break;
+
         case BL_CMD_TYPE_ECHO:
             rsp_evt.type = BL_EVT_TYPE_ECHO;
             memcpy(rsp_evt.params.echo.str, p_bl_cmd->params.echo.str, 16);
@@ -122,11 +125,18 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
                     p_bl_cmd->params.dfu.start.target.p_bank_start);
 
         case BL_CMD_TYPE_DFU_START_RELAY:
-            break;
+            return dfu_mesh_relay(
+                    p_bl_cmd->params.dfu.start.relay.type,
+                    &p_bl_cmd->params.dfu.start.relay.fwid,
+                    p_bl_cmd->params.dfu.start.relay.transaction_id);
+
         case BL_CMD_TYPE_DFU_START_SOURCE:
             return NRF_ERROR_NOT_SUPPORTED;
+
         case BL_CMD_TYPE_DFU_ABORT:
+            dfu_mesh_restart();
             break;
+
         case BL_CMD_TYPE_DFU_BANK_FLASH:
             {
                 return dfu_bank_flash(p_bl_cmd->params.dfu.bank_flash.bank_dfu_type);
@@ -219,18 +229,19 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
             dfu_mesh_on_flash_idle();
             break;
         default:
+            APP_ERROR_CHECK(NRF_ERROR_NOT_SUPPORTED);
             return NRF_ERROR_NOT_SUPPORTED;
     }
 
     return NRF_SUCCESS;
 }
 
-void send_abort_evt(dfu_end_t end_reason)
+void send_end_evt(dfu_end_t end_reason)
 {
-    bl_evt_t abort_evt;
-    abort_evt.type = BL_EVT_TYPE_DFU_ABORT;
-    abort_evt.params.dfu.abort.reason = end_reason;
-    bootloader_evt_send(&abort_evt);
+    bl_evt_t end_evt;
+    end_evt.type = BL_EVT_TYPE_DFU_ABORT;
+    end_evt.params.dfu.abort.reason = end_reason;
+    bootloader_evt_send(&end_evt);
 }
 
 uint32_t flash_write(void* p_dest, void* p_data, uint32_t length)

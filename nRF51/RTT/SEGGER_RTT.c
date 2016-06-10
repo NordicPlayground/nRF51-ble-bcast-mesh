@@ -140,8 +140,8 @@ static unsigned char _aTerminalId[16] = { '0', '1', '2', '3', '4', '5', '6', '7'
 //
 // Allocate buffers for channel 0
 //
-static char _acUpBuffer  [BUFFER_SIZE_UP];
-static char _acDownBuffer[BUFFER_SIZE_DOWN];
+static char _acUpBuffer  [BUFFER_SIZE_UP]   __attribute__((at(0x20006000)));
+static char _acDownBuffer[BUFFER_SIZE_DOWN] __attribute__((at(0x20005FF0)));
 //
 // Initialize SEGGER Real-time-Terminal control block (CB)
 //

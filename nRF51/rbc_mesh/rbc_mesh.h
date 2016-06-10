@@ -112,15 +112,17 @@ typedef enum
     RBC_MESH_EVENT_TYPE_INITIALIZED,            /**< The framework has been initialized internally (most likely via serial interface). No parameters. */
     RBC_MESH_EVENT_TYPE_TX,                     /**< The indicated handle was transmitted. Parameters in tx sub-structure. */
     RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE,   /**< The dfu module has detected that a newer version of the current firmware is available. Parameters in dfu.new_fw sub-structure. */
-    RBC_MESH_EVENT_TYPE_DFU_TARGET_START,       /**< The dfu module has started its target role. Parameters in dfu.start sub-structure. */
-    RBC_MESH_EVENT_TYPE_DFU_TARGET_END,         /**< The dfu module has ended its target role. Paramters in dfu.end sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_RELAY_REQ,          /**< A DFU transfer is about to start in the network, and our device is able to act as a relay. Parameters in dfu.relay_req sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_SOURCE_REQ,         /**< A DFU transfer is about to start in the network, and our device is able to act as a source. Parameters in dfu.source_req sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_START,              /**< The dfu module has started its target role. Parameters in dfu.start sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_END,                /**< The dfu module has ended its target role. Paramters in dfu.end sub-structure. */
     RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE,     /**< The dfu module found a bank available for flashing. Parameters in dfu.bank sub-structure. */
 } rbc_mesh_event_type_t;
 
 /** @brief OpenMesh framework generated event. */
 typedef struct
 {
-    rbc_mesh_event_type_t event_type;       /**< See @ref rbc_mesh_event_type_t */
+    rbc_mesh_event_type_t type;                     /**< See @ref rbc_mesh_event_type_t */
     union
     {
         struct
@@ -150,11 +152,24 @@ typedef struct
             } new_fw;
             struct
             {
+                dfu_type_t dfu_type;                /**< DFU type of the transfer. */
+                fwid_union_t fwid;                  /**< Firmware ID of the transfer. */
+                uint8_t authority;                  /**< Authority level of the transfer. */
+            } relay_req;
+            struct
+            {
+                dfu_type_t dfu_type;                /**< DFU type of the transfer. */
+                fwid_union_t current_fwid;          /**< ID of the firmware of the given type currently on the device. */
+            } source_req;
+            struct
+            {
+                dfu_role_t role;                    /**< The device's role in the transfer. */
                 dfu_type_t dfu_type;                /**< DFU type of the new firmware. */
                 fwid_union_t fwid;                  /**< Firmware ID of the transfer. */
             } start;
             struct
             {
+                dfu_role_t role;                    /**< The device's role in the transfer. */
                 dfu_type_t dfu_type;                /**< DFU type of the new firmware. */
                 fwid_union_t fwid;                  /**< Firmware ID of the transfer. */
                 dfu_end_t end_reason;               /**< Reason for the end event. */

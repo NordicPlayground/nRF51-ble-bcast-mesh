@@ -569,7 +569,7 @@ void mesh_aci_command_check(void)
 void mesh_aci_rbc_event_handler(rbc_mesh_event_t* evt)
 {
     serial_evt_t serial_evt;
-    switch (evt->event_type)
+    switch (evt->type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
             serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_CONFLICTING;

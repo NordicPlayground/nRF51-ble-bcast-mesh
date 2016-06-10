@@ -159,7 +159,7 @@ static void entry_mark_as_missing(uint32_t p_start, uint16_t length)
         }
     }
     /* backlog is full, abort. */
-    send_abort_evt(DFU_END_ERROR_PACKET_LOSS);
+    send_end_evt(DFU_END_ERROR_PACKET_LOSS);
 }
 
 static dfu_entry_t* entry_in_missing_backlog(uint32_t p_start, uint16_t length)

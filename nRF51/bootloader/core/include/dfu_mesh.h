@@ -45,7 +45,7 @@ uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
 void dfu_mesh_timeout(void);
 void dfu_mesh_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
 uint32_t dfu_mesh_req(dfu_type_t type, fwid_union_t* p_fwid, uint32_t* p_bank_addr);
-uint32_t dfu_mesh_relay(dfu_type_t type, fwid_union_t* p_fwid);
+uint32_t dfu_mesh_relay(dfu_type_t type, fwid_union_t* p_fwid, uint32_t transaction_id);
 dfu_type_t dfu_mesh_missing_type_get(void);
 bool dfu_mesh_app_is_valid(void);
 uint32_t dfu_mesh_finalize(void);

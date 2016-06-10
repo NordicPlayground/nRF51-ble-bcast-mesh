@@ -53,6 +53,7 @@ typedef enum
     BL_CMD_TYPE_DFU_START_SOURCE,
     BL_CMD_TYPE_DFU_ABORT,
     BL_CMD_TYPE_DFU_BANK_FLASH,                 /**< Tell the bootloader to flash a bank. App will restart afterwards. */
+    BL_CMD_TYPE_DFU_BANK_INFO_GET,              /**< Get info on the bank of the given type. */
 
     /* info opcodes */
     BL_CMD_TYPE_INFO_GET = 0x30,
@@ -80,24 +81,14 @@ typedef enum
     BL_EVT_TYPE_ECHO = 0x00,                /**< Response to an echo command. */
     BL_EVT_TYPE_ERROR,                      /**< Request to reset a previously requested timer. */
     BL_EVT_TYPE_BANK_AVAILABLE,             /**< A DFU has been received and banked, and is available for flashing. */
-    BL_EVT_TYPE_DFU_ABORT,                  /**< DFU aborted, and went back to idle. */
-    BL_EVT_TYPE_DFU_DATA_SEGMENT_RX,        /**< The DFU module got a new packet in the ongoing DFU transfer. */
+
+    /* DFU */
+    BL_EVT_TYPE_DFU_ABORT = 0x20,           /**< DFU aborted, and went back to idle. */
     BL_EVT_TYPE_DFU_NEW_FW,                 /**< A neighbor device has a newer version of our firmware. */
-
-    /* Req */
-    BL_EVT_TYPE_DFU_REQ_TARGET = 0x20,      /**< Request to become the target of a transfer. */
-    BL_EVT_TYPE_DFU_REQ_RELAY,              /**< Request to become a relay in a transfer. */
-    BL_EVT_TYPE_DFU_REQ_SOURCE,             /**< Request to source a transfer. */
-
-    /* Start */
-    BL_EVT_TYPE_DFU_START_TARGET = 0x30,    /**< The device started acting as a target of a transfer. */
-    BL_EVT_TYPE_DFU_START_RELAY,            /**< The device started acting as a relay of a transfer. */
-    BL_EVT_TYPE_DFU_START_SOURCE,           /**< The device started acting as the source of a transfer. */
-
-    /* End */
-    BL_EVT_TYPE_DFU_END_TARGET = 0x40,      /**< The device stopped acting as a target of a transfer. */
-    BL_EVT_TYPE_DFU_END_RELAY,              /**< The device stopped acting as a relay of a transfer. */
-    BL_EVT_TYPE_DFU_END_SOURCE,             /**< The device stopped acting as the source of a transfer. */
+    BL_EVT_TYPE_DFU_REQ,                    /**< Request to participate in a transfer. */
+    BL_EVT_TYPE_DFU_START,                  /**< The transfer started. */
+    BL_EVT_TYPE_DFU_DATA_SEGMENT_RX,        /**< The DFU module got a new packet in the ongoing DFU transfer. */
+    BL_EVT_TYPE_DFU_END,                    /**< The transfer ended. */
 
     /* Flash */
     BL_EVT_TYPE_FLASH_ERASE = 0x50,         /**< Request to erase a flash section. */
@@ -188,20 +179,26 @@ struct bl_cmd
             {
                 struct
                 {
-                    dfu_type_t type;
-                    fwid_union_t fwid;
-                    uint32_t* p_bank_start;
+                    dfu_type_t      type;
+                    fwid_union_t    fwid;
+                    uint32_t*       p_bank_start;
                 } target;
                 struct
                 {
-                    dfu_type_t type;
-                    fwid_union_t fwid;
+                    dfu_type_t      type;
+                    fwid_union_t    fwid;
+                    uint32_t        transaction_id; /**< Set to 0 if unknown */
                 } relay;
             } start;
-            union
+            struct
             {
-                dfu_type_t bank_dfu_type; /**< There's only ever one bank of each DFU type. Specify which bank should be flashed. */
+                dfu_type_t          bank_dfu_type; /**< There's only ever one bank of each DFU type. Specify which bank should be flashed. */
             } bank_flash;
+            struct
+            {
+                dfu_type_t          bank_dfu_type; /**< There's only ever one bank of each DFU type. Specify which bank to get. */
+                dfu_bank_info_t*    p_bank_info;
+            } bank_info_get;
         } dfu;
         union
         {
@@ -297,9 +294,12 @@ struct bl_evt
         {
             struct
             {
+                dfu_role_t      role;
                 dfu_state_t     state;
                 dfu_type_t      dfu_type;
                 fwid_union_t    fwid;
+                uint8_t         authority;
+                uint32_t        transaction_id;
             } req;
             struct
             {
@@ -309,6 +309,7 @@ struct bl_evt
             } new_fw;
             struct
             {
+                dfu_role_t      role;
                 dfu_type_t      dfu_type;
                 fwid_union_t    fwid;
             } start;
@@ -319,17 +320,19 @@ struct bl_evt
             } data_segment;
             struct
             {
+                dfu_role_t      role;
                 dfu_type_t      dfu_type;
                 fwid_union_t    fwid;
             } end;
             struct
             {
-                dfu_end_t reason;
+                dfu_end_t       reason;
             } abort;
         } dfu;
         struct
         {
             dfu_type_t      bank_dfu_type;
+            bool            is_signed;
             fwid_union_t    bank_fwid;
             fwid_union_t    current_fwid;
             uint32_t*       p_bank_addr;
