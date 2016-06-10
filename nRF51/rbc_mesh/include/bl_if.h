@@ -77,40 +77,40 @@ typedef enum
 typedef enum
 {
     /* Generic */
-    BL_EVT_TYPE_ECHO = 0x00,            /**< Response to an echo command. */
-    BL_EVT_TYPE_ABORT,                  /**< Request to abort dfu operation and start over. */
-    BL_EVT_TYPE_ERROR,                  /**< Request to reset a previously requested timer. */
-    BL_EVT_TYPE_KEEP_ALIVE,             /**< The DFU module got a packet indicating that the current state should be kept for some time still. */
-    BL_EVT_TYPE_BANK_AVAILABLE,         /**< A DFU has been received and banked, and is available for flashing. */
+    BL_EVT_TYPE_ECHO = 0x00,                /**< Response to an echo command. */
+    BL_EVT_TYPE_ERROR,                      /**< Request to reset a previously requested timer. */
+    BL_EVT_TYPE_BANK_AVAILABLE,             /**< A DFU has been received and banked, and is available for flashing. */
+    BL_EVT_TYPE_DFU_ABORT,                  /**< DFU aborted, and went back to idle. */
+    BL_EVT_TYPE_DFU_DATA_SEGMENT_RX,        /**< The DFU module got a new packet in the ongoing DFU transfer. */
+    BL_EVT_TYPE_DFU_NEW_FW,                 /**< A neighbor device has a newer version of our firmware. */
 
     /* Req */
-    BL_EVT_TYPE_REQ_TARGET = 0x20,      /**< Request to become the target of a transfer. */
-    BL_EVT_TYPE_REQ_RELAY,              /**< Request to become a relay in a transfer. */
-    BL_EVT_TYPE_REQ_SOURCE,             /**< Request to source a transfer. */
-    BL_EVT_TYPE_NEW_FW,                 /**< A neighbor device has a newer version of our firmware. */
+    BL_EVT_TYPE_DFU_REQ_TARGET = 0x20,      /**< Request to become the target of a transfer. */
+    BL_EVT_TYPE_DFU_REQ_RELAY,              /**< Request to become a relay in a transfer. */
+    BL_EVT_TYPE_DFU_REQ_SOURCE,             /**< Request to source a transfer. */
 
     /* Start */
-    BL_EVT_TYPE_START_TARGET = 0x30,    /**< The device started acting as a target of a transfer. */
-    BL_EVT_TYPE_START_RELAY,            /**< The device started acting as a relay of a transfer. */
-    BL_EVT_TYPE_START_SOURCE,           /**< The device started acting as the source of a transfer. */
+    BL_EVT_TYPE_DFU_START_TARGET = 0x30,    /**< The device started acting as a target of a transfer. */
+    BL_EVT_TYPE_DFU_START_RELAY,            /**< The device started acting as a relay of a transfer. */
+    BL_EVT_TYPE_DFU_START_SOURCE,           /**< The device started acting as the source of a transfer. */
 
     /* End */
-    BL_EVT_TYPE_END_TARGET = 0x40,      /**< The device stopped acting as a target of a transfer. */
-    BL_EVT_TYPE_END_RELAY,              /**< The device stopped acting as a relay of a transfer. */
-    BL_EVT_TYPE_END_SOURCE,             /**< The device stopped acting as the source of a transfer. */
+    BL_EVT_TYPE_DFU_END_TARGET = 0x40,      /**< The device stopped acting as a target of a transfer. */
+    BL_EVT_TYPE_DFU_END_RELAY,              /**< The device stopped acting as a relay of a transfer. */
+    BL_EVT_TYPE_DFU_END_SOURCE,             /**< The device stopped acting as the source of a transfer. */
 
     /* Flash */
-    BL_EVT_TYPE_FLASH_ERASE = 0x50,     /**< Request to erase a flash section. */
-    BL_EVT_TYPE_FLASH_WRITE,            /**< Request to write to a flash section. */
+    BL_EVT_TYPE_FLASH_ERASE = 0x50,         /**< Request to erase a flash section. */
+    BL_EVT_TYPE_FLASH_WRITE,                /**< Request to write to a flash section. */
 
     /* TX */
-    BL_EVT_TYPE_TX_RADIO = 0x60,        /**< Request to transmit a packet over the radio. */
-    BL_EVT_TYPE_TX_SERIAL,              /**< Request to transmit a packet over the serial connection. */
-    BL_EVT_TYPE_TX_ABORT,               /**< Request to stop transmitting a given packet. */
+    BL_EVT_TYPE_TX_RADIO = 0x60,            /**< Request to transmit a packet over the radio. */
+    BL_EVT_TYPE_TX_SERIAL,                  /**< Request to transmit a packet over the serial connection. */
+    BL_EVT_TYPE_TX_ABORT,                   /**< Request to stop transmitting a given packet. */
 
     /* Timer */
-    BL_EVT_TYPE_TIMER_SET = 0x70,       /**< Request to start a timer. */
-    BL_EVT_TYPE_TIMER_ABORT,            /**< Request to abort a running timer. */
+    BL_EVT_TYPE_TIMER_SET = 0x70,           /**< Request to start a timer. */
+    BL_EVT_TYPE_TIMER_ABORT,                /**< Request to abort a running timer. */
 } bl_evt_type_t;
 
 typedef enum
@@ -285,26 +285,48 @@ struct bl_evt
     {
         struct
         {
-            dfu_state_t     state;
-            dfu_type_t      dfu_type;
-            fwid_union_t    fwid;
-        } req;
+            char str[16];
+        } echo;
         struct
         {
-            dfu_state_t     state;
-            dfu_type_t      fw_type;
-            fwid_union_t    fwid;
-        } new_fw;
-        struct
+            uint32_t error_code;
+            const char* p_file;
+            uint32_t line;
+        } error;
+        union
         {
-            dfu_type_t      dfu_type;
-            fwid_union_t    fwid;
-        } start;
-        struct
-        {
-            dfu_type_t      dfu_type;
-            fwid_union_t    fwid;
-        } end;
+            struct
+            {
+                dfu_state_t     state;
+                dfu_type_t      dfu_type;
+                fwid_union_t    fwid;
+            } req;
+            struct
+            {
+                dfu_state_t     state;
+                dfu_type_t      fw_type;
+                fwid_union_t    fwid;
+            } new_fw;
+            struct
+            {
+                dfu_type_t      dfu_type;
+                fwid_union_t    fwid;
+            } start;
+            struct
+            {
+                uint16_t        received_segment;
+                uint16_t        total_segments;
+            } data_segment;
+            struct
+            {
+                dfu_type_t      dfu_type;
+                fwid_union_t    fwid;
+            } end;
+            struct
+            {
+                dfu_end_t reason;
+            } abort;
+        } dfu;
         struct
         {
             dfu_type_t      bank_dfu_type;
@@ -313,20 +335,6 @@ struct bl_evt
             uint32_t*       p_bank_addr;
             uint32_t        bank_length;
         } bank_available;
-        struct
-        {
-            char str[16];
-        } echo;
-        struct
-        {
-            dfu_end_t reason;
-        } abort;
-        struct
-        {
-            uint32_t error_code;
-            const char* p_file;
-            uint32_t line;
-        } error;
 
         flash_op_t flash;
 

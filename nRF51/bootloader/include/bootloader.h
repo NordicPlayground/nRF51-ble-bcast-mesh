@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void bootloader_init(void);
 void bootloader_enable(void);
 uint32_t bootloader_cmd_send(bl_cmd_t* p_bl_cmd);
+void bootloader_timeout(void);
 
 void bootloader_abort(dfu_end_t end_reason);
 

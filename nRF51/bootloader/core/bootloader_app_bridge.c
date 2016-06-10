@@ -39,9 +39,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "SEGGER_RTT.h"
 #include "bl_log.h"
 
-static uint32_t m_bank_page[256] __attribute__((aligned(0x400)));
-static uint32_t m_info_page[256] __attribute__((aligned(0x400)));
-
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
@@ -72,8 +69,6 @@ uint32_t bootloader_app_bridge_init(void)
     *p_last = bl_cmd_handler;
     m_in_bl = true;
 
-    memcpy(m_info_page, (uint32_t*) BOOTLOADER_INFO_ADDRESS, 1024);
-    memset(m_bank_page, 0xff, 1024);
     return NRF_SUCCESS;
 }
 
@@ -93,13 +88,12 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
     switch (p_bl_cmd->type)
     {
         case BL_CMD_TYPE_INIT:
+            m_evt_handler = p_bl_cmd->params.init.event_callback;
             if (p_bl_cmd->params.init.timer_count == 0 ||
                 p_bl_cmd->params.init.tx_slots < 2)
             {
                 return NRF_ERROR_INVALID_PARAM;
             }
-            __LOG("INFO PAGE: 0x%x BANK: 0x%x\n", m_info_page, m_bank_page);
-
             if (bootloader_info_init((uint32_t*) (BOOTLOADER_INFO_ADDRESS),
                                      (uint32_t*) (BOOTLOADER_INFO_BANK_ADDRESS))
                 != NRF_SUCCESS)
@@ -107,7 +101,6 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
                 send_abort_evt(DFU_END_ERROR_INVALID_PERSISTENT_STORAGE);
                 return NRF_ERROR_INTERNAL;
             }
-            m_evt_handler = p_bl_cmd->params.init.event_callback;
             dfu_mesh_init(p_bl_cmd->params.init.tx_slots);
             break;
         case BL_CMD_TYPE_ENABLE:
@@ -223,6 +216,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
         case BL_CMD_TYPE_FLASH_ALL_COMPLETE:
             bootloader_info_on_flash_idle();
             dfu_bank_on_flash_idle();
+            dfu_mesh_on_flash_idle();
             break;
         default:
             return NRF_ERROR_NOT_SUPPORTED;
@@ -234,8 +228,8 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
 void send_abort_evt(dfu_end_t end_reason)
 {
     bl_evt_t abort_evt;
-    abort_evt.type = BL_EVT_TYPE_ABORT;
-    abort_evt.params.abort.reason = end_reason;
+    abort_evt.type = BL_EVT_TYPE_DFU_ABORT;
+    abort_evt.params.dfu.abort.reason = end_reason;
     bootloader_evt_send(&abort_evt);
 }
 
@@ -319,7 +313,9 @@ uint32_t bootloader_error_post(uint32_t error, const char* file, uint32_t line)
     error_evt.params.error.error_code = error;
     error_evt.params.error.p_file = file;
     error_evt.params.error.line = line;
-    return bootloader_evt_send(&error_evt);
+    bootloader_evt_send(&error_evt);
+    __disable_irq();
+    while (1);
 }
 
 bool bootloader_is_in_application(void)

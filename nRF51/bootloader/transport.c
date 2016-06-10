@@ -112,7 +112,7 @@ static void order_scan(void)
 
 static void radio_tx_cb(uint8_t* p_data)
 {
-#if 0    
+#if 0
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
     if (p_adv_data)
     {
@@ -197,6 +197,7 @@ void RADIO_IRQHandler(void)
 {
     radio_event_handler();
 }
+
 /******************************************************************************
 * Dummy functions
 ******************************************************************************/
@@ -204,6 +205,7 @@ bool timeslot_is_in_ts(void)
 {
     return true;
 }
+
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
@@ -255,6 +257,8 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t slot, uint8_t repeats, tx_int
         return false;
     }
 
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
     tx_t* p_tx = &m_tx[slot];
     if (p_tx->p_packet)
     {
@@ -268,6 +272,7 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t slot, uint8_t repeats, tx_int
     p_tx->type = type;
     set_next_tx(p_tx);
     order_next_rtc();
+    _ENABLE_IRQS(was_masked);
     return true;
 }
 
@@ -323,7 +328,10 @@ void transport_rtc_irq_handler(void)
             radio_evt.event_type = RADIO_EVENT_TYPE_TX;
             radio_evt.packet_ptr = (uint8_t*) m_tx[i].p_packet;
             radio_evt.access_address = 0;
-            
+
+#ifdef DEBUG_LEDS
+            NRF_GPIO->OUT ^= (1 << 21);
+#endif
             uint8_t radio_refs = 0;
             if (m_tx[i].redundancy < REDUNDANCY_MAX)
             {

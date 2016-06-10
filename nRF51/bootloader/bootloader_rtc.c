@@ -45,10 +45,7 @@ void RTC0_IRQHandler(void)
     {
         NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH] = 0;
         NRF_RTC0->INTENCLR = (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos));
-        bl_cmd_t timeout_cmd;
-        timeout_cmd.type = BL_CMD_TYPE_TIMEOUT;
-        timeout_cmd.params.timeout.timer_index = 0;
-        bootloader_cmd_send(&timeout_cmd);
+        bootloader_timeout();
     }
 }
 

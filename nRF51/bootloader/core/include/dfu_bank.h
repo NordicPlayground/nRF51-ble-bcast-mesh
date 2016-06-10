@@ -61,5 +61,7 @@ bool dfu_bank_is_available(dfu_type_t dfu_type);
 
 void dfu_bank_on_flash_idle(void);
 
+bool dfu_bank_transfer_in_progress(void);
+
 #endif /* DFU_BANK_H__ */
 

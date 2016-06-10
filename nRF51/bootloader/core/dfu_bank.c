@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "nrf_error.h"
 #include "nrf51.h"
+#include "bl_log.h"
 
 /*****************************************************************************
 * Local defines
@@ -50,23 +51,32 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *****************************************************************************/
 static bl_info_bank_t*  mp_bank_entry;
 static dfu_type_t       m_dfu_type;
+static bool             m_waiting_for_idle;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
 
 static void flash_bank_entry(void)
 {
+    bl_info_bank_t* p_bank_entry = mp_bank_entry; /* make local copy to avoid race conditions */
+    if (p_bank_entry == NULL)
+    {
+        return;
+    }
+
     bl_info_entry_t bank_entry_replacement;
-    memcpy(&bank_entry_replacement, mp_bank_entry, sizeof(bl_info_bank_t));
-    switch (mp_bank_entry->state)
+    memcpy(&bank_entry_replacement, p_bank_entry, sizeof(bl_info_bank_t));
+    switch (p_bank_entry->state)
     {
         case BL_INFO_BANK_STATE_IDLE:
             {
+                m_waiting_for_idle = true;
                 bank_entry_replacement.bank.state = BL_INFO_BANK_STATE_FLASH_FW;
                 bootloader_info_entry_overwrite((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + m_dfu_type), &bank_entry_replacement);
 
                 /* Wait for this to take effect before moving on, as the
-                   potential mbr commands in the flash_fw state may trigger sudden reboots. */
+                   potential mbr commands in the flash_fw state may trigger
+                   sudden reboots. */
                 return;
             }
 
@@ -74,38 +84,66 @@ static void flash_bank_entry(void)
             switch (m_dfu_type)
             {
                 case DFU_TYPE_BOOTLOADER:
-                {
-                    /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must have been set. */
-                    sd_mbr_command_t sd_mbr_cmd;
+                    /* Check to see if the bank transfer has been executed */
+                    if (memcmp(p_bank_entry->p_bank_addr,
+                                (uint32_t*) bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_BL)->segment.start,
+                                p_bank_entry->length) != 0)
+                    {
+                        /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must
+                           have been set. */
+                        sd_mbr_command_t sd_mbr_cmd;
 
-                    sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
-                    sd_mbr_cmd.params.copy_bl.bl_src = mp_bank_entry->p_bank_addr;
-                    sd_mbr_cmd.params.copy_bl.bl_len = mp_bank_entry->length / sizeof(uint32_t);
-                    sd_mbr_command(&sd_mbr_cmd);
-                    return; /* Can't be reached, only here for readability. */
-                }
+                        sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_BL;
+                        sd_mbr_cmd.params.copy_bl.bl_src = p_bank_entry->p_bank_addr;
+                        sd_mbr_cmd.params.copy_bl.bl_len = p_bank_entry->length / sizeof(uint32_t);
+                        APP_ERROR_CHECK(sd_mbr_command(&sd_mbr_cmd));
+                        return; /* Can't be reached, only here for readability. */
+                    }
+                    else
+                    {
+                        __LOG("Bank: Set state to FLASH META\n");
+                        bank_entry_replacement.bank.state = BL_INFO_BANK_STATE_FLASH_META;
+                        bootloader_info_entry_overwrite(BL_INFO_TYPE_BANK_BL, &bank_entry_replacement);
+                    }
+                    break;
+
                 case DFU_TYPE_SD:
-                {
-                    /* move the bank with MBR. */
-                    sd_mbr_command_t sd_mbr_cmd;
+                    /* Check to see if the bank transfer has been executed */
+                    if (memcmp(p_bank_entry->p_bank_addr,
+                                (uint32_t*) bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_SD)->segment.start,
+                                p_bank_entry->length) != 0)
+                    {
+                        /* move the bank with MBR. */
+                        sd_mbr_command_t sd_mbr_cmd;
 
-                    sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_SD;
-                    sd_mbr_cmd.params.copy_sd.src    = mp_bank_entry->p_bank_addr;
-                    sd_mbr_cmd.params.copy_sd.len    = mp_bank_entry->length / sizeof(uint32_t);
-                    sd_mbr_cmd.params.copy_sd.dst    = (uint32_t*) 0x1000;
-                    sd_mbr_command(&sd_mbr_cmd);
-                    return; /* Can't be reached, only here for readability. */
-                }
+                        sd_mbr_cmd.command               = SD_MBR_COMMAND_COPY_SD;
+                        sd_mbr_cmd.params.copy_sd.src    = p_bank_entry->p_bank_addr;
+                        sd_mbr_cmd.params.copy_sd.len    = p_bank_entry->length / sizeof(uint32_t);
+                        sd_mbr_cmd.params.copy_sd.dst    = (uint32_t*) 0x1000;
+                        APP_ERROR_CHECK(sd_mbr_command(&sd_mbr_cmd));
+                        return; /* Can't be reached, only here for readability. */
+                    }
+                    else
+                    {
+                        __LOG("Bank: Set state to FLASH META\n");
+                        bank_entry_replacement.bank.state = BL_INFO_BANK_STATE_FLASH_META;
+                        bootloader_info_entry_overwrite((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + m_dfu_type), &bank_entry_replacement);
+                    }
+                    break;
+
                 case DFU_TYPE_APP:
                     /* This nukes the call stack and any flash-callbacks on the
                        app side. If we're in the application, we have to jump
                        to bootloader. */
                     if (bootloader_is_in_application())
                     {
-                        /* All paths leading to this call warns about this reset.
-                           We'll come back to finalize the transfer after the reset. */
-                        NVIC_SystemReset();
-                        return; /* Can't be reached, only here for readability. */
+                        /* All paths leading to this call warns about this
+                           reset. We'll come back to finalize the transfer
+                           after the reset. */
+                        __LOG("IN APP MODE. RESET!\n");
+                        __disable_irq();
+                        while (1);
+                        //NVIC_SystemReset();
                     }
                     else
                     {
@@ -119,25 +157,27 @@ static void flash_bank_entry(void)
                         bl_evt_t flash_evt;
                         flash_evt.type = BL_EVT_TYPE_FLASH_ERASE;
                         flash_evt.params.flash.erase.start_addr = p_app_entry->segment.start;
-                        flash_evt.params.flash.erase.length = ((mp_bank_entry->length + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1)); /* Pad the rest of the page */
+                        flash_evt.params.flash.erase.length = ((p_bank_entry->length + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1)); /* Pad the rest of the page */
                         if (bootloader_evt_send(&flash_evt) != NRF_SUCCESS)
                         {
+                            m_waiting_for_idle = true;
                             return;
                         }
 
                         /* Flash bank */
                         flash_evt.type = BL_EVT_TYPE_FLASH_WRITE;
-                        flash_evt.params.flash.write.p_data = (uint8_t*) mp_bank_entry->p_bank_addr;
-                        flash_evt.params.flash.write.length = mp_bank_entry->length;
+                        flash_evt.params.flash.write.p_data = (uint8_t*) p_bank_entry->p_bank_addr;
+                        flash_evt.params.flash.write.length = p_bank_entry->length;
                         flash_evt.params.flash.write.start_addr = p_app_entry->segment.start;
                         if (bootloader_evt_send(&flash_evt) != NRF_SUCCESS)
                         {
+                            m_waiting_for_idle = true;
                             return;
                         }
 
                         /* Update state */
                         bank_entry_replacement.bank.state = BL_INFO_BANK_STATE_FLASH_META;
-                        bootloader_info_entry_overwrite(BL_INFO_TYPE_BANK_BASE + m_dfu_type, &bank_entry_replacement);
+                        bootloader_info_entry_overwrite((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + m_dfu_type), &bank_entry_replacement);
                     }
                     break;
 
@@ -152,48 +192,69 @@ static void flash_bank_entry(void)
                 bl_info_entry_t* p_old_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
                 bl_info_type_t signature_type;
                 APP_ERROR_CHECK_BOOL(p_old_fwid_entry != NULL);
+                APP_ERROR_CHECK_BOOL(p_bank_entry);
 
                 memcpy(&fwid_entry, p_old_fwid_entry, sizeof(bl_info_version_t));
                 switch (m_dfu_type)
                 {
                     case DFU_TYPE_SD:
-                        fwid_entry.version.sd = mp_bank_entry->fwid.sd;
+                        fwid_entry.version.sd = p_bank_entry->fwid.sd;
                         signature_type = BL_INFO_TYPE_SIGNATURE_SD;
                         break;
                     case DFU_TYPE_BOOTLOADER:
-                        fwid_entry.version.bootloader = mp_bank_entry->fwid.bootloader;
+                        fwid_entry.version.bootloader.id  = p_bank_entry->fwid.bootloader.id;
+                        fwid_entry.version.bootloader.ver = p_bank_entry->fwid.bootloader.ver;
                         signature_type = BL_INFO_TYPE_SIGNATURE_BL;
                         break;
                     case DFU_TYPE_APP:
-                        fwid_entry.version.app = mp_bank_entry->fwid.app;
+                        fwid_entry.version.app.company_id   = p_bank_entry->fwid.app.company_id;
+                        fwid_entry.version.app.app_id       = p_bank_entry->fwid.app.app_id;
+                        fwid_entry.version.app.app_version  = p_bank_entry->fwid.app.app_version;
                         signature_type = BL_INFO_TYPE_SIGNATURE_APP;
                         break;
                     default:
                         APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
                         return;
                 }
-                if (bootloader_info_entry_put(BL_INFO_TYPE_VERSION,
+                __LOG("Bank: Write version\n");
+                if (!bootloader_info_entry_put(BL_INFO_TYPE_VERSION,
                             &fwid_entry,
-                            BL_INFO_LEN_FWID) != NRF_SUCCESS)
+                            BL_INFO_LEN_FWID))
                 {
+                    m_waiting_for_idle = true;
                     return;
                 }
-                if (mp_bank_entry->has_signature)
+                if (p_bank_entry->has_signature)
                 {
-                    if (bootloader_info_entry_put(signature_type,
-                                (bl_info_entry_t*) mp_bank_entry->signature,
-                                BL_INFO_LEN_SIGNATURE) != NRF_SUCCESS)
+                    __LOG("Bank: Write signature\n");
+                    if (!bootloader_info_entry_put(signature_type,
+                                (bl_info_entry_t*) p_bank_entry->signature,
+                                BL_INFO_LEN_SIGNATURE))
                     {
+                        m_waiting_for_idle = true;
                         return;
                     }
                 }
 
-                /* We may invalidate the bank entry in the device page now,
-                   it's all redundant. */
-                if (bootloader_info_entry_invalidate(BL_INFO_TYPE_BANK_BASE + m_dfu_type) == NRF_SUCCESS)
-                {
-                    mp_bank_entry = NULL;
-                }
+                /* Update state */
+                __LOG("Bank: Set state to FLASHED\n");
+                bank_entry_replacement.bank.state = BL_INFO_BANK_STATE_FLASHED;
+                bootloader_info_entry_overwrite((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + m_dfu_type), &bank_entry_replacement);
+
+            }
+            /* deliberate fallthrough */
+        case BL_INFO_BANK_STATE_FLASHED:
+            /* We may invalidate the bank entry in the device page now,
+               it's all redundant. */
+            __LOG("Bank: Invalidate.\n");
+            if (bootloader_info_entry_invalidate((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + m_dfu_type)) == NRF_SUCCESS)
+            {
+                __LOG("Bank invalidated.\n");
+                mp_bank_entry = NULL; /* reset the static bank pointer, as we no longer need it. */
+            }
+            else
+            {
+                m_waiting_for_idle = true;
             }
             break;
     }
@@ -207,13 +268,14 @@ uint32_t dfu_bank_scan(void)
 {
     for (uint32_t i = 1; i < 4; i <<= 1)
     {
-        bl_info_entry_t* p_bank_entry = bootloader_info_entry_get(BL_INFO_TYPE_BANK_BASE + i);
+        bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + i));
         if (!p_bank_entry)
         {
             continue;
         }
         if (p_bank_entry->bank.state != BL_INFO_BANK_STATE_IDLE)
         {
+            __LOG("Flash of bank of type %d already started (state 0x%x), continue where we left off!\n", i, p_bank_entry->bank.state);
             m_dfu_type = (dfu_type_t) i;
             mp_bank_entry = &p_bank_entry->bank;
             flash_bank_entry();
@@ -237,12 +299,13 @@ uint32_t dfu_bank_flash(dfu_type_t dfu_type)
         return NRF_ERROR_INVALID_STATE;
     }
 
-    bl_info_entry_t* p_bank_entry = bootloader_info_entry_get(BL_INFO_TYPE_BANK_BASE + dfu_type);
-    if (!p_bank_entry)
+    bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + dfu_type));
+    if (!p_bank_entry || *p_bank_entry->bank.p_bank_addr == 0xFFFFFFFF)
     {
         return NRF_ERROR_NOT_FOUND;
     }
 
+    __LOG("Flash bank of type %d\n", dfu_type);
     m_dfu_type = dfu_type;
     mp_bank_entry = &p_bank_entry->bank;
     flash_bank_entry();
@@ -252,14 +315,20 @@ uint32_t dfu_bank_flash(dfu_type_t dfu_type)
 
 bool dfu_bank_is_available(dfu_type_t dfu_type)
 {
-    return (bootloader_info_entry_get(BL_INFO_TYPE_BANK_BASE + dfu_type) != NULL);
+    bl_info_entry_t* p_entry = bootloader_info_entry_get((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + dfu_type));
+    return (p_entry && p_entry->bank.state == BL_INFO_BANK_STATE_IDLE);
 }
 
 void dfu_bank_on_flash_idle(void)
 {
-    if (mp_bank_entry != NULL)
+    if (mp_bank_entry != NULL && m_waiting_for_idle)
     {
+        m_waiting_for_idle = false;
         flash_bank_entry();
     }
 }
 
+bool dfu_bank_transfer_in_progress(void)
+{
+    return (mp_bank_entry != NULL);
+}

@@ -27,29 +27,37 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef DFU_MESH_H__
-#define DFU_MESH_H__
+
+#ifndef DFU_UTIL_H__
+#define DFU_UTIL_H__
 
 #include <stdint.h>
-#include <stdbool.h>
 #include "dfu_types_mesh.h"
-#include "mesh_packet.h"
-#include "bl_if.h"
 
-#define SD_VERSION_INVALID                  (0x0000)
-#define APP_VERSION_INVALID                 (0x00000000)
+void fwid_union_cpy(fwid_union_t* p_dst, fwid_union_t* p_src, dfu_type_t dfu_type);
 
-void dfu_mesh_init(uint8_t tx_slots);
-void dfu_mesh_start(void);
-uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
-void dfu_mesh_timeout(void);
-void dfu_mesh_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
-uint32_t dfu_mesh_req(dfu_type_t type, fwid_union_t* p_fwid, uint32_t* p_bank_addr);
-uint32_t dfu_mesh_relay(dfu_type_t type, fwid_union_t* p_fwid);
-dfu_type_t dfu_mesh_missing_type_get(void);
-bool dfu_mesh_app_is_valid(void);
-uint32_t dfu_mesh_finalize(void);
-void dfu_mesh_restart(void);
-void dfu_mesh_on_flash_idle(void);
+/** Returns true if the two fwids are equal. */
+bool fwid_union_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
 
-#endif /* DFU_MESH_H__ */
+bool ready_packet_is_upgrade(dfu_packet_t* p_packet);
+
+bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_req, fwid_union_t* p_fwid_req);
+
+uint32_t* addr_from_seg(uint16_t segment, uint32_t* p_start_addr);
+
+bool app_is_newer(app_id_t* p_app_id);
+
+bool bootloader_is_newer(bl_id_t bl_id);
+
+bool fw_is_verified(void);
+
+void tid_cache_entry_put(uint32_t tid);
+
+bool tid_cache_has_entry(uint32_t tid);
+
+bool packet_in_cache(dfu_packet_t* p_packet);
+
+void packet_cache_put(dfu_packet_t* p_packet);
+
+#endif /* DFU_UTIL_H__ */
+

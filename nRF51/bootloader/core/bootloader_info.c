@@ -54,6 +54,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PIN_INIT            (5)
 
 #define INFO_WRITE_BUFLEN   (128)
+#define INFO_CACHE_SIZE     (0)
 
 typedef enum
 {
@@ -95,6 +96,12 @@ typedef struct
     info_buffer_t* p_dst_info;
 } info_copy_t;
 
+typedef struct
+{
+    bl_info_type_t type;
+    uint16_t offset;
+} info_cache_entry_t;
+
 static bootloader_info_t*               mp_bl_info_page;
 static bootloader_info_t*               mp_bl_info_bank_page;
 static uint8_t                          mp_info_entry_buffer[INFO_WRITE_BUFLEN] __attribute__((aligned(4)));
@@ -102,16 +109,52 @@ static info_buffer_t*                   mp_info_entry_head;
 static info_buffer_t*                   mp_info_entry_tail;
 static const bootloader_info_header_t   m_invalid_header = {0xFFFF, 0x0000}; /**< Flash buffer used for invalidating entries. */
 static bl_info_state_t                  m_state;
-static bool                             m_page_full;
 static bool                             m_write_in_progress;
 static info_copy_t                      m_info_copy;
 static void*                            mp_write_pos;
+#if INFO_CACHE_SIZE > 0
+static info_cache_entry_t               m_info_cache[INFO_CACHE_SIZE];
+static uint8_t                          m_info_cache_index;
+#endif
 #ifdef BL_LOG
 static char*                            mp_copy_state_str[] = {"IDLE", "ERASE", "METAWRITE", "DATAWRITE", "WAIT FOR IDLE"};
 #endif
 /******************************************************************************
 * Static functions
 ******************************************************************************/
+static bl_info_entry_t* info_entry_get_from_cache(bl_info_type_t type)
+{
+#if INFO_CACHE_SIZE > 0
+#ifdef BL_LOG
+    static uint32_t hits = 0, misses = 0;
+#endif
+    for (uint32_t i = 0; i < INFO_CACHE_SIZE; ++i)
+    {
+        if (m_info_cache[i].type == type)
+        {
+            __LOG("INFO CACHE HIT! Hits/misses: %u/%u\n", ++hits, misses);
+            return (bl_info_entry_t*) ((uint32_t) mp_bl_info_page + m_info_cache[i].offset);
+        }
+    }
+    ++misses;
+#endif
+    return NULL;
+}
+
+static void info_entry_cache_invalidate(bl_info_type_t type)
+{
+#if INFO_CACHE_SIZE > 0
+    for (uint32_t i = 0; i < INFO_CACHE_SIZE; ++i)
+    {
+        if (m_info_cache[i].type == type)
+        {
+            m_info_cache[i].type = BL_INFO_TYPE_INVALID;
+        }
+    }
+#endif
+}
+
+
 static inline info_buffer_t* bootloader_info_iterate(info_buffer_t* p_buf)
 {
     return (info_buffer_t*) (((uint32_t) p_buf) + ((uint32_t) p_buf->header.len) * 4);
@@ -123,6 +166,7 @@ static bl_info_entry_t* info_entry_get(bootloader_info_t* p_bl_info_page, bl_inf
     {
         return NULL;
     }
+
     info_buffer_t* p_buffer =
         (info_buffer_t*)
         ((uint32_t) p_bl_info_page + ((bootloader_info_t*) p_bl_info_page)->metadata.metadata_len);
@@ -161,7 +205,13 @@ static uint32_t entry_header_invalidate(bootloader_info_header_t* p_header)
 static void free_write_buffer(info_buffer_t* p_buf)
 {
     /* This must happen in order. */
-    APP_ERROR_CHECK_BOOL(p_buf == mp_info_entry_tail);
+    if (p_buf != mp_info_entry_tail)
+    {
+        __LOG(RTT_CTRL_TEXT_RED
+                "ERROR: Freeing the wrong write buffer: 0x%x (should be 0x%x)\n",
+                p_buf, mp_info_entry_tail);
+        APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);
+    }
 
     /* The end-of-entries entry may have max length - treat as empty entry */
     if (mp_info_entry_tail->header.len == 0xFFFF)
@@ -441,6 +491,9 @@ static uint32_t backup(void)
 /** Pull in all entries from the bank. */
 static uint32_t recover(void)
 {
+#if INFO_CACHE_SIZE > 0
+    memset(&m_info_cache, 0, sizeof(m_info_cache));
+#endif
     uint32_t error_code = copy_page(mp_bl_info_page, mp_bl_info_bank_page);
     if (error_code == NRF_SUCCESS)
     {
@@ -461,7 +514,11 @@ uint32_t entry_invalidate(bootloader_info_t* p_info_page, bl_info_type_t type)
     return NRF_ERROR_NOT_FOUND;
 }
 
-uint32_t entry_write(info_buffer_t* p_dst, bl_info_type_t type, bl_info_entry_t* p_entry, uint32_t entry_len, bool is_last_entry)
+uint32_t entry_write(info_buffer_t* p_dst,
+        bl_info_type_t type,
+        bl_info_entry_t* p_entry,
+        uint32_t entry_len,
+        bool is_last_entry)
 {
     entry_len = (entry_len + 3) & ~0x03; /* word-pad */
     info_buffer_t* p_write_buf = get_write_buffer(HEADER_LEN + entry_len + (is_last_entry * HEADER_LEN));
@@ -489,6 +546,7 @@ uint32_t entry_write(info_buffer_t* p_dst, bl_info_type_t type, bl_info_entry_t*
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
+
 uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank_page)
 {
     m_state = BL_INFO_STATE_UNINITIALIZED;
@@ -534,7 +592,19 @@ bootloader_info_t* bootloader_info_get(void)
 
 bl_info_entry_t* bootloader_info_entry_get(bl_info_type_t type)
 {
-    return info_entry_get((bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, type);
+    bl_info_entry_t* p_cache_entry = info_entry_get_from_cache(type);
+    if (p_cache_entry != NULL)
+    {
+        return p_cache_entry;
+    }
+    p_cache_entry = info_entry_get((bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, type);
+#if INFO_CACHE_SIZE > 0
+    if (p_cache_entry != NULL)
+    {
+        m_info_cache[(m_info_cache_index++) & (INFO_CACHE_SIZE - 1)] = (info_cache_entry_t) { type, (uint32_t) p_cache_entry - (uint32_t) BOOTLOADER_INFO_ADDRESS };
+    }
+#endif
+    return p_cache_entry;
 }
 
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
@@ -544,6 +614,7 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
     APP_ERROR_CHECK_BOOL(m_state == BL_INFO_STATE_IDLE);
     APP_ERROR_CHECK_BOOL(length <= INFO_ENTRY_MAX_LEN);
     APP_ERROR_CHECK_BOOL((((uint32_t) mp_write_pos) & 0x03) == 0); /* must be word aligned */
+    APP_ERROR_CHECK_BOOL((uint32_t) mp_write_pos > BOOTLOADER_INFO_ADDRESS);
 
     /* previous entry, to be invalidated after we've stored the current entry. */
     bootloader_info_header_t* p_old_header =
@@ -581,6 +652,7 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
     /* invalidate old entry of this type */
     if (p_old_header != NULL)
     {
+        info_entry_cache_invalidate(type);
         if (entry_header_invalidate(p_old_header) != NRF_SUCCESS)
         {
             APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
@@ -612,6 +684,8 @@ uint32_t bootloader_info_entry_overwrite(bl_info_type_t type, bl_info_entry_t* p
 
 uint32_t bootloader_info_entry_invalidate(bl_info_type_t type)
 {
+    __LOG("INVALIDATE 0x%x\n", type);
+    info_entry_cache_invalidate(type);
     return entry_invalidate((bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, type);
 }
 
@@ -622,7 +696,6 @@ uint32_t bootloader_info_reset(void)
     __LOG( "RESET\n");
     m_state = BL_INFO_STATE_RESET;
     mp_write_pos = mp_bl_info_page->data;
-    m_page_full = true;
     return backup();
 }
 
@@ -638,20 +711,13 @@ bool bootloader_info_stable(void)
 
 void bootloader_info_on_flash_op_end(flash_op_type_t type, void* p_context)
 {
-    switch (m_state)
+    if (type == FLASH_OP_TYPE_WRITE)
     {
-        case BL_INFO_STATE_IDLE:
-            if (type == FLASH_OP_TYPE_WRITE)
-            {
-                if (p_context >= (void*) mp_info_entry_buffer &&
-                    p_context < (void*) ((uint32_t) mp_info_entry_buffer + INFO_WRITE_BUFLEN))
-                {
-                    free_write_buffer(p_context);
-                }
-            }
-            break;
-        default:
-            break;
+        if (p_context >= (void*) mp_info_entry_buffer &&
+            p_context < (void*) ((uint32_t) mp_info_entry_buffer + INFO_WRITE_BUFLEN))
+        {
+            free_write_buffer(p_context);
+        }
     }
     copy_page_on_flash_op_end(type, p_context);
 }
@@ -662,10 +728,17 @@ void bootloader_info_on_flash_idle(void)
     if (m_info_copy.state != INFO_COPY_STATE_IDLE)
     {
         copy_page_on_flash_idle();
-        if (m_info_copy.state == INFO_COPY_STATE_IDLE && m_page_full)
+        if (m_info_copy.state == INFO_COPY_STATE_IDLE)
         {
-            m_page_full = false;
-            recover();
+            if (m_state == BL_INFO_STATE_BACKUP)
+            {
+                recover();
+            }
+            else if (m_state == BL_INFO_STATE_RECOVER)
+            {
+                /* done recovering */
+                m_state = BL_INFO_STATE_IDLE;
+            }
         }
     }
 }

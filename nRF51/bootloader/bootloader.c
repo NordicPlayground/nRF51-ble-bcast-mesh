@@ -53,31 +53,44 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define FLASH_FIFO_SIZE             (8)     /**< Size of the async-flash queue. Must be greater than 4 to end a transfer. */
 #define FLASH_HANDLER_IRQn          (SWI3_IRQn)
 #define FLASH_HANDLER_IRQHandler    SWI3_IRQHandler
+
+#define TIMER_DATA_TIMEOUT          (US_TO_RTC_TICKS(10000000)) /**< Time to wait for next data during a transfer. */
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
+/** Actions to execute on timeout. */
+typedef enum
+{
+    TIMEOUT_ACTION_NONE,        /**< No action. Shouldn't occur. */
+    TIMEOUT_ACTION_DFU_ABORT,   /**< Abort the current DFU transfer. */
+    TIMEOUT_ACTION_DFU_TIMEOUT, /**< Send a timeout event to the DFU. It will handle it. */
+} timeout_action_t;
+
+/** Single entry in the flash FIFO. */
 typedef struct
 {
-    flash_op_type_t type;
-    flash_op_t      op;
+    flash_op_type_t type;   /**< Type of operation. Write or erase. */
+    flash_op_t      op;     /**< Operation parameters. */
 } flash_queue_entry_t;
-
 
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
 static fifo_t               m_flash_fifo;
 static flash_queue_entry_t  m_flash_fifo_buf[FLASH_FIFO_SIZE];
+static bool                 m_go_to_app;
+static timeout_action_t     m_timeout_action;
 
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
-static void set_timeout(uint32_t time)
+static void set_timeout(uint32_t time, timeout_action_t action)
 {
 #ifndef NO_TIMEOUTS
     NRF_RTC0->EVENTS_COMPARE[RTC_BL_STATE_CH] = 0;
     NRF_RTC0->CC[RTC_BL_STATE_CH] = (NRF_RTC0->COUNTER + time) & RTC_MASK;
     NRF_RTC0->INTENSET = (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos));
+    m_timeout_action = action;
 #endif
 }
 
@@ -119,6 +132,9 @@ void FLASH_HANDLER_IRQHandler(void)
         bl_cmd_t rsp_cmd;
         if (flash_entry.type == FLASH_OP_TYPE_WRITE)
         {
+            APP_ERROR_CHECK_BOOL((flash_entry.op.write.start_addr & 0x03) == 0);
+            APP_ERROR_CHECK_BOOL((flash_entry.op.write.length & 0x03) == 0);
+            APP_ERROR_CHECK_BOOL(((uint32_t) flash_entry.op.write.p_data & 0x03) == 0);
             __LOG("WRITING to 0x%x.(len %d)\n", flash_entry.op.write.start_addr, flash_entry.op.write.length);
             if (flash_entry.op.write.start_addr >= 0x20000000)
             {
@@ -140,7 +156,7 @@ void FLASH_HANDLER_IRQHandler(void)
         }
         else
         {
-            __LOG("ERASING 0x%x.\n", flash_entry.op.erase.start_addr);
+            //__LOG("ERASING 0x%x.\n", flash_entry.op.erase.start_addr);
             if (flash_entry.op.erase.start_addr >= 0x20000000)
             {
                 memset((uint32_t*) flash_entry.op.erase.start_addr, 0xFF, flash_entry.op.erase.length);
@@ -161,6 +177,11 @@ void FLASH_HANDLER_IRQHandler(void)
         bl_cmd_t idle_cmd;
         idle_cmd.type = BL_CMD_TYPE_FLASH_ALL_COMPLETE;
         bl_cmd_handler(&idle_cmd);
+    }
+    if (fifo_is_empty(&m_flash_fifo) && m_go_to_app)
+    {
+        bl_info_entry_t* p_segment_entry = bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP);
+        bootloader_util_app_start(p_segment_entry->segment.start);
     }
 }
 
@@ -183,8 +204,12 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
     bool respond = false;
     switch (p_evt->type)
     {
-        case BL_EVT_TYPE_ABORT:
-            bootloader_abort(p_evt->params.abort.reason);
+        case BL_EVT_TYPE_DFU_ABORT:
+            bootloader_abort(p_evt->params.dfu.abort.reason);
+
+            /* If bootloader abort returned, it means that the application
+             * doesn't work, and we should return to the dfu operation. */
+            dfu_mesh_start();
             break;
         case BL_EVT_TYPE_TX_RADIO:
         {
@@ -223,7 +248,9 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
 #ifdef SERIAL
             serial_evt_t serial_evt;
             serial_evt.opcode = SERIAL_EVT_OPCODE_DFU;
-            memcpy(&serial_evt.params.dfu.packet, p_evt->params.tx.serial.p_dfu_packet, p_evt->params.tx.serial.length);
+            memcpy(&serial_evt.params.dfu.packet,
+                    p_evt->params.tx.serial.p_dfu_packet,
+                    p_evt->params.tx.serial.length);
             serial_evt.length = SERIAL_PACKET_OVERHEAD + p_evt->params.tx.serial.length;
             if (!serial_handler_event_send(&serial_evt))
             {
@@ -233,37 +260,113 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
 #endif
         }
         case BL_EVT_TYPE_TIMER_SET:
-            set_timeout(US_TO_RTC_TICKS(p_evt->params.timer.set.delay_us));
+            set_timeout(US_TO_RTC_TICKS(p_evt->params.timer.set.delay_us), TIMEOUT_ACTION_DFU_TIMEOUT);
             break;
 
-        case BL_EVT_TYPE_NEW_FW:
+        case BL_EVT_TYPE_DFU_NEW_FW:
             {
                 __LOG("New FW event\n");
+                switch (p_evt->params.dfu.new_fw.fw_type)
+                {
+                    case DFU_TYPE_APP:
+                        __LOG("\tAPP: %08x.%04x:%08x\n",
+                                (uint32_t) p_evt->params.dfu.new_fw.fwid.app.company_id,
+                                (uint32_t) p_evt->params.dfu.new_fw.fwid.app.app_id,
+                                (uint32_t) p_evt->params.dfu.new_fw.fwid.app.app_version);
+                        break;
+                    case DFU_TYPE_SD:
+                        __LOG("\tSD: %04x\n",
+                                (uint32_t) p_evt->params.dfu.new_fw.fwid.sd);
+                        break;
+                    case DFU_TYPE_BOOTLOADER:
+                        __LOG("\tBL: %02x:%02x\n",
+                                (uint32_t) p_evt->params.dfu.new_fw.fwid.bootloader.id,
+                                (uint32_t) p_evt->params.dfu.new_fw.fwid.bootloader.ver);
+                        break;
+                    default: break;
+                }
                 /* accept all new firmware, as the bootloader wouldn't run
                    unless there's an actual reason for it. */
                 rsp_cmd.type = BL_CMD_TYPE_DFU_START_TARGET;
                 rsp_cmd.params.dfu.start.target.p_bank_start = (uint32_t*) 0xFFFFFFFF; /* no banking */
-                rsp_cmd.params.dfu.start.target.type = p_evt->params.new_fw.fw_type;
-                rsp_cmd.params.dfu.start.target.fwid = p_evt->params.new_fw.fwid;
+                rsp_cmd.params.dfu.start.target.type = p_evt->params.dfu.new_fw.fw_type;
+                rsp_cmd.params.dfu.start.target.fwid = p_evt->params.dfu.new_fw.fwid;
                 respond = true;
             }
             break;
 
         case BL_EVT_TYPE_BANK_AVAILABLE:
-
+            __LOG("Bank:\n");
+            switch (p_evt->params.bank_available.bank_dfu_type)
+            {
+                case DFU_TYPE_APP:
+                    __LOG("\tAPP: %08x.%04x:%08x\n",
+                            (uint32_t) p_evt->params.bank_available.bank_fwid.app.company_id,
+                            (uint32_t) p_evt->params.bank_available.bank_fwid.app.app_id,
+                            (uint32_t) p_evt->params.bank_available.bank_fwid.app.app_version);
+                    break;
+                case DFU_TYPE_SD:
+                    __LOG("\tSD: %04x\n",
+                            (uint32_t) p_evt->params.bank_available.bank_fwid.sd);
+                    break;
+                case DFU_TYPE_BOOTLOADER:
+                    __LOG("\tBL: %02x:%02x\n",
+                            (uint32_t) p_evt->params.bank_available.bank_fwid.bootloader.id,
+                            (uint32_t) p_evt->params.bank_available.bank_fwid.bootloader.ver);
+                    break;
+                default: break;
+            }
+            __LOG("\tLocation: 0x%x\n", p_evt->params.bank_available.p_bank_addr);
+            __LOG("\tLength: 0x%x\n", p_evt->params.bank_available.bank_length);
+            if (p_evt->params.bank_available.bank_dfu_type == DFU_TYPE_BOOTLOADER)
+            {
+                if (!dfu_mesh_app_is_valid())
+                {
+                    dfu_bank_flash(DFU_TYPE_BOOTLOADER);
+                }
+            }
             break;
+
+        case BL_EVT_TYPE_DFU_START_RELAY:
+        case BL_EVT_TYPE_DFU_START_TARGET:
+        case BL_EVT_TYPE_DFU_DATA_SEGMENT_RX:
+            set_timeout(TIMER_DATA_TIMEOUT, TIMEOUT_ACTION_DFU_ABORT);
+            break;
+
+        case BL_EVT_TYPE_DFU_END_TARGET:
+            if (p_evt->params.dfu.end.dfu_type == DFU_TYPE_APP ||
+                p_evt->params.dfu.end.dfu_type == DFU_TYPE_SD)
+            {
+                bootloader_abort(DFU_END_SUCCESS);
+            }
+            break;
+
 
         /* Defer the flash operations to an asynchronous handler. Doing it
          * inline causes stack overflow, as the bootloader continues in the
          * response callback. */
         case BL_EVT_TYPE_FLASH_WRITE:
             {
+                if (p_evt->params.flash.write.start_addr & 0x03 ||
+                    (uint32_t) p_evt->params.flash.write.p_data & 0x03)
+                {
+                    return NRF_ERROR_INVALID_ADDR;
+                }
+                if (p_evt->params.flash.write.length & 0x03)
+                {
+                    return NRF_ERROR_INVALID_LENGTH;
+                }
+                if ((p_evt->params.flash.write.start_addr + p_evt->params.flash.write.length) > NRF_UICR->BOOTLOADERADDR &&
+                    p_evt->params.flash.write.start_addr < 0x3f800)
+                {
+                    APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);
+                }
                 flash_queue_entry_t queue_entry;
                 queue_entry.type = FLASH_OP_TYPE_WRITE;
                 memcpy(&queue_entry.op, &p_evt->params.flash, sizeof(flash_op_t));
                 if (fifo_push(&m_flash_fifo, &queue_entry) != NRF_SUCCESS)
                 {
-                    __LOG(RTT_CTRL_TEXT_RED "FLASH FIFO FULL :(\n");
+                    __LOG(RTT_CTRL_TEXT_RED "FLASH FIFO FULL :( Increase the fifo size.\n");
                     return NRF_ERROR_NO_MEM;
                 }
                 NVIC_SetPendingIRQ(FLASH_HANDLER_IRQn);
@@ -276,7 +379,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
                 memcpy(&queue_entry.op, &p_evt->params.flash, sizeof(flash_op_t));
                 if (fifo_push(&m_flash_fifo, &queue_entry) != NRF_SUCCESS)
                 {
-                    __LOG(RTT_CTRL_TEXT_RED "FLASH FIFO FULL :(\n");
+                    __LOG(RTT_CTRL_TEXT_RED "FLASH FIFO FULL :( Increase the fifo size.\n");
                     return NRF_ERROR_NO_MEM;
                 }
                 NVIC_SetPendingIRQ(FLASH_HANDLER_IRQn);
@@ -328,7 +431,6 @@ void bootloader_init(void)
     transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
 
     dfu_bank_scan();
-
 }
 
 void bootloader_enable(void)
@@ -354,6 +456,11 @@ void bootloader_enable(void)
             __LOG("\tNo application at 0x%x\n", p_seg->start);
         }
 #endif
+        /* update the bootloader if a bank is available */
+        if (dfu_bank_flash(DFU_TYPE_BOOTLOADER) == NRF_SUCCESS)
+        {
+            return;
+        }
 
         dfu_type_t missing = dfu_mesh_missing_type_get();
         if (missing != DFU_TYPE_NONE && dfu_bank_flash(missing) == NRF_ERROR_NOT_FOUND)
@@ -395,20 +502,26 @@ void bootloader_abort(dfu_end_t end_reason)
         case DFU_END_ERROR_MBR_CALL_FAILED:
             if (p_segment_entry && dfu_mesh_app_is_valid())
             {
-                __LOG("BOOTLOADER ABORT!\n");
-                interrupts_disable();
+                if (fifo_is_empty(&m_flash_fifo))
+                {
+                    interrupts_disable();
 
-                sd_mbr_command_t com = {SD_MBR_COMMAND_INIT_SD, };
+                    sd_mbr_command_t com = {SD_MBR_COMMAND_INIT_SD, };
 
-                volatile uint32_t err_code = sd_mbr_command(&com);
-                APP_ERROR_CHECK(err_code);
+                    uint32_t err_code = sd_mbr_command(&com);
+                    APP_ERROR_CHECK(err_code);
 
-                err_code = sd_softdevice_vector_table_base_set(p_segment_entry->segment.start);
-                APP_ERROR_CHECK(err_code);
+                    err_code = sd_softdevice_vector_table_base_set(p_segment_entry->segment.start);
+                    APP_ERROR_CHECK(err_code);
 #ifdef DEBUG_LEDS
-                NRF_GPIO->OUTSET = (1 << 21) | (1 << 22) | (1 << 23) | (1 << 24);
+                    NRF_GPIO->OUTSET = (1 << 21) | (1 << 22) | (1 << 23) | (1 << 24);
 #endif
-                bootloader_util_app_start(p_segment_entry->segment.start);
+                    bootloader_util_app_start(p_segment_entry->segment.start);
+                }
+                else
+                {
+                    m_go_to_app = true;
+                }
             }
             break;
         case DFU_END_ERROR_INVALID_PERSISTENT_STORAGE:
@@ -421,17 +534,21 @@ void bootloader_abort(dfu_end_t end_reason)
     }
 }
 
-bl_info_entry_t* info_entry_get(bl_info_type_t type)
+void bootloader_timeout(void)
 {
-    bl_cmd_t get_cmd;
-    get_cmd.type = BL_CMD_TYPE_INFO_GET;
-    get_cmd.params.info.get.type = type;
-    get_cmd.params.info.get.p_entry = NULL;
-    if (bl_cmd_handler(&get_cmd) != NRF_SUCCESS)
+    bl_cmd_t cmd;
+    switch (m_timeout_action)
     {
-        return NULL;
+        case TIMEOUT_ACTION_DFU_TIMEOUT:
+            cmd.type = BL_CMD_TYPE_TIMEOUT;
+            cmd.params.timeout.timer_index = 0;
+            break;
+        case TIMEOUT_ACTION_DFU_ABORT:
+            cmd.type = BL_CMD_TYPE_DFU_ABORT;
+            break;
+        default:
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
     }
-
-    return get_cmd.params.info.get.p_entry;
+    m_timeout_action = TIMEOUT_ACTION_NONE;
+    bootloader_cmd_send(&cmd);
 }
-

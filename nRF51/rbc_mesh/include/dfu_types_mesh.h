@@ -73,8 +73,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define SEGMENT_LENGTH              (16)
 
-#define DATA_SEQ_END                (0xFFFF)
-
 #define DFU_AUTHORITY_MAX           (0x07)
 
 #define DFU_FWID_LEN_APP            (10)
@@ -251,16 +249,19 @@ typedef enum
     DFU_END_ERROR_INVALID_PERSISTENT_STORAGE,
     DFU_END_ERROR_SEGMENT_VIOLATION,
     DFU_END_ERROR_MBR_CALL_FAILED,
-    DFU_END_ERROR_INVALID_TRANSFER
+    DFU_END_ERROR_INVALID_TRANSFER,
+    DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA
 } dfu_end_t;
 
 typedef enum
 {
+    DFU_STATE_INITIALIZED,      /**< The DFU module has been initialized, but not started. */
     DFU_STATE_FIND_FWID,        /**< There's no DFU operation in progress. */
     DFU_STATE_DFU_REQ,          /**< Beaconing requests for transfers. */
     DFU_STATE_DFU_READY,        /**< Ready to receive a transfer. */
     DFU_STATE_DFU_TARGET,       /**< Receiving a transfer. */
     DFU_STATE_VALIDATE,         /**< Validating and finishing up a transfer. */
+    DFU_STATE_STABILIZE,        /**< Waiting for metadata about validated transfer to be written. */
     DFU_STATE_RELAY_CANDIDATE,  /**< Beaconing intent to relay a transfer. */
     DFU_STATE_RELAY             /**< Passively relaying a transfer. */
 } dfu_state_t;
@@ -285,6 +286,7 @@ typedef enum
     BL_INFO_BANK_STATE_IDLE         = 0xFF, /**< The bank has not been touched since it got transferred. */
     BL_INFO_BANK_STATE_FLASH_FW     = 0xFE, /**< In the process of flashing the bank. */
     BL_INFO_BANK_STATE_FLASH_META   = 0xFC, /**< In the process of flashing metadata (signature and firmware) */
+    BL_INFO_BANK_STATE_FLASHED      = 0xF8, /**< The bank has been flashed, and can be invalidated. */
 } bl_info_bank_state_t;
 
 typedef struct
