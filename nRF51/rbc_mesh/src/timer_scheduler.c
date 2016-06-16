@@ -243,16 +243,19 @@ uint32_t timer_sch_reschedule(timer_event_t* p_timer_evt, timestamp_t new_timeou
         return NRF_ERROR_NULL;
     }
 
-    uint32_t was_masked;
-    _DISABLE_IRQS(was_masked);
-
-    m_scheduler.pending_reschedules++;
-    p_timer_evt->timestamp = new_timeout;
-
-    _ENABLE_IRQS(was_masked);
     async_event_t evt;
     evt.type = EVENT_TYPE_GENERIC;
     evt.callback.generic.cb = async_reschedule;
     evt.callback.generic.p_context = p_timer_evt;
-    return event_handler_push(&evt);
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
+
+    uint32_t error_code = event_handler_push(&evt);
+    if (error_code == NRF_SUCCESS)
+    {
+        m_scheduler.pending_reschedules++;
+        p_timer_evt->timestamp = new_timeout;
+    }
+    _ENABLE_IRQS(was_masked);
+    return error_code;
 }
