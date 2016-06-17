@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 #include "mesh_packet.h"
 #include "mesh_gatt.h"
+#include "dfu_app.h"
 #include "fifo.h"
 
 #include "nrf_error.h"
@@ -96,7 +97,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
 
     uint32_t error_code;
     error_code = vh_init(init_params.interval_min_ms * 1000, /* ms -> us */
-                         init_params.access_addr, 
+                         init_params.access_addr,
                          init_params.channel);
     if (error_code != NRF_SUCCESS)
     {
@@ -134,7 +135,11 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     fifo_init(&g_rbc_event_fifo);
     timeslot_resume();
 
+#ifdef MESH_DFU
+    return dfu_init();
+#else
     return NRF_SUCCESS;
+#endif
 }
 
 uint32_t rbc_mesh_start(void)
@@ -144,7 +149,7 @@ uint32_t rbc_mesh_start(void)
         return NRF_ERROR_INVALID_STATE;
     }
     timeslot_resume();
-    
+
     g_mesh_state = MESH_STATE_RUNNING;
 
     return NRF_SUCCESS;
