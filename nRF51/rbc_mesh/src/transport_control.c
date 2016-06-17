@@ -147,11 +147,11 @@ static void async_tx_cb(void* p_context)
         vh_tx_event_flag_get(p_adv_data->handle, &doing_tx_event) == NRF_SUCCESS
         && doing_tx_event)
     {
-        tx_event.event_type = RBC_MESH_EVENT_TYPE_TX;
-        tx_event.value_handle = p_adv_data->handle;
-        tx_event.data = p_adv_data->data;
-        tx_event.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
-        tx_event.version_delta = 0;
+        tx_event.type = RBC_MESH_EVENT_TYPE_TX;
+        tx_event.params.rx.value_handle  = p_adv_data->handle;
+        tx_event.params.rx.p_data        = p_adv_data->data;
+        tx_event.params.rx.data_len      = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+        tx_event.params.rx.version_delta = 0;
 
         rbc_mesh_event_push(&tx_event); /* will take care of the reference counting itself. */
 #if RBC_MESH_SERIAL
@@ -164,9 +164,9 @@ static void async_tx_cb(void* p_context)
 /* radio callback, executed in STACK_LOW */
 static void tx_cb(uint8_t* p_data)
 {
-    /* have to defer tx-event handling to async context to avoid race 
+    /* have to defer tx-event handling to async context to avoid race
        conditions in the handle_storage */
-    async_event_t tx_cb_evt = 
+    async_event_t tx_cb_evt =
     {
         .type = EVENT_TYPE_GENERIC,
         .callback.generic =
@@ -179,7 +179,7 @@ static void tx_cb(uint8_t* p_data)
     {
         mesh_packet_ref_count_inc((mesh_packet_t*) p_data);
     }
-    
+
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
 }
 
@@ -292,12 +292,12 @@ uint32_t tc_tx(mesh_packet_t* p_packet, const tc_tx_config_t* p_config)
     p_packet->header._rfu1 = 0;
     p_packet->header._rfu2 = 0;
     p_packet->header._rfu3 = 0;
-    
+
     event.packet_ptr = (uint8_t*) p_packet;
     event.access_address = 0;
     event.channel = p_config->first_channel;
     event.event_type = RADIO_EVENT_TYPE_TX;
-    
+
     /* send packet on each channel in the channel map */
     for (uint32_t i = 0; i < 32; ++i)
     {
@@ -314,7 +314,7 @@ uint32_t tc_tx(mesh_packet_t* p_packet, const tc_tx_config_t* p_config)
         {
             break;
         }
-        
+
         event.channel++;
     }
 
