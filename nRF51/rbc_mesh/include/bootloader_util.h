@@ -40,7 +40,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BOOTLOADER_UTIL_H__
 
 #include <stdint.h>
-#include "bootloader_types.h"
 
 /**@brief Function for starting the application (or bootloader) at the provided address.
  *
