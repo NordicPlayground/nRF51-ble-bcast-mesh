@@ -136,7 +136,7 @@ static void order_next_transmission(uint32_t time_now)
     {
         if (timer_sch_reschedule(&m_tx_timer_evt, timeout) != NRF_SUCCESS)
         {
-            vh_order_update(timeout); 
+            vh_order_update(timeout);
         }
         else
         {
@@ -183,7 +183,7 @@ static void transmit_all_instances(uint32_t timestamp, void* p_context)
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
-uint32_t vh_init(uint32_t min_interval_us, 
+uint32_t vh_init(uint32_t min_interval_us,
                  uint32_t access_address,
                  uint8_t channel)
 {
@@ -192,7 +192,7 @@ uint32_t vh_init(uint32_t min_interval_us,
     {
         return error_code;
     }
-    
+
     m_tx_timer_evt.p_next = NULL;
     m_tx_timer_evt.cb = transmit_all_instances;
     m_tx_timer_evt.interval = 0;
@@ -201,7 +201,7 @@ uint32_t vh_init(uint32_t min_interval_us,
     m_tx_config.access_address = access_address;
     m_tx_config.first_channel = channel;
     m_tx_config.channel_map = 1; /* Only the first channel */
-    
+
     m_is_initialized = true;
     return NRF_SUCCESS;
 }
@@ -226,19 +226,19 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)
 
     /* prepare app event */
     rbc_mesh_event_t evt;
-    evt.version_delta = delta;
-    evt.ble_adv_addr.addr_type = p_packet->header.addr_type;
-    memcpy(evt.ble_adv_addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
-    evt.rssi = -((int8_t) rssi);
-    evt.data = p_adv_data->data;
-    evt.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
-    evt.value_handle = p_adv_data->handle;
+    evt.params.rx.version_delta = delta;
+    evt.params.rx.ble_adv_addr.addr_type = p_packet->header.addr_type;
+    memcpy(evt.params.rx.ble_adv_addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
+    evt.params.rx.rssi = -((int8_t) rssi);
+    evt.params.rx.p_data = p_adv_data->data;
+    evt.params.rx.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+    evt.params.rx.value_handle = p_adv_data->handle;
 
     if (error_code == NRF_ERROR_NOT_FOUND)
     {
         /* couldn't find the handle in the handle storage */
-        evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
-        evt.version_delta = delta;
+        evt.type = RBC_MESH_EVENT_TYPE_NEW_VAL;
+        evt.params.rx.version_delta = delta;
 
         /* First allocate an element in the storage to ensure that we're not out of memory. */
         error_code = handle_storage_info_set(p_adv_data->handle, &info);
@@ -286,7 +286,7 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)
         if (p_stored_adv_data &&
             payload_has_conflict(p_stored_adv_data, p_adv_data))
         {
-            evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
+            evt.type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
             rbc_mesh_event_push(&evt); /* not really important whether this succeeds. */
 
 #ifdef RBC_MESH_SERIAL
@@ -298,8 +298,8 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)
     }
     else /* delta > 0 */
     {
-        evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-        evt.version_delta = delta;
+        evt.type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+        evt.params.rx.version_delta = delta;
 
         /* First allocate an element in the storage to ensure that we're not out of memory. */
         error_code = handle_storage_info_set(p_adv_data->handle, &info);

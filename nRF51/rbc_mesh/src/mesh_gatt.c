@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "version_handler.h"
 #include "transport_control.h"
 #include "app_error.h"
+#include "timer.h"
 
 #include "ble_gatts.h"
 #include "ble_err.h"
@@ -416,14 +417,15 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                                 p_gatt_evt->param.data_update.data,
                                 p_gatt_evt->param.data_update.data_len);
 
-                        rbc_mesh_event_t mesh_evt;
-                        mesh_evt.data = p_gatt_evt->param.data_update.data;
-                        mesh_evt.data_len = p_gatt_evt->param.data_update.data_len;
-                        mesh_evt.value_handle = p_gatt_evt->param.data_update.handle;
-                        mesh_evt.version_delta = 1;
                         if (error_code == NRF_SUCCESS)
                         {
-                            mesh_evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+                            rbc_mesh_event_t mesh_evt;
+                            mesh_evt.type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+                            mesh_evt.params.rx.p_data        = p_gatt_evt->param.data_update.data;
+                            mesh_evt.params.rx.data_len      = p_gatt_evt->param.data_update.data_len;
+                            mesh_evt.params.rx.value_handle  = p_gatt_evt->param.data_update.handle;
+                            mesh_evt.params.rx.version_delta = 1;
+                            mesh_evt.params.rx.timestamp_us  = timer_now();
                             if (rbc_mesh_event_push(&mesh_evt) != NRF_SUCCESS)
                             {
                                 mesh_gatt_cmd_rsp_push((mesh_gatt_evt_opcode_t) p_gatt_evt->opcode, MESH_GATT_RESULT_ERROR_BUSY);
@@ -439,7 +441,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                         }
 
                     }
-                break;
+                    break;
 
                 case MESH_GATT_EVT_OPCODE_FLAG_SET:
                     switch ((mesh_gatt_evt_flag_t) p_gatt_evt->param.flag_update.flag)
@@ -483,7 +485,7 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
                     }
                     break;
 
-               case MESH_GATT_EVT_OPCODE_FLAG_REQ:
+                case MESH_GATT_EVT_OPCODE_FLAG_REQ:
                     switch ((mesh_gatt_evt_flag_t) p_gatt_evt->param.flag_update.flag)
                     {
                         case MESH_GATT_EVT_FLAG_PERSISTENT:
