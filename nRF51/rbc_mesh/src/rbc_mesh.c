@@ -315,9 +315,27 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
     }
     uint32_t error_code = fifo_push(&g_rbc_event_fifo, p_event);
 
-    if (error_code == NRF_SUCCESS && p_event->data != NULL)
+    if (error_code == NRF_SUCCESS && p_event->params.rx.p_data != NULL)
     {
-        mesh_packet_ref_count_inc((mesh_packet_t*) p_event->data); /* will be aligned by packet manager */
+        switch (p_event->type)
+        {
+            case RBC_MESH_EVENT_TYPE_NEW_VAL:
+            case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
+            case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+                if (p_event->params.rx.p_data)
+                {
+                    mesh_packet_ref_count_inc((mesh_packet_t*) p_event->params.rx.p_data); /* will be aligned by packet manager */
+                }
+                break;
+            case RBC_MESH_EVENT_TYPE_TX:
+                if (p_event->params.tx.p_data)
+                {
+                    mesh_packet_ref_count_inc((mesh_packet_t*) p_event->params.tx.p_data); /* will be aligned by packet manager */
+                }
+                break;
+            default:
+                break;
+        }
     }
     return error_code;
 }
@@ -367,5 +385,29 @@ uint32_t rbc_mesh_packet_release(uint8_t* p_data)
     }
 
     return NRF_SUCCESS;
+}
+
+void rbc_mesh_event_release(rbc_mesh_event_t* p_evt)
+{
+    switch (p_evt->type)
+    {
+        case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
+        case RBC_MESH_EVENT_TYPE_NEW_VAL:
+        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+            if (p_evt->params.rx.p_data != NULL)
+            {
+                mesh_packet_ref_count_dec((mesh_packet_t*) p_evt->params.rx.p_data);
+            }
+            break;
+        case RBC_MESH_EVENT_TYPE_TX:
+            if (p_evt->params.tx.p_data != NULL)
+            {
+                mesh_packet_ref_count_dec((mesh_packet_t*) p_evt->params.tx.p_data);
+            }
+            break;
+
+        default:
+            break;
+    }
 }
 
