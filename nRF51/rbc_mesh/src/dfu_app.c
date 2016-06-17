@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>
 #include "dfu_app.h"
+#include "rtt_log.h"
 #include "bootloader_util.h"
 #include "timeslot.h"
 #include "rbc_mesh.h"
@@ -44,6 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rand.h"
 #include "transport_control.h"
 #include "app_error.h"
+#include "dfu_util.h"
 
 /** Extern declaration of the hidden api function event_push. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event);
@@ -140,7 +142,6 @@ static void interrupts_disable(void)
 
 static void tx_timeout(uint32_t timestamp, void* p_context)
 {
-    __LOG("TX Timeout @ %d\n", timestamp);
     uint32_t next_timeout = timestamp + (UINT32_MAX / 2);
     for (uint32_t i = 0; i < DFU_TX_SLOTS; ++i)
     {
@@ -151,7 +152,6 @@ static void tx_timeout(uint32_t timestamp, void* p_context)
             {
                 if (tc_tx(m_tx_slots[i].p_packet, &m_tx_config) == NRF_SUCCESS)
                 {
-                    __LOG("DFU TX\n");
                     m_tx_slots[i].tx_count++;
 
                     if (m_tx_slots[i].tx_count == TX_REPEATS_INF &&
@@ -204,15 +204,24 @@ static void timer_timeout(uint32_t timestamp, void* p_context)
 static void flash_op_complete(flash_op_type_t type, void* p_context)
 {
     bl_cmd_t end_cmd;
-    if (type == FLASH_OP_TYPE_WRITE)
+    switch (type)
     {
-        end_cmd.type = BL_CMD_TYPE_FLASH_WRITE_COMPLETE;
-        end_cmd.params.flash.write.p_data = p_context;
-    }
-    else
-    {
-        end_cmd.type = BL_CMD_TYPE_FLASH_ERASE_COMPLETE;
-        end_cmd.params.flash.erase.p_dest = p_context;
+        case FLASH_OP_TYPE_WRITE:
+            end_cmd.type = BL_CMD_TYPE_FLASH_WRITE_COMPLETE;
+            end_cmd.params.flash.write.p_data = p_context;
+            __LOG("Write complete (0x%x)\n", p_context);
+            break;
+        case FLASH_OP_TYPE_ERASE:
+            end_cmd.type = BL_CMD_TYPE_FLASH_ERASE_COMPLETE;
+            end_cmd.params.flash.erase.p_dest = p_context;
+            __LOG("Erase complete (0x%x)\n", p_context);
+            break;
+        case FLASH_OP_TYPE_ALL:
+            end_cmd.type = BL_CMD_TYPE_FLASH_ALL_COMPLETE;
+            __LOG("Flash idle.\n");
+            break;
+        default:
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_PARAM);
     }
     bootloader_cmd_send(&end_cmd); /* don't care about the return code */
 }
@@ -259,7 +268,8 @@ uint32_t dfu_init(void)
             .bl_if_version = BL_IF_VERSION,
             .event_callback = dfu_evt_handler,
             .timer_count = 1,
-            .tx_slots = DFU_TX_SLOTS
+            .tx_slots = DFU_TX_SLOTS,
+            .in_app = true
         }
     };
 
@@ -400,6 +410,7 @@ uint32_t dfu_cmd_send(bl_cmd_t* p_cmd)
 {
     if (m_cmd_handler == NULL)
     {
+        __LOG(RTT_CTRL_TEXT_RED "ERROR: No CMD handler!\n");
         return NRF_ERROR_INVALID_STATE;
     }
     return m_cmd_handler(p_cmd);
@@ -407,14 +418,15 @@ uint32_t dfu_cmd_send(bl_cmd_t* p_cmd)
 
 uint32_t dfu_evt_handler(bl_evt_t* p_evt)
 {
+    __LOG("BL EVT (0x%x)\n", p_evt->type);
     switch (p_evt->type)
     {
         case BL_EVT_TYPE_ECHO:
-            __LOG("Echo: %s\n", p_evt->params.echo.str);
+            __LOG("\tEcho: %s\n", p_evt->params.echo.str);
             break;
         case BL_EVT_TYPE_DFU_ABORT:
             {
-                __LOG("Abort event. Reason: 0x%x\n", p_evt->params.dfu.abort.reason);
+                __LOG("\tAbort event. Reason: 0x%x\n", p_evt->params.dfu.abort.reason);
                 rbc_mesh_event_t evt;
                 evt.type = RBC_MESH_EVENT_TYPE_DFU_END;
                 evt.params.dfu.end.dfu_type = m_transfer_state.type;
@@ -428,6 +440,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
 
         case BL_EVT_TYPE_DFU_NEW_FW:
             {
+                __LOG("\tNew firmware!\n");
                 rbc_mesh_event_t evt;
                 evt.type = RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE;
                 evt.params.dfu.new_fw.dfu_type = p_evt->params.dfu.new_fw.fw_type;
@@ -443,6 +456,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
 
         case BL_EVT_TYPE_DFU_REQ:
             {
+                __LOG("\tSource/relay request!\n");
                 /* Forward to application */
                 rbc_mesh_event_t evt;
                 switch (p_evt->params.dfu.req.role)
@@ -466,6 +480,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
 
         case BL_EVT_TYPE_DFU_START:
             {
+                __LOG("\tDFU start\n");
                 if (m_transfer_state.state == DFU_ROLE_TARGET)
                 {
                     m_transfer_state.state = DFU_STATE_DFU_TARGET;
@@ -494,6 +509,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
 
         case BL_EVT_TYPE_DFU_END:
             {
+                __LOG("\tDFU END!\n");
                 rbc_mesh_event_t evt;
                 evt.type = RBC_MESH_EVENT_TYPE_DFU_END;
                 evt.params.dfu.end.dfu_type = p_evt->params.dfu.end.dfu_type;
@@ -504,10 +520,11 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 m_timer_evt.cb = abort_timeout;
                 return timer_sch_reschedule(&m_timer_evt, timer_now() + TIMER_START_TIMEOUT);
             }
-
+            break;
 
         case BL_EVT_TYPE_BANK_AVAILABLE:
             {
+                __LOG("\tDFU BANK AVAILABLE\n");
                 rbc_mesh_event_t evt;
                 evt.type = RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE;
                 evt.params.dfu.bank.dfu_type     = p_evt->params.bank_available.bank_dfu_type;
@@ -546,7 +563,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
             return mesh_flash_op_push(FLASH_OP_TYPE_WRITE, &p_evt->params.flash);
 
         case BL_EVT_TYPE_TX_RADIO:
-            __LOG("RADIO TX! SLOT %d, count %d, interval: %s, handle: %x\n",
+            __LOG("\tRADIO TX! SLOT %d, count %d, interval: %s, handle: %x\n",
                 p_evt->params.tx.radio.tx_slot,
                 p_evt->params.tx.radio.tx_count,
                 p_evt->params.tx.radio.interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL ? "exponential" : "periodic",
@@ -589,7 +606,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
             }
             break;
         case BL_EVT_TYPE_TX_SERIAL:
-            __LOG("SERIAL TX!\n");
+            __LOG("\tSERIAL TX!\n");
             break;
 
         case BL_EVT_TYPE_TX_ABORT:
@@ -618,15 +635,16 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
             return timer_sch_reschedule(&m_timer_evt, timer_now() + p_evt->params.timer.set.delay_us);
 
         case BL_EVT_TYPE_TIMER_ABORT:
-            __LOG("TIMER abort: %d\n", p_evt->params.timer.abort.index);
+            __LOG("\tTIMER abort: %d\n", p_evt->params.timer.abort.index);
             return timer_sch_abort(&m_timer_evt);
 
         case BL_EVT_TYPE_ERROR:
             app_error_handler(p_evt->params.error.error_code,
                               p_evt->params.error.line,
                               (uint8_t*) p_evt->params.error.p_file);
+            break;
         default:
-            __LOG("Got unsupported event: 0x%x\n", p_evt->type);
+            __LOG("\tUNSUPPORTED EVENT\n");
             return NRF_ERROR_NOT_SUPPORTED;
     }
     return NRF_SUCCESS;
