@@ -44,7 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_aci.h"
 #include "app_error.h"
 #include "dfu_types_mesh.h"
-#include "bootloader_app.h"
+#include "dfu_app.h"
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
@@ -194,67 +194,12 @@ static void radio_idle_callback(void)
 static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t timestamp)
 {
     mesh_dfu_adv_data_t* p_dfu = (mesh_dfu_adv_data_t*) p_adv_data;
-#if 0    
-    if (mp_fwid_entry == NULL)
-    {
-        return; /* no fwid to compare against */
-    }
-
-    switch ((dfu_packet_type_t) p_dfu->dfu_packet.packet_type)
-    {
-        case DFU_PACKET_TYPE_FWID:
-            /* check if fwid is newer */
-            if (mp_fwid_entry->version.app.company_id == p_dfu->dfu_packet.payload.fwid.app.company_id &&
-                mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.fwid.app.app_id &&
-                mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.fwid.app.app_version)
-            {
-                fwid_union_t fwid;
-                memcpy(&fwid.app, &p_dfu->dfu_packet.payload.fwid.app, sizeof(app_id_t));
-                bootloader_start(DFU_TYPE_APP, &fwid);
-            }
-            else if (mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.fwid.bootloader.id &&
-                     mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.fwid.bootloader.ver)
-            {
-                fwid_union_t fwid;
-                memcpy(&fwid.bootloader, &p_dfu->dfu_packet.payload.fwid.bootloader, sizeof(bl_id_t));
-                bootloader_start(DFU_TYPE_BOOTLOADER, &fwid);
-            }
-
-            break;
-        case DFU_PACKET_TYPE_STATE:
-            /* check if we are an eligible target */
-            if (p_dfu->dfu_packet.payload.state.authority != 0)
-            {
-                if (p_dfu->dfu_packet.payload.state.dfu_type == DFU_TYPE_APP)
-                {
-                    if (mp_fwid_entry->version.app.company_id == p_dfu->dfu_packet.payload.state.fwid.app.company_id &&
-                        mp_fwid_entry->version.app.app_id     == p_dfu->dfu_packet.payload.state.fwid.app.app_id &&
-                        mp_fwid_entry->version.app.app_version < p_dfu->dfu_packet.payload.state.fwid.app.app_version)
-                    {
-                        bootloader_start(DFU_TYPE_APP, &p_dfu->dfu_packet.payload.state.fwid);
-                    }
-                }
-                else if (p_dfu->dfu_packet.payload.state.dfu_type == DFU_TYPE_BOOTLOADER)
-                {
-                    if (mp_fwid_entry->version.bootloader.id == p_dfu->dfu_packet.payload.state.fwid.bootloader.id &&
-                        mp_fwid_entry->version.bootloader.ver < p_dfu->dfu_packet.payload.state.fwid.bootloader.ver)
-                    {
-                        bootloader_start(DFU_TYPE_BOOTLOADER, &p_dfu->dfu_packet.payload.state.fwid);
-                    }
-                }
-            }
-            break;
-        default:
-            break;
-    }
-#else
     /* Tell the shared BL about the packet */
     bl_cmd_t rx_cmd;
     rx_cmd.type = BL_CMD_TYPE_RX;
     rx_cmd.params.rx.length = p_dfu->adv_data_length - DFU_PACKET_ADV_OVERHEAD;
     rx_cmd.params.rx.p_dfu_packet = &p_dfu->dfu_packet;
-    bootloader_cmd_send(&rx_cmd);
-#endif
+    dfu_cmd_send(&rx_cmd);
 }
 /******************************************************************************
 * Interface functions
