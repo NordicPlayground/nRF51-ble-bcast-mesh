@@ -175,11 +175,8 @@ static void tx_timeout(uint32_t timestamp, void* p_context)
         }
     }
     m_tx_timer_evt.timestamp = next_timeout;
-    if (timer_sch_schedule(&m_tx_timer_evt) != NRF_SUCCESS)
-    {
-        m_tx_scheduled = true;
-        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
-    }
+    APP_ERROR_CHECK(timer_sch_reschedule(&m_tx_timer_evt, next_timeout));
+    m_tx_scheduled = true;
 }
 
 static void abort_timeout(uint32_t timestamp, void* p_context)
@@ -517,8 +514,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 evt.params.dfu.end.end_reason = DFU_END_SUCCESS;
                 evt.params.dfu.end.role = p_evt->params.dfu.end.role;
                 rbc_mesh_event_push(&evt);
-                m_timer_evt.cb = abort_timeout;
-                return timer_sch_reschedule(&m_timer_evt, timer_now() + TIMER_START_TIMEOUT);
+                timer_sch_abort(&m_timer_evt);
             }
             break;
 
@@ -594,10 +590,12 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 m_tx_slots[p_evt->params.tx.radio.tx_slot].tx_count = 0;
                 m_tx_slots[p_evt->params.tx.radio.tx_slot].order_time = time_now + DFU_TX_TIMER_MARGIN_US + (rand_prng_get(&m_prng) & (DFU_TX_START_DELAY_MASK_US));
 
+                /* Fire away */
                 if (!m_tx_scheduled || TIMER_DIFF(m_tx_slots[p_evt->params.tx.radio.tx_slot].order_time, time_now) < TIMER_DIFF(m_tx_timer_evt.timestamp, time_now))
                 {
                     m_tx_scheduled = true;
-                    timer_sch_reschedule(&m_tx_timer_evt, m_tx_slots[p_evt->params.tx.radio.tx_slot].order_time);
+                    timer_sch_reschedule(&m_tx_timer_evt,
+                            m_tx_slots[p_evt->params.tx.radio.tx_slot].order_time);
                 }
             }
             else
@@ -629,10 +627,14 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
             }
 
         case BL_EVT_TYPE_TIMER_SET:
-            NRF_GPIO->OUTSET = (1 << 1);
-            __LOG("TIMER event: @%d us\n", p_evt->params.timer.set.delay_us);
-            m_timer_evt.cb = timer_timeout;
-            return timer_sch_reschedule(&m_timer_evt, timer_now() + p_evt->params.timer.set.delay_us);
+            {
+                NRF_GPIO->OUTSET = (1 << 1);
+                m_timer_evt.cb = timer_timeout;
+                timestamp_t set_time = timer_now() + p_evt->params.timer.set.delay_us;
+                APP_ERROR_CHECK(timer_sch_reschedule(&m_timer_evt, set_time));
+                __LOG("\tTIMER set: %uus delay (@%u)\n", p_evt->params.timer.set.delay_us, set_time);
+                return NRF_SUCCESS;
+            }
 
         case BL_EVT_TYPE_TIMER_ABORT:
             __LOG("\tTIMER abort: %d\n", p_evt->params.timer.abort.index);
