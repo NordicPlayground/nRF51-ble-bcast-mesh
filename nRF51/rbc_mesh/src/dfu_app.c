@@ -185,7 +185,7 @@ static void abort_timeout(uint32_t timestamp, void* p_context)
     __LOG("ABORT Timeout fired @%d\n", timestamp);
     bl_cmd_t abort_cmd;
     abort_cmd.type = BL_CMD_TYPE_DFU_ABORT;
-    m_cmd_handler(&abort_cmd);
+    dfu_cmd_send(&abort_cmd);
 }
 
 static void timer_timeout(uint32_t timestamp, void* p_context)
@@ -195,7 +195,7 @@ static void timer_timeout(uint32_t timestamp, void* p_context)
     bl_cmd_t timeout_cmd;
     timeout_cmd.type = BL_CMD_TYPE_TIMEOUT;
     timeout_cmd.params.timeout.timer_index = 0;
-    m_cmd_handler(&timeout_cmd);
+    dfu_cmd_send(&timeout_cmd);
 }
 
 static void flash_op_complete(flash_op_type_t type, void* p_context)
@@ -220,7 +220,8 @@ static void flash_op_complete(flash_op_type_t type, void* p_context)
         default:
             APP_ERROR_CHECK(NRF_ERROR_INVALID_PARAM);
     }
-    bootloader_cmd_send(&end_cmd); /* don't care about the return code */
+
+    dfu_cmd_send(&end_cmd); /* don't care about the return code */
 }
 
 /*****************************************************************************
@@ -270,7 +271,7 @@ uint32_t dfu_init(void)
         }
     };
 
-    uint32_t error_code = m_cmd_handler(&init_cmd);
+    uint32_t error_code = dfu_cmd_send(&init_cmd);
 
     if (error_code != NRF_SUCCESS)
     {
@@ -281,7 +282,7 @@ uint32_t dfu_init(void)
     fwid_cmd.type = BL_CMD_TYPE_INFO_GET;
     fwid_cmd.params.info.get.type = BL_INFO_TYPE_VERSION;
     fwid_cmd.params.info.get.p_entry = NULL;
-    error_code = m_cmd_handler(&fwid_cmd);
+    error_code = dfu_cmd_send(&fwid_cmd);
     if (error_code != NRF_SUCCESS)
     {
         /* no version info */
@@ -295,7 +296,7 @@ uint32_t dfu_init(void)
         .type = BL_CMD_TYPE_ENABLE,
         .params = {{0}}
     };
-    return m_cmd_handler(&enable_cmd);
+    return dfu_cmd_send(&enable_cmd);
 }
 
 uint32_t dfu_jump_to_bootloader(void)
@@ -349,10 +350,10 @@ uint32_t dfu_request(dfu_type_t type,
         return NRF_ERROR_NULL;
     }
     bl_cmd_t cmd;
-    cmd.type = BL_CMD_TYPE_DFU_START_RELAY;
-    cmd.params.dfu.start.relay.type = type;
-    cmd.params.dfu.start.relay.fwid = *p_fwid;
-    cmd.params.dfu.start.relay.transaction_id = 0;
+    cmd.type = BL_CMD_TYPE_DFU_START_TARGET;
+    cmd.params.dfu.start.target.type = type;
+    cmd.params.dfu.start.target.fwid = *p_fwid;
+    cmd.params.dfu.start.target.p_bank_start = p_bank_addr;
     return dfu_cmd_send(&cmd);
 }
 
@@ -386,7 +387,8 @@ uint32_t dfu_bank_flash(dfu_type_t bank_type)
     bl_cmd_t cmd;
     cmd.type = BL_CMD_TYPE_DFU_BANK_FLASH;
     cmd.params.dfu.bank_flash.bank_dfu_type = bank_type;
-    return dfu_cmd_send(&cmd);
+    uint32_t error_code = dfu_cmd_send(&cmd);
+    return error_code;
 }
 
 uint32_t dfu_state_get(dfu_transfer_state_t* p_dfu_transfer_state)
@@ -410,7 +412,12 @@ uint32_t dfu_cmd_send(bl_cmd_t* p_cmd)
         __LOG(RTT_CTRL_TEXT_RED "ERROR: No CMD handler!\n");
         return NRF_ERROR_INVALID_STATE;
     }
-    return m_cmd_handler(p_cmd);
+    /* Suspend flash operations for the duration of the command to avoid
+       premature flash-events disturbing the flow */
+    mesh_flash_set_suspended(true);
+    uint32_t error_code = m_cmd_handler(p_cmd);
+    mesh_flash_set_suspended(false);
+    return error_code;
 }
 
 uint32_t dfu_evt_handler(bl_evt_t* p_evt)
