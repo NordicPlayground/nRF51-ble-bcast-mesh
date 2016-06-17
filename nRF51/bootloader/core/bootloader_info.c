@@ -35,7 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf51.h"
 #include "nrf_error.h"
 #include "toolchain.h"
-#include "bl_log.h"
+#include "rtt_log.h"
+#include "dfu_util.h"
 
 #define WORD_ALIGN(data) data = (((uint32_t) data + 4) & 0xFFFFFFFC)
 
@@ -84,7 +85,7 @@ typedef enum
     INFO_COPY_STATE_ERASE,
     INFO_COPY_STATE_METAWRITE,
     INFO_COPY_STATE_DATAWRITE,
-    INFO_COPY_STATE_WAIT_FOR_IDLE,
+    INFO_COPY_STATE_STABILIZE,
 } info_copy_state_t;
 
 typedef struct
@@ -94,6 +95,8 @@ typedef struct
     bootloader_info_t* p_src;
     info_buffer_t* p_src_info;
     info_buffer_t* p_dst_info;
+    void* p_last_src;
+    bool wait_for_idle;
 } info_copy_t;
 
 typedef struct
@@ -116,7 +119,7 @@ static void*                            mp_write_pos;
 static info_cache_entry_t               m_info_cache[INFO_CACHE_SIZE];
 static uint8_t                          m_info_cache_index;
 #endif
-#ifdef BL_LOG
+#ifdef RTT_LOG
 static char*                            mp_copy_state_str[] = {"IDLE", "ERASE", "METAWRITE", "DATAWRITE", "WAIT FOR IDLE"};
 #endif
 /******************************************************************************
@@ -125,7 +128,7 @@ static char*                            mp_copy_state_str[] = {"IDLE", "ERASE", 
 static bl_info_entry_t* info_entry_get_from_cache(bl_info_type_t type)
 {
 #if INFO_CACHE_SIZE > 0
-#ifdef BL_LOG
+#ifdef RTT_LOG
     static uint32_t hits = 0, misses = 0;
 #endif
     for (uint32_t i = 0; i < INFO_CACHE_SIZE; ++i)
@@ -164,6 +167,7 @@ static bl_info_entry_t* info_entry_get(bootloader_info_t* p_bl_info_page, bl_inf
 {
     if (p_bl_info_page->metadata.metadata_len == 0xFF)
     {
+        __LOG(RTT_CTRL_TEXT_RED "BL INFO: INVALID METADATA\n");
         return NULL;
     }
 
@@ -194,7 +198,7 @@ static uint32_t entry_header_invalidate(bootloader_info_header_t* p_header)
 {
     /* TODO: optimization: check if the write only adds 0-bits to the current value,
        in which case we can just overwrite the current. */
-    if ((uint32_t) p_header & 0x03)
+    if (!IS_WORD_ALIGNED(p_header))
     {
         APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);
     }
@@ -212,6 +216,9 @@ static void free_write_buffer(info_buffer_t* p_buf)
                 p_buf, mp_info_entry_tail);
         APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);
     }
+
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
 
     /* The end-of-entries entry may have max length - treat as empty entry */
     if (mp_info_entry_tail->header.len == 0xFFFF)
@@ -231,13 +238,14 @@ static void free_write_buffer(info_buffer_t* p_buf)
         mp_info_entry_tail->header.len == 0xFFFF)
     {
         /* Also free the end-entry */
-        mp_info_entry_tail  = ((info_buffer_t*) ((uint8_t*) mp_info_entry_tail + 4));
+        mp_info_entry_tail = ((info_buffer_t*) ((uint8_t*) mp_info_entry_tail + 4));
 
         if (mp_info_entry_tail == (info_buffer_t*) (mp_info_entry_buffer + INFO_WRITE_BUFLEN))
         {
             mp_info_entry_tail = (info_buffer_t*) mp_info_entry_buffer;
         }
     }
+    _ENABLE_IRQS(was_masked);
 }
 
 static void place_head_after_entry(info_buffer_t* p_entry)
@@ -343,17 +351,21 @@ static inline info_buffer_t* bootloader_info_first_unused_get(bootloader_info_t*
 static void info_copy_state_set(info_copy_state_t state)
 {
     m_info_copy.state = state;
-    __LOG( "STATE: %s\n", mp_copy_state_str[state]);
+    __LOG("INFO COPY STATE: %s\n", mp_copy_state_str[state]);
 }
 
 /* COPY PAGE FUNCTIONS */
 static void copy_page_write_meta(void)
 {
     /* Write metadata header */
-    __LOG( "Writing meta to dest\n");
-    flash_write(&m_info_copy.p_dst->metadata,
+    info_copy_state_set(INFO_COPY_STATE_METAWRITE);
+    __LOG("Writing meta to dest\n");
+    if (flash_write(&m_info_copy.p_dst->metadata,
                 &m_info_copy.p_src->metadata,
-                sizeof(m_info_copy.p_src->metadata));
+                sizeof(m_info_copy.p_src->metadata)) != NRF_SUCCESS)
+    {
+        m_info_copy.wait_for_idle = true;
+    }
 }
 
 static void copy_page_write_next_data(void)
@@ -391,7 +403,7 @@ static void copy_page_write_next_data(void)
                 __LOG( "FAIL\n");
                 return;
             }
-
+            m_info_copy.p_last_src = m_info_copy.p_src_info;
             __LOG( "OK\n");
             /* Only iterate the dst entry if we actually wrote anything. */
             m_info_copy.p_dst_info = (info_buffer_t*) ((uint8_t*) m_info_copy.p_dst_info + len);
@@ -401,11 +413,17 @@ static void copy_page_write_next_data(void)
     }
 
     /* we only get here when we're done writing all the data */
-    info_copy_state_set(INFO_COPY_STATE_WAIT_FOR_IDLE);
+    m_info_copy.wait_for_idle = true;
+    info_copy_state_set(INFO_COPY_STATE_STABILIZE);
 }
 
 static void copy_page_on_flash_idle(void)
 {
+    if (!m_info_copy.wait_for_idle)
+    {
+        return;
+    }
+    m_info_copy.wait_for_idle = false;
     switch (m_info_copy.state)
     {
         case INFO_COPY_STATE_ERASE:
@@ -415,10 +433,6 @@ static void copy_page_on_flash_idle(void)
         case INFO_COPY_STATE_METAWRITE:
             /* We went idle without getting the write operation success, try again */
             copy_page_write_meta();
-            break;
-        case INFO_COPY_STATE_WAIT_FOR_IDLE:
-            /* all operations have finished. */
-            info_copy_state_set(INFO_COPY_STATE_IDLE);
             break;
         default:
             break;
@@ -433,14 +447,13 @@ static void copy_page_on_flash_op_end(flash_op_type_t op, void* p_context)
         case INFO_COPY_STATE_ERASE:
             if (op == FLASH_OP_TYPE_ERASE && p_context == m_info_copy.p_dst)
             {
-                info_copy_state_set(INFO_COPY_STATE_METAWRITE);
                 copy_page_write_meta();
             }
             break;
         case INFO_COPY_STATE_METAWRITE:
             if (op == FLASH_OP_TYPE_WRITE && p_context == &m_info_copy.p_src->metadata)
             {
-                __LOG( "Writing data to dest\n");
+                __LOG("Writing data to dest\n");
                 info_copy_state_set(INFO_COPY_STATE_DATAWRITE);
                 m_info_copy.p_src_info = (info_buffer_t*) m_info_copy.p_src->data;
                 m_info_copy.p_dst_info = (info_buffer_t*) m_info_copy.p_dst->data;
@@ -454,6 +467,12 @@ static void copy_page_on_flash_op_end(flash_op_type_t op, void* p_context)
         case INFO_COPY_STATE_DATAWRITE:
             copy_page_write_next_data();
             break;
+        case INFO_COPY_STATE_STABILIZE:
+            if (op == FLASH_OP_TYPE_WRITE && p_context == m_info_copy.p_last_src)
+            {
+                info_copy_state_set(INFO_COPY_STATE_IDLE);
+            }
+
 
         default:
             break;
@@ -473,7 +492,14 @@ static uint32_t copy_page(bootloader_info_t* p_dst, bootloader_info_t* p_src)
     info_copy_state_set(INFO_COPY_STATE_ERASE);
     if (!m_write_in_progress)
     {
-        flash_erase(p_dst, PAGE_SIZE);
+        if (flash_erase(p_dst, PAGE_SIZE) != NRF_SUCCESS)
+        {
+            m_info_copy.wait_for_idle = true;
+        }
+    }
+    else
+    {
+        m_info_copy.wait_for_idle = true;
     }
     return NRF_SUCCESS;
 }
@@ -551,8 +577,8 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
 {
     m_state = BL_INFO_STATE_UNINITIALIZED;
 
-    if ((uint32_t) p_bl_info_page & (PAGE_SIZE - 1) ||
-        (uint32_t) p_bl_info_bank_page & (PAGE_SIZE - 1))
+    if (!IS_PAGE_ALIGNED(p_bl_info_page) ||
+        !IS_PAGE_ALIGNED(p_bl_info_bank_page))
     {
         return NRF_ERROR_INVALID_ADDR; /* must be page aligned */
     }
@@ -592,19 +618,19 @@ bootloader_info_t* bootloader_info_get(void)
 
 bl_info_entry_t* bootloader_info_entry_get(bl_info_type_t type)
 {
-    bl_info_entry_t* p_cache_entry = info_entry_get_from_cache(type);
-    if (p_cache_entry != NULL)
+    bl_info_entry_t* p_entry = info_entry_get_from_cache(type);
+    if (p_entry != NULL)
     {
-        return p_cache_entry;
+        return p_entry;
     }
-    p_cache_entry = info_entry_get((bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, type);
+    p_entry = info_entry_get((bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, type);
 #if INFO_CACHE_SIZE > 0
-    if (p_cache_entry != NULL)
+    if (p_entry != NULL)
     {
-        m_info_cache[(m_info_cache_index++) & (INFO_CACHE_SIZE - 1)] = (info_cache_entry_t) { type, (uint32_t) p_cache_entry - (uint32_t) BOOTLOADER_INFO_ADDRESS };
+        m_info_cache[(m_info_cache_index++) & (INFO_CACHE_SIZE - 1)] = (info_cache_entry_t) { type, (uint32_t) p_entry - (uint32_t) BOOTLOADER_INFO_ADDRESS };
     }
 #endif
-    return p_cache_entry;
+    return p_entry;
 }
 
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
@@ -613,7 +639,7 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
 {
     APP_ERROR_CHECK_BOOL(m_state == BL_INFO_STATE_IDLE);
     APP_ERROR_CHECK_BOOL(length <= INFO_ENTRY_MAX_LEN);
-    APP_ERROR_CHECK_BOOL((((uint32_t) mp_write_pos) & 0x03) == 0); /* must be word aligned */
+    APP_ERROR_CHECK_BOOL(IS_WORD_ALIGNED(mp_write_pos));
     APP_ERROR_CHECK_BOOL((uint32_t) mp_write_pos > BOOTLOADER_INFO_ADDRESS);
 
     /* previous entry, to be invalidated after we've stored the current entry. */
@@ -695,7 +721,7 @@ uint32_t bootloader_info_reset(void)
 
     __LOG( "RESET\n");
     m_state = BL_INFO_STATE_RESET;
-    mp_write_pos = mp_bl_info_page->data;
+    mp_write_pos = mp_bl_info_page->data; /* THIS SHIT */
     return backup();
 }
 
@@ -720,6 +746,19 @@ void bootloader_info_on_flash_op_end(flash_op_type_t type, void* p_context)
         }
     }
     copy_page_on_flash_op_end(type, p_context);
+    if (m_info_copy.state == INFO_COPY_STATE_IDLE)
+    {
+        if (m_state == BL_INFO_STATE_BACKUP)
+        {
+            recover();
+        }
+        else if (m_state == BL_INFO_STATE_RECOVER)
+        {
+            /* done recovering */
+            mp_write_pos = bootloader_info_first_unused_get(mp_bl_info_page);
+            m_state = BL_INFO_STATE_IDLE;
+        }
+    }
 }
 
 void bootloader_info_on_flash_idle(void)
@@ -728,18 +767,6 @@ void bootloader_info_on_flash_idle(void)
     if (m_info_copy.state != INFO_COPY_STATE_IDLE)
     {
         copy_page_on_flash_idle();
-        if (m_info_copy.state == INFO_COPY_STATE_IDLE)
-        {
-            if (m_state == BL_INFO_STATE_BACKUP)
-            {
-                recover();
-            }
-            else if (m_state == BL_INFO_STATE_RECOVER)
-            {
-                /* done recovering */
-                m_state = BL_INFO_STATE_IDLE;
-            }
-        }
     }
 }
 

@@ -36,6 +36,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_app_bridge.h"
 #include "sha256.h"
 #include "nrf_mbr.h"
+#include "rtt_log.h"
+#include "dfu_util.h"
 
 #ifndef MISSING_ENTRY_BACKLOG_COUNT
 #define MISSING_ENTRY_BACKLOG_COUNT (8)
@@ -238,7 +240,7 @@ uint32_t dfu_transfer_start(uint32_t* p_start_addr,
 
     /* erase all affected pages. */
     flash_erase((uint32_t*) PAGE_ALIGN(m_current_transfer.p_bank_addr),
-                                PAGE_ALIGN(size + PAGE_SIZE - 1));
+                            PAGE_ALIGN(size + PAGE_SIZE - 1));
 
     m_current_transfer.p_start_addr = p_start_addr;
     m_current_transfer.segment_count = segment_count;
@@ -253,19 +255,19 @@ uint32_t dfu_transfer_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
 {
     if (m_write_buffer_busy)
     {
+        __LOG(RTT_CTRL_TEXT_RED "TRANSFER WRITE BUFFER BUSY!\n");
         return NRF_ERROR_BUSY;
     }
-    if (((uint32_t) p_addr) & 0x03)
+    if (!IS_WORD_ALIGNED(p_addr))
     {
         /* unaligned */
         return NRF_ERROR_INVALID_ADDR;
     }
-    if (length & 0x03)
+    if (!IS_WORD_ALIGNED(length))
     {
         return NRF_ERROR_INVALID_LENGTH;
     }
 
-#if 1
     bool buffer_incoming_entry;
     if (WRITE_BUFFER_ALIGN(p_addr) == (uint32_t) m_current_transfer.p_write_pointer)
     {
@@ -302,7 +304,6 @@ uint32_t dfu_transfer_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         m_current_transfer.p_write_pointer = (uint32_t*)((uint32_t) m_current_transfer.p_write_pointer + WRITE_BUFFER_SIZE);
     }
     else /* entry belongs in a write buffer we've already flashed. */
-#endif
     {
         dfu_entry_t* p_backlog_entry = entry_in_missing_backlog(p_addr, length);
         if (*((uint32_t*) p_addr) != 0xFFFFFFFF && p_backlog_entry != NULL)
@@ -415,21 +416,16 @@ void dfu_transfer_end(void)
     }
 }
 
-void dfu_transfer_flash_bank(void)
-{
-    if (m_current_transfer.p_bank_addr != m_current_transfer.p_start_addr &&
-        m_current_transfer.p_bank_addr != NULL)
-    {
-        flash_erase(m_current_transfer.p_start_addr, m_current_transfer.size);
-        flash_write(m_current_transfer.p_start_addr, (uint8_t*) m_current_transfer.p_bank_addr, m_current_transfer.size);
-    }
-}
-
 void dfu_transfer_flash_write_complete(uint8_t* p_write_src)
 {
     if (p_write_src == mp_write_buffer)
     {
         m_write_buffer_busy = 0;
         memset(mp_write_buffer, 0xFF, WRITE_BUFFER_SIZE);
+    }
+    else if (m_write_buffer_busy)
+    {
+        __LOG(RTT_CTRL_TEXT_CYAN "Flash end not for us (got 0x%x, wants 0x%x)\n",
+                p_write_src, mp_write_buffer);
     }
 }

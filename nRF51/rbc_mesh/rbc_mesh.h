@@ -46,7 +46,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define RBC_MESH_GPREGRET_CODE_GO_TO_APP            (0x00) /**< Retention register code for immediately starting application when entering bootloader. The default behavior. */
 #define RBC_MESH_GPREGRET_CODE_FORCED_REBOOT        (0x01) /**< Retention register code for telling the bootloader it's been started on purpose */
-#define RBC_MESH_GPREGRET_CODE_BANK_FLASH           (0x02) /**< Retention register code for telling the bootloader to flash a bank. */
 
 /*
    There are two caches in the framework:

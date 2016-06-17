@@ -28,26 +28,39 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#ifndef BL_LOG_H__
-#define BL_LOG_H__
+#ifndef DFU_UTIL_H__
+#define DFU_UTIL_H__
 
-#include <stdarg.h>
-#include "SEGGER_RTT.h"
+#include <stdint.h>
+#include "dfu_types_mesh.h"
 
-#ifdef BL_LOG
+#define IS_PAGE_ALIGNED(p) (((uint32_t)(p) & (PAGE_SIZE - 1)) == 0)
+#define IS_WORD_ALIGNED(p) (((uint32_t)(p) & (0x03)) == 0)
 
-#ifndef __MODULE__
-/** ARMCC defines __MODULE__ as __FILE__ without the path. GCC does not. */
-#define __MODULE__ __FILE__
-#endif
+void fwid_union_cpy(fwid_union_t* p_dst, fwid_union_t* p_src, dfu_type_t dfu_type);
 
-#define __LOG(str, ...) SEGGER_RTT_printf(0, RTT_CTRL_RESET str, ##__VA_ARGS__)
+/** Returns true if the two fwids are equal. */
+bool fwid_union_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
 
-#else /* BL_LOG */
+bool ready_packet_is_upgrade(dfu_packet_t* p_packet);
 
-#define __LOG(str, ...)
+bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_req, fwid_union_t* p_fwid_req);
 
-#endif /* BL_LOG */
+uint32_t* addr_from_seg(uint16_t segment, uint32_t* p_start_addr);
 
-#endif /* BL_LOG_H__ */
+bool app_is_newer(app_id_t* p_app_id);
+
+bool bootloader_is_newer(bl_id_t bl_id);
+
+bool fw_is_verified(void);
+
+void tid_cache_entry_put(uint32_t tid);
+
+bool tid_cache_has_entry(uint32_t tid);
+
+bool packet_in_cache(dfu_packet_t* p_packet);
+
+void packet_cache_put(dfu_packet_t* p_packet);
+
+#endif /* DFU_UTIL_H__ */
 

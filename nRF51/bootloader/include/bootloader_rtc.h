@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define RTC_MASK                    (0xFFFFFF)
 #define US_TO_RTC_TICKS(time_us)    (((uint64_t) (time_us) * 32768ULL) / 1000000ULL)
+#define SECS_TO_RTC_TICKS(time_s)    (((uint64_t) (time_s) * 32768ULL))
 
 #define RTC_TRANSPORT_CH            (0)
 #define RTC_BL_STATE_CH             (1)

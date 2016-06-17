@@ -37,10 +37,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * Look for available banks, finalize any ongoing flash operations.
  *
- * @return NRF_SUCCESS All available banks found and handled.
- * @return NRF_ERROR_BUSY A bank operation was started
+ * @param[out] p_bank_flash_started Set by the function. Indicates whether a
+ * bank flash was started as a result of the call.
  */
-uint32_t dfu_bank_scan(void);
+void dfu_bank_scan(bool* p_bank_flash_started);
 
 /**
  * Flash the bank of the given type.

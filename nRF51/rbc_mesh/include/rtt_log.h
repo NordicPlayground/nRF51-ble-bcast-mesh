@@ -28,36 +28,26 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#ifndef DFU_UTIL_H__
-#define DFU_UTIL_H__
+#ifndef RTT_LOG_H__
+#define RTT_LOG_H__
 
-#include <stdint.h>
-#include "dfu_types_mesh.h"
+#include <stdarg.h>
+#include "SEGGER_RTT.h"
 
-void fwid_union_cpy(fwid_union_t* p_dst, fwid_union_t* p_src, dfu_type_t dfu_type);
+#ifdef RTT_LOG
 
-/** Returns true if the two fwids are equal. */
-bool fwid_union_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
+#ifndef __MODULE__
+/** ARMCC defines __MODULE__ as __FILE__ without the path. GCC does not. */
+#define __MODULE__ __FILE__
+#endif
 
-bool ready_packet_is_upgrade(dfu_packet_t* p_packet);
+#define __LOG(str, ...) SEGGER_RTT_printf(0, RTT_CTRL_RESET str, ##__VA_ARGS__)
 
-bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_req, fwid_union_t* p_fwid_req);
+#else /* RTT_LOG */
 
-uint32_t* addr_from_seg(uint16_t segment, uint32_t* p_start_addr);
+#define __LOG(str, ...)
 
-bool app_is_newer(app_id_t* p_app_id);
+#endif /* RTT_LOG */
 
-bool bootloader_is_newer(bl_id_t bl_id);
-
-bool fw_is_verified(void);
-
-void tid_cache_entry_put(uint32_t tid);
-
-bool tid_cache_has_entry(uint32_t tid);
-
-bool packet_in_cache(dfu_packet_t* p_packet);
-
-void packet_cache_put(dfu_packet_t* p_packet);
-
-#endif /* DFU_UTIL_H__ */
+#endif /* RTT_LOG_H__ */
 

@@ -33,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bl_if.h"
 #include "bootloader.h"
 #include "bootloader_info.h"
-#include "bl_log.h"
+#include "rtt_log.h"
 
 /*****************************************************************************
 * Local defines

@@ -30,13 +30,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>
 #include "dfu_bank.h"
+#include "rbc_mesh.h"
 #include "bootloader_info.h"
 #include "bootloader_app_bridge.h"
 #include "nrf_mbr.h"
 #include "dfu_types_mesh.h"
 #include "nrf_error.h"
 #include "nrf51.h"
-#include "bl_log.h"
+#include "rtt_log.h"
+#include "dfu_util.h"
+#include "toolchain.h"
 
 /*****************************************************************************
 * Local defines
@@ -101,7 +104,6 @@ static void flash_bank_entry(void)
                     }
                     else
                     {
-                        __LOG("Bank: Set state to FLASH META\n");
                         bank_entry_replacement.bank.state = BL_INFO_BANK_STATE_FLASH_META;
                         bootloader_info_entry_overwrite(BL_INFO_TYPE_BANK_BL, &bank_entry_replacement);
                     }
@@ -125,7 +127,6 @@ static void flash_bank_entry(void)
                     }
                     else
                     {
-                        __LOG("Bank: Set state to FLASH META\n");
                         bank_entry_replacement.bank.state = BL_INFO_BANK_STATE_FLASH_META;
                         bootloader_info_entry_overwrite((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + m_dfu_type), &bank_entry_replacement);
                     }
@@ -141,9 +142,15 @@ static void flash_bank_entry(void)
                            reset. We'll come back to finalize the transfer
                            after the reset. */
                         __LOG("IN APP MODE. RESET!\n");
-                        __disable_irq();
-                        while (1);
-                        //NVIC_SystemReset();
+#ifdef SOFTDEVICE_PRESENT
+                        sd_power_reset_reason_clr(0x0F000F);
+                        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);
+                        sd_nvic_SystemReset();
+#else
+                        NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
+                        NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_GO_TO_APP;
+                        NVIC_SystemReset();
+#endif
                     }
                     else
                     {
@@ -151,7 +158,7 @@ static void flash_bank_entry(void)
                         bl_info_entry_t* p_app_entry = bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP);
 
                         APP_ERROR_CHECK_BOOL(p_app_entry != NULL);
-                        APP_ERROR_CHECK_BOOL((p_app_entry->segment.start & (PAGE_SIZE - 1)) != 0);
+                        APP_ERROR_CHECK_BOOL(IS_PAGE_ALIGNED(p_app_entry->segment.start));
 
                         /* Erase existing FW */
                         bl_evt_t flash_evt;
@@ -216,7 +223,6 @@ static void flash_bank_entry(void)
                         APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
                         return;
                 }
-                __LOG("Bank: Write version\n");
                 if (!bootloader_info_entry_put(BL_INFO_TYPE_VERSION,
                             &fwid_entry,
                             BL_INFO_LEN_FWID))
@@ -226,7 +232,6 @@ static void flash_bank_entry(void)
                 }
                 if (p_bank_entry->has_signature)
                 {
-                    __LOG("Bank: Write signature\n");
                     if (!bootloader_info_entry_put(signature_type,
                                 (bl_info_entry_t*) p_bank_entry->signature,
                                 BL_INFO_LEN_SIGNATURE))
@@ -264,9 +269,9 @@ static void flash_bank_entry(void)
 * Interface functions
 *****************************************************************************/
 
-uint32_t dfu_bank_scan(void)
+void dfu_bank_scan(bool* p_bank_flash_started)
 {
-    for (uint32_t i = 1; i < 4; i <<= 1)
+    for (uint32_t i = 1; i <= 4; i <<= 1)
     {
         bl_info_entry_t* p_bank_entry = bootloader_info_entry_get((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + i));
         if (!p_bank_entry)
@@ -279,10 +284,19 @@ uint32_t dfu_bank_scan(void)
             m_dfu_type = (dfu_type_t) i;
             mp_bank_entry = &p_bank_entry->bank;
             flash_bank_entry();
-            break;
+            if (p_bank_flash_started)
+            {
+                *p_bank_flash_started = true;
+            }
+
+            return;
         }
     }
-    return NRF_SUCCESS;
+    mp_bank_entry = NULL;
+    if (p_bank_flash_started)
+    {
+        *p_bank_flash_started = false;
+    }
 }
 
 uint32_t dfu_bank_flash(dfu_type_t dfu_type)

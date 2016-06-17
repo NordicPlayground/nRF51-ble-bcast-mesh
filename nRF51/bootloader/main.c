@@ -36,7 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bl_if.h"
 #include "bootloader.h"
 #include "bootloader_info.h"
-#include "bl_log.h"
+#include "rtt_log.h"
 #include "rbc_mesh.h"
 #include "dfu_bank.h"
 
@@ -115,11 +115,9 @@ int main(void)
     NVIC_SetPriority(SWI2_IRQn, 2);
     NVIC_EnableIRQ(SWI2_IRQn);
     __enable_irq();
-#ifdef BL_LOG
+#ifdef RTT_LOG
     SEGGER_RTT_Init();
-    __LOG(  "================================================================================\n"
-            "= START | %s | ===========================================================\n"
-            "================================================================================\n", __TIME__);
+    __LOG("= START | %s | ===========================================================\n", __TIME__);
 #endif
 
     init_leds();

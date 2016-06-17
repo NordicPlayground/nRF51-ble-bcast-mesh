@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_info.h"
 #include "dfu_transfer_mesh.h"
 #include "SEGGER_RTT.h"
-#include "bl_log.h"
+#include "rtt_log.h"
 
 /*****************************************************************************
 * Local defines
@@ -89,13 +89,14 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
     {
         case BL_CMD_TYPE_INIT:
             m_evt_handler = p_bl_cmd->params.init.event_callback;
+            m_in_bl = !p_bl_cmd->params.init.in_app;
             if (p_bl_cmd->params.init.timer_count == 0 ||
                 p_bl_cmd->params.init.tx_slots < 2)
             {
                 return NRF_ERROR_INVALID_PARAM;
             }
-            if (bootloader_info_init((uint32_t*) (BOOTLOADER_INFO_ADDRESS),
-                                     (uint32_t*) (BOOTLOADER_INFO_BANK_ADDRESS))
+            if (bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS,
+                                     (uint32_t*) BOOTLOADER_INFO_BANK_ADDRESS)
                 != NRF_SUCCESS)
             {
                 return NRF_ERROR_INTERNAL;
@@ -104,6 +105,7 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
             break;
 
         case BL_CMD_TYPE_ENABLE:
+            __LOG("\tEnable\n");
             dfu_mesh_start();
             break;
 
@@ -120,6 +122,10 @@ uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd)
             return m_evt_handler(&rsp_evt);
 
         case BL_CMD_TYPE_DFU_START_TARGET:
+            __LOG("\tStart target (type 0x%x, bank 0x%x)\n",
+                    p_bl_cmd->params.dfu.start.target.type,
+                    p_bl_cmd->params.dfu.start.target.p_bank_start);
+
             return dfu_mesh_req(p_bl_cmd->params.dfu.start.target.type,
                     &p_bl_cmd->params.dfu.start.target.fwid,
                     p_bl_cmd->params.dfu.start.target.p_bank_start);

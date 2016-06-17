@@ -112,8 +112,10 @@ typedef enum
 
 typedef enum
 {
-    FLASH_OP_TYPE_WRITE,
-    FLASH_OP_TYPE_ERASE
+    FLASH_OP_TYPE_NONE  = 0x00,
+    FLASH_OP_TYPE_WRITE = 0x01,
+    FLASH_OP_TYPE_ERASE = 0x02,
+    FLASH_OP_TYPE_ALL   = 0x03
 } flash_op_type_t;
 
 typedef union
@@ -158,6 +160,7 @@ struct bl_cmd
             bl_if_cb_evt_t event_callback;
             uint8_t timer_count;
             uint8_t tx_slots;
+            bool in_app;
         } init;
         struct
         {
