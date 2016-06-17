@@ -543,31 +543,42 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
             break;
 
         case BL_EVT_TYPE_FLASH_ERASE:
-            __LOG("Erase flash at: 0x%x (length %d)\n", p_evt->params.flash.erase.start_addr, p_evt->params.flash.erase.length);
-
-            if (p_evt->params.flash.erase.start_addr & (NRF_FICR->CODEPAGESIZE - 1))
             {
-                return NRF_ERROR_INVALID_ADDR;
-            }
-            if (p_evt->params.flash.erase.length & (NRF_FICR->CODEPAGESIZE - 1))
-            {
-                return NRF_ERROR_INVALID_LENGTH;
-            }
 
-            return mesh_flash_op_push(FLASH_OP_TYPE_ERASE, &p_evt->params.flash);
+                if (p_evt->params.flash.erase.start_addr & (NRF_FICR->CODEPAGESIZE - 1))
+                {
+                    return NRF_ERROR_INVALID_ADDR;
+                }
+                if (p_evt->params.flash.erase.length & (NRF_FICR->CODEPAGESIZE - 1))
+                {
+                    return NRF_ERROR_INVALID_LENGTH;
+                }
+
+                uint32_t error_code = mesh_flash_op_push(FLASH_OP_TYPE_ERASE, &p_evt->params.flash);
+                if (error_code == NRF_SUCCESS)
+                {
+                    __LOG("\tErase flash at: 0x%x (length %d)\n", p_evt->params.flash.erase.start_addr, p_evt->params.flash.erase.length);
+                }
+                return error_code;
+            }
 
         case BL_EVT_TYPE_FLASH_WRITE:
-            __LOG("Write flash at: 0x%x (length %d)\n", p_evt->params.flash.write.start_addr, p_evt->params.flash.write.length);
-
-            if (p_evt->params.flash.write.start_addr & 0x03)
             {
-                return NRF_ERROR_INVALID_ADDR;
+                if (!IS_WORD_ALIGNED(p_evt->params.flash.write.start_addr))
+                {
+                    return NRF_ERROR_INVALID_ADDR;
+                }
+                if (!IS_WORD_ALIGNED(p_evt->params.flash.write.length))
+                {
+                    return NRF_ERROR_INVALID_LENGTH;
+                }
+                uint32_t error_code = mesh_flash_op_push(FLASH_OP_TYPE_WRITE, &p_evt->params.flash);
+                if (error_code == NRF_SUCCESS)
+                {
+                    __LOG("\tWrite flash at: 0x%x (length %d)\n", p_evt->params.flash.write.start_addr, p_evt->params.flash.write.length);
+                }
+                return error_code;
             }
-            if (p_evt->params.flash.write.length & 0x03)
-            {
-                return NRF_ERROR_INVALID_LENGTH;
-            }
-            return mesh_flash_op_push(FLASH_OP_TYPE_WRITE, &p_evt->params.flash);
 
         case BL_EVT_TYPE_TX_RADIO:
             __LOG("\tRADIO TX! SLOT %d, count %d, interval: %s, handle: %x\n",
