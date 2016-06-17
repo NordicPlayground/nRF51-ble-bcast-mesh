@@ -62,6 +62,9 @@ typedef __packed_armcc enum
 /** @brief Initialize serial handler */
 void mesh_aci_init(void);
 
+/** @brief Start the serial. */
+uint32_t mesh_aci_start(void);
+
 /** @brief asynchronous command handler */
 void mesh_aci_command_check(void);
 

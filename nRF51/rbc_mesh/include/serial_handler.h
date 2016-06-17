@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef __packed_armcc struct 
+typedef __packed_armcc struct
 {
   uint8_t status_byte;
   uint8_t buffer[SERIAL_DATA_MAX_LEN + 2];
@@ -46,6 +46,8 @@ typedef __packed_armcc struct
 
 
 void serial_handler_init(void);
+
+uint32_t serial_handler_credit_available(void);
 
 void serial_wait_for_completion(void);
 

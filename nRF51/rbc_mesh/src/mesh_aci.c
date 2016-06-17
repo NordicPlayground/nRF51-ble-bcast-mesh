@@ -555,6 +555,34 @@ void mesh_aci_init(void)
     serial_handler_init();
 }
 
+uint32_t mesh_aci_start(void)
+{
+    /* notify application controller of the start */
+    serial_evt_t started_event;
+    started_event.length = 4;
+    started_event.opcode = SERIAL_EVT_OPCODE_DEVICE_STARTED;
+#ifdef BOOTLOADER
+    started_event.params.device_started.operating_mode = OPERATING_MODE_SETUP;
+#else
+    started_event.params.device_started.operating_mode = OPERATING_MODE_STANDBY;
+#endif
+    uint32_t reset_reason;
+#ifdef SOFTDEVICE_PRESENT
+    sd_power_reset_reason_get(&reset_reason);
+#else
+    reset_reason = NRF_POWER->RESETREAS;
+#endif
+    started_event.params.device_started.hw_error = !!(reset_reason & (1 << 3));
+    started_event.params.device_started.data_credit_available = serial_handler_credit_available();
+
+    if (!serial_handler_event_send(&started_event))
+    {
+        return NRF_ERROR_NO_MEM;
+    }
+
+    return NRF_SUCCESS;
+}
+
 void mesh_aci_command_check(void)
 {
     serial_cmd_t serial_cmd;
