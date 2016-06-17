@@ -43,9 +43,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Debug related defines
 ******************************************************************************/
 #ifdef BOARD_PCA10000
-    #define TICK_PIN(x) 
-    #define SET_PIN(x) 
-    #define CLEAR_PIN(x) 
+    #define TICK_PIN(x)
+    #define SET_PIN(x)
+    #define CLEAR_PIN(x)
 #else
     #if RBC_MESH_DEBUG
       #define TICK_PIN(x) NRF_GPIO->OUTSET = (1 << (x)); \
@@ -56,9 +56,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       #define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
       #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
     #else
-      #define TICK_PIN(x) 
-      #define SET_PIN(x) 
-      #define CLEAR_PIN(x) 
+      #define TICK_PIN(x)
+      #define SET_PIN(x)
+      #define CLEAR_PIN(x)
     #endif
 #endif
 
@@ -107,17 +107,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #if RBC_MESH_DEBUG
     #define PIN_OUT(val,bitcount)      for (uint8_t i = 0; i < (bitcount); ++i){ if (((val) >> ((bitcount) - 1 - i) & 0x01)) { TICK_PIN(PIN_BIT_H); } else { TICK_PIN(PIN_BIT_L); } }
 #else
-    #define PIN_OUT(val,bitcount)   
+    #define PIN_OUT(val,bitcount)
 #endif
 
-#if RBC_MESH_DEBUG && DEBUG_LOG_RTT
-        #define _LOG(str, ...) SEGGER_RTT_printf(0, "%s[%s:%d]: %s" str, RTT_CTRL_TEXT_GREEN, __MODULE__, __LINE__, RTT_CTRL_TEXT_WHITE, ##__VA_ARGS__)
-#else
-#ifndef _LOG
-        #define _LOG(str, ...) 
-#endif
-#endif
-        
 #define CHECK_FP(fp) if ((uint32_t)fp < 0x18000UL || (uint32_t)fp > 0x20000000UL){APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);}
-        
+
 #endif /* _RBC_MESH_COMMON_H__ */
