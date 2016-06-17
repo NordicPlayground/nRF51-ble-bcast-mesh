@@ -40,6 +40,14 @@ typedef void(*mesh_flash_op_cb_t)(flash_op_type_t type, void* p_location);
 void mesh_flash_init(mesh_flash_op_cb_t cb);
 uint32_t mesh_flash_op_push(flash_op_type_t type, const flash_op_t* p_op);
 uint32_t mesh_flash_op_available_slots(void);
+bool mesh_flash_in_progress(void);
 void mesh_flash_op_execute(timestamp_t available_time);
+
+/**
+ * Suspend or unsuspend flash operations. Safe for multiple users.
+ *
+ * @param[in] suspend Whether to suspend the flash operations.
+ */
+void mesh_flash_set_suspended(bool suspend);
 
 #endif /* MESH_FLASH_H__ */
