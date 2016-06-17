@@ -323,19 +323,23 @@ uint32_t dfu_jump_to_bootloader(void)
     }
 }
 
-uint32_t dfu_rx(mesh_adv_data_t* p_adv)
+uint32_t dfu_rx(dfu_packet_t* p_packet, uint32_t length)
 {
-    if (p_adv->handle <= RBC_MESH_APP_MAX_HANDLE)
+    if (p_packet->packet_type <= RBC_MESH_APP_MAX_HANDLE)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    dfu_packet_t* p_dfu = (dfu_packet_t*) (&p_adv->handle);
+    if (mesh_flash_in_progress())
+    {
+        return NRF_ERROR_BUSY;
+    }
+
     bl_cmd_t rx_cmd =
     {
         .type = BL_CMD_TYPE_RX,
-        .params.rx.p_dfu_packet = p_dfu,
-        .params.rx.length = p_adv->adv_data_length - 3
+        .params.rx.p_dfu_packet = p_packet,
+        .params.rx.length = length
     };
 
     return dfu_cmd_send(&rx_cmd);

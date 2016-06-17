@@ -56,6 +56,18 @@ uint32_t dfu_init(void);
 uint32_t dfu_jump_to_bootloader(void);
 
 /**
+* Pass a dfu packet to the dfu module.
+*
+* @param[in] p_packet A pointer to a DFU packet.
+* @param[in] length The length of the DFU packet.
+*
+* @return NRF_SUCCESS The packet was successfully handled by the DFU module.
+* @return NRF_ERROR_BUSY The dfu module can't accept the request at the moment.
+* @return NRF_ERROR_NOT_AVAILABLE The dfu functionality is not available.
+*/
+uint32_t dfu_rx(dfu_packet_t* p_packet, uint32_t length);
+
+/**
 * Request a DFU transfer.
 *
 * The DFU transfer will run alongside the application, and store the firmware
