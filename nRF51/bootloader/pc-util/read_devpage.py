@@ -13,12 +13,12 @@ infos["00120003"] = ("SEGMENT_APP", 3)
 infos["001A0011"] = ("SIGN_SD", 17)
 infos["001B0011"] = ("SIGN_BL", 17)
 infos["001C0011"] = ("SIGN_APP", 17)
-infos["00210005"] = ("BANK_SD", 5)
-infos["00220005"] = ("BANK_BL", 5)
-infos["00240005"] = ("BANK_APP", 5)
-infos["00210015"] = ("BANK_SD_SIGNED", 21)
-infos["00220015"] = ("BANK_BL_SIGNED", 21)
-infos["00240015"] = ("BANK_APP_SIGNED", 21)
+infos["00210006"] = ("BANK_SD", 6)
+infos["00220006"] = ("BANK_BL", 6)
+infos["00240006"] = ("BANK_APP", 6)
+infos["00210016"] = ("BANK_SD_SIGNED", 21)
+infos["00220016"] = ("BANK_BL_SIGNED", 21)
+infos["00240016"] = ("BANK_APP_SIGNED", 21)
 
 
 def nrfjprog(args):
@@ -45,9 +45,13 @@ for word in words.split()[1:]:
             continue
 
         if not word in infos:
+            print("\nUnknown entry " + word + ". Device page invalid!")
             break
         (entry, step_count) = infos[word]
         valid_entry = True
+        if entry == "END":
+            sys.stdout.write("\n" + entry + ".")
+            break
         sys.stdout.write("\n" + entry + ": ")
         for i in range(0, PADSIZE - len(entry)):
             sys.stdout.write(" ")
