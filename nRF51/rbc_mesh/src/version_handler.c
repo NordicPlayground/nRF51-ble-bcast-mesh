@@ -248,6 +248,7 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)
             return error_code;
         }
 
+        mesh_packet_take_ownership(p_packet);
         handle_info_t new_info =
         {
             .p_packet = p_packet,
@@ -309,6 +310,7 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)
             return error_code;
         }
 
+        mesh_packet_take_ownership(p_packet);
         handle_info_t new_info =
         {
             .p_packet = p_packet,
