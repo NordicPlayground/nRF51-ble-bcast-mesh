@@ -365,7 +365,7 @@
               <MiscControls>--c99</MiscControls>
               <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT DEBUG</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\s110\headers</IncludePath>
+              <IncludePath>..\include;..\..\..\RTT;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\s110\headers</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -432,6 +432,16 @@
               <FileName>rbc_mesh.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\nrf_flash.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_flash.c</FilePath>
             </File>
             <File>
               <FileName>radio_control.c</FileName>
@@ -512,9 +522,9 @@
               </FileOption>
             </File>
             <File>
-              <FileName>serial_handler_spi.c</FileName>
+              <FileName>serial_handler_uart.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\serial_handler_spi.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\serial_handler_uart.c</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -585,19 +595,9 @@
               <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
             </File>
             <File>
-              <FileName>bootloader_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
-            </File>
-            <File>
               <FileName>rand.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_info_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
             </File>
             <File>
               <FileName>handle_storage.c</FileName>
@@ -608,6 +608,11 @@
               <FileName>timer_scheduler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\timer_scheduler.c</FilePath>
+            </File>
+            <File>
+              <FileName>dfu_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\dfu_app.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -629,6 +634,16 @@
         <Group>
           <GroupName>lib</GroupName>
           <Files>
+            <File>
+              <FileName>SEGGER_RTT_printf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\RTT\SEGGER_RTT_printf.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\RTT\SEGGER_RTT.c</FilePath>
+            </File>
             <File>
               <FileName>ble_advdata.c</FileName>
               <FileType>1</FileType>
@@ -920,7 +935,7 @@
             <NoZi2>0</NoZi2>
             <NoZi3>0</NoZi3>
             <NoZi4>0</NoZi4>
-            <NoZi5>0</NoZi5>
+            <NoZi5>1</NoZi5>
             <Ro1Chk>0</Ro1Chk>
             <Ro2Chk>0</Ro2Chk>
             <Ro3Chk>0</Ro3Chk>
@@ -930,7 +945,7 @@
             <Ra2Chk>0</Ra2Chk>
             <Ra3Chk>0</Ra3Chk>
             <Im1Chk>1</Im1Chk>
-            <Im2Chk>0</Im2Chk>
+            <Im2Chk>1</Im2Chk>
             <OnChipMemories>
               <Ocm1>
                 <Type>0</Type>
@@ -1019,13 +1034,13 @@
               </OCR_RVCT8>
               <OCR_RVCT9>
                 <Type>0</Type>
-                <StartAddress>0x20003000</StartAddress>
+                <StartAddress>0x20002000</StartAddress>
                 <Size>0x5000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
-                <StartAddress>0x0</StartAddress>
-                <Size>0x0</Size>
+                <StartAddress>0x20007000</StartAddress>
+                <Size>0xffc</Size>
               </OCR_RVCT10>
             </OnChipMemories>
             <RvctStartVector></RvctStartVector>
@@ -1048,9 +1063,9 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT RBC_MESH_SERIAL RBC_MESH_DATA_CACHE_ENTRIES=2 RBC_MESH_HANDLE_CACHE_ENTRIES=3</Define>
+              <Define>RTT_LOG DEBUG BUTTONS BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT RBC_MESH_SERIAL RBC_MESH_DATA_CACHE_ENTRIES=2 RBC_MESH_HANDLE_CACHE_ENTRIES=3</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
+              <IncludePath>..\include;..\..\..\RTT;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1119,6 +1134,16 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
+              <FileName>nrf_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\nrf_flash.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_flash.c</FilePath>
+            </File>
+            <File>
               <FileName>radio_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\radio_control.c</FilePath>
@@ -1154,9 +1179,9 @@
               <FilePath>..\..\..\rbc_mesh\src\mesh_aci.c</FilePath>
             </File>
             <File>
-              <FileName>serial_handler_spi.c</FileName>
+              <FileName>serial_handler_uart.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\serial_handler_spi.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\serial_handler_uart.c</FilePath>
             </File>
             <File>
               <FileName>fifo.c</FileName>
@@ -1184,19 +1209,9 @@
               <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
             </File>
             <File>
-              <FileName>bootloader_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
-            </File>
-            <File>
               <FileName>rand.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_info_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
             </File>
             <File>
               <FileName>handle_storage.c</FileName>
@@ -1207,6 +1222,11 @@
               <FileName>timer_scheduler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\timer_scheduler.c</FilePath>
+            </File>
+            <File>
+              <FileName>dfu_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\dfu_app.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1228,6 +1248,16 @@
         <Group>
           <GroupName>lib</GroupName>
           <Files>
+            <File>
+              <FileName>SEGGER_RTT_printf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\RTT\SEGGER_RTT_printf.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\RTT\SEGGER_RTT.c</FilePath>
+            </File>
             <File>
               <FileName>ble_advdata.c</FileName>
               <FileType>1</FileType>
@@ -1604,9 +1634,9 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT BUTTONS DEBUG</Define>
+              <Define>RBC_MESH_DEBUG DEBUG_LOG_RTT BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT BUTTONS DEBUG</Define>
               <Undefine></Undefine>
-              <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
+              <IncludePath>..\include;..\..\..\RTT;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1673,6 +1703,16 @@
               <FileName>rbc_mesh.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\nrf_flash.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_flash.c</FilePath>
             </File>
             <File>
               <FileName>radio_control.c</FileName>
@@ -1753,9 +1793,9 @@
               </FileOption>
             </File>
             <File>
-              <FileName>serial_handler_spi.c</FileName>
+              <FileName>serial_handler_uart.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\serial_handler_spi.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\serial_handler_uart.c</FilePath>
               <FileOption>
                 <CommonProperty>
                   <UseCPPCompiler>2</UseCPPCompiler>
@@ -1826,19 +1866,9 @@
               <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
             </File>
             <File>
-              <FileName>bootloader_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
-            </File>
-            <File>
               <FileName>rand.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_info_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
             </File>
             <File>
               <FileName>handle_storage.c</FileName>
@@ -1849,6 +1879,11 @@
               <FileName>timer_scheduler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\timer_scheduler.c</FilePath>
+            </File>
+            <File>
+              <FileName>dfu_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\dfu_app.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1870,6 +1905,16 @@
         <Group>
           <GroupName>lib</GroupName>
           <Files>
+            <File>
+              <FileName>SEGGER_RTT_printf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\RTT\SEGGER_RTT_printf.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\RTT\SEGGER_RTT.c</FilePath>
+            </File>
             <File>
               <FileName>ble_advdata.c</FileName>
               <FileType>1</FileType>
