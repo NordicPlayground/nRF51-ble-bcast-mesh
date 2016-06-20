@@ -73,7 +73,7 @@ Additional information:
 */
 
 #ifndef   BUFFER_SIZE_UP
-  #define BUFFER_SIZE_UP                                  4096  // Size of the buffer for terminal output of target, up to host
+  #define BUFFER_SIZE_UP                                  1024  // Size of the buffer for terminal output of target, up to host
 #endif
 
 #ifndef   BUFFER_SIZE_DOWN
@@ -81,11 +81,11 @@ Additional information:
 #endif
 
 #ifndef   SEGGER_RTT_MAX_NUM_UP_BUFFERS
-  #define SEGGER_RTT_MAX_NUM_UP_BUFFERS                    2    // Number of up-buffers (T->H) available on this target
+  #define SEGGER_RTT_MAX_NUM_UP_BUFFERS                    1    // Number of up-buffers (T->H) available on this target
 #endif
 
 #ifndef   SEGGER_RTT_MAX_NUM_DOWN_BUFFERS
-  #define SEGGER_RTT_MAX_NUM_DOWN_BUFFERS                  2    // Number of down-buffers (H->T) available on this target
+  #define SEGGER_RTT_MAX_NUM_DOWN_BUFFERS                  1    // Number of down-buffers (H->T) available on this target
 #endif
 
 #ifndef   SEGGER_RTT_MODE_DEFAULT
@@ -140,12 +140,12 @@ static unsigned char _aTerminalId[16] = { '0', '1', '2', '3', '4', '5', '6', '7'
 //
 // Allocate buffers for channel 0
 //
-static char _acUpBuffer  [BUFFER_SIZE_UP]   __attribute__((at(0x20006000)));
-static char _acDownBuffer[BUFFER_SIZE_DOWN] __attribute__((at(0x20005FF0)));
+static char _acUpBuffer  [BUFFER_SIZE_UP]   __attribute__((at(0x20003000)));
+static char _acDownBuffer[BUFFER_SIZE_DOWN] __attribute__((at(0x20002FF0)));
 //
 // Initialize SEGGER Real-time-Terminal control block (CB)
 //
-SEGGER_RTT_CB _SEGGER_RTT __attribute__((at(0x20003000)));
+SEGGER_RTT_CB _SEGGER_RTT __attribute__((at(0x20002E00)));
 
 static char _ActiveTerminal;
 

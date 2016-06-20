@@ -58,17 +58,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /** @brief Default value for the number of handle cache entries */
 #ifndef RBC_MESH_HANDLE_CACHE_ENTRIES
-    #define RBC_MESH_HANDLE_CACHE_ENTRIES           (100)
+    #define RBC_MESH_HANDLE_CACHE_ENTRIES           (10)
 #endif
 
 /** @brief Default value for the number of data cache entries */
 #ifndef RBC_MESH_DATA_CACHE_ENTRIES
-    #define RBC_MESH_DATA_CACHE_ENTRIES             (35)
+    #define RBC_MESH_DATA_CACHE_ENTRIES             (10)
 #endif
 
 /** @brief Length of app-event FIFO. Must be power of two. */
 #ifndef RBC_MESH_APP_EVENT_QUEUE_LENGTH
-    #define RBC_MESH_APP_EVENT_QUEUE_LENGTH         (16)
+    #define RBC_MESH_APP_EVENT_QUEUE_LENGTH         (8)
 #endif
 
 /** @brief Length of low level radio event FIFO. Must be power of two. */
