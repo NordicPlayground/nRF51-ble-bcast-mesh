@@ -40,6 +40,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *   and the mesh service.
 */
 
+/**
+* Transport configuration for outgoing packets.
+*/
+typedef struct
+{
+    uint32_t access_address;    /**< Access address going on air. */
+    uint8_t first_channel;      /**< Channel offset in the channel map. */
+    uint8_t channel_map;        /**< Bitmap for channels to transmit on. */
+} tc_tx_config_t;
+
+
+/** @brief Function pointer type for packet peek callback. */
+typedef void (*packet_peek_cb_t)(mesh_packet_t* p_packet,
+                                 uint32_t crc,
+                                 uint32_t timestamp,
+                                 uint8_t rssi);
+
+
 void tc_init(uint32_t access_address, uint8_t channel);
 
 void tc_radio_params_set(uint32_t access_address, uint8_t channel);
@@ -49,10 +67,16 @@ void tc_on_ts_begin(void);
 /**
 * @brief: Assemble a packet by getting data from server based on params,
 *   and place it on the radio queue.
+*
+* @params[in] p_packet Pointer to a BLE-packet to send.
+* @params[in] p_tx_config TX configuration for the transmission.
+*
+* @return NRF_SUCCESS The packets was scheduled for transmission on all indicated channels.
+* @return NRF_ERROR_NO_MEM One or more packets failed.
 */
-uint32_t tc_tx(mesh_packet_t* p_packet);
+uint32_t tc_tx(mesh_packet_t* p_packet, const tc_tx_config_t* p_tx_config);
 
-void tc_packet_handler(uint8_t* data, uint32_t crc, uint64_t timestamp, uint8_t rssi);
+void tc_packet_handler(uint8_t* data, uint32_t crc, uint32_t timestamp, uint8_t rssi);
 
 /**
 * @brief Set packet peek function pointer. Every received packet will be

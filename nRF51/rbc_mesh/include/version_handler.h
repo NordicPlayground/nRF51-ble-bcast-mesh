@@ -36,17 +36,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-uint32_t vh_init(uint32_t min_interval_us);
+uint32_t vh_init(uint32_t min_interval_us, 
+                 uint32_t access_address,
+                 uint8_t channel);
 
 uint32_t vh_min_interval_set(uint32_t min_interval_us);
 
-uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi);
+uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi);
 
 uint32_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t length);
 
 uint32_t vh_on_timeslot_begin(void);
 
-uint32_t vh_order_update(uint64_t time_now);
+uint32_t vh_order_update(uint32_t time_now);
 
 /** @brief: Make copy of payload for given handle. */
 uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* length);

@@ -32,8 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "handle_storage.h"
 #include "transport_control.h"
-#include "timeslot_handler.h"
-#include "timer_control.h"
+#include "timer.h"
+#include "timer_scheduler.h"
 #include "event_handler.h"
 #include "rbc_mesh_common.h"
 #include "toolchain.h"
@@ -61,6 +61,8 @@ extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 * Static globals
 ******************************************************************************/
 static bool             m_is_initialized = false;
+static timer_event_t    m_tx_timer_evt;
+static tc_tx_config_t   m_tx_config;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -116,46 +118,54 @@ static bool payload_has_conflict(mesh_adv_data_t* p_old_adv, mesh_adv_data_t* p_
 }
 
 
-static void transmit_all_instances(uint64_t timestamp);
+static void transmit_all_instances(uint32_t timestamp, void* p_context);
 
-static void order_next_transmission(uint64_t time_now)
+static void order_next_transmission(uint32_t time_now)
 {
-    uint64_t timeout = handle_storage_next_timeout_get();
-    time_now = timer_get_timestamp();
-    uint64_t ts_begin_time = timeslot_get_global_time();
-    if (timeout < ts_begin_time + time_now + 1000)
+    bool found_value;
+    uint32_t timeout = handle_storage_next_timeout_get(&found_value);
+    if (!found_value)
     {
-        vh_order_update(timeout - ts_begin_time);
+        return;
+    }
+    if (timeout < time_now + 1000)
+    {
+        vh_order_update(timeout);
     }
     else
     {
-        timer_order_cb(TIMER_INDEX_VH, timeout - ts_begin_time, transmit_all_instances);
+        if (timer_sch_reschedule(&m_tx_timer_evt, timeout) != NRF_SUCCESS)
+        {
+            vh_order_update(timeout);
+        }
+        else
+        {
+            TICK_PIN(1);
+        }
     }
 }
 
-static void transmit_all_instances(uint64_t timestamp)
+static void transmit_all_instances(uint32_t timestamp, void* p_context)
 {
     SET_PIN(8);
-    //timestamp = timer_get_timestamp();
-    uint64_t timeslot_start = timeslot_get_global_time();
     mesh_packet_t* pp_tx_packets[RBC_MESH_RADIO_QUEUE_LENGTH - 1];
     uint32_t count = RBC_MESH_RADIO_QUEUE_LENGTH - 1;
 
-    uint32_t error_code = handle_storage_tx_packets_get(timestamp + timeslot_start, pp_tx_packets, &count);
+    uint32_t error_code = handle_storage_tx_packets_get(timestamp, pp_tx_packets, &count);
     if (error_code == NRF_SUCCESS)
     {
         uint32_t was_masked;
         _DISABLE_IRQS(was_masked);
         for (uint32_t i = 0; i < count; ++i)
         {
-            error_code = tc_tx(pp_tx_packets[i]);
+            error_code = tc_tx(pp_tx_packets[i], &m_tx_config);
             if (error_code == NRF_SUCCESS)
             {
                 mesh_adv_data_t* p_adv = mesh_packet_adv_data_get(pp_tx_packets[i]);
                 if (p_adv)
                 {
                     PIN_OUT(p_adv->handle, 8);
-                    APP_ERROR_CHECK(handle_storage_transmitted(p_adv->handle, timestamp + timeslot_start));
+                    APP_ERROR_CHECK(handle_storage_transmitted(p_adv->handle, timestamp));
                 }
                 else
                 {
@@ -173,13 +183,24 @@ static void transmit_all_instances(uint64_t timestamp)
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
-uint32_t vh_init(uint32_t min_interval_us)
+uint32_t vh_init(uint32_t min_interval_us,
+                 uint32_t access_address,
+                 uint8_t channel)
 {
     uint32_t error_code = handle_storage_init(min_interval_us);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
     }
+
+    m_tx_timer_evt.p_next = NULL;
+    m_tx_timer_evt.cb = transmit_all_instances;
+    m_tx_timer_evt.interval = 0;
+    m_tx_timer_evt.p_context = NULL;
+
+    m_tx_config.access_address = access_address;
+    m_tx_config.first_channel = channel;
+    m_tx_config.channel_map = 1; /* Only the first channel */
 
     m_is_initialized = true;
     return NRF_SUCCESS;
@@ -190,7 +211,7 @@ uint32_t vh_min_interval_set(uint32_t min_interval_us)
     return handle_storage_min_interval_set(min_interval_us);
 }
 
-uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
+uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)
 {
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
     if (p_adv_data == NULL)
@@ -205,19 +226,19 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
 
     /* prepare app event */
     rbc_mesh_event_t evt;
-    evt.version_delta = delta;
-    evt.ble_adv_addr.addr_type = p_packet->header.addr_type;
-    memcpy(evt.ble_adv_addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
-    evt.rssi = -((int8_t) rssi);
-    evt.data = p_adv_data->data;
-    evt.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
-    evt.value_handle = p_adv_data->handle;
+    evt.params.rx.version_delta = delta;
+    evt.params.rx.ble_adv_addr.addr_type = p_packet->header.addr_type;
+    memcpy(evt.params.rx.ble_adv_addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
+    evt.params.rx.rssi = -((int8_t) rssi);
+    evt.params.rx.p_data = p_adv_data->data;
+    evt.params.rx.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+    evt.params.rx.value_handle = p_adv_data->handle;
 
     if (error_code == NRF_ERROR_NOT_FOUND)
     {
         /* couldn't find the handle in the handle storage */
-        evt.event_type = RBC_MESH_EVENT_TYPE_NEW_VAL;
-        evt.version_delta = delta;
+        evt.type = RBC_MESH_EVENT_TYPE_NEW_VAL;
+        evt.params.rx.version_delta = delta;
 
         /* First allocate an element in the storage to ensure that we're not out of memory. */
         error_code = handle_storage_info_set(p_adv_data->handle, &info);
@@ -265,7 +286,7 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
         if (p_stored_adv_data &&
             payload_has_conflict(p_stored_adv_data, p_adv_data))
         {
-            evt.event_type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
+            evt.type = RBC_MESH_EVENT_TYPE_CONFLICTING_VAL;
             rbc_mesh_event_push(&evt); /* not really important whether this succeeds. */
 
 #ifdef RBC_MESH_SERIAL
@@ -277,8 +298,8 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint64_t timestamp, uint8_t rssi)
     }
     else /* delta > 0 */
     {
-        evt.event_type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-        evt.version_delta = delta;
+        evt.type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
+        evt.params.rx.version_delta = delta;
 
         /* First allocate an element in the storage to ensure that we're not out of memory. */
         error_code = handle_storage_info_set(p_adv_data->handle, &info);
@@ -344,7 +365,7 @@ uint32_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t 
     error_code = handle_storage_local_packet_push(p_packet);
     if (error_code == NRF_SUCCESS)
     {
-        vh_order_update(timer_get_timestamp()); /* will be executed after the packet push */
+        vh_order_update(timer_now()); /* will be executed after the packet push */
     }
 
     mesh_packet_ref_count_dec(p_packet);
@@ -353,16 +374,17 @@ uint32_t vh_local_update(rbc_mesh_value_handle_t handle, uint8_t* data, uint8_t 
 
 uint32_t vh_on_timeslot_begin(void)
 {
-    return vh_order_update(TIMESLOT_STARTUP_DELAY_US);
+    return vh_order_update(timer_now());
 }
 
-uint32_t vh_order_update(uint64_t time_now)
+uint32_t vh_order_update(uint32_t time_now)
 {
     /* handle expired trickle timers */
     async_event_t tx_event;
-    tx_event.type = EVENT_TYPE_TIMER;
-    tx_event.callback.timer.cb = transmit_all_instances;
-    tx_event.callback.timer.timestamp = time_now;
+    tx_event.type = EVENT_TYPE_TIMER_SCH;
+    tx_event.callback.timer_sch.cb = transmit_all_instances;
+    tx_event.callback.timer_sch.timestamp = time_now;
+    tx_event.callback.timer_sch.p_context = NULL;
     return event_handler_push(&tx_event);
 }
 

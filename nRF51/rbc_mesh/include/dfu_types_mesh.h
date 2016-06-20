@@ -27,11 +27,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef _DFU_TYPES_H__
-#define _DFU_TYPES_H__
+#ifndef DFU_TYPES_H__
+#define DFU_TYPES_H__
 
 #include <stdint.h>
-#include "rbc_mesh.h"
+#include <stdbool.h>
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE                   (0x400)
@@ -73,8 +73,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define SEGMENT_LENGTH              (16)
 
-#define DATA_SEQ_END                (0xFFFF)
-
 #define DFU_AUTHORITY_MAX           (0x07)
 
 #define DFU_FWID_LEN_APP            (10)
@@ -90,7 +88,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_PACKET_LEN_DATA_REQ     (2 + 2 + 4)
 #define DFU_PACKET_LEN_DATA_RSP     (2 + 2 + 4 + SEGMENT_LENGTH)
 
+
+#define DFU_PACKET_ADV_OVERHEAD     (1 /* adv_type */ + 2 /* UUID */) /* overhead inside adv data */
+#define DFU_PACKET_OVERHEAD         (MESH_PACKET_BLE_OVERHEAD + 1 + DFU_PACKET_ADV_OVERHEAD) /* dfu packet total overhead */
 #define SERIAL_PACKET_OVERHEAD      (1)
+
+#define DFU_PUBLIC_KEY_LEN          (64)
+#define DFU_SIGNATURE_LEN           (64)
+
+#define BL_INFO_LEN_PUBLIC_KEY      (DFU_PUBLIC_KEY_LEN)
+#define BL_INFO_LEN_SEGMENT         (sizeof(bl_info_segment_t))
+#define BL_INFO_LEN_FWID            (sizeof(fwid_t))
+#define BL_INFO_LEN_FLAGS           (sizeof(bl_info_flags_t))
+#define BL_INFO_LEN_SIGNATURE       (DFU_SIGNATURE_LEN)
+#define BL_INFO_LEN_BANK_SIGNED     (sizeof(bl_info_bank_t))
+#define BL_INFO_LEN_BANK            (BL_INFO_LEN_BANK_SIGNED - DFU_SIGNATURE_LEN)
 
 typedef uint16_t segment_t;
 typedef uint16_t seq_t;
@@ -145,11 +157,6 @@ typedef struct __attribute((packed))
     uint16_t packet_type;
     union __attribute((packed))
     {
-        struct __attribute((packed))
-        {
-            uint16_t version;
-            uint8_t data[RBC_MESH_VALUE_MAX_LEN];
-        } raw;
         fwid_t fwid;
         struct __attribute((packed))
         {
@@ -195,4 +202,139 @@ typedef struct __attribute((packed))
     } payload;
 } dfu_packet_t;
 
-#endif /* _DFU_TYPES_H__ */
+typedef enum
+{
+    BL_INFO_TYPE_INVALID            = 0x00,
+    BL_INFO_TYPE_ECDSA_PUBLIC_KEY   = 0x01,
+    BL_INFO_TYPE_VERSION            = 0x02,
+    BL_INFO_TYPE_FLAGS              = 0x04,
+
+    BL_INFO_TYPE_SEGMENT_SD         = 0x10,
+    BL_INFO_TYPE_SEGMENT_BL         = 0x11,
+    BL_INFO_TYPE_SEGMENT_APP        = 0x12,
+
+    BL_INFO_TYPE_SIGNATURE_SD       = 0x1A,
+    BL_INFO_TYPE_SIGNATURE_BL       = 0x1B,
+    BL_INFO_TYPE_SIGNATURE_APP      = 0x1C,
+    BL_INFO_TYPE_SIGNATURE_BL_INFO  = 0x1D,
+
+    BL_INFO_TYPE_BANK_BASE          = 0x20, /**< Only for adding offset to get the correct entry. */
+    BL_INFO_TYPE_BANK_SD            = 0x21,
+    BL_INFO_TYPE_BANK_BL            = 0x22,
+    BL_INFO_TYPE_BANK_APP           = 0x24,
+    BL_INFO_TYPE_BANK_BL_INFO       = 0x28,
+
+    BL_INFO_TYPE_TEST               = 0x100,
+
+    BL_INFO_TYPE_LAST               = 0x7FFF,
+    BL_INFO_TYPE_UNUSED             = 0xFFFF,
+} bl_info_type_t;
+
+typedef struct
+{
+    uint32_t start;
+    uint32_t length;
+} bl_info_segment_t;
+
+typedef enum
+{
+    DFU_END_SUCCESS,                             /**< The transfer ended successfully. */
+    DFU_END_FWID_VALID,                          /**< The FWID was valid, and the bootloader stopped operation. */
+    DFU_END_APP_ABORT,                           /**< The application requested to abort the transfer. */
+    DFU_END_ERROR_PACKET_LOSS,
+    DFU_END_ERROR_UNAUTHORIZED,
+    DFU_END_ERROR_NO_START,
+    DFU_END_ERROR_TIMEOUT,
+    DFU_END_ERROR_NO_MEM,
+    DFU_END_ERROR_INVALID_PERSISTENT_STORAGE,
+    DFU_END_ERROR_SEGMENT_VIOLATION,
+    DFU_END_ERROR_MBR_CALL_FAILED,
+    DFU_END_ERROR_INVALID_TRANSFER,
+    DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA
+} dfu_end_t;
+
+typedef enum
+{
+    DFU_STATE_INITIALIZED,      /**< The DFU module has been initialized, but not started. */
+    DFU_STATE_FIND_FWID,        /**< There's no DFU operation in progress. */
+    DFU_STATE_DFU_REQ,          /**< Beaconing requests for transfers. */
+    DFU_STATE_DFU_READY,        /**< Ready to receive a transfer. */
+    DFU_STATE_DFU_TARGET,       /**< Receiving a transfer. */
+    DFU_STATE_VALIDATE,         /**< Validating and finishing up a transfer. */
+    DFU_STATE_STABILIZE,        /**< Waiting for metadata about validated transfer to be written. */
+    DFU_STATE_RELAY_CANDIDATE,  /**< Beaconing intent to relay a transfer. */
+    DFU_STATE_RELAY             /**< Passively relaying a transfer. */
+} dfu_state_t;
+
+/** The various roles a device can play in a dfu transfer. */
+typedef enum
+{
+    DFU_ROLE_NONE,      /**< No role. */
+    DFU_ROLE_TARGET,    /**< The target role. A receiver of a transfer. */
+    DFU_ROLE_RELAY,     /**< The relay role. A passive forwarding role. */
+    DFU_ROLE_SOURCE     /**< The source role. The originator of a transfer. */
+} dfu_role_t;
+
+/** Current state of a transfer. */
+typedef struct
+{
+    dfu_role_t      role;           /**< This device's intended role in the transfer. */
+    dfu_type_t      type;           /**< The DFU type of the transfer. */
+    fwid_union_t    fwid;           /**< The FWID of the new data in the transfer. */
+    dfu_state_t     state;          /**< The current global state of the transfer. */
+    uint8_t         data_progress;  /**< The progress of the transfer in percent (0-100). */
+} dfu_transfer_state_t;
+
+/** DFU Bank info structure. */
+typedef struct
+{
+    dfu_type_t dfu_type;    /**< DFU type of the bank. */
+    fwid_union_t fwid;      /**< Firmware ID of the bank. */
+    bool is_signed;         /**< Flag indicating whether the bank is signed with an encryption key. */
+    uint32_t* p_start_addr; /**< Start address of the bank. */
+    uint32_t length;        /**< Length of the firmware in the bank. */
+} dfu_bank_info_t;
+
+typedef fwid_t bl_info_version_t;
+
+typedef struct
+{
+    uint32_t sd_intact          :  1;
+    uint32_t bl_intact          :  1;
+    uint32_t app_intact         :  1;
+    uint32_t page_is_invalid    :  1;
+} bl_info_flags_t;
+
+/**
+ * State of info bank. Written to allow state machine progression being stored
+ * in flash without needing erase.
+ */
+typedef enum
+{
+    BL_INFO_BANK_STATE_IDLE         = 0xFF, /**< The bank has not been touched since it got transferred. */
+    BL_INFO_BANK_STATE_FLASH_FW     = 0xFE, /**< In the process of flashing the bank. */
+    BL_INFO_BANK_STATE_FLASH_META   = 0xFC, /**< In the process of flashing metadata (signature and firmware) */
+    BL_INFO_BANK_STATE_FLASHED      = 0xF8, /**< The bank has been flashed, and can be invalidated. */
+} bl_info_bank_state_t;
+
+typedef struct
+{
+    uint32_t*               p_bank_addr;
+    uint32_t                length;
+    fwid_union_t            fwid;
+    bool                    has_signature;
+    bl_info_bank_state_t    state;
+    uint8_t                 signature[BL_INFO_LEN_SIGNATURE];
+} bl_info_bank_t;
+
+typedef union
+{
+    uint8_t             public_key[BL_INFO_LEN_PUBLIC_KEY];
+    uint8_t             signature[BL_INFO_LEN_SIGNATURE];
+    bl_info_segment_t   segment;
+    bl_info_version_t   version;
+    bl_info_flags_t     flags;
+    bl_info_bank_t      bank;
+} bl_info_entry_t;
+
+#endif /* DFU_TYPES_H__ */

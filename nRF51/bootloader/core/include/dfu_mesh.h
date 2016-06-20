@@ -32,14 +32,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "sha256.h"
+#include "dfu_types_mesh.h"
+#include "mesh_packet.h"
+#include "bl_if.h"
 
-void dfu_init(void);
-uint32_t dfu_start(uint32_t* p_start_addr, uint32_t* p_bank_addr, uint32_t size, uint32_t section_size, bool final_transfer);
-uint32_t dfu_data(uint32_t p_addr, uint8_t* p_data, uint16_t length);
-bool dfu_has_entry(uint32_t* p_addr, uint8_t* p_out_buffer, uint16_t len);
-bool dfu_get_oldest_missing_entry(uint32_t* p_start_addr, uint32_t** pp_entry, uint32_t* p_len);
-void dfu_sha256(sha256_context_t* p_hash_context);
-void dfu_end(void);
+#define SD_VERSION_INVALID                  (0x0000)
+#define APP_VERSION_INVALID                 (0x00000000)
+
+void dfu_mesh_init(uint8_t tx_slots);
+void dfu_mesh_start(void);
+uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial);
+void dfu_mesh_timeout(void);
+void dfu_mesh_packet_set_local_fields(mesh_packet_t* p_packet, uint8_t dfu_packet_len);
+uint32_t dfu_mesh_req(dfu_type_t type, fwid_union_t* p_fwid, uint32_t* p_bank_addr);
+uint32_t dfu_mesh_relay(dfu_type_t type, fwid_union_t* p_fwid, uint32_t transaction_id);
+dfu_type_t dfu_mesh_missing_type_get(void);
+bool dfu_mesh_app_is_valid(void);
+uint32_t dfu_mesh_finalize(void);
+void dfu_mesh_restart(void);
+void dfu_mesh_on_flash_idle(void);
 
 #endif /* DFU_MESH_H__ */

@@ -36,9 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define TX_REPEATS_EXPONENTIAL_MAX      (12)
 #define TX_REPEATS_INF                  (0xFF)
-
-#define DFU_PACKET_ADV_OVERHEAD         (1 /* adv_type */ + 2 /* UUID */) /* overhead inside adv data */
-#define DFU_PACKET_OVERHEAD             (MESH_PACKET_BLE_OVERHEAD + 1 + DFU_PACKET_ADV_OVERHEAD) /* dfu packet total overhead */
+#define TRANSPORT_TX_SLOTS              (8)
 
 typedef enum
 {
@@ -51,10 +49,10 @@ typedef void(*rx_cb_t)(mesh_packet_t* p_packet);
 
 void transport_init(rx_cb_t rx_cb, uint32_t access_addr);
 void transport_start(void);
-bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type, release_cb_t release_cb);
-void transport_tx_reset(mesh_packet_t* p_packet);
-void transport_tx_skip(mesh_packet_t* p_packet);
-void transport_tx_abort(mesh_packet_t* p_packet);
+bool transport_tx(mesh_packet_t* p_packet, uint8_t slot, uint8_t repeats, tx_interval_type_t type);
+void transport_tx_reset(uint8_t slot);
+void transport_tx_skip(uint8_t slot);
+void transport_tx_abort(uint8_t slot);
 void transport_rtc_irq_handler(void);
 
 #endif /* TRANSPORT_H__ */

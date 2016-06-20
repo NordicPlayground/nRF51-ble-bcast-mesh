@@ -50,11 +50,6 @@ void mesh_packet_init(void)
     }
 }
 
-void mesh_packet_on_ts_begin(void)
-{
-    /* do nothing */
-}
-
 bool mesh_packet_acquire(mesh_packet_t** pp_packet)
 {
     uint32_t was_masked;

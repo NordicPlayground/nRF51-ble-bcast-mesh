@@ -35,6 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf51.h"
 #include "nrf_sdm.h"
 #include "ble.h"
+#include "dfu_types_mesh.h"
 
 #define RBC_MESH_ACCESS_ADDRESS_BLE_ADV             (0x8E89BED6) /**< BLE spec defined access address. */
 #define RBC_MESH_INTERVAL_MIN_MIN_MS                (5) /**< Lowest min-interval allowed. */
@@ -44,8 +45,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RBC_MESH_APP_MAX_HANDLE                     (0xFFEF) /**< Upper limit to application defined handles. The last 16 handles are reserved for mesh-maintenance. */
 
 #define RBC_MESH_GPREGRET_CODE_GO_TO_APP            (0x00) /**< Retention register code for immediately starting application when entering bootloader. The default behavior. */
-#define RBC_MESH_GPREGRET_CODE_FORCED_REBOOT        (0x01) /**< Retention register code for telling the bootloader it's been started on purpose. */
-#define RBC_MESH_GPREGRET_CODE_BANK_FLASH           (0x02) /**< Retention register code for telling the bootloader we've flashed a bank. */
+#define RBC_MESH_GPREGRET_CODE_FORCED_REBOOT        (0x01) /**< Retention register code for telling the bootloader it's been started on purpose */
+
 /*
    There are two caches in the framework:
    - The handle cache keeps track of the latest version number for each handle.
@@ -104,23 +105,84 @@ typedef uint16_t rbc_mesh_value_handle_t;
 /** @brief Event type enum. Identifies framework generated events */
 typedef enum
 {
-    RBC_MESH_EVENT_TYPE_UPDATE_VAL,      /** Another node has updated the value */
-    RBC_MESH_EVENT_TYPE_CONFLICTING_VAL, /** Another node has a conflicting version of the value */
-    RBC_MESH_EVENT_TYPE_NEW_VAL,         /** A previously unallocated value has been received and allocated */
-    RBC_MESH_EVENT_TYPE_INITIALIZED,     /** The framework has been initialized internally (most likely via serial interface) */
-    RBC_MESH_EVENT_TYPE_TX,              /** The indicated handle was transmitted */
+    RBC_MESH_EVENT_TYPE_UPDATE_VAL,             /**< Another node has updated the value. Parameters in rx sub-structure. */
+    RBC_MESH_EVENT_TYPE_CONFLICTING_VAL,        /**< Another node has a conflicting version of the value. Parameters in rx sub-structure.  */
+    RBC_MESH_EVENT_TYPE_NEW_VAL,                /**< A previously unallocated value has been received and allocated. Parameters in rx sub-structure. */
+    RBC_MESH_EVENT_TYPE_INITIALIZED,            /**< The framework has been initialized internally (most likely via serial interface). No parameters. */
+    RBC_MESH_EVENT_TYPE_TX,                     /**< The indicated handle was transmitted. Parameters in tx sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE,   /**< The dfu module has detected that a newer version of the current firmware is available. Parameters in dfu.new_fw sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_RELAY_REQ,          /**< A DFU transfer is about to start in the network, and our device is able to act as a relay. Parameters in dfu.relay_req sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_SOURCE_REQ,         /**< A DFU transfer is about to start in the network, and our device is able to act as a source. Parameters in dfu.source_req sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_START,              /**< The dfu module has started its target role. Parameters in dfu.start sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_END,                /**< The dfu module has ended its target role. Paramters in dfu.end sub-structure. */
+    RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE,     /**< The dfu module found a bank available for flashing. Parameters in dfu.bank sub-structure. */
 } rbc_mesh_event_type_t;
 
-/** @brief Rebroadcast framework generated event. */
+/** @brief OpenMesh framework generated event. */
 typedef struct
 {
-    rbc_mesh_event_type_t event_type;       /**< See @ref rbc_mesh_event_type_t */
-    rbc_mesh_value_handle_t value_handle;   /**< Handle of the value the event is generated for */
-    uint8_t* data;                          /**< Current data array contained at the event handle location */
-    uint8_t data_len;                       /**< Length of data array */
-    int8_t rssi;                            /**< RSSI of received data, in range of -100dBm to ~-40dBm */
-    ble_gap_addr_t ble_adv_addr;            /**< Advertisement address of the device we got the update from. */
-    uint16_t version_delta;                 /**< Version number increase since last update */
+    rbc_mesh_event_type_t type;                     /**< See @ref rbc_mesh_event_type_t */
+    union
+    {
+        struct
+        {
+            rbc_mesh_value_handle_t value_handle;   /**< Handle of the value the event is generated for. */
+            uint8_t* p_data;                        /**< Current data array contained at the event handle location. */
+            uint8_t data_len;                       /**< Length of data array. */
+            int8_t rssi;                            /**< RSSI of received data, in range of -100dBm to ~-40dBm. */
+            ble_gap_addr_t ble_adv_addr;            /**< Advertisement address of the device we got the update from. */
+            uint16_t version_delta;                 /**< Version number increase since last update. */
+            uint32_t timestamp_us;                  /**< Timestamp of the received packet. */
+        } rx;
+        struct
+        {
+            rbc_mesh_value_handle_t value_handle;   /**< Handle of the value the event is generated for. */
+            uint8_t* p_data;                        /**< Data array transmitted. */
+            uint8_t data_len;                       /**< Length of data array. */
+            uint32_t timestamp_us;                  /** Timestamp of the sent packet. */
+        } tx;
+        union
+        {
+            struct
+            {
+                dfu_type_t dfu_type;                /**< DFU type of the new firmware. */
+                fwid_union_t new_fwid;              /**< Firmware ID of the new firmware. */
+                fwid_union_t current_fwid;          /**< ID of the firmware of the given type currently on the device. */
+            } new_fw;
+            struct
+            {
+                dfu_type_t dfu_type;                /**< DFU type of the transfer. */
+                fwid_union_t fwid;                  /**< Firmware ID of the transfer. */
+                uint8_t authority;                  /**< Authority level of the transfer. */
+            } relay_req;
+            struct
+            {
+                dfu_type_t dfu_type;                /**< DFU type of the transfer. */
+                fwid_union_t current_fwid;          /**< ID of the firmware of the given type currently on the device. */
+            } source_req;
+            struct
+            {
+                dfu_role_t role;                    /**< The device's role in the transfer. */
+                dfu_type_t dfu_type;                /**< DFU type of the new firmware. */
+                fwid_union_t fwid;                  /**< Firmware ID of the transfer. */
+            } start;
+            struct
+            {
+                dfu_role_t role;                    /**< The device's role in the transfer. */
+                dfu_type_t dfu_type;                /**< DFU type of the new firmware. */
+                fwid_union_t fwid;                  /**< Firmware ID of the transfer. */
+                dfu_end_t end_reason;               /**< Reason for the end event. */
+            } end;
+            struct
+            {
+                dfu_type_t dfu_type;                /**< DFU type of the bank. */
+                fwid_union_t fwid;                  /**< Firmware ID of the bank. */
+                uint32_t* p_start_addr;             /**< Start address of the bank. */
+                uint32_t length;                    /**< Length of the firmware in the bank. */
+                bool is_signed;                     /**< Flag indicating whether the bank is signed with an encryption key. */
+            } bank;
+        } dfu;
+    } params;
 } rbc_mesh_event_t;
 
 /**
@@ -141,7 +203,8 @@ typedef struct
 *    channels. Must be between 1 and 39.
 * @param[in] interval_min_ms The minimum tx interval for nodes in the network in
 *    millis. Must be between 5 and 60000.
-* @param[in] lfclksrc The LF-clock source parameter supplied to the softdevice_enable function.
+* @param[in] lfclksrc The LF-clock source parameter supplied to the
+*    softdevice_enable function.
 */
 typedef struct
 {
@@ -151,6 +214,7 @@ typedef struct
     nrf_clock_lfclksrc_t lfclksrc;
 } rbc_mesh_init_params_t;
 
+<<<<<<< HEAD
 typedef enum
 {
     BLE_PACKET_TYPE_ADV_IND,
@@ -176,6 +240,8 @@ typedef struct
 
 /** @brief Function pointer type for packet peek callback. */
 typedef void (*rbc_mesh_packet_peek_cb_t)(rbc_mesh_packet_peek_params_t* p_peek_params);
+=======
+>>>>>>> bl_app
 /*****************************************************************************
      Interface Functions
 *****************************************************************************/
@@ -476,6 +542,7 @@ uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
 uint32_t rbc_mesh_packet_release(uint8_t* p_data);
 
 /**
+<<<<<<< HEAD
 * @brief Set packet peek function pointer. Every received packet will be
 *   passed to the peek function before being processed by the stack -
 *   including non-mesh packets. This allows the application to read
@@ -491,6 +558,22 @@ uint32_t rbc_mesh_packet_release(uint8_t* p_data);
 * @param[in] packet_peek_cb Function pointer to a packet-peek function.
 */
 void rbc_mesh_packet_peek_cb_set(rbc_mesh_packet_peek_cb_t packet_peek_cb);
+=======
+* @brief Free the memory associated with the given mesh event.
+*   Provides the same functionality as @rbc_mesh_packet_release, but hides the
+*   different event types and their parameters. Will work on any event.
+*
+* @details: In order to reduce the amount of data copying going on for each
+*   data packet, the various data fields of an rbc_mesh_event points directly
+*   to the framework packet pool. This memory is managed by the mesh_packet
+*   module, and must be explicitly released when the contents is no longer in
+*   use. Failure to do so will result in a NO_MEM error when the framework runs
+*   out of available packets in the packet pool.
+*
+* @param[in] p_evt Pointer to a mesh event fetched with rbc_mesh_event_get.
+*/
+void rbc_mesh_event_release(rbc_mesh_event_t* p_evt);
+>>>>>>> bl_app
 
 #endif /* _RBC_MESH_H__ */
 

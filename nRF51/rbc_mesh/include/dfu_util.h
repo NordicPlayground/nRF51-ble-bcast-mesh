@@ -27,44 +27,40 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef BOOTLOADER_APP_H__
-#define BOOTLOADER_APP_H__
+
+#ifndef DFU_UTIL_H__
+#define DFU_UTIL_H__
+
 #include <stdint.h>
-#include <stdbool.h>
 #include "dfu_types_mesh.h"
 
-/**
-* Callback type for notifying the application of incoming dfu-transfers, and
-* get authorization to start the bootloader. Return true to accept the dfu
-* transfer, false to reject it and resume normal operation. The device will
-* be reset immediately, and may not be available for regular operation for
-* several minutes.
-*/
-typedef bool (*bootloader_authorize_cb_t)(dfu_type_t type, fwid_union_t* p_fwid);
+#define IS_PAGE_ALIGNED(p) (((uint32_t)(p) & (PAGE_SIZE - 1)) == 0)
+#define IS_WORD_ALIGNED(p) (((uint32_t)(p) & (0x03)) == 0)
 
-/**
-* Manually trigger the bootloader. The device will be reset immediately, and
-* may not be available for regular operation for several minutes. Will trigger
-* the authorize callback, which must return true for the bootloader to start.
-* If successful and authorized, this function call will not return.
-*
-* @param[in] type Type of transfer expected, or DFU_TYPE_NONE.
-* @param[in] p_fwid FWID union to identify the incoming transfer.
-*
-* @return NRF_ERROR_BUSY The application rejected the bootloader start request.
-* @return NRF_ERROR_FORBIDDEN The NRF_UICR->BOOTLOADERADDR persistent register
-*   has not been set, and the bootloader could not start.
-*/
-uint32_t bootloader_start(dfu_type_t type, fwid_union_t* p_fwid);
+void fwid_union_cpy(fwid_union_t* p_dst, fwid_union_t* p_src, dfu_type_t dfu_type);
 
-/**
-* Set the authorize callback function pointer. The function will be called for
-* each call to bootloader_start(), and must return true to authorize the request for
-* starting the bootloader.
-*
-* @param[in] authorize_callback Function pointer to the authorization callback
-*   function.
-*/
-void bootloader_authorize_callback_set(bootloader_authorize_cb_t authorize_callback);
+/** Returns true if the two fwids are equal. */
+bool fwid_union_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
 
-#endif /* BOOTLOADER_APP_H__ */
+bool ready_packet_is_upgrade(dfu_packet_t* p_packet);
+
+bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_req, fwid_union_t* p_fwid_req);
+
+uint32_t* addr_from_seg(uint16_t segment, uint32_t* p_start_addr);
+
+bool app_is_newer(app_id_t* p_app_id);
+
+bool bootloader_is_newer(bl_id_t bl_id);
+
+bool fw_is_verified(void);
+
+void tid_cache_entry_put(uint32_t tid);
+
+bool tid_cache_has_entry(uint32_t tid);
+
+bool packet_in_cache(dfu_packet_t* p_packet);
+
+void packet_cache_put(dfu_packet_t* p_packet);
+
+#endif /* DFU_UTIL_H__ */
+

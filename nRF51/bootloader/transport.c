@@ -42,7 +42,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * Static defines
 ******************************************************************************/
 #define RADIO_RX_FIFO_LEN   (32)
-#define TRANSPORT_TX_SLOTS  (32)
 #define RTC_MARGIN          (2) /* ticks */
 #define INTERVAL            (3277) /* ticks */
 #define REDUNDANCY_MAX      (3)
@@ -52,7 +51,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef struct
 {
     mesh_packet_t* p_packet;
-    release_cb_t release_callback;
     uint32_t ticks_next;
     uint32_t ticks_start;
     uint8_t repeats;
@@ -73,21 +71,9 @@ static bool             m_started = false;
 /******************************************************************************
 * Static functions
 ******************************************************************************/
-static void tx_cb(uint8_t* p_data);
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
-static void idle_cb(void);
-
-static tx_t* find_tx_entry(mesh_packet_t* p_packet)
-{
-    for (uint32_t i = 0; i < TRANSPORT_TX_SLOTS; ++i)
-    {
-        if (m_tx[i].p_packet == p_packet)
-        {
-            return &m_tx[i];
-        }
-    }
-    return NULL;
-}
+static void radio_tx_cb(uint8_t* p_data);
+static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address);
+static void radio_idle_cb(void);
 
 static void set_next_tx(tx_t* p_tx)
 {
@@ -117,16 +103,16 @@ static void order_scan(void)
         APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     }
     evt.access_address = 0;
-    evt.callback.rx = rx_cb;
     evt.channel = 37;
-    if (!radio_order(&evt))
+    if (radio_order(&evt) != NRF_SUCCESS)
     {
         mesh_packet_ref_count_dec((mesh_packet_t*) &evt.packet_ptr);
     }
 }
 
-static void tx_cb(uint8_t* p_data)
+static void radio_tx_cb(uint8_t* p_data)
 {
+#if 0
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
     if (p_adv_data)
     {
@@ -136,10 +122,11 @@ static void tx_cb(uint8_t* p_data)
         serial_evt.length = 3; /* opcode + Handle */
         serial_handler_event_send(&serial_evt);
     }
+#endif
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
 
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
+static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index)
 {
     APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) p_data) == 1);
     if (success &&
@@ -157,7 +144,7 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
     }
 }
 
-static void idle_cb(void)
+static void radio_idle_cb(void)
 {
     if (m_started)
     {
@@ -210,6 +197,7 @@ void RADIO_IRQHandler(void)
 {
     radio_event_handler();
 }
+
 /******************************************************************************
 * Dummy functions
 ******************************************************************************/
@@ -217,6 +205,7 @@ bool timeslot_is_in_ts(void)
 {
     return true;
 }
+
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
@@ -240,7 +229,7 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 
     NVIC_SetPriority(RADIO_IRQn, 0);
 
-    radio_init(access_addr, idle_cb);
+    radio_init(radio_idle_cb, radio_rx_cb, radio_tx_cb);
 }
 
 void transport_start(void)
@@ -252,7 +241,7 @@ void transport_start(void)
     }
 }
 
-bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t type, release_cb_t release_cb)
+bool transport_tx(mesh_packet_t* p_packet, uint8_t slot, uint8_t repeats, tx_interval_type_t type)
 {
     if (type == TX_INTERVAL_TYPE_EXPONENTIAL && repeats > TX_REPEATS_EXPONENTIAL_MAX)
     {
@@ -263,29 +252,35 @@ bool transport_tx(mesh_packet_t* p_packet, uint8_t repeats, tx_interval_type_t t
         return false;
     }
 
-    tx_t* p_tx = find_tx_entry(NULL);
-    if (p_tx == NULL)
+    if (slot >= TRANSPORT_TX_SLOTS)
     {
         return false;
     }
 
+    uint32_t was_masked;
+    _DISABLE_IRQS(was_masked);
+    tx_t* p_tx = &m_tx[slot];
+    if (p_tx->p_packet)
+    {
+        mesh_packet_ref_count_dec(p_tx->p_packet);
+    }
     mesh_packet_ref_count_inc(p_packet);
     p_tx->p_packet = p_packet;
     p_tx->repeats = repeats;
     p_tx->count = 0;
     p_tx->ticks_start = NRF_RTC0->COUNTER;
     p_tx->type = type;
-    p_tx->release_callback = release_cb;
     set_next_tx(p_tx);
     order_next_rtc();
+    _ENABLE_IRQS(was_masked);
     return true;
 }
 
-void transport_tx_reset(mesh_packet_t* p_packet)
+void transport_tx_reset(uint8_t slot)
 {
-    tx_t* p_tx = find_tx_entry(p_packet);
-    if (p_tx != NULL)
+    if (slot < TRANSPORT_TX_SLOTS)
     {
+        tx_t* p_tx = &m_tx[slot];
         p_tx->count = 0;
         p_tx->ticks_start = NRF_RTC0->COUNTER;
         set_next_tx(p_tx);
@@ -293,29 +288,29 @@ void transport_tx_reset(mesh_packet_t* p_packet)
     }
 }
 
-void transport_tx_skip(mesh_packet_t* p_packet)
+void transport_tx_skip(uint8_t slot)
 {
     NVIC_DisableIRQ(RTC0_IRQn);
-    tx_t* p_tx = find_tx_entry(p_packet);
-    if (p_tx)
+    if (slot < TRANSPORT_TX_SLOTS)
     {
+        tx_t* p_tx = &m_tx[slot];
         p_tx->redundancy++;
     }
     NVIC_EnableIRQ(RTC0_IRQn);
 }
 
-void transport_tx_abort(mesh_packet_t* p_packet)
+void transport_tx_abort(uint8_t slot)
 {
     NVIC_DisableIRQ(RTC0_IRQn);
 
-    tx_t* p_tx = find_tx_entry(p_packet);
-    if (p_tx != NULL)
+    if (slot < TRANSPORT_TX_SLOTS)
     {
+        tx_t* p_tx = &m_tx[slot];
         mesh_packet_ref_count_dec(p_tx->p_packet);
         memset(p_tx, 0, sizeof(tx_t));
-    }
 
-    order_next_rtc();
+        order_next_rtc();
+    }
     NVIC_EnableIRQ(RTC0_IRQn);
 }
 
@@ -333,13 +328,16 @@ void transport_rtc_irq_handler(void)
             radio_evt.event_type = RADIO_EVENT_TYPE_TX;
             radio_evt.packet_ptr = (uint8_t*) m_tx[i].p_packet;
             radio_evt.access_address = 0;
-            radio_evt.callback.tx = tx_cb;
+
+#ifdef DEBUG_LEDS
+            NRF_GPIO->OUT ^= (1 << 21);
+#endif
             uint8_t radio_refs = 0;
             if (m_tx[i].redundancy < REDUNDANCY_MAX)
             {
                 for (radio_evt.channel = 37; radio_evt.channel <= 39; ++radio_evt.channel)
                 {
-                    if (radio_order(&radio_evt))
+                    if (radio_order(&radio_evt) == NRF_SUCCESS)
                     {
                         radio_refs++;
                         mesh_packet_ref_count_inc(m_tx[i].p_packet);
@@ -361,10 +359,6 @@ void transport_rtc_irq_handler(void)
             }
             else
             {
-                if (m_tx[i].release_callback)
-                {
-                    m_tx[i].release_callback(m_tx[i].p_packet);
-                }
                 mesh_packet_ref_count_dec(m_tx[i].p_packet);
                 memset(&m_tx[i], 0, sizeof(tx_t));
             }

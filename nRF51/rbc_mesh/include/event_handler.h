@@ -30,7 +30,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _EVENT_HANDLER_H__
 #define _EVENT_HANDLER_H__
 #include "radio_control.h"
-#include "timer_control.h"
+#include "timer.h"
+#include "timer_scheduler.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -40,6 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef enum
 {
     EVENT_TYPE_TIMER,
+    EVENT_TYPE_TIMER_SCH,
     EVENT_TYPE_GENERIC,
     EVENT_TYPE_PACKET,
     EVENT_TYPE_SET_FLAG
@@ -65,9 +67,15 @@ typedef struct
         } packet;
         struct
         {
-            timer_callback cb;/*void return */
-            uint32_t timestamp;
+            timer_callback_t cb;/*void return */
+            timestamp_t timestamp;
         } timer;
+        struct
+        {
+            timer_sch_callback_t cb;
+            timestamp_t timestamp;
+            void* p_context;
+        } timer_sch;
         struct
         {
             generic_cb_t cb;

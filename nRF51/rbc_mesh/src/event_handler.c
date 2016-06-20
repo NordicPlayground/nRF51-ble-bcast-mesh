@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "event_handler.h"
 #include "rbc_mesh_common.h"
 #include "app_error.h"
-#include "timeslot_handler.h"
+#include "timeslot.h"
 #include "transport_control.h"
 #include "mesh_packet.h"
 #include "fifo.h"
@@ -71,10 +71,16 @@ static void async_event_execute(async_event_t* p_evt)
                               p_evt->callback.packet.crc,
                               p_evt->callback.packet.timestamp,
                               p_evt->callback.packet.rssi);
+            break;
         case EVENT_TYPE_SET_FLAG:
             handle_storage_flag_set(p_evt->callback.set_flag.handle,
                                     (handle_flag_t) p_evt->callback.set_flag.flag,
                                     p_evt->callback.set_flag.value);
+            break;
+        case EVENT_TYPE_TIMER_SCH:
+            p_evt->callback.timer_sch.cb(p_evt->callback.timer_sch.timestamp, 
+                                         p_evt->callback.timer_sch.p_context);
+            break;
         default:
             break;
     }
@@ -106,7 +112,7 @@ void QDEC_IRQHandler(void)
 
         got_evt |= event_fifo_pop(&g_async_evt_fifo);
 
-        if (timeslot_get_end_time() > 0) /* in timeslot */
+        if (timeslot_is_in_ts()) /* in timeslot */
         {
             got_evt |= event_fifo_pop(&g_async_evt_fifo_ts);
         }
@@ -152,6 +158,7 @@ uint32_t event_handler_push(async_event_t* evt)
     case EVENT_TYPE_GENERIC:
     case EVENT_TYPE_PACKET:
     case EVENT_TYPE_SET_FLAG:
+    case EVENT_TYPE_TIMER_SCH:
         p_fifo = &g_async_evt_fifo;
         break;
     case EVENT_TYPE_TIMER:

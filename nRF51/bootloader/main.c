@@ -31,22 +31,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include <stdio.h>
 #include <stdarg.h>
 
-#include "bootloader_mesh.h"
+#include "bl_if.h"
+#include "bootloader.h"
 #include "bootloader_info.h"
-#include "bootloader_rtc.h"
-#include "dfu_types_mesh.h"
+#include "rtt_log.h"
 #include "rbc_mesh.h"
-#include "transport.h"
-#include "mesh_aci.h"
+#include "dfu_bank.h"
 
 #include "app_error.h"
 #include "nrf_gpio.h"
+#include "SEGGER_RTT.h"
 
 /* Magic UICR overwrite to convince the MBR to start in bootloader. */
-#if 1
 #if defined(__CC_ARM)
 extern uint32_t __Vectors;
 uint32_t* m_uicr_bootloader_start_address
@@ -58,63 +56,53 @@ volatile uint32_t* m_uicr_bootloader_start_address
 #else
 #error "Unsupported toolchain."
 #endif
-#endif
 
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-#ifdef DEBUG_LEDS    
+    __LOG(RTT_CTRL_TEXT_RED "APP ERROR %d, @%s:L%d\n", error_code, p_file_name, line_num);
     __disable_irq();
+#ifdef DEBUG_LEDS
     NRF_GPIO->OUTSET = (1 << 7);
     NRF_GPIO->OUTCLR = (1 << 23);
-#endif    
+#endif
     __BKPT(0);
     while (1);
 }
 
 void HardFault_Handler(uint32_t pc, uint32_t lr)
 {
-#ifdef DEBUG_LEDS    
+    __LOG(RTT_CTRL_TEXT_RED "HARDFAULT pc=0x%x\n", pc);
+    __disable_irq();
+#ifdef DEBUG_LEDS
     NRF_GPIO->OUTSET = (1 << 7);
     NRF_GPIO->OUTCLR = (1 << 23);
-#endif    
+#endif
     __BKPT(0);
     while (1);
 }
 
-/** Interrupt indicating new serial command */
-#ifdef SERIAL
-void SWI2_IRQHandler(void)
-{
-    mesh_aci_command_check();
-}
-#endif
-
-static void rx_cb(mesh_packet_t* p_packet)
-{
-    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get(p_packet);
-    if (p_adv_data && p_adv_data->handle > RBC_MESH_APP_MAX_HANDLE)
-    {
-        bootloader_rx((dfu_packet_t*) &p_adv_data->handle, p_adv_data->adv_data_length - 3, false);
-    }
-}
-
 static void init_leds(void)
 {
-#ifdef DEBUG_LEDS 
+#ifdef DEBUG_LEDS
     nrf_gpio_range_cfg_output(21, 24);
-    NRF_GPIO->OUT = (1 << 22) | (1 << 23) | (1 << 24);
+    NRF_GPIO->OUT = (1 << 22) | (1 << 21) | (1 << 24);
 #endif
 }
 
 static void init_clock(void)
 {
-    NRF_CLOCK->TASKS_HFCLKSTART = 1;
-    while (!NRF_CLOCK->EVENTS_HFCLKSTARTED);
-    NRF_CLOCK->EVENTS_HFCLKSTARTED = 0;
-    NRF_CLOCK->TASKS_LFCLKSTART = 1;
-    while (!NRF_CLOCK->EVENTS_LFCLKSTARTED);
-    NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
-
+    if (!NRF_CLOCK->HFCLKRUN)
+    {
+        NRF_CLOCK->TASKS_HFCLKSTART = 1;
+        while (!NRF_CLOCK->EVENTS_HFCLKSTARTED);
+        NRF_CLOCK->EVENTS_HFCLKSTARTED = 0;
+    }
+    if (!NRF_CLOCK->LFCLKRUN)
+    {
+        NRF_CLOCK->TASKS_LFCLKSTART = 1;
+        while (!NRF_CLOCK->EVENTS_LFCLKSTARTED);
+        NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
+    }
     NRF_CLOCK->TASKS_CAL = 1;
     while (!NRF_CLOCK->EVENTS_DONE);
     NRF_CLOCK->EVENTS_DONE = 0;
@@ -127,33 +115,33 @@ int main(void)
     NVIC_SetPriority(SWI2_IRQn, 2);
     NVIC_EnableIRQ(SWI2_IRQn);
     __enable_irq();
+#ifdef RTT_LOG
+    SEGGER_RTT_Init();
+    __LOG("= START | %s | ===========================================================\n", __TIME__);
+#endif
 
     init_leds();
-    rtc_init();
-#ifdef SERIAL
-    mesh_aci_init();
-#endif
-    transport_init(rx_cb, RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
-    if (bootloader_info_init((uint32_t*) BOOTLOADER_INFO_ADDRESS, 
-                             (uint32_t*) (BOOTLOADER_INFO_ADDRESS - PAGE_SIZE))
-        != NRF_SUCCESS)
-    {
-        bootloader_abort(BL_END_ERROR_INVALID_PERSISTENT_STORAGE);
-    }
-    
     bootloader_init();
+
+    /* Wait for any ongoing bank transfers to finish. */
+    while (dfu_bank_transfer_in_progress())
+    {
+        /* may safely while-loop here, as the bank-transfer finishes in an IRQ. */
+        __WFE();
+    }
+
     /* check whether we should go to application */
     if (NRF_POWER->GPREGRET == RBC_MESH_GPREGRET_CODE_GO_TO_APP)
     {
-        bootloader_abort(BL_END_SUCCESS);
+        bootloader_abort(DFU_END_SUCCESS);
     }
     NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_GO_TO_APP;
 
-    bootloader_start();
-    transport_start();
-    
+    bootloader_enable();
+
     while (1)
     {
         __WFE();
     }
 }
+

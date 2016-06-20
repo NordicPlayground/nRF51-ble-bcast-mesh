@@ -30,12 +30,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rbc_mesh.h"
 #include "rbc_mesh_common.h"
-#include "timeslot_handler.h"
+#include "timeslot.h"
+#include "timer_scheduler.h"
 #include "event_handler.h"
 #include "version_handler.h"
 #include "transport_control.h"
 #include "mesh_packet.h"
 #include "mesh_gatt.h"
+#include "dfu_app.h"
 #include "fifo.h"
 
 #include "nrf_error.h"
@@ -88,14 +90,15 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return NRF_ERROR_INVALID_PARAM;
     }
 
-
+    timer_sch_init();
     event_handler_init();
     mesh_packet_init();
     tc_init(init_params.access_addr, init_params.channel);
 
     uint32_t error_code;
-    /* multiply with 1024 instead of 1000 as the number will be easier to set accurately  */
-    error_code = vh_init(init_params.interval_min_ms * 1024);
+    error_code = vh_init(init_params.interval_min_ms * 1000, /* ms -> us */
+                         init_params.access_addr,
+                         init_params.channel);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
@@ -117,7 +120,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return error_code;
     }
 
-    timeslot_handler_init(init_params.lfclksrc);
+    timeslot_init(init_params.lfclksrc);
 
     g_access_addr = init_params.access_addr;
     g_channel = init_params.channel;
@@ -130,8 +133,13 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     g_rbc_event_fifo.elem_size = sizeof(rbc_mesh_event_t);
     g_rbc_event_fifo.memcpy_fptr = NULL;
     fifo_init(&g_rbc_event_fifo);
+    timeslot_resume();
 
+#ifdef MESH_DFU
+    return dfu_init();
+#else
     return NRF_SUCCESS;
+#endif
 }
 
 uint32_t rbc_mesh_start(void)
@@ -140,8 +148,7 @@ uint32_t rbc_mesh_start(void)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-
-    timeslot_order_earliest(10000, true);
+    timeslot_resume();
 
     g_mesh_state = MESH_STATE_RUNNING;
 
@@ -302,7 +309,7 @@ void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
 
 void rbc_mesh_sd_evt_handler(uint32_t sd_evt)
 {
-    ts_sd_event_handler(sd_evt);
+    timeslot_sd_event_handler(sd_evt);
 }
 
 uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
@@ -313,9 +320,27 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
     }
     uint32_t error_code = fifo_push(&g_rbc_event_fifo, p_event);
 
-    if (error_code == NRF_SUCCESS && p_event->data != NULL)
+    if (error_code == NRF_SUCCESS && p_event->params.rx.p_data != NULL)
     {
-        mesh_packet_ref_count_inc((mesh_packet_t*) p_event->data); /* will be aligned by packet manager */
+        switch (p_event->type)
+        {
+            case RBC_MESH_EVENT_TYPE_NEW_VAL:
+            case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
+            case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+                if (p_event->params.rx.p_data)
+                {
+                    mesh_packet_ref_count_inc((mesh_packet_t*) p_event->params.rx.p_data); /* will be aligned by packet manager */
+                }
+                break;
+            case RBC_MESH_EVENT_TYPE_TX:
+                if (p_event->params.tx.p_data)
+                {
+                    mesh_packet_ref_count_inc((mesh_packet_t*) p_event->params.tx.p_data); /* will be aligned by packet manager */
+                }
+                break;
+            default:
+                break;
+        }
     }
     return error_code;
 }
@@ -365,6 +390,30 @@ uint32_t rbc_mesh_packet_release(uint8_t* p_data)
     }
 
     return NRF_SUCCESS;
+}
+
+void rbc_mesh_event_release(rbc_mesh_event_t* p_evt)
+{
+    switch (p_evt->type)
+    {
+        case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
+        case RBC_MESH_EVENT_TYPE_NEW_VAL:
+        case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+            if (p_evt->params.rx.p_data != NULL)
+            {
+                mesh_packet_ref_count_dec((mesh_packet_t*) p_evt->params.rx.p_data);
+            }
+            break;
+        case RBC_MESH_EVENT_TYPE_TX:
+            if (p_evt->params.tx.p_data != NULL)
+            {
+                mesh_packet_ref_count_dec((mesh_packet_t*) p_evt->params.tx.p_data);
+            }
+            break;
+
+        default:
+            break;
+    }
 }
 
 void rbc_mesh_packet_peek_cb_set(rbc_mesh_packet_peek_cb_t packet_peek_cb)

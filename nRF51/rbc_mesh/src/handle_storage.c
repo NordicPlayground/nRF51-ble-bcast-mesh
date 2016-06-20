@@ -35,8 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "trickle.h"
 #include "event_handler.h"
 #include "fifo.h"
-#include "timeslot_handler.h"
 #include "rbc_mesh_common.h"
+#include "timer.h"
 #include "app_error.h"
 
 #define MESH_TRICKLE_I_MAX              (2048)
@@ -393,7 +393,7 @@ uint32_t handle_storage_info_set(uint16_t handle, handle_info_t* p_info)
         }
         m_handle_cache[handle_index].data_entry = data_index;
     }
-    trickle_timer_reset(&m_data_cache[data_index].trickle, timer_get_timestamp() + timeslot_get_global_time());
+    trickle_timer_reset(&m_data_cache[data_index].trickle, timer_now());
 
     m_handle_cache[handle_index].version = p_info->version;
     if (m_data_cache[data_index].p_packet != NULL)
@@ -586,7 +586,7 @@ uint32_t handle_storage_flag_get(uint16_t handle, handle_flag_t flag, bool* p_va
     return NRF_SUCCESS;
 }
 
-uint32_t handle_storage_rx_consistent(uint16_t handle, uint64_t timestamp)
+uint32_t handle_storage_rx_consistent(uint16_t handle, uint32_t timestamp)
 {
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
@@ -611,7 +611,7 @@ uint32_t handle_storage_rx_consistent(uint16_t handle, uint64_t timestamp)
     return NRF_SUCCESS;
 }
 
-uint32_t handle_storage_rx_inconsistent(uint16_t handle, uint64_t timestamp)
+uint32_t handle_storage_rx_inconsistent(uint16_t handle, uint32_t timestamp)
 {
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
@@ -635,22 +635,24 @@ uint32_t handle_storage_rx_inconsistent(uint16_t handle, uint64_t timestamp)
 
     return NRF_SUCCESS;
 }
-uint64_t handle_storage_next_timeout_get(void)
+uint32_t handle_storage_next_timeout_get(bool* p_found_value)
 {
-    uint64_t time_earliest = UINT64_MAX;
+    uint32_t time_earliest = 0;
+    *p_found_value = false;
     for (uint32_t i = 0; i < RBC_MESH_DATA_CACHE_ENTRIES; ++i)
     {
         if (trickle_is_enabled(&m_data_cache[i].trickle) &&
             m_data_cache[i].p_packet != NULL &&
-            m_data_cache[i].trickle.t < time_earliest)
+            (!(*p_found_value) || TIMER_OLDER_THAN(m_data_cache[i].trickle.t, time_earliest)))
         {
+            *p_found_value = true;
             time_earliest = m_data_cache[i].trickle.t;
         }
     }
     return time_earliest;
 }
 
-uint32_t handle_storage_tx_packets_get(uint64_t time_now, mesh_packet_t** pp_packets, uint32_t* p_count)
+uint32_t handle_storage_tx_packets_get(uint32_t time_now, mesh_packet_t** pp_packets, uint32_t* p_count)
 {
     /* Continue where we left off */
     static uint16_t data_index = 0;
@@ -664,7 +666,7 @@ uint32_t handle_storage_tx_packets_get(uint64_t time_now, mesh_packet_t** pp_pac
 
         if ((m_data_cache[data_index].p_packet != NULL) &&
             (trickle_is_enabled(&m_data_cache[data_index].trickle)) &&
-            (m_data_cache[data_index].trickle.t <= time_now))
+            !TIMER_OLDER_THAN(time_now, m_data_cache[data_index].trickle.t))
         {
             bool do_tx = false;
             trickle_tx_timeout(&m_data_cache[data_index].trickle, &do_tx, time_now);
@@ -687,7 +689,7 @@ uint32_t handle_storage_tx_packets_get(uint64_t time_now, mesh_packet_t** pp_pac
     return NRF_SUCCESS;
 }
 
-uint32_t handle_storage_transmitted(uint16_t handle, uint64_t timestamp)
+uint32_t handle_storage_transmitted(uint16_t handle, uint32_t timestamp)
 {
     if (handle == RBC_MESH_INVALID_HANDLE)
     {
