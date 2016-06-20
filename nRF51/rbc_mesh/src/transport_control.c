@@ -62,7 +62,6 @@ typedef struct
 * Static globals
 ******************************************************************************/
 static tc_state_t m_state;
-static bl_info_entry_t* mp_fwid_entry = NULL;
 static rbc_mesh_packet_peek_cb_t mp_packet_peek_cb;
 
 /* STATS */
@@ -293,8 +292,8 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint32_t timestamp, uint8_t 
         memcpy(peek_params.adv_addr.addr, p_packet->addr, BLE_GAP_ADDR_LEN);
         peek_params.adv_addr.addr_type = p_packet->header.addr_type;
         peek_params.crc = crc;
-        peek_params.packet_type = p_packet->header.type;
-        peek_params.timestamp = timestamp + timeslot_get_global_time();
+        peek_params.packet_type = (ble_packet_type_t) p_packet->header.type;
+        peek_params.timestamp = timestamp;
         mp_packet_peek_cb(&peek_params);
     }
 

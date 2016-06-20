@@ -138,10 +138,6 @@ static void order_next_transmission(uint32_t time_now)
         {
             vh_order_update(timeout);
         }
-        else
-        {
-            TICK_PIN(1);
-        }
     }
 }
 
