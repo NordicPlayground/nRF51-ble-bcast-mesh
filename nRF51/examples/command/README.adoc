@@ -1,0 +1,83 @@
+= Command line example
+
+This example lets you control mesh nodes from a computer with a human-readable
+interface over UART, for easy access. The devices can be interfaced via a
+regular serial communication application on your PC, using some simple commands
+to set values and enable/disable events.
+
+Note that this example does not mirror the entire API, and is not meant to
+replace the existing serial ACI interface.
+
+Note that the example supports both Segger RTT and regular UART, but in
+different builds.
+
+== Usage:
+Set up any number of devices and connect two or more to a serial terminal
+session on your computer with the parameters specified below. Use the commands
+below to set values, and read them back as events from another device.
+
+RTT is a faster alternative to UART from Segger Microcontroller, enabled by
+their debugging interface on their J-Link devices. If you're on Windows and are
+using a Nordic Semiconductor nRF51 Devkit or dongle, you may interface the
+device via Segger RTT. To use the RTT interface, you need Segger J-Link 5.10n
+or later. Follow these steps to start controlling the device over RTT:
+
+1. Open the Segger J-Link RTT Viewer, found in the Segger install directory
+(available at https://www.segger.com/rtt.html[Seggers homepage]).
+2. Select USB as the connection method (and optionally give a serial number).
+3. Select nRF51422_xxAC as your target device.
+4. Set Target interface & Speed to SWD and 12000kHz, respectively.
+5. Use RTT Control Block 0.
+
+When starting the RTT viewer, you should see a greeting from your device.
+
+== Interface syntax:
+=== Commands:
+
+.Commands
+|==============================================================================
+| Set value                | `set <handle number> <content>`
+| Get value                | `get <handle number>`
+| Disable value            | `disable <handle number>`
+| Set handle persistence   | `persistent <handle number> <on \| off>`
+| Set handle tx event      | `tx-event <handle number> <on \| off>`
+| Enable packet peek event | `peek <on \| off>`
+| Stop mesh operation      | `stop`
+| Start mesh operation     | `start`
+| Get help                 | `help \| ?`
+|==============================================================================
+
+
+All command names are case-insensitive, handles must be decimal numbers under
+65520.
+Commands listed with | in them, require either the left or the right
+alternative, but never both, and never the "|".  End all commands with enter
+(\\r or \\n).
+
+=== Events:
+
+.Events
+[options="header"]
+|==============================================================================
+| Event type:       | Format:
+| Update            | `[UPDATE][<handle number>]: <data>`
+| New value         | `[NEW][<handle number>]: <data>`
+| Conflicting value | `[CONFLICT][<handle number>]: <data>`
+| TX event          | `[TX][<handle number>]`
+| Peek event        | `[PEEK][<timestamp>][<rssi>][<BLE address
+(hex)>][<Payload (hex)>]`
+|==============================================================================
+
+Events end with a CRLF.
+
+== UART settings:
+
+Baud: 460800
+
+Data bits: 8
+
+Parity bit: no
+
+Stop bit: 1
+
+Flow control enabled (RTS/CTS)
