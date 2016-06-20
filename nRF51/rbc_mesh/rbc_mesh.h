@@ -214,7 +214,6 @@ typedef struct
     nrf_clock_lfclksrc_t lfclksrc;
 } rbc_mesh_init_params_t;
 
-<<<<<<< HEAD
 typedef enum
 {
     BLE_PACKET_TYPE_ADV_IND,
@@ -240,8 +239,7 @@ typedef struct
 
 /** @brief Function pointer type for packet peek callback. */
 typedef void (*rbc_mesh_packet_peek_cb_t)(rbc_mesh_packet_peek_params_t* p_peek_params);
-=======
->>>>>>> bl_app
+
 /*****************************************************************************
      Interface Functions
 *****************************************************************************/
@@ -542,7 +540,22 @@ uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
 uint32_t rbc_mesh_packet_release(uint8_t* p_data);
 
 /**
-<<<<<<< HEAD
+* @brief Free the memory associated with the given mesh event.
+*   Provides the same functionality as @rbc_mesh_packet_release, but hides the
+*   different event types and their parameters. Will work on any event.
+*
+* @details: In order to reduce the amount of data copying going on for each
+*   data packet, the various data fields of an rbc_mesh_event points directly
+*   to the framework packet pool. This memory is managed by the mesh_packet
+*   module, and must be explicitly released when the contents is no longer in
+*   use. Failure to do so will result in a NO_MEM error when the framework runs
+*   out of available packets in the packet pool.
+*
+* @param[in] p_evt Pointer to a mesh event fetched with rbc_mesh_event_get.
+*/
+void rbc_mesh_event_release(rbc_mesh_event_t* p_evt);
+
+/**
 * @brief Set packet peek function pointer. Every received packet will be
 *   passed to the peek function before being processed by the stack -
 *   including non-mesh packets. This allows the application to read
@@ -558,22 +571,6 @@ uint32_t rbc_mesh_packet_release(uint8_t* p_data);
 * @param[in] packet_peek_cb Function pointer to a packet-peek function.
 */
 void rbc_mesh_packet_peek_cb_set(rbc_mesh_packet_peek_cb_t packet_peek_cb);
-=======
-* @brief Free the memory associated with the given mesh event.
-*   Provides the same functionality as @rbc_mesh_packet_release, but hides the
-*   different event types and their parameters. Will work on any event.
-*
-* @details: In order to reduce the amount of data copying going on for each
-*   data packet, the various data fields of an rbc_mesh_event points directly
-*   to the framework packet pool. This memory is managed by the mesh_packet
-*   module, and must be explicitly released when the contents is no longer in
-*   use. Failure to do so will result in a NO_MEM error when the framework runs
-*   out of available packets in the packet pool.
-*
-* @param[in] p_evt Pointer to a mesh event fetched with rbc_mesh_event_get.
-*/
-void rbc_mesh_event_release(rbc_mesh_event_t* p_evt);
->>>>>>> bl_app
 
 #endif /* _RBC_MESH_H__ */
 

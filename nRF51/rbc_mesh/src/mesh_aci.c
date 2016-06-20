@@ -210,7 +210,7 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
                         memcpy(p_packet->payload, p_serial_cmd->params.value_set.value, data_len);
                         memset(&app_evt, 0, sizeof(app_evt));
                         app_evt.type = RBC_MESH_EVENT_TYPE_UPDATE_VAL;
-                        app_evt.params.rx.p_data = p_serial_cmd->params.value_set.value;
+                        app_evt.params.rx.p_data = p_packet->payload;
                         app_evt.params.rx.data_len = data_len;
                         app_evt.params.rx.value_handle = p_serial_cmd->params.value_set.handle;
 
