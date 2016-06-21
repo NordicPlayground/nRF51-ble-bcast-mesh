@@ -361,6 +361,21 @@ uint32_t dfu_request(dfu_type_t type,
     return dfu_cmd_send(&cmd);
 }
 
+uint32_t dfu_relay(dfu_type_t type,
+        fwid_union_t* p_fwid)
+{
+    if (p_fwid == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+    bl_cmd_t cmd;
+    cmd.type = BL_CMD_TYPE_DFU_START_RELAY;
+    cmd.params.dfu.start.relay.type = type;
+    cmd.params.dfu.start.relay.fwid = *p_fwid;
+    cmd.params.dfu.start.relay.transaction_id = 0;
+    return dfu_cmd_send(&cmd);
+}
+
 uint32_t dfu_abort(void)
 {
     bl_cmd_t cmd;
