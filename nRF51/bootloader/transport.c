@@ -41,10 +41,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /******************************************************************************
 * Static defines
 ******************************************************************************/
-#define RADIO_RX_FIFO_LEN   (32)
-#define RTC_MARGIN          (2) /* ticks */
-#define INTERVAL            (3277) /* ticks */
-#define REDUNDANCY_MAX      (3)
+#define RADIO_RX_FIFO_LEN               (32)
+#define RTC_MARGIN                      (2) /* ticks */
+#define INTERVAL                        (3277) /* ticks */
+#define REDUNDANCY_MAX                  (3)
+#define TX_EVT_BITFIELD_HANDLE_START    (0xFFF0)
 /******************************************************************************
 * Static typedefs
 ******************************************************************************/
@@ -68,6 +69,7 @@ static mesh_packet_t*   m_rx_fifo_buf[RADIO_RX_FIFO_LEN];
 static uint32_t         m_ticks_at_order_time;
 static prng_t           m_prng;
 static bool             m_started = false;
+uint16_t                m_tx_evt_bitfield; /**< Bitfield of events for each handle in the reserved handle range 0xFFF0-0xFFFE. */
 /******************************************************************************
 * Static functions
 ******************************************************************************/
@@ -112,15 +114,20 @@ static void order_scan(void)
 
 static void radio_tx_cb(uint8_t* p_data)
 {
-#if 0
     mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
+#ifdef RBC_MESH_SERIAL
     if (p_adv_data)
     {
-        serial_evt_t serial_evt;
-        serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_TX;
-        serial_evt.params.event_tx.handle = p_adv_data->handle;
-        serial_evt.length = 3; /* opcode + Handle */
-        serial_handler_event_send(&serial_evt);
+        /* Only do the tx event if the handle is set up for it. */
+        if (p_adv_data->handle >= TX_EVT_BITFIELD_HANDLE_START &&
+            transport_tx_evt_get(p_adv_data->handle))
+        {
+            serial_evt_t serial_evt;
+            serial_evt.opcode = SERIAL_EVT_OPCODE_EVENT_TX;
+            serial_evt.params.event_tx.handle = p_adv_data->handle;
+            serial_evt.length = 3; /* opcode + Handle */
+            serial_handler_event_send(&serial_evt);
+        }
     }
 #endif
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
@@ -213,6 +220,7 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 {
     m_started = false;
     m_rx_cb = rx_cb;
+    m_tx_evt_bitfield = 0;
     memset(m_tx, 0, sizeof(tx_t) * TRANSPORT_TX_SLOTS);
 
     m_rx_fifo.elem_array = m_rx_fifo_buf;
@@ -366,3 +374,25 @@ void transport_rtc_irq_handler(void)
     }
     order_next_rtc();
 }
+
+void transport_tx_evt_set(uint16_t handle, bool value)
+{
+    if (value)
+    {
+        m_tx_evt_bitfield |= (1 << (value - TX_EVT_BITFIELD_HANDLE_START));
+    }
+    else
+    {
+        m_tx_evt_bitfield &= ~(1 << (value - TX_EVT_BITFIELD_HANDLE_START));
+    }
+}
+
+bool transport_tx_evt_get(uint16_t handle)
+{
+    if (handle < TX_EVT_BITFIELD_HANDLE_START)
+    {
+        return false;
+    }
+    return !!(m_tx_evt_bitfield & (1 << (value - TX_EVT_BITFIELD_HANDLE_START)));
+}
+

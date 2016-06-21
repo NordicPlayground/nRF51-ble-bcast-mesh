@@ -62,6 +62,8 @@ static aci_status_code_t error_code_translate(uint32_t nrf_error_code)
             return ACI_STATUS_ERROR_INVALID_PARAMETER;
         case NRF_ERROR_INVALID_STATE:
             return ACI_STATUS_ERROR_DEVICE_STATE_INVALID;
+        case NRF_ERROR_NOT_SUPPORTED:
+            return ACI_STATUS_ERROR_CMD_UNKNOWN;
         case NRF_ERROR_SOFTDEVICE_NOT_ENABLED:
             return ACI_STATUS_ERROR_BUSY;
         case NRF_ERROR_INVALID_LENGTH:
@@ -267,72 +269,6 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
             serial_handler_event_send(&serial_evt);
             break;
 
-        case SERIAL_CMD_OPCODE_FLAG_SET:
-            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
-            serial_evt.params.cmd_rsp.command_opcode = p_serial_cmd->opcode;
-            serial_evt.length = 3;
-
-            if (p_serial_cmd->length != sizeof(serial_cmd_params_flag_set_t) + 1)
-            {
-                serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
-            }
-            else
-            {
-                switch ((aci_flag_t) p_serial_cmd->params.flag_set.flag)
-                {
-                    case ACI_FLAG_PERSISTENT:
-                        error_code = rbc_mesh_persistence_set(p_serial_cmd->params.flag_set.handle,
-                                p_serial_cmd->params.flag_set.value);
-
-                        break;
-
-                    case ACI_FLAG_TX_EVENT:
-                        error_code = rbc_mesh_tx_event_set(p_serial_cmd->params.flag_set.handle,
-                                p_serial_cmd->params.flag_set.value);
-                        break;
-                    default:
-                        error_code = NRF_ERROR_INVALID_PARAM;
-                }
-                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-            }
-            break;
-
-        case SERIAL_CMD_OPCODE_FLAG_GET:
-            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
-            serial_evt.params.cmd_rsp.command_opcode = p_serial_cmd->opcode;
-            serial_evt.length = 7;
-
-            if (p_serial_cmd->length != sizeof(serial_cmd_params_flag_get_t) + 1)
-            {
-                serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
-            }
-            else
-            {
-                uint32_t error_code;
-                bool flag_status = false;
-                switch ((aci_flag_t) p_serial_cmd->params.flag_set.flag)
-                {
-                    case ACI_FLAG_PERSISTENT:
-                        error_code = rbc_mesh_persistence_get(p_serial_cmd->params.flag_get.handle,
-                                &flag_status);
-
-                        break;
-
-                    case ACI_FLAG_TX_EVENT:
-                        error_code = rbc_mesh_tx_event_flag_get(p_serial_cmd->params.flag_get.handle,
-                                &flag_status);
-                        break;
-                    default:
-                        error_code = NRF_ERROR_INVALID_PARAM;
-                        serial_evt.length = 3;
-                }
-                serial_evt.params.cmd_rsp.response.flag.handle = p_serial_cmd->params.flag_get.handle;
-                serial_evt.params.cmd_rsp.response.flag.flag = p_serial_cmd->params.flag_get.flag;
-                serial_evt.params.cmd_rsp.response.flag.value = flag_status;
-                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
-            }
-            break;
-
         case SERIAL_CMD_OPCODE_VALUE_GET:
             serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
             serial_evt.params.cmd_rsp.command_opcode = p_serial_cmd->opcode;
@@ -441,6 +377,95 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
             break;
 
 #endif /* BOOTLOADER */
+
+        case SERIAL_CMD_OPCODE_FLAG_SET:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = p_serial_cmd->opcode;
+            serial_evt.length = 3;
+
+            if (p_serial_cmd->length != sizeof(serial_cmd_params_flag_set_t) + 1)
+            {
+                serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+            }
+            else
+            {
+                switch ((aci_flag_t) p_serial_cmd->params.flag_set.flag)
+                {
+                    case ACI_FLAG_PERSISTENT:
+#ifdef BOOTLOADER
+                        error_code = NRF_ERROR_INVALID_PARAM;
+#else
+                        error_code = rbc_mesh_persistence_set(p_serial_cmd->params.flag_set.handle,
+                                p_serial_cmd->params.flag_set.value);
+#endif
+                        break;
+
+                    case ACI_FLAG_TX_EVENT:
+                        {
+#ifdef BOOTLOADER
+                            transport_tx_evt_set(
+                                    p_serial_cmd->params.flag_set.handle,
+                                    p_serial_cmd->params.flag_set.value);
+                            error_code = NRF_SUCCESS;
+#else
+                            error_code = rbc_mesh_tx_event_set(
+                                    p_serial_cmd->params.flag_set.handle,
+                                    p_serial_cmd->params.flag_set.value);
+#endif
+                        }
+                        break;
+                    default:
+                        error_code = NRF_ERROR_INVALID_PARAM;
+                }
+                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+            }
+            break;
+
+        case SERIAL_CMD_OPCODE_FLAG_GET:
+            serial_evt.opcode = SERIAL_EVT_OPCODE_CMD_RSP;
+            serial_evt.params.cmd_rsp.command_opcode = p_serial_cmd->opcode;
+            serial_evt.length = 7;
+
+            if (p_serial_cmd->length != sizeof(serial_cmd_params_flag_get_t) + 1)
+            {
+                serial_evt.params.cmd_rsp.status = ACI_STATUS_ERROR_INVALID_LENGTH;
+            }
+            else
+            {
+                uint32_t error_code;
+                bool flag_status = false;
+                switch ((aci_flag_t) p_serial_cmd->params.flag_set.flag)
+                {
+                    case ACI_FLAG_PERSISTENT:
+#ifdef BOOTLOADER
+                        error_code = NRF_ERROR_INVALID_PARAM;
+#else
+                        error_code = rbc_mesh_persistence_get(p_serial_cmd->params.flag_get.handle,
+                                &flag_status);
+#endif
+
+                        break;
+
+                    case ACI_FLAG_TX_EVENT:
+#ifdef BOOTLOADER
+                        flag_status = transport_tx_evt_get(p_serial_cmd->params.flag_get.handle);
+                        error_code = NRF_SUCCESS;
+#else
+                        error_code = rbc_mesh_tx_event_flag_get(p_serial_cmd->params.flag_get.handle,
+                                &flag_status);
+#endif
+                        break;
+                    default:
+                        error_code = NRF_ERROR_INVALID_PARAM;
+                        serial_evt.length = 3;
+                }
+                serial_evt.params.cmd_rsp.response.flag.handle = p_serial_cmd->params.flag_get.handle;
+                serial_evt.params.cmd_rsp.response.flag.flag = p_serial_cmd->params.flag_get.flag;
+                serial_evt.params.cmd_rsp.response.flag.value = flag_status;
+                serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
+            }
+            break;
+
 
         case SERIAL_CMD_OPCODE_DFU:
             {
