@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "rbc_mesh.h"
-#include "bootloader_app.h"
+#include "bootloader_util.h"
 
 #include "nrf_adv_conn.h"
 #include "led_config.h"
@@ -113,15 +113,15 @@ void sd_ble_evt_handler(ble_evt_t* p_ble_evt)
 static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
 {
     TICK_PIN(28);
-    switch (evt->event_type)
+    switch (evt->type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-            if (evt->value_handle > 1)
+            if (evt->params.rx.value_handle > 1)
                 break;
 
-            led_config(evt->value_handle, evt->data[0]);
+            led_config(evt->params.rx.value_handle, evt->params.rx.p_data[0]);
             break;
         case RBC_MESH_EVENT_TYPE_TX:
             break;
@@ -209,7 +209,7 @@ int main(void)
         if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
         {
             rbc_mesh_event_handler(&evt);
-            rbc_mesh_packet_release(evt.data);
+            rbc_mesh_event_release(&evt);
         }
 
         sd_app_evt_wait();
@@ -255,7 +255,7 @@ int main(void)
         if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
         {
             rbc_mesh_event_handler(&evt);
-            rbc_mesh_packet_release(evt.data);
+            rbc_mesh_event_release(&evt);
         }
     }
 #endif
