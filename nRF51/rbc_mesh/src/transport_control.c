@@ -43,8 +43,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "version_handler.h"
 #include "mesh_aci.h"
 #include "app_error.h"
+
+#ifdef MESH_DFU
 #include "dfu_types_mesh.h"
 #include "dfu_app.h"
+#endif
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
@@ -154,7 +157,7 @@ static void async_tx_cb(void* p_context)
         tx_event.params.rx.version_delta = 0;
 
         rbc_mesh_event_push(&tx_event); /* will take care of the reference counting itself. */
-#if RBC_MESH_SERIAL
+#ifdef RBC_MESH_SERIAL
         mesh_aci_rbc_event_handler(&tx_event);
 #endif
     }
@@ -183,7 +186,6 @@ static void tx_cb(uint8_t* p_data)
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
 }
 
-
 static void radio_idle_callback(void)
 {
     /* If the processor is unable to keep up, we should back down, and give it time */
@@ -193,6 +195,7 @@ static void radio_idle_callback(void)
 
 static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t timestamp)
 {
+#ifdef MESH_DFU
     mesh_dfu_adv_data_t* p_dfu = (mesh_dfu_adv_data_t*) p_adv_data;
     /* Tell the shared BL about the packet */
     bl_cmd_t rx_cmd;
@@ -200,7 +203,9 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t t
     rx_cmd.params.rx.length = p_dfu->adv_data_length - DFU_PACKET_ADV_OVERHEAD;
     rx_cmd.params.rx.p_dfu_packet = &p_dfu->dfu_packet;
     dfu_cmd_send(&rx_cmd);
+#endif
 }
+
 /******************************************************************************
 * Interface functions
 ******************************************************************************/

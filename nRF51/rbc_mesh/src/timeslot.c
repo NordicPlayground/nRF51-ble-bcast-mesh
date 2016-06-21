@@ -39,8 +39,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 #include "event_handler.h"
 #include "rbc_mesh_common.h"
+
+#ifdef MESH_DFU
 #include "dfu_app.h"
 #include "mesh_flash.h"
+#endif
 
 #include "app_error.h"
 #include "nrf_sdm.h"
@@ -348,7 +351,9 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     }
     else
     {
+#ifdef MESH_DFU
         mesh_flash_op_execute(timeslot_remaining_time_get());
+#endif
         requested_extend_time = 0;
     }
 
