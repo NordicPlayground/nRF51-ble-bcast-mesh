@@ -120,10 +120,10 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 
             led_config(p_evt->params.rx.value_handle, p_evt->params.rx.p_data[0]);
             break;
-            
+
         case RBC_MESH_EVENT_TYPE_TX:
             break;
-        
+
         case RBC_MESH_EVENT_TYPE_INITIALIZED:
             /* init BLE gateway softdevice application: */
             nrf_adv_conn_init();
@@ -131,22 +131,22 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
         case RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE:
             dfu_bank_flash(p_evt->params.dfu.bank.dfu_type);
             break;
-        
+
         case RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE:
             dfu_request(p_evt->params.dfu.new_fw.dfu_type,
-                &p_evt->params.dfu.new_fw.new_fwid, 
+                &p_evt->params.dfu.new_fw.new_fwid,
                 (uint32_t*) 0x24000);
             break;
-        
+
         case RBC_MESH_EVENT_TYPE_DFU_RELAY_REQ:
-            dfu_relay(p_evt->params.dfu.relay_req.dfu_type, 
+            dfu_relay(p_evt->params.dfu.relay_req.dfu_type,
                 &p_evt->params.dfu.relay_req.fwid);
             break;
-        
+
         case RBC_MESH_EVENT_TYPE_DFU_START:
         case RBC_MESH_EVENT_TYPE_DFU_END:
             break;
-        
+
         case RBC_MESH_EVENT_TYPE_DFU_SOURCE_REQ:
             break;
     }
@@ -185,7 +185,7 @@ int main(void)
 {
     /* init leds and pins */
     gpio_init();
-    
+
     /* Enable Softdevice (including sd_ble before framework */
     SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, NULL);
     softdevice_ble_evt_handler_set(sd_ble_evt_handler); /* app-defined event handler, as we need to send it to the nrf_adv_conn module and the rbc_mesh */
@@ -225,7 +225,7 @@ int main(void)
     rbc_mesh_event_t evt;
     while (true)
     {
-#ifdef BUTTONS        
+#ifdef BUTTONS
         for (uint32_t pin = BUTTON_START; pin <= BUTTON_STOP; ++pin)
         {
             if(nrf_gpio_pin_read(pin) == 0)
@@ -233,7 +233,7 @@ int main(void)
                 while(nrf_gpio_pin_read(pin) == 0);
                 uint32_t led_status = !!((pin - BUTTON_START) & 0x01); /* even buttons are OFF, odd buttons are ON */
                 uint32_t led_offset = !!((pin - BUTTON_START) & 0x02); /* two buttons per led */
-                
+
                 mesh_data[0] = led_status;
                 if (rbc_mesh_value_set(led_offset, mesh_data, 1) == NRF_SUCCESS)
                 {
@@ -242,7 +242,7 @@ int main(void)
             }
         }
 #endif
-        
+
         if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
         {
             rbc_mesh_event_handler(&evt);
