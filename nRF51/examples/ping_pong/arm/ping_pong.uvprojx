@@ -363,7 +363,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10028 SOFTDEVICE_PRESENT NRF51 PACKET_STATS DEBUG</Define>
+              <Define>RBC_MESH_HANDLE_CACHE_ENTRIES=32 RBC_MESH_DATA_CACHE_ENTRIES=32 BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10028 SOFTDEVICE_PRESENT NRF51 PACKET_STATS DEBUG</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\RTT;..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\..\components\libraries\fifo</IncludePath>
             </VariousControls>
@@ -434,14 +434,19 @@
               <FilePath>..\..\..\rbc_mesh\src\radio_control.c</FilePath>
             </File>
             <File>
-              <FileName>timer_control.c</FileName>
+              <FileName>timer.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\timer_control.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\timer.c</FilePath>
             </File>
             <File>
-              <FileName>timeslot_handler.c</FileName>
+              <FileName>timer_scheduler.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\timeslot_handler.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\timer_scheduler.c</FilePath>
+            </File>
+            <File>
+              <FileName>timeslot.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\timeslot.c</FilePath>
             </File>
             <File>
               <FileName>trickle.c</FileName>
@@ -477,21 +482,6 @@
               <FileName>mesh_packet.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_info_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_util.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
             </File>
             <File>
               <FileName>rand.c</FileName>

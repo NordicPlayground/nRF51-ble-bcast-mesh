@@ -30,12 +30,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rbc_mesh.h"
 #include "cmd_if.h"
-#include "timeslot_handler.h"
-
 #include "softdevice_handler.h"
 #include "app_error.h"
 #include "nrf_gpio.h"
-#include "SEGGER_RTT.h"
 #include "boards.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -57,11 +54,11 @@ extern void UART0_IRQHandler(void);
 
 static void print_usage(void)
 {
-    _LOG("To configure: transmit the handle number this device responds to, \r\n"
+    UART_PRINT("To configure: transmit the handle number this device responds to, \r\n"
     "or 0 to respond to all handles.\r\n");
 }
 
-/** 
+/**
 * @brief Handle an incoming command, and act accordingly.
 */
 static void cmd_rx(uint8_t* cmd, uint32_t len)
@@ -72,14 +69,14 @@ static void cmd_rx(uint8_t* cmd, uint32_t len)
     if (m_handle == 0)
     {
         m_data[6]++;
-        _LOG("Responding to all\r\n");
+        UART_PRINT("Responding to all\r\n");
     }
     else
     {
         m_data[6]++;
         rbc_mesh_value_set(m_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
         rbc_mesh_persistence_set(m_handle, true);
-        _LOG("Responding to handle %d\r\n", (int) m_handle);
+        UART_PRINT("Responding to handle %d\r\n", (int) m_handle);
     }
 }
 
@@ -99,88 +96,78 @@ static void error_loop(void)
 
 /**
 * @brief Softdevice crash handler, never returns
-* 
+*
 * @param[in] pc Program counter at which the assert failed
-* @param[in] line_num Line where the error check failed 
+* @param[in] line_num Line where the error check failed
 * @param[in] p_file_name File where the error check failed
 */
 void sd_assert_handler(uint32_t pc, uint16_t line_num, const uint8_t* p_file_name)
 {
-    _LOG("SD ERROR: %s:L%d\r\n", (const char*) p_file_name, (int) line_num);
-    SEGGER_RTT_printf(0, "SD ERROR: %s:L%d\r\n", (const char*) p_file_name, (int) line_num);
+    UART_PRINT("SD ERROR: %s:L%d\r\n", (const char*) p_file_name, (int) line_num);
     error_loop();
 }
 
 /**
 * @brief App error handle callback. Called whenever an APP_ERROR_CHECK() fails.
 *   Never returns.
-* 
+*
 * @param[in] error_code The error code sent to APP_ERROR_CHECK()
-* @param[in] line_num Line where the error check failed 
+* @param[in] line_num Line where the error check failed
 * @param[in] p_file_name File where the error check failed
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    _LOG("APP ERROR: %s:L%d - E:%X\r\n", p_file_name, (int) line_num, (int) error_code);
-    SEGGER_RTT_printf(0, "APP ERROR: %s:L%d - E:%X\r\n", p_file_name, (int) line_num, (int) error_code);
+    UART_PRINT("APP ERROR: %s:L%d - E:%X\r\n", p_file_name, (int) line_num, (int) error_code);
     error_loop();
 }
 
 void HardFault_Handler(void)
 {
-    _LOG("HARDFAULT\r\n");
-    SEGGER_RTT_printf(0, "HARDFAULT\r\n");
+    UART_PRINT("HARDFAULT\r\n");
     error_loop();
 }
 
 /**
-* @brief RBC_MESH framework event handler. Handles events coming from the mesh. 
+* @brief RBC_MESH framework event handler. Handles events coming from the mesh.
 *
 * @param[in] evt RBC event propagated from framework
 */
-static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
-{ 
+static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
+{
     static const char cmd[] = {'U', 'C', 'N', 'I', 'T'};
-    switch (evt->event_type)
+    switch (p_evt->type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-        case RBC_MESH_EVENT_TYPE_NEW_VAL:  
-            if (evt->value_handle == m_handle || m_handle == 0)
+        case RBC_MESH_EVENT_TYPE_NEW_VAL:
+            if (p_evt->params.rx.value_handle == m_handle || m_handle == 0)
             {
                 nrf_gpio_pin_toggle(LED_START);
                 if (m_handle == 0)
                 {
-                    rbc_mesh_value_set(evt->value_handle, m_data, 1); /* short ack */
-                    _LOG("%c[%d] \r\n", cmd[evt->event_type], evt->value_handle);
+                    rbc_mesh_value_set(p_evt->params.rx.value_handle, m_data, 1); /* short ack */
+                    UART_PRINT("%c[%d] \r\n", cmd[p_evt->type], p_evt->params.rx.value_handle);
                 }
                 else
                 {
                     m_data[6]++;
-                    rbc_mesh_value_set(evt->value_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
+                    rbc_mesh_value_set(p_evt->params.rx.value_handle, m_data, RBC_MESH_VALUE_MAX_LEN);
                 }
             }
-            else
-            {
-                //rbc_mesh_value_disable(evt->value_handle);
-            }
             break;
-        case RBC_MESH_EVENT_TYPE_INITIALIZED: break;
-        case RBC_MESH_EVENT_TYPE_TX: break;
+        default:
+            break;
     }
 }
 
 /** @brief main function */
 int main(void)
-{   
-    SEGGER_RTT_Init();
-    SEGGER_RTT_WriteString(0, "START\n");
-
+{
     /* Enable Softdevice (including sd_ble before framework) */
     SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SRC, NULL);
     softdevice_ble_evt_handler_set(rbc_mesh_ble_evt_handler);
     softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
-    
+
     /* Init the rbc_mesh */
     rbc_mesh_init_params_t init_params;
 
@@ -188,34 +175,34 @@ int main(void)
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel         = MESH_CHANNEL;
     init_params.lfclksrc        = MESH_CLOCK_SRC;
-    
+
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
-    
+
     ble_gap_addr_t addr;
     sd_ble_gap_address_get(&addr);
     memcpy(m_data, addr.addr, 6);
-    
+
     nrf_gpio_range_cfg_output(0, 32);
     for (uint32_t i = LED_START; i <= LED_STOP; ++i)
     {
         nrf_gpio_pin_set(i);
     }
-    
+
     cmd_init(cmd_rx);
 
-    _LOG("START\r\n");
+    UART_PRINT("START\r\n");
     print_usage();
-    
+
     rbc_mesh_event_t evt;
     while (true)
     {
         if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
         {
             rbc_mesh_event_handler(&evt);
-            rbc_mesh_packet_release(evt.data);
+            rbc_mesh_event_release(&evt);
         }
-        
+
         sd_app_evt_wait();
     }
 }
