@@ -71,7 +71,7 @@ class ACIUart(threading.Thread, AciDevice):
             try:
                 pkt = list(pkt)
                 parsedPacket = AciEvent.AciEventDeserialize(pkt)
-                events_queue.append(parsedPacket)
+                self.events_queue.append(parsedPacket)
             except Exception:
                 self.log.error('Exception with packet %r', pkt)
                 self.log.error('traceback: %s', traceback.format_exc())
