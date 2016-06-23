@@ -32,9 +32,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RTT_LOG_H__
 
 #include <stdarg.h>
-#include "SEGGER_RTT.h"
 
 #ifdef RTT_LOG
+#include "SEGGER_RTT.h"
 
 #ifndef __MODULE__
 /** ARMCC defines __MODULE__ as __FILE__ without the path. GCC does not. */

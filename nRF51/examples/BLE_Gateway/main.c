@@ -221,7 +221,6 @@ int main(void)
 
 #endif
 
-    uint8_t mesh_data[1];
     rbc_mesh_event_t evt;
     while (true)
     {
@@ -231,6 +230,7 @@ int main(void)
             if(nrf_gpio_pin_read(pin) == 0)
             {
                 while(nrf_gpio_pin_read(pin) == 0);
+                uint8_t mesh_data[1];
                 uint32_t led_status = !!((pin - BUTTON_START) & 0x01); /* even buttons are OFF, odd buttons are ON */
                 uint32_t led_offset = !!((pin - BUTTON_START) & 0x02); /* two buttons per led */
 
