@@ -229,6 +229,7 @@ uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)
     evt.params.rx.p_data = p_adv_data->data;
     evt.params.rx.data_len = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
     evt.params.rx.value_handle = p_adv_data->handle;
+    evt.params.rx.timestamp_us = timestamp;
 
     if (error_code == NRF_ERROR_NOT_FOUND)
     {

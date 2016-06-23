@@ -215,6 +215,7 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
                         app_evt.params.rx.p_data = p_packet->payload;
                         app_evt.params.rx.data_len = data_len;
                         app_evt.params.rx.value_handle = p_serial_cmd->params.value_set.handle;
+                        app_evt.params.rx.timestamp_us = timer_now();
 
                         error_code = rbc_mesh_event_push(&app_evt);
                         mesh_packet_ref_count_dec(p_packet);
