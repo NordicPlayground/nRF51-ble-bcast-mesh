@@ -277,6 +277,7 @@ void mesh_flash_init(mesh_flash_op_cb_t cb)
 uint32_t mesh_flash_op_push(flash_op_type_t type, const flash_op_t* p_op)
 {
     APP_ERROR_CHECK_BOOL(type != FLASH_OP_TYPE_NONE);
+    APP_ERROR_CHECK_BOOL(p_op != NULL);
     operation_t op;
     op.type = type;
     memcpy(&op.operation, p_op, sizeof(flash_op_t));

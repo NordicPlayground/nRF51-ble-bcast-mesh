@@ -150,10 +150,14 @@ void event_handler_init(void)
 }
 
 
-uint32_t event_handler_push(async_event_t* evt)
+uint32_t event_handler_push(async_event_t* p_evt)
 {
+    if (p_evt == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
     fifo_t* p_fifo = NULL;
-    switch (evt->type)
+    switch (p_evt->type)
     {
     case EVENT_TYPE_GENERIC:
     case EVENT_TYPE_PACKET:
@@ -167,7 +171,7 @@ uint32_t event_handler_push(async_event_t* evt)
     default:
         return NRF_ERROR_INVALID_PARAM;
     }
-    uint32_t result = fifo_push(p_fifo, evt);
+    uint32_t result = fifo_push(p_fifo, p_evt);
     if (result != NRF_SUCCESS)
     {
         return result;

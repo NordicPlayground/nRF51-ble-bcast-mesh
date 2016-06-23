@@ -52,8 +52,12 @@ void fifo_init(fifo_t* p_fifo)
     p_fifo->tail = 0;
 }
 
-inline uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
+uint32_t fifo_push(fifo_t* p_fifo, const void* p_elem)
 {
+    if (p_elem == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
     if (FIFO_IS_FULL(p_fifo))
@@ -106,6 +110,10 @@ uint32_t fifo_pop(fifo_t* p_fifo, void* p_elem)
 
 uint32_t fifo_peek_at(fifo_t* p_fifo, void* p_elem, uint32_t elem)
 {
+    if (p_elem == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
     if (fifo_get_len(p_fifo) <= elem)

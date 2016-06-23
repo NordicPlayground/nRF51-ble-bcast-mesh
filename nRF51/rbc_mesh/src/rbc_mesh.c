@@ -40,7 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_app.h"
 #include "fifo.h"
 
-#include "nrf_error.h"
+#include "app_error.h"
 #include "nrf_sdm.h"
 
 #include <string.h>
@@ -312,11 +312,16 @@ void rbc_mesh_sd_evt_handler(uint32_t sd_evt)
     timeslot_sd_event_handler(sd_evt);
 }
 
+/** Internal only function to push mesh events to application queue. */
 uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
 {
     if (g_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
+    }
+    if (p_event == NULL)
+    {
+        return NRF_ERROR_NULL;
     }
     uint32_t error_code = fifo_push(&g_rbc_event_fifo, p_event);
 
