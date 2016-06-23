@@ -49,6 +49,9 @@ class AciDeviceStarted(AciEventPkt):
             self.HWError = pkt[3]
             self.DataCreditAvailable = pkt[4]
 
+    def __repr__(self):
+        return str.format("I am %s and my Lenght is %d, OpCode is 0x%02x, OperatingMode is 0x%02x, HWError is 0x%02x, and DataCreditAvailable is 0x%02x" %(self.__class__.__name__, self.Len, self.OpCode, self.OperatingMode, self.HWError, self.DataCreditAvailable))
+
 class AciEchoRsp(AciEventPkt):
     #OpCode = 0x82
     def __init__(self,pkt):
@@ -63,7 +66,10 @@ class AciCmdRsp(AciEventPkt):
         else:
             self.CommandOpCode = pkt[2]
             self.StatusCode = pkt[3]
-            self.Data = self.Data[4:]
+            self.Data = pkt[4:]
+
+    def __repr__(self):
+        return str.format("I am %s and my Lenght is %d, OpCode is 0x%02x, CommandOpCode is 0x%02x, StatusCode is 0x%02x, and Data is %s" %(self.__class__.__name__, self.Len, self.OpCode, self.CommandOpCode, self.StatusCode, self.Data))
 
 class AciEventNew(AciEventPkt):
     #OpCode = 0xB3
@@ -73,7 +79,10 @@ class AciEventNew(AciEventPkt):
             logging.error("Invalid length for %s event: %s", self.__class__.__name__, str(pkt))
         else:
             self.ValueHandle = pkt[2]
-            self.Data = self.Data[3:]
+            self.Data = pkt[3:]
+
+    def __repr__(self):
+        return str.format("I am %s and my Lenght is %d, OpCode is 0x%02x, ValueHandle is 0x%02x, and Data is %s" %(self.__class__.__name__, self.Len, self.OpCode, self.ValueHandle, self.Data))
 
 class AciEventUpdate(AciEventNew):
     #OpCode = 0xB4
