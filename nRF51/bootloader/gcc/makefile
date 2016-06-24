@@ -77,12 +77,16 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 # source common to all targets
 
 C_SOURCE_FILES += ../main.c
-C_SOURCE_FILES += ../bootloader_info.c
-C_SOURCE_FILES += ../bootloader_mesh.c
-C_SOURCE_FILES += ../bootloader_rtc.c
-C_SOURCE_FILES += ../dfu_mesh.c
 C_SOURCE_FILES += ../transport.c
-C_SOURCE_FILES += micro-ecc/uECC.c
+C_SOURCE_FILES += ../bootloader_rtc.c
+C_SOURCE_FILES += ../bootloader.c
+
+C_SOURCE_FILES += ../core/bootloader_app_bridge.c
+C_SOURCE_FILES += ../core/bootloader_info.c
+C_SOURCE_FILES += ../core/dfu_bank.c
+C_SOURCE_FILES += ../core/dfu_mesh.c
+C_SOURCE_FILES += ../core/dfu_transfer_mesh.c
+C_SOURCE_FILES += ../core/uECC.c
 
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
 	CFLAGS += -D SERIAL=1
@@ -100,6 +104,7 @@ C_SOURCE_FILES += ../../rbc_mesh/src/nrf_flash.c
 
 C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c
 C_SOURCE_FILES += $(COMPONENTS)/libraries/sha256/sha256.c
+C_SOURCE_FILES += ../../RTT/SEGGER_RTT.c
 
 # assembly files common to all targets
 ASM_SOURCE_FILES  += $(COMPONENTS)/toolchain/gcc/gcc_startup_nrf51.s
@@ -107,10 +112,11 @@ ASM_SOURCE_FILES  += $(COMPONENTS)/toolchain/gcc/gcc_startup_nrf51.s
 # includes common to all targets
 
 INC_PATHS += -I../include
-INC_PATHS += -Imicro-ecc
+INC_PATHS += -I../core/include
 INC_PATHS += -I../../rbc_mesh
 INC_PATHS += -I../../rbc_mesh/include
 INC_PATHS += -I../../SDK/bsp
+INC_PATHS += -I../../RTT
 
 INC_PATHS += -I$(COMPONENTS)/device
 INC_PATHS += -I$(COMPONENTS)/toolchain
