@@ -135,7 +135,6 @@ static void radio_tx_cb(uint8_t* p_data)
 
 static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index)
 {
-    APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) p_data) == 1);
     if (success &&
         fifo_push(&m_rx_fifo, &p_data) == NRF_SUCCESS)
     {
@@ -143,11 +142,7 @@ static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rss
     }
     else
     {
-        /* mark the packet for debugging purposes */
-        ((mesh_packet_t*) p_data)->header.type = 0x0F;
-        memset(((mesh_packet_t*) p_data)->addr, 0xFF, 6);
         mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
-        APP_ERROR_CHECK_BOOL(mesh_packet_ref_count_get((mesh_packet_t*) p_data) == 0);
     }
 }
 
@@ -379,11 +374,11 @@ void transport_tx_evt_set(uint16_t handle, bool value)
 {
     if (value)
     {
-        m_tx_evt_bitfield |= (1 << (value - TX_EVT_BITFIELD_HANDLE_START));
+        m_tx_evt_bitfield |= (1 << (handle - TX_EVT_BITFIELD_HANDLE_START));
     }
     else
     {
-        m_tx_evt_bitfield &= ~(1 << (value - TX_EVT_BITFIELD_HANDLE_START));
+        m_tx_evt_bitfield &= ~(1 << (handle - TX_EVT_BITFIELD_HANDLE_START));
     }
 }
 
@@ -393,6 +388,6 @@ bool transport_tx_evt_get(uint16_t handle)
     {
         return false;
     }
-    return !!(m_tx_evt_bitfield & (1 << (value - TX_EVT_BITFIELD_HANDLE_START)));
+    return !!(m_tx_evt_bitfield & (1 << (handle - TX_EVT_BITFIELD_HANDLE_START)));
 }
 
