@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 #include "event_handler.h"
 #include "timeslot.h"
+#include "timer_scheduler.h"
 #include "rbc_mesh_common.h"
 #include "version_handler.h"
 #include "mesh_aci.h"
