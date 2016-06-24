@@ -25,7 +25,9 @@ class AciDevice(object):
         if len(self.events) == 0:
             return None
         else:
-            return self.events.pop(0)
+            event = self.events[:]
+            self.events.clear()
+            return event
 
     def AddPacketRecipient(self, function):
         self._pack_recipients.append(function)
@@ -64,8 +66,8 @@ class AciDevice(object):
 
 
 class AciUart(threading.Thread, AciDevice):
-    events_queue = collections.deque(maxlen = EVT_Q_BUF)
     def __init__(self, port, baudrate=115200, device_name=None, rtscts=False):
+        self.events_queue = collections.deque(maxlen = EVT_Q_BUF)
         threading.Thread.__init__(self)
         if not device_name:
             device_name = port

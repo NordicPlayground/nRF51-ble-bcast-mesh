@@ -1,4 +1,5 @@
 import logging
+from aci import AciCommand
 
 MAX_DATA_LENGTH = 30
 
@@ -18,6 +19,26 @@ def AciEventDeserialize(pkt):
         return eventLUT[opcode](pkt)
     else:
         return AciEventPkt(pkt)
+
+def AciStatusLookUp(StatusCode):
+    StatusCodeLUT = {
+        0x00: "SUCCESS",
+        0x80: "ERROR_UNKNOWN",
+        0x81: "ERROR_INTERNAL",
+        0x82: "ERROR_CMD_UNKNOWN",
+        0x83: "ERROR_DEVICE_STATE_INVALID",
+        0x84: "ERROR_INVALID_LENGTH",
+        0x85: "ERROR_INVALID_PARAMETER",
+        0x86: "ERROR_BUSY",
+        0x87: "ERROR_INVALID_DATA",
+        0x90: "ERROR_PIPE_INVALID",
+        0xF0: "RESERVED_START",
+        0xFF: "RESERVED_END"
+    }
+    if StatusCode in StatusCodeLUT:
+        return StatusCodeLUT[StatusCode]
+    else:
+        return "UNKNOWN ERROR: 0x%02x" %StatusCode
 
 class AciEventPkt(object):
     Len = 1
@@ -69,7 +90,7 @@ class AciCmdRsp(AciEventPkt):
             self.Data = pkt[4:]
 
     def __repr__(self):
-        return str.format("I am %s and my Lenght is %d, OpCode is 0x%02x, CommandOpCode is 0x%02x, StatusCode is 0x%02x, and Data is %s" %(self.__class__.__name__, self.Len, self.OpCode, self.CommandOpCode, self.StatusCode, self.Data))
+        return str.format("I am %s and my Lenght is %d, OpCode is 0x%02x, CommandOpCode is %s, StatusCode is %s, and Data is %s" %(self.__class__.__name__, self.Len, self.OpCode, AciCommand.AciCommandLookUp(self.CommandOpCode), AciStatusLookUp(self.StatusCode), self.Data))
 
 class AciEventNew(AciEventPkt):
     #OpCode = 0xB3

@@ -1,5 +1,30 @@
 import logging
 
+def AciCommandLookUp(CommandOpCode):
+    commandNameLUT = {
+        AciEcho.OpCode: "Echo",
+        AciRadioReset.OpCode: "RadioReset",
+        AciInit.OpCode: "Init",
+        AciValueSet.OpCode: "ValueSet",
+        AciValueEnable.OpCode: "ValueEnable",
+        AciValueDisable.OpCode: "ValueDisable",
+        AciStart.OpCode: "Start",
+        AciStop.OpCode: "Stop",
+        AciFlagSet.OpCode: "FlagSet",
+        AciFlagGet.OpCode: "FlagGet",
+        AciDfuData.OpCode: "DfuData",
+        AciValueGet.OpCode: "ValueGet",
+        AciBuildVersionGet.OpCode: "BuildVersionGet",
+        AciAccessAddressGet.OpCode: "AccessAddressGet",
+        AciChannelGet.OpCode: "ChannelGet",
+        AciIntervalMinMsGet.OpCode: "IntervalMinMsGet",
+    }
+
+    if CommandOpCode in commandNameLUT:
+        return commandNameLUT[CommandOpCode]
+    else:
+        return "UNKNOWN COMMAND: 0x%02x" %CommandOpCode
+
 def valueToByteArray(val, no_bytes):
     data = [(val>>(x*8))&0xFF for x in range(no_bytes)]
     return data

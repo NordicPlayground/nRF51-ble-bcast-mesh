@@ -12,8 +12,11 @@ class Interactive(object):
     def close(self):
         self.acidev.stop()
 
-    def EventsReceived(self):
+    def EventsReceivedGet(self):
         return self.acidev.events_queue
+
+    def DevicePortGet(self):
+        return self.acidev.serial.port
 
     #HCI commands
     def Echo(self, Data):
@@ -22,11 +25,11 @@ class Interactive(object):
     def RadioReset(self):
         self.acidev.write_aci_cmd(AciCommand.AciRadioReset())
 
-    def Init(self, AccessAddress, MinInterval, Channel):
+    def Init(self, AccessAddress=0x8E89BED6, MinInterval=100, Channel=39):
         self.acidev.write_aci_cmd(AciCommand.AciInit(access_address=AccessAddress, min_interval=MinInterval, channel=Channel))
 
     def ValueSet(self, Handle, Data):
-        self.acidev.writH_aci_cmd(AciCommand.AciValueSet(handle=Handle, data=Data, length=(len(Data)+3)))
+        self.acidev.write_aci_cmd(AciCommand.AciValueSet(handle=Handle, data=Data, length=(len(Data)+3)))
 
     def ValueEnable(self, Handle):
         self.acidev.write_aci_cmd(AciCommand.AciValueEnable(handle=Handle))
@@ -75,9 +78,14 @@ def get_ipython_config(device):
     return c
 
 def start_ipython(options):
-    d = Interactive(AciUart.AciUart(port=options.device, baudrate=options.baudrate))
+    comports = options.device.split(',')
+    d = list()
+    for dev_com in comports:
+        d.append(Interactive(AciUart.AciUart(port=dev_com, baudrate=options.baudrate)))
+
     IPython.embed(config=get_ipython_config(options.device))
-    d.close()
+    for dev in d:
+        dev.close()
     raise SystemExit(0)
 
 if __name__ == '__main__':
