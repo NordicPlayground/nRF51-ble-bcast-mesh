@@ -6,11 +6,12 @@
 
 #TARGET_BOARD         ?= BOARD_PCA10000
 #TARGET_BOARD         ?= BOARD_PCA10001
-TARGET_BOARD         ?= BOARD_PCA10028
-#TARGET_BOARD         ?= BOARD_PCA10031
+#TARGET_BOARD         ?= BOARD_PCA10028
+TARGET_BOARD         ?= BOARD_PCA10031
 
 USE_RBC_MESH_SERIAL  ?= "no"
 USE_BUTTONS          ?= "no"
+USE_DFU              ?= "no"
 
 #------------------------------------------------------------------------------
 # Define relative paths to SDK components
@@ -20,7 +21,12 @@ SDK_BASE      := ../../../../../..
 COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
-LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld
+ifeq ($(USE_DFU), "yes")
+	LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld
+else
+	LINKER_SCRIPT := ./gcc_nrf51_s110_xxac_dfu.ld
+endif
+
 
 ifeq ($(USE_BUTTONS), "yes")
 	BUTTON_STRING="_buttons"
@@ -34,7 +40,13 @@ else
 	SERIAL_STRING=""
 endif
 
-OUTPUT_NAME := rbc_gatt$(BUTTON_STRING)$(SERIAL_STRING)_$(TARGET_BOARD)
+ifeq ($(USE_DFU), "yes")
+	DFU_STRING="_dfu"
+else
+	DFU_STRING=""
+endif
+
+OUTPUT_NAME := rbc_gatt$(BUTTON_STRING)$(SERIAL_STRING)$(DFU_STRING)_$(TARGET_BOARD)
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
@@ -99,10 +111,18 @@ ifeq ($(USE_BUTTONS), "yes")
 	CFLAGS += -D BUTTONS=1
 endif
 
+ifeq ($(USE_DFU), "yes")
+	CFLAGS += -D MESH_DFU=1
+	C_SOURCE_FILES += ../../../rbc_mesh/src/dfu_app.c
+	C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_flash.c
+	C_SOURCE_FILES += ../../../rbc_mesh/src/nrf_flash.c
+endif
+
 C_SOURCE_FILES += ../../../rbc_mesh/src/radio_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/rbc_mesh.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/timer_control.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot_handler.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/timer.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/timer_scheduler.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/trickle.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_gatt.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
@@ -111,9 +131,6 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/version_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/handle_storage.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_packet.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/bootloader_app.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/bootloader_info_app.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/bootloader_util.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/rand.c
 
 
@@ -130,6 +147,7 @@ INC_PATHS += -I../include
 INC_PATHS += -I../../../rbc_mesh
 INC_PATHS += -I../../../rbc_mesh/include
 INC_PATHS += -I../../../SDK/bsp
+INC_PATHS += -I../../../RTT
 
 INC_PATHS += -I$(COMPONENTS)/softdevice/s110/headers
 INC_PATHS += -I$(COMPONENTS)/softdevice/common/softdevice_handler
@@ -222,6 +240,7 @@ all: $(BUILD_DIRECTORIES) $(OBJECTS)
 	@echo "build options  --"
 	@echo "               USE_RBC_MESH_SERIAL $(USE_RBC_MESH_SERIAL)"
 	@echo "               USE_BUTTONS         $(USE_BUTTONS)"
+	@echo "               USE_DFU             $(USE_DFU)"
 	@echo "build products --"
 	@echo "               $(OUTPUT_NAME).elf"
 	@echo "               $(OUTPUT_NAME).hex"

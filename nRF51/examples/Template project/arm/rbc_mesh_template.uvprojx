@@ -363,7 +363,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT</Define>
+              <Define>MESH_DFU BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
             </VariousControls>
@@ -429,14 +429,19 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
-              <FileName>timer_control.c</FileName>
+              <FileName>timer.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\timer_control.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\timer.c</FilePath>
             </File>
             <File>
-              <FileName>timeslot_handler.c</FileName>
+              <FileName>timer_scheduler.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\timeslot_handler.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\timer_scheduler.c</FilePath>
+            </File>
+            <File>
+              <FileName>timeslot.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\timeslot.c</FilePath>
             </File>
             <File>
               <FileName>trickle.c</FileName>
@@ -575,24 +580,24 @@
               <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
             <File>
-              <FileName>bootloader_info_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_util.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
-            </File>
-            <File>
               <FileName>rand.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\rand.c</FilePath>
+            </File>
+            <File>
+              <FileName>dfu_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\dfu_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>mesh_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_flash.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\nrf_flash.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -712,7 +717,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\_build\</OutputDirectory>
-          <OutputName>rbc_mesh_led_pca10001</OutputName>
+          <OutputName>rbc_mesh_serial</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -889,7 +894,7 @@
             <hadIRAM2>0</hadIRAM2>
             <hadIROM2>0</hadIROM2>
             <StupSel>8</StupSel>
-            <useUlib>0</useUlib>
+            <useUlib>1</useUlib>
             <EndSel>0</EndSel>
             <uLtcg>0</uLtcg>
             <RoSelD>3</RoSelD>
@@ -1000,7 +1005,7 @@
               <OCR_RVCT9>
                 <Type>0</Type>
                 <StartAddress>0x20002000</StartAddress>
-                <Size>0x6000</Size>
+                <Size>0x2000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
@@ -1028,7 +1033,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT RBC_MESH_SERIAL</Define>
+              <Define>MESH_DFU BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT RBC_MESH_SERIAL</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler</IncludePath>
             </VariousControls>
@@ -1094,14 +1099,19 @@
               <FilePath>..\..\..\rbc_mesh\src\rbc_mesh.c</FilePath>
             </File>
             <File>
-              <FileName>timer_control.c</FileName>
+              <FileName>timer.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\timer_control.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\timer.c</FilePath>
             </File>
             <File>
-              <FileName>timeslot_handler.c</FileName>
+              <FileName>timer_scheduler.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\timeslot_handler.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\timer_scheduler.c</FilePath>
+            </File>
+            <File>
+              <FileName>timeslot.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\timeslot.c</FilePath>
             </File>
             <File>
               <FileName>trickle.c</FileName>
@@ -1134,6 +1144,11 @@
               <FilePath>..\..\..\rbc_mesh\src\event_handler.c</FilePath>
             </File>
             <File>
+              <FileName>handle_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\handle_storage.c</FilePath>
+            </File>
+            <File>
               <FileName>version_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\version_handler.c</FilePath>
@@ -1149,19 +1164,19 @@
               <FilePath>..\..\..\rbc_mesh\src\mesh_gatt.c</FilePath>
             </File>
             <File>
-              <FileName>bootloader_info_app.c</FileName>
+              <FileName>dfu_app.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\dfu_app.c</FilePath>
             </File>
             <File>
-              <FileName>bootloader_app.c</FileName>
+              <FileName>mesh_flash.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\mesh_flash.c</FilePath>
             </File>
             <File>
-              <FileName>bootloader_util.c</FileName>
+              <FileName>nrf_flash.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\nrf_flash.c</FilePath>
             </File>
             <File>
               <FileName>rand.c</FileName>

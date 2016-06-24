@@ -6,8 +6,8 @@
 
 #TARGET_BOARD         ?= BOARD_PCA10000
 #TARGET_BOARD         ?= BOARD_PCA10001
-TARGET_BOARD         ?= BOARD_PCA10028
-#TARGET_BOARD         ?= BOARD_PCA10031
+#TARGET_BOARD         ?= BOARD_PCA10028
+TARGET_BOARD         ?= BOARD_PCA10031
 
 
 ATTR_TABLE_SIZE      ?= 0x2700
@@ -72,8 +72,6 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 
 C_SOURCE_FILES += ../main.c
 C_SOURCE_FILES += ../cmd_if.c
-C_SOURCE_FILES += ../RTT/SEGGER_RTT.c
-C_SOURCE_FILES += ../RTT/SEGGER_RTT_printf.c
 
 ifeq ($(USE_BUTTONS), "yes")
 	CFLAGS += -D BUTTONS=1
@@ -81,8 +79,9 @@ endif
 
 C_SOURCE_FILES += ../../../rbc_mesh/src/radio_control.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/rbc_mesh.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/timer_control.c
-C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot_handler.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/timer.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/timer_scheduler.c
+C_SOURCE_FILES += ../../../rbc_mesh/src/timeslot.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/trickle.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_gatt.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/transport_control.c
@@ -91,7 +90,8 @@ C_SOURCE_FILES += ../../../rbc_mesh/src/event_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/version_handler.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/handle_storage.c
 C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_packet.c
-ASM_SOURCE_FILES += gcc_startup_nrf51.s # using local startup file to cater customized heap size
+C_SOURCE_FILES += ../../../rbc_mesh/src/rand.c
+ASM_SOURCE_FILES += gcc_startup_nrf51.s
 
 C_SOURCE_FILES += $(COMPONENTS)/ble/common/ble_advdata.c
 C_SOURCE_FILES += $(COMPONENTS)/softdevice/common/softdevice_handler/softdevice_handler.c
