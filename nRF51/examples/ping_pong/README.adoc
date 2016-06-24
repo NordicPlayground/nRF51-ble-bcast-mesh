@@ -1,7 +1,8 @@
 = Ping pong example
 
 The ping pong example is a stress test application for the mesh, meant to be
-used with the Python 2.7 script ping_pong.py, located under ./scripts/.
+used with the Python 2.7 script ping_pong.py, located under ./scripts/. It
+demonstrates the mesh's ability to handle many-to-one applications.
 
 == How does it work?
 
@@ -30,4 +31,4 @@ filtering on line 55, and use the non-Windows-code on line 57 instead.
 
 Build, then flash all devices in the network with the ping_pong firmware. Run
 the ping_pong.py script without parameters. The script will output a list of
-all Segger serial devices
+all COM-ports it could find, and the handle they've been assigned.
