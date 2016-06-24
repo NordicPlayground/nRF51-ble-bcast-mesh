@@ -35,13 +35,16 @@
 #include "event_handler.h"
 #include "version.h"
 #include "mesh_packet.h"
-#include "dfu_types_mesh.h"
 #include "rtt_log.h"
 
 #ifdef BOOTLOADER
+#include "transport.h"
 #include "bootloader.h"
 #else
+#ifdef MESH_DFU
 #include "dfu_app.h"
+#include "dfu_types_mesh.h"
+#endif
 #endif
 
 
@@ -481,12 +484,14 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
                 rx_cmd.params.rx.p_dfu_packet = &p_serial_cmd->params.dfu.packet;
                 rx_cmd.params.rx.length = p_serial_cmd->length - SERIAL_PACKET_OVERHEAD;
                 error_code = bootloader_cmd_send(&rx_cmd);
-#else
+#elif defined(MESH_DFU)
                 error_code = dfu_rx(&p_serial_cmd->params.dfu.packet, p_serial_cmd->length - SERIAL_PACKET_OVERHEAD);
                 if (error_code != NRF_SUCCESS)
                 {
                     __LOG(RTT_CTRL_TEXT_RED "BL Responded with error 0x%x\n", error_code);
                 }
+#else
+                error_code = NRF_ERROR_NOT_SUPPORTED;
 #endif
 
                 /* send ack */
