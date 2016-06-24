@@ -50,10 +50,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_soc.h"
 
 
-#define TIMESLOT_END_SAFETY_MARGIN_US       (1000)          /**< Allocated time between end timer timeout and actual timeslot end. */
+#define TIMESLOT_END_SAFETY_MARGIN_US       (3000)          /**< Allocated time between end timer timeout and actual timeslot end. */
 #define TIMESLOT_SLOT_LENGTH_US             (10000)         /**< Base timeslot length. */
-#define TIMESLOT_SLOT_EXTEND_LENGTH_US      ( 1000000)       /**< Base extension length. */
-#define TIMESLOT_SLOT_EMERGENCY_LENGTH_US   (3000)          /**< Base timeslot length for when a regular request is denied. */
+#define TIMESLOT_SLOT_EXTEND_LENGTH_US      (1000000)       /**< Base extension length. */
+#define TIMESLOT_SLOT_EMERGENCY_LENGTH_US   (6000)          /**< Base timeslot length for when a regular request is denied. */
 #define TIMESLOT_TIMEOUT_DEFAULT_US         (50000)         /**< Timeout supplied to SD for "earliest" request. */
 #define TIMESLOT_MAX_LENGTH_US              (10000000UL)    /**< The upper limit for timeslot extensions. */
 #define TIMESLOT_MAX_LENGTH_FIRST_US        ( 1000000UL)    /**< The upper limit for timeslot extensions for the first timeslot. */
