@@ -504,11 +504,11 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
         case BL_EVT_TYPE_DFU_START:
             {
                 __LOG("\tDFU start\n");
-                if (m_transfer_state.state == DFU_ROLE_TARGET)
+                if (p_evt->params.dfu.start.role == DFU_ROLE_TARGET)
                 {
-                    m_transfer_state.state = DFU_STATE_DFU_TARGET;
+                    m_transfer_state.state = DFU_STATE_TARGET;
                 }
-                else if (m_transfer_state.state == DFU_ROLE_RELAY)
+                else if (p_evt->params.dfu.start.role == DFU_ROLE_RELAY)
                 {
                     m_transfer_state.state = DFU_STATE_RELAY;
                 }
