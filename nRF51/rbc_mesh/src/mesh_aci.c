@@ -295,6 +295,7 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
                 }
                 serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
             }
+            serial_handler_event_send(&serial_evt);
             break;
 
         case SERIAL_CMD_OPCODE_FLAG_GET:
@@ -331,6 +332,7 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
                 serial_evt.params.cmd_rsp.response.flag.value = flag_status;
                 serial_evt.params.cmd_rsp.status = error_code_translate(error_code);
             }
+            serial_handler_event_send(&serial_evt);
             break;
 
         case SERIAL_CMD_OPCODE_VALUE_GET:
