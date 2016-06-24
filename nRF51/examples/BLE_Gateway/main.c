@@ -29,7 +29,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "rbc_mesh.h"
+#ifdef MESH_DFU
 #include "dfu_app.h"
+#endif
 
 #include "nrf_adv_conn.h"
 #include "led_config.h"
@@ -128,6 +130,7 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
             /* init BLE gateway softdevice application: */
             nrf_adv_conn_init();
             break;
+#ifdef MESH_DFU
         case RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE:
             dfu_bank_flash(p_evt->params.dfu.bank.dfu_type);
             break;
@@ -146,8 +149,10 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
         case RBC_MESH_EVENT_TYPE_DFU_START:
         case RBC_MESH_EVENT_TYPE_DFU_END:
             break;
-
         case RBC_MESH_EVENT_TYPE_DFU_SOURCE_REQ:
+            break;
+#endif
+        default:
             break;
     }
 }
