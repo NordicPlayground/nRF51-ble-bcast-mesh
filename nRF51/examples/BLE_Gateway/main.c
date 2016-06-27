@@ -210,6 +210,7 @@ int main(void)
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
     init_params.lfclksrc = MESH_CLOCK_SOURCE;
+    init_params.tx_power = RBC_MESH_TXPOWER_0dBm;
 
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
