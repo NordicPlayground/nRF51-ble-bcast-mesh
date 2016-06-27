@@ -118,6 +118,14 @@ typedef enum
     RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE,     /**< The dfu module found a bank available for flashing. Parameters in dfu.bank sub-structure. */
 } rbc_mesh_event_type_t;
 
+/** @brief The various states of the mesh framework. */
+typedef enum
+{
+    MESH_STATE_UNINITIALIZED,   /**< The mesh hasn't been initialized. */
+    MESH_STATE_RUNNING,         /**< The mesh is currently running as normal. */
+    MESH_STATE_STOPPED          /**< The mesh operation has been stopped. */
+} rbc_mesh_state_t;
+
 /** @brief OpenMesh framework generated event. */
 typedef struct
 {
@@ -258,6 +266,13 @@ typedef void (*rbc_mesh_packet_peek_cb_t)(rbc_mesh_packet_peek_params_t* p_peek_
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
 uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
+
+/**
+* @brief Get the current state of the mesh.
+*
+* @return The state of the mesh.
+*/
+rbc_mesh_state_t rbc_mesh_state_get(void);
 
 /**
 * @brief Start mesh radio activity after stopping it.
