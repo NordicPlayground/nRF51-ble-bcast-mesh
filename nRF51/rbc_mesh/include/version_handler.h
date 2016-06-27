@@ -36,11 +36,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-uint32_t vh_init(uint32_t min_interval_us, 
+uint32_t vh_init(uint32_t min_interval_us,
                  uint32_t access_address,
-                 uint8_t channel);
+                 uint8_t channel,
+                 rbc_mesh_txpower_t tx_power);
 
 uint32_t vh_min_interval_set(uint32_t min_interval_us);
+
+void vh_tx_power_set(rbc_mesh_txpower_t tx_power);
 
 uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi);
 

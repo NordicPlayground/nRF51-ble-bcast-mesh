@@ -151,6 +151,7 @@ static void setup_event(radio_event_t* p_evt)
         NRF_RADIO->TXADDRESS = p_evt->access_address;
         NRF_RADIO->TASKS_TXEN = 1;
         m_radio_state = RADIO_STATE_TX;
+        NRF_RADIO->TXPOWER  = p_evt->tx_power;
     }
     else
     {

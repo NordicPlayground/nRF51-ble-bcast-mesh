@@ -178,7 +178,8 @@ static void transmit_all_instances(uint32_t timestamp, void* p_context)
 ******************************************************************************/
 uint32_t vh_init(uint32_t min_interval_us,
                  uint32_t access_address,
-                 uint8_t channel)
+                 uint8_t channel,
+                 rbc_mesh_txpower_t tx_power)
 {
     uint32_t error_code = handle_storage_init(min_interval_us);
     if (error_code != NRF_SUCCESS)
@@ -194,6 +195,7 @@ uint32_t vh_init(uint32_t min_interval_us,
     m_tx_config.alt_access_address = (access_address != RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
     m_tx_config.first_channel = channel;
     m_tx_config.channel_map = 1; /* Only the first channel */
+    m_tx_config.tx_power = tx_power;
 
     m_is_initialized = true;
     return NRF_SUCCESS;
@@ -202,6 +204,11 @@ uint32_t vh_init(uint32_t min_interval_us,
 uint32_t vh_min_interval_set(uint32_t min_interval_us)
 {
     return handle_storage_min_interval_set(min_interval_us);
+}
+
+void vh_tx_power_set(rbc_mesh_txpower_t tx_power)
+{
+    m_tx_config.tx_power = tx_power;
 }
 
 uint32_t vh_rx(mesh_packet_t* p_packet, uint32_t timestamp, uint8_t rssi)

@@ -152,10 +152,10 @@ static void async_tx_cb(void* p_context)
         && doing_tx_event)
     {
         tx_event.type = RBC_MESH_EVENT_TYPE_TX;
-        tx_event.params.rx.value_handle  = p_adv_data->handle;
-        tx_event.params.rx.p_data        = p_adv_data->data;
-        tx_event.params.rx.data_len      = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
-        tx_event.params.rx.version_delta = 0;
+        tx_event.params.tx.value_handle  = p_adv_data->handle;
+        tx_event.params.tx.p_data        = p_adv_data->data;
+        tx_event.params.tx.data_len      = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+        tx_event.params.tx.timestamp_us  = timer_now();
 
         rbc_mesh_event_push(&tx_event); /* will take care of the reference counting itself. */
 #ifdef RBC_MESH_SERIAL
@@ -248,6 +248,7 @@ uint32_t tc_tx(mesh_packet_t* p_packet, const tc_tx_config_t* p_config)
     event.access_address = p_config->alt_access_address;
     event.channel = p_config->first_channel;
     event.event_type = RADIO_EVENT_TYPE_TX;
+    event.tx_power = (uint8_t) p_config->tx_power;
 
     /* send packet on each channel in the channel map */
     for (uint32_t i = 0; i < 32; ++i)

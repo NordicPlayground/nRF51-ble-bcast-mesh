@@ -90,10 +90,12 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     mesh_packet_init();
     tc_init(init_params.access_addr, init_params.channel);
 
+
     uint32_t error_code;
     error_code = vh_init(init_params.interval_min_ms * 1000, /* ms -> us */
                          init_params.access_addr,
-                         init_params.channel);
+                         init_params.channel, 
+                         init_params.tx_power);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
@@ -296,6 +298,12 @@ uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doi
     }
     return vh_tx_event_flag_get(handle, is_doing_tx_event);
 }
+
+void rbc_mesh_tx_power_set(rbc_mesh_txpower_t tx_power)
+{
+    vh_tx_power_set(tx_power);
+}
+
 
 void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
 {

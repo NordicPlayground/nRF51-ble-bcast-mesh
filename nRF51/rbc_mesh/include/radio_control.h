@@ -57,6 +57,7 @@ typedef struct
     uint8_t access_address;
     radio_event_type_t event_type;  /**< RX/TX */
     uint8_t channel;                /**< Channel to execute event on */
+    uint8_t tx_power;               /**< Transmit power for TX events */
 } radio_event_t;
 
 /**
