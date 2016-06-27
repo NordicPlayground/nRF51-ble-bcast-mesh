@@ -74,7 +74,7 @@ uint16_t                m_tx_evt_bitfield; /**< Bitfield of events for each hand
 * Static functions
 ******************************************************************************/
 static void radio_tx_cb(uint8_t* p_data);
-static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address);
+static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
 static void radio_idle_cb(void);
 
 static void set_next_tx(tx_t* p_tx)
@@ -114,8 +114,8 @@ static void order_scan(void)
 
 static void radio_tx_cb(uint8_t* p_data)
 {
-    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
 #ifdef RBC_MESH_SERIAL
+    mesh_adv_data_t* p_adv_data = mesh_packet_adv_data_get((mesh_packet_t*) p_data);
     if (p_adv_data)
     {
         /* Only do the tx event if the handle is set up for it. */
@@ -133,7 +133,7 @@ static void radio_tx_cb(uint8_t* p_data)
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
 
-static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index)
+static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 {
     if (success &&
         fifo_push(&m_rx_fifo, &p_data) == NRF_SUCCESS)
