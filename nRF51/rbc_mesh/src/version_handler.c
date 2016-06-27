@@ -150,8 +150,6 @@ static void transmit_all_instances(uint32_t timestamp, void* p_context)
     uint32_t error_code = handle_storage_tx_packets_get(timestamp, pp_tx_packets, &count);
     if (error_code == NRF_SUCCESS)
     {
-        uint32_t was_masked;
-        _DISABLE_IRQS(was_masked);
         for (uint32_t i = 0; i < count; ++i)
         {
             error_code = tc_tx(pp_tx_packets[i], &m_tx_config);
@@ -170,7 +168,6 @@ static void transmit_all_instances(uint32_t timestamp, void* p_context)
             }
             mesh_packet_ref_count_dec(pp_tx_packets[i]);
         }
-        _ENABLE_IRQS(was_masked);
     }
     CLEAR_PIN(8);
     order_next_transmission(timestamp);

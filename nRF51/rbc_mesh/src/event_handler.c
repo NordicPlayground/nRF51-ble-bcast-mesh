@@ -60,11 +60,11 @@ static void async_event_execute(async_event_t* p_evt)
     {
         case EVENT_TYPE_TIMER:
             CHECK_FP(p_evt->callback.timer.cb);
-            (*p_evt->callback.timer.cb)(p_evt->callback.timer.timestamp);
+            p_evt->callback.timer.cb(p_evt->callback.timer.timestamp);
             break;
         case EVENT_TYPE_GENERIC:
             CHECK_FP(p_evt->callback.generic.cb);
-            (*p_evt->callback.generic.cb)(p_evt->callback.generic.p_context);
+            p_evt->callback.generic.cb(p_evt->callback.generic.p_context);
             break;
         case EVENT_TYPE_PACKET:
             tc_packet_handler(p_evt->callback.packet.payload,
@@ -78,7 +78,8 @@ static void async_event_execute(async_event_t* p_evt)
                                     p_evt->callback.set_flag.value);
             break;
         case EVENT_TYPE_TIMER_SCH:
-            p_evt->callback.timer_sch.cb(p_evt->callback.timer_sch.timestamp, 
+            CHECK_FP(p_evt->callback.timer_sch.cb);
+            p_evt->callback.timer_sch.cb(p_evt->callback.timer_sch.timestamp,
                                          p_evt->callback.timer_sch.p_context);
             break;
         default:
