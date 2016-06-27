@@ -1,5 +1,40 @@
 = Changelog
 
+== 0.8.4 Side by side DFU
+
+This release brings in concurrent DFU operation with the application. By
+allowing the DFU functionality in the bootloader to be called from application,
+we can now transfer firmware updates while the application is running. The API
+for Application side DFU is contained in _/nRF51/rbc_mesh/dfu_app.h_, and the
+feature can be enabled by adding _/nRF51/rbc_mesh/dfu_app.c_, _mesh_flash.c_ and
+_nrf_flash.c_, then adding compiler define `MESH_DFU`. The memory requirements for
+the bootloader changes for this release, please take a look at the bootloader
+readme for more information.
+
+All permutations of the bootloader has been precompiled and included in
+_/nRF51/bootloader/bin/_.
+
+=== New features
+
+- Side by side DFU.
+
+- Packet peek has been included in the main API, allowing easier access to
+  the scanner.
+
+- Dual access addresses: The framework always receives on both the standard BLE
+  access address, as well as an application specified mesh-access address.
+
+- Structured parameters for all events ("Softdevice style" `.params` in each
+  event)
+
+- µs-level timestamp on all RX and TX events.
+
+=== Fixes
+
+- Fix for issues #94, #95, #98, #99, #101, #102, #109, #111 and #117.
+
+- Timestamps all relative to global epoch, instead of per timeslot.
+
 == 0.8.3 Bugfixes, code restructure and merge to master
 
 After a long time releasing to the sdk-8-support branch, this release is moving development back
@@ -8,10 +43,11 @@ allow those who are heavily invested in the old SDKs to continue using them. As 
 master, this legacy branch will not see new features. The sdk-8-support branch has been merged to
 master, and will no longer be present in the repository.
 
-This release targets a series of issues reported since 0.8.2, in addition to a superficial
-change to the cache system: We've taken the caches out of the version_handler module into its own
-module, named handle_storage. The handle storage acts as a pure storage module, serving the
-version_handler. The version_handler (and it alone) manipulates the handle storage.
+This release targets a series of issues reported since 0.8.2, in addition to a
+superficial change to the cache system: We've taken the caches out of the
+version_handler module into its own module, named handle_storage. The handle
+storage acts as a pure storage module, serving the version_handler. The
+version_handler (and it alone) manipulates the handle storage.
 
 === New features
 
