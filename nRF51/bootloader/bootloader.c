@@ -144,7 +144,7 @@ static void interrupts_disable(void)
 }
 
 /** Interrupt indicating new serial command */
-#ifdef SERIAL
+#ifdef RBC_MESH_SERIAL
 void SWI2_IRQHandler(void)
 {
     mesh_aci_command_check();
@@ -275,7 +275,7 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             break;
         case BL_EVT_TYPE_TX_SERIAL:
         {
-#ifdef SERIAL
+#ifdef RBC_MESH_SERIAL
             serial_evt_t serial_evt;
             serial_evt.opcode = SERIAL_EVT_OPCODE_DFU;
             memcpy(&serial_evt.params.dfu.packet,
@@ -477,7 +477,7 @@ void bootloader_init(void)
     init_cmd.params.init.in_app = false;
     APP_ERROR_CHECK(bl_cmd_handler(&init_cmd));
 
-#ifdef SERIAL
+#ifdef RBC_MESH_SERIAL
     mesh_aci_init();
 #endif
 
@@ -494,7 +494,7 @@ void bootloader_init(void)
 
 void bootloader_enable(void)
 {
-#ifdef SERIAL
+#ifdef RBC_MESH_SERIAL
     mesh_aci_start();
 #endif
     bl_cmd_t enable_cmd;

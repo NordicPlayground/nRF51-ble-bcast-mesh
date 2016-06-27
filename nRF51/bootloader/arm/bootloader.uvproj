@@ -360,7 +360,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99 --debug</MiscControls>
-              <Define>NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
+              <Define>NRF51 BOARD_PCA10028 BOOTLOADER RBC_MESH_SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
               <Undefine></Undefine>
               <IncludePath>..\..\rbc_mesh\include;..\..\RTT;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp;..\core\include</IncludePath>
             </VariousControls>
@@ -1333,7 +1333,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99 --debug</MiscControls>
-              <Define>RTT_LOG DEBUG NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
+              <Define>RTT_LOG DEBUG NRF51 BOARD_PCA10028 BOOTLOADER RBC_MESH_SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
               <Undefine></Undefine>
               <IncludePath>..\..\rbc_mesh\include;..\..\RTT;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp;..\core\include</IncludePath>
             </VariousControls>
@@ -3279,7 +3279,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99 --debug</MiscControls>
-              <Define>RTT_LOG DEBUG NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
+              <Define>RTT_LOG DEBUG NRF51 BOARD_PCA10028 BOOTLOADER RBC_MESH_SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
               <Undefine></Undefine>
               <IncludePath>..\..\rbc_mesh\include;..\..\RTT;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp;..\core\include</IncludePath>
             </VariousControls>
@@ -5311,7 +5311,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99 --debug</MiscControls>
-              <Define>RTT_LOG DEBUG NRF51 BOARD_PCA10028 BOOTLOADER SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
+              <Define>RTT_LOG DEBUG NRF51 BOARD_PCA10028 BOOTLOADER RBC_MESH_SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
               <Undefine></Undefine>
               <IncludePath>..\..\rbc_mesh\include;..\..\RTT;..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\components\toolchain\gcc;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp;..\core\include</IncludePath>
             </VariousControls>

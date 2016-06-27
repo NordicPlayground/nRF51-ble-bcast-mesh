@@ -86,10 +86,11 @@ C_SOURCE_FILES += ../core/bootloader_info.c
 C_SOURCE_FILES += ../core/dfu_bank.c
 C_SOURCE_FILES += ../core/dfu_mesh.c
 C_SOURCE_FILES += ../core/dfu_transfer_mesh.c
+C_SOURCE_FILES += ../core/dfu_util.c
 C_SOURCE_FILES += ../core/uECC.c
 
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
-	CFLAGS += -D SERIAL=1
+	CFLAGS += -D RBC_MESH_SERIAL=1
 	C_SOURCE_FILES += ../../../rbc_mesh/src/serial_handler_uart.c
 	C_SOURCE_FILES += ../../../rbc_mesh/src/mesh_aci.c
 endif

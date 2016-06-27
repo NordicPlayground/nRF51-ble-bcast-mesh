@@ -400,7 +400,7 @@ static void beacon_set(beacon_type_t type)
 
     bootloader_evt_send(&tx_evt);
 
-#ifdef SERIAL
+#ifdef RBC_MESH_SERIAL
     tx_evt.type = BL_EVT_TYPE_TX_SERIAL;
     tx_evt.params.tx.serial.p_dfu_packet = &dfu_packet;
     tx_evt.params.tx.serial.length = length;
