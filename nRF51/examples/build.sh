@@ -7,12 +7,13 @@ for e in */ ; do
 	export TARGET_BOARD=BOARD_PCA10031
 	export USE_BUTTONS=\"no\"
 	export USE_RBC_MESH_SERIAL=\"no\"
+	export USE_DFU=\"no\"
 	make
-	
+
 	make cleanobj
 	export TARGET_BOARD=BOARD_PCA10028
 	make
-	
+
 	make cleanobj
 	export USE_BUTTONS=\"yes\"
 	make
@@ -20,6 +21,12 @@ for e in */ ; do
 	make cleanobj
 	export USE_BUTTONS=\"no\"
 	export USE_RBC_MESH_SERIAL=\"yes\"
+	make
+
+	make cleanobj
+	export USE_BUTTONS=\"no\"
+	export USE_RBC_MESH_SERIAL=\"no\"
+	export USE_DFU=\"yes\"
 	make
 	cd $CURRDIR
 done
