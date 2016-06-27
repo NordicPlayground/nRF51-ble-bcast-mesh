@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _RBC_MESH_COMMON_H__
 #include "toolchain.h"
 #include <stdint.h>
+#include "app_error.h"
 #if DEBUG_LOG_RTT
 #include "SEGGER_RTT.h"
 #endif
