@@ -252,7 +252,8 @@ uint32_t dfu_init(void)
     m_tx_timer_evt.p_next    = NULL;
     m_tx_scheduled           = true;
 
-    m_tx_config.access_address = RBC_MESH_ACCESS_ADDRESS_BLE_ADV;
+    /* Use standard BLE advertiser parameters */
+    m_tx_config.alt_access_address = false;
     m_tx_config.first_channel = 37;
     m_tx_config.channel_map = (1 << 0) | (1 << 1) | (1 << 2); /* 37, 38, 39 */
 

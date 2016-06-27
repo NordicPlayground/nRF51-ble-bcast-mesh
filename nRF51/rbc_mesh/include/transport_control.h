@@ -45,7 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 typedef struct
 {
-    uint32_t access_address;    /**< Access address going on air. */
+    bool    alt_access_address; /**< Whether to use the alternate access address. */
     uint8_t first_channel;      /**< Channel offset in the channel map. */
     uint8_t channel_map;        /**< Bitmap for channels to transmit on. */
 } tc_tx_config_t;

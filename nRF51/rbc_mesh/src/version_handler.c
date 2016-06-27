@@ -191,7 +191,7 @@ uint32_t vh_init(uint32_t min_interval_us,
     m_tx_timer_evt.interval = 0;
     m_tx_timer_evt.p_context = NULL;
 
-    m_tx_config.access_address = access_address;
+    m_tx_config.alt_access_address = (access_address != RBC_MESH_ACCESS_ADDRESS_BLE_ADV);
     m_tx_config.first_channel = channel;
     m_tx_config.channel_map = 1; /* Only the first channel */
 

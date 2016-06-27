@@ -105,7 +105,7 @@ static void purge_preemptable(void)
             NRF_RADIO->EVENTS_END = 0;
 
             /* propagate failed rx event */
-            m_rx_cb(current_evt.packet_ptr, false, 0xFFFFFFFF, 100, 0);
+            m_rx_cb(current_evt.packet_ptr, false, 0xFFFFFFFF, 100);
             --events_in_queue;
         }
         else
@@ -311,7 +311,6 @@ void radio_event_handler(void)
         bool crc_status = NRF_RADIO->CRCSTATUS;
         uint32_t crc = NRF_RADIO->RXCRC;
         uint8_t rssi = 100;
-        uint8_t rx_addr = NRF_RADIO->RXMATCH;
 
         if (NRF_RADIO->EVENTS_RSSIEND)
         {
@@ -330,7 +329,7 @@ void radio_event_handler(void)
         if (prev_evt.event_type == RADIO_EVENT_TYPE_RX ||
             prev_evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
-            m_rx_cb(prev_evt.packet_ptr, crc_status, crc, rssi, rx_addr);
+            m_rx_cb(prev_evt.packet_ptr, crc_status, crc, rssi);
         }
         else
         {

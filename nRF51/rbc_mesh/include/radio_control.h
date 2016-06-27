@@ -33,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 /** @brief callbacks for after radio event is complete */
-typedef void (*radio_rx_cb_t)(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index);
+typedef void (*radio_rx_cb_t)(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
 typedef void (*radio_tx_cb_t)(uint8_t* p_data);
 
 /** @brief callback for when the radio is out of things to do */
@@ -42,8 +42,8 @@ typedef void (*radio_idle_cb_t)(void);
 typedef enum
 {
     RADIO_EVENT_TYPE_TX,
-    RADIO_EVENT_TYPE_RX, /* regular RX. Will be stopped automatically ~100us after start if start time > 0 */
-    RADIO_EVENT_TYPE_RX_PREEMPTABLE /* will be aborted when a new event comes in */
+    RADIO_EVENT_TYPE_RX,            /**< Regular RX. Will be stopped automatically ~100us after start if start time > 0 */
+    RADIO_EVENT_TYPE_RX_PREEMPTABLE /**< Will be aborted when a new event comes in */
 } radio_event_type_t;
 
 /**
@@ -52,9 +52,9 @@ typedef enum
 typedef struct
 {
     uint8_t* packet_ptr;            /**< Packet pointer to use. */
-    
-    /* Access address index to operate on. Must be either 0 (the default BLE advertisement address) or 1 (the alternate address set through a call to radio_alt_aa_set()).  */
-    uint8_t access_address;        
+
+    /** Access address index to operate on. Must be either 0 (the default BLE advertisement address) or 1 (the alternate address set through a call to radio_alt_aa_set()).  */
+    uint8_t access_address;
     radio_event_type_t event_type;  /**< RX/TX */
     uint8_t channel;                /**< Channel to execute event on */
 } radio_event_t;
@@ -72,11 +72,11 @@ void radio_init(radio_idle_cb_t idle_cb,
                 radio_tx_cb_t   tx_cb);
 
 /**
-* @brief Set the alternate access address. 
+* @brief Set the alternate access address.
 *
-* @detail The first access address is always the standard BLE advertisement 
-*   access address, 0x8E89BED6. Setting the alternate access address to 
-*   something other than the standard address allows you to transmit and 
+* @detail The first access address is always the standard BLE advertisement
+*   access address, 0x8E89BED6. Setting the alternate access address to
+*   something other than the standard address allows you to transmit and
 *   receive on both addresses.
 *
 * @param[in] access_address The 32bit alternate access address.

@@ -80,7 +80,7 @@ static struct
 /******************************************************************************
 * Static functions
 ******************************************************************************/
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_addr_index);
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
 static void tx_cb(uint8_t* p_data);
 
 static void order_search(void)
@@ -103,7 +103,7 @@ static void order_search(void)
 }
 
 /* immediate radio callback, executed in STACK_LOW */
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index)
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 {
     if (success && ((mesh_packet_t*) p_data)->header.length <= MESH_PACKET_BLE_OVERHEAD + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
     {
@@ -212,9 +212,8 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t t
 ******************************************************************************/
 void tc_init(uint32_t access_address, uint8_t channel)
 {
-    m_state.access_address = access_address;
-    m_state.channel = channel;
     mp_packet_peek_cb = NULL;
+    tc_radio_params_set(access_address, channel);
 }
 
 void tc_radio_params_set(uint32_t access_address, uint8_t channel)
@@ -223,6 +222,7 @@ void tc_radio_params_set(uint32_t access_address, uint8_t channel)
     {
         m_state.access_address = access_address;
         m_state.channel = channel;
+        radio_alt_aa_set(access_address);
         timeslot_restart();
     }
 }
@@ -245,7 +245,7 @@ uint32_t tc_tx(mesh_packet_t* p_packet, const tc_tx_config_t* p_config)
     p_packet->header._rfu3 = 0;
 
     event.packet_ptr = (uint8_t*) p_packet;
-    event.access_address = 0;
+    event.access_address = p_config->alt_access_address;
     event.channel = p_config->first_channel;
     event.event_type = RADIO_EVENT_TYPE_TX;
 
