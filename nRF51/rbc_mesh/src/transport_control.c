@@ -39,12 +39,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh.h"
 #include "event_handler.h"
 #include "timeslot.h"
+#include "timer_scheduler.h"
 #include "rbc_mesh_common.h"
 #include "version_handler.h"
 #include "mesh_aci.h"
 #include "app_error.h"
+
+#ifdef MESH_DFU
 #include "dfu_types_mesh.h"
 #include "dfu_app.h"
+#endif
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
 
@@ -76,7 +80,7 @@ static struct
 /******************************************************************************
 * Static functions
 ******************************************************************************/
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_addr_index);
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi);
 static void tx_cb(uint8_t* p_data);
 
 static void order_search(void)
@@ -99,7 +103,7 @@ static void order_search(void)
 }
 
 /* immediate radio callback, executed in STACK_LOW */
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi, uint8_t access_address_index)
+static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 {
     if (success && ((mesh_packet_t*) p_data)->header.length <= MESH_PACKET_BLE_OVERHEAD + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
     {
@@ -148,13 +152,13 @@ static void async_tx_cb(void* p_context)
         && doing_tx_event)
     {
         tx_event.type = RBC_MESH_EVENT_TYPE_TX;
-        tx_event.params.rx.value_handle  = p_adv_data->handle;
-        tx_event.params.rx.p_data        = p_adv_data->data;
-        tx_event.params.rx.data_len      = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
-        tx_event.params.rx.version_delta = 0;
+        tx_event.params.tx.value_handle  = p_adv_data->handle;
+        tx_event.params.tx.p_data        = p_adv_data->data;
+        tx_event.params.tx.data_len      = p_adv_data->adv_data_length - MESH_PACKET_ADV_OVERHEAD;
+        tx_event.params.tx.timestamp_us  = timer_now();
 
         rbc_mesh_event_push(&tx_event); /* will take care of the reference counting itself. */
-#if RBC_MESH_SERIAL
+#ifdef RBC_MESH_SERIAL
         mesh_aci_rbc_event_handler(&tx_event);
 #endif
     }
@@ -183,7 +187,6 @@ static void tx_cb(uint8_t* p_data)
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
 }
 
-
 static void radio_idle_callback(void)
 {
     /* If the processor is unable to keep up, we should back down, and give it time */
@@ -193,6 +196,7 @@ static void radio_idle_callback(void)
 
 static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t timestamp)
 {
+#ifdef MESH_DFU
     mesh_dfu_adv_data_t* p_dfu = (mesh_dfu_adv_data_t*) p_adv_data;
     /* Tell the shared BL about the packet */
     bl_cmd_t rx_cmd;
@@ -200,15 +204,16 @@ static void mesh_framework_packet_handle(mesh_adv_data_t* p_adv_data, uint32_t t
     rx_cmd.params.rx.length = p_dfu->adv_data_length - DFU_PACKET_ADV_OVERHEAD;
     rx_cmd.params.rx.p_dfu_packet = &p_dfu->dfu_packet;
     dfu_cmd_send(&rx_cmd);
+#endif
 }
+
 /******************************************************************************
 * Interface functions
 ******************************************************************************/
 void tc_init(uint32_t access_address, uint8_t channel)
 {
-    m_state.access_address = access_address;
-    m_state.channel = channel;
     mp_packet_peek_cb = NULL;
+    tc_radio_params_set(access_address, channel);
 }
 
 void tc_radio_params_set(uint32_t access_address, uint8_t channel)
@@ -217,6 +222,7 @@ void tc_radio_params_set(uint32_t access_address, uint8_t channel)
     {
         m_state.access_address = access_address;
         m_state.channel = channel;
+        radio_alt_aa_set(access_address);
         timeslot_restart();
     }
 }
@@ -239,9 +245,10 @@ uint32_t tc_tx(mesh_packet_t* p_packet, const tc_tx_config_t* p_config)
     p_packet->header._rfu3 = 0;
 
     event.packet_ptr = (uint8_t*) p_packet;
-    event.access_address = 0;
+    event.access_address = p_config->alt_access_address;
     event.channel = p_config->first_channel;
     event.event_type = RADIO_EVENT_TYPE_TX;
+    event.tx_power = (uint8_t) p_config->tx_power;
 
     /* send packet on each channel in the channel map */
     for (uint32_t i = 0; i < 32; ++i)

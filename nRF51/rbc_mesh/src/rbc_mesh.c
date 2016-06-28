@@ -40,7 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_app.h"
 #include "fifo.h"
 
-#include "nrf_error.h"
+#include "app_error.h"
 #include "nrf_sdm.h"
 
 #include <string.h>
@@ -48,17 +48,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static enum
-{
-    MESH_STATE_UNINITIALIZED,
-    MESH_STATE_RUNNING,
-    MESH_STATE_STOPPED
-} g_mesh_state;
-static uint32_t g_access_addr;
-static uint8_t g_channel;
-static uint32_t g_interval_min_ms;
-static fifo_t g_rbc_event_fifo;
-static rbc_mesh_event_t g_rbc_event_buffer[RBC_MESH_APP_EVENT_QUEUE_LENGTH];
+static rbc_mesh_state_t m_mesh_state;
+static uint32_t         m_access_addr;
+static uint8_t          m_channel;
+static uint32_t         m_interval_min_ms;
+static fifo_t           m_rbc_event_fifo;
+static rbc_mesh_event_t m_rbc_event_buffer[RBC_MESH_APP_EVENT_QUEUE_LENGTH];
 
 /*****************************************************************************
 * Static Functions
@@ -79,7 +74,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return NRF_ERROR_SOFTDEVICE_NOT_ENABLED;
     }
 
-    if (g_mesh_state != MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state != MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -95,10 +90,12 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     mesh_packet_init();
     tc_init(init_params.access_addr, init_params.channel);
 
+
     uint32_t error_code;
     error_code = vh_init(init_params.interval_min_ms * 1000, /* ms -> us */
                          init_params.access_addr,
-                         init_params.channel);
+                         init_params.channel, 
+                         init_params.tx_power);
     if (error_code != NRF_SUCCESS)
     {
         return error_code;
@@ -122,17 +119,17 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
 
     timeslot_init(init_params.lfclksrc);
 
-    g_access_addr = init_params.access_addr;
-    g_channel = init_params.channel;
-    g_interval_min_ms = init_params.interval_min_ms;
+    m_access_addr = init_params.access_addr;
+    m_channel = init_params.channel;
+    m_interval_min_ms = init_params.interval_min_ms;
 
-    g_mesh_state = MESH_STATE_RUNNING;
+    m_mesh_state = MESH_STATE_RUNNING;
 
-    g_rbc_event_fifo.array_len = RBC_MESH_APP_EVENT_QUEUE_LENGTH;
-    g_rbc_event_fifo.elem_array = g_rbc_event_buffer;
-    g_rbc_event_fifo.elem_size = sizeof(rbc_mesh_event_t);
-    g_rbc_event_fifo.memcpy_fptr = NULL;
-    fifo_init(&g_rbc_event_fifo);
+    m_rbc_event_fifo.array_len = RBC_MESH_APP_EVENT_QUEUE_LENGTH;
+    m_rbc_event_fifo.elem_array = m_rbc_event_buffer;
+    m_rbc_event_fifo.elem_size = sizeof(rbc_mesh_event_t);
+    m_rbc_event_fifo.memcpy_fptr = NULL;
+    fifo_init(&m_rbc_event_fifo);
     timeslot_resume();
 
 #ifdef MESH_DFU
@@ -142,29 +139,34 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
 #endif
 }
 
+rbc_mesh_state_t rbc_mesh_state_get(void)
+{
+    return m_mesh_state;
+}
+
 uint32_t rbc_mesh_start(void)
 {
-    if (g_mesh_state != MESH_STATE_STOPPED)
+    if (m_mesh_state != MESH_STATE_STOPPED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
     timeslot_resume();
 
-    g_mesh_state = MESH_STATE_RUNNING;
+    m_mesh_state = MESH_STATE_RUNNING;
 
     return NRF_SUCCESS;
 }
 
 uint32_t rbc_mesh_stop(void)
 {
-    if (g_mesh_state != MESH_STATE_RUNNING)
+    if (m_mesh_state != MESH_STATE_RUNNING)
     {
         return NRF_ERROR_INVALID_STATE;
     }
 
     timeslot_stop();
 
-    g_mesh_state = MESH_STATE_STOPPED;
+    m_mesh_state = MESH_STATE_STOPPED;
 
     return NRF_SUCCESS;
 }
@@ -189,7 +191,7 @@ uint32_t rbc_mesh_value_disable(rbc_mesh_value_handle_t handle)
 
 uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persistent)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -203,7 +205,7 @@ uint32_t rbc_mesh_persistence_set(rbc_mesh_value_handle_t handle, bool persisten
 
 uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -219,7 +221,7 @@ uint32_t rbc_mesh_tx_event_set(rbc_mesh_value_handle_t handle, bool do_tx_event)
 
 uint32_t rbc_mesh_value_set(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t len)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -245,36 +247,36 @@ uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
 
 uint32_t rbc_mesh_access_address_get(uint32_t* access_address)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
 
-    *access_address = g_access_addr;
+    *access_address = m_access_addr;
 
     return NRF_SUCCESS;
 }
 
 uint32_t rbc_mesh_channel_get(uint8_t* ch)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
 
-    *ch = g_channel;
+    *ch = m_channel;
 
     return NRF_SUCCESS;
 }
 
 uint32_t rbc_mesh_interval_min_ms_get(uint32_t* interval_min_ms)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
 
-    *interval_min_ms = g_interval_min_ms;
+    *interval_min_ms = m_interval_min_ms;
 
     return NRF_SUCCESS;
 }
@@ -297,9 +299,15 @@ uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doi
     return vh_tx_event_flag_get(handle, is_doing_tx_event);
 }
 
+void rbc_mesh_tx_power_set(rbc_mesh_txpower_t tx_power)
+{
+    vh_tx_power_set(tx_power);
+}
+
+
 void rbc_mesh_ble_evt_handler(ble_evt_t* p_evt)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return;
     }
@@ -312,13 +320,18 @@ void rbc_mesh_sd_evt_handler(uint32_t sd_evt)
     timeslot_sd_event_handler(sd_evt);
 }
 
+/** Internal only function to push mesh events to application queue. */
 uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    uint32_t error_code = fifo_push(&g_rbc_event_fifo, p_event);
+    if (p_event == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+    uint32_t error_code = fifo_push(&m_rbc_event_fifo, p_event);
 
     if (error_code == NRF_SUCCESS && p_event->params.rx.p_data != NULL)
     {
@@ -347,11 +360,11 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
 
 uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
-    if (fifo_pop(&g_rbc_event_fifo, p_evt) != NRF_SUCCESS)
+    if (fifo_pop(&m_rbc_event_fifo, p_evt) != NRF_SUCCESS)
     {
         return NRF_ERROR_NOT_FOUND;
     }
@@ -361,7 +374,7 @@ uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt)
 
 uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt)
 {
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
+    if (m_mesh_state == MESH_STATE_UNINITIALIZED)
     {
         return NRF_ERROR_INVALID_STATE;
     }
@@ -370,23 +383,9 @@ uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt)
         return NRF_ERROR_NULL;
     }
 
-    if (fifo_peek(&g_rbc_event_fifo, p_evt) != NRF_SUCCESS)
+    if (fifo_peek(&m_rbc_event_fifo, p_evt) != NRF_SUCCESS)
     {
         return NRF_ERROR_NOT_FOUND;
-    }
-
-    return NRF_SUCCESS;
-}
-
-uint32_t rbc_mesh_packet_release(uint8_t* p_data)
-{
-    if (g_mesh_state == MESH_STATE_UNINITIALIZED)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-    if (p_data != NULL)
-    {
-        mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
     }
 
     return NRF_SUCCESS;

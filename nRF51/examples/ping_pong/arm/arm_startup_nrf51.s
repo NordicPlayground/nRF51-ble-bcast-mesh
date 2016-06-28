@@ -36,7 +36,7 @@ Stack_Size      EQU     2048
 Stack_Mem       SPACE   Stack_Size
 __initial_sp
 
-Heap_Size       EQU     4096
+Heap_Size       EQU     0
 
                 AREA    HEAP, NOINIT, READWRITE, ALIGN=3
 __heap_base

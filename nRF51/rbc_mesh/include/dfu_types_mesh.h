@@ -258,8 +258,8 @@ typedef enum
     DFU_STATE_INITIALIZED,      /**< The DFU module has been initialized, but not started. */
     DFU_STATE_FIND_FWID,        /**< There's no DFU operation in progress. */
     DFU_STATE_DFU_REQ,          /**< Beaconing requests for transfers. */
-    DFU_STATE_DFU_READY,        /**< Ready to receive a transfer. */
-    DFU_STATE_DFU_TARGET,       /**< Receiving a transfer. */
+    DFU_STATE_READY,            /**< Ready to receive a transfer. */
+    DFU_STATE_TARGET,           /**< Receiving a transfer. */
     DFU_STATE_VALIDATE,         /**< Validating and finishing up a transfer. */
     DFU_STATE_STABILIZE,        /**< Waiting for metadata about validated transfer to be written. */
     DFU_STATE_RELAY_CANDIDATE,  /**< Beaconing intent to relay a transfer. */

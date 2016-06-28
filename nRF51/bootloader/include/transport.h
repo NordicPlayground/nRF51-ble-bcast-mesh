@@ -54,5 +54,7 @@ void transport_tx_reset(uint8_t slot);
 void transport_tx_skip(uint8_t slot);
 void transport_tx_abort(uint8_t slot);
 void transport_rtc_irq_handler(void);
+void transport_tx_evt_set(uint16_t handle, bool value);
+bool transport_tx_evt_get(uint16_t handle);
 
 #endif /* TRANSPORT_H__ */

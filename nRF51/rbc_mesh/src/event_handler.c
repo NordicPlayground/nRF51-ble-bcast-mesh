@@ -60,11 +60,11 @@ static void async_event_execute(async_event_t* p_evt)
     {
         case EVENT_TYPE_TIMER:
             CHECK_FP(p_evt->callback.timer.cb);
-            (*p_evt->callback.timer.cb)(p_evt->callback.timer.timestamp);
+            p_evt->callback.timer.cb(p_evt->callback.timer.timestamp);
             break;
         case EVENT_TYPE_GENERIC:
             CHECK_FP(p_evt->callback.generic.cb);
-            (*p_evt->callback.generic.cb)(p_evt->callback.generic.p_context);
+            p_evt->callback.generic.cb(p_evt->callback.generic.p_context);
             break;
         case EVENT_TYPE_PACKET:
             tc_packet_handler(p_evt->callback.packet.payload,
@@ -78,7 +78,8 @@ static void async_event_execute(async_event_t* p_evt)
                                     p_evt->callback.set_flag.value);
             break;
         case EVENT_TYPE_TIMER_SCH:
-            p_evt->callback.timer_sch.cb(p_evt->callback.timer_sch.timestamp, 
+            CHECK_FP(p_evt->callback.timer_sch.cb);
+            p_evt->callback.timer_sch.cb(p_evt->callback.timer_sch.timestamp,
                                          p_evt->callback.timer_sch.p_context);
             break;
         default:
@@ -150,10 +151,14 @@ void event_handler_init(void)
 }
 
 
-uint32_t event_handler_push(async_event_t* evt)
+uint32_t event_handler_push(async_event_t* p_evt)
 {
+    if (p_evt == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
     fifo_t* p_fifo = NULL;
-    switch (evt->type)
+    switch (p_evt->type)
     {
     case EVENT_TYPE_GENERIC:
     case EVENT_TYPE_PACKET:
@@ -167,7 +172,7 @@ uint32_t event_handler_push(async_event_t* evt)
     default:
         return NRF_ERROR_INVALID_PARAM;
     }
-    uint32_t result = fifo_push(p_fifo, evt);
+    uint32_t result = fifo_push(p_fifo, p_evt);
     if (result != NRF_SUCCESS)
     {
         return result;

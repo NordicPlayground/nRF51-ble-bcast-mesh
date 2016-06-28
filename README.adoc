@@ -5,21 +5,6 @@ Works with SoftDevice S110 v8.x and S130 v1.0 with Timeslot API, and the nRF51 S
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
-== About this branch
-The bl_app branch is a work in progress, where the aim is to be able to run DFU
-alongside the application. It introduces some major changes to the bootloader
-structure, where the DFU functionality will be callable from both the
-application and the bootloader.
-
-The branch is currently unstable (and mostly non-functioning) at this point,
-but will be updated as we make progress. The bl_app branch also provides a
-preview of some future changes in the core mesh implementation. These changes
-will not directly affect the functionality of the mesh, but introduces some
-better modularity, a new event parameter structure, a new internal timer
-module, and some additional buttons and switches to play with :)
-
-The bl_app branch will be merged into master as soon as it's considered stable.
-
 == Usage
 In addition to two provided examples, there is a template project under
 _nRF51/examples/_. This may be used as a basis for your own applications, or you

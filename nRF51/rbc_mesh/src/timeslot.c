@@ -39,8 +39,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "transport_control.h"
 #include "event_handler.h"
 #include "rbc_mesh_common.h"
+
+#ifdef MESH_DFU
 #include "dfu_app.h"
 #include "mesh_flash.h"
+#endif
 
 #include "app_error.h"
 #include "nrf_sdm.h"
@@ -49,11 +52,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define TIMESLOT_END_SAFETY_MARGIN_US       (1000)          /**< Allocated time between end timer timeout and actual timeslot end. */
 #define TIMESLOT_SLOT_LENGTH_US             (10000)         /**< Base timeslot length. */
-#define TIMESLOT_SLOT_EXTEND_LENGTH_US      ( 1000000)       /**< Base extension length. */
-#define TIMESLOT_SLOT_EMERGENCY_LENGTH_US   (3000)          /**< Base timeslot length for when a regular request is denied. */
+#define TIMESLOT_SLOT_EXTEND_LENGTH_US      (10000)       /**< Base extension length. */
+#define TIMESLOT_SLOT_EMERGENCY_LENGTH_US   (6000)          /**< Base timeslot length for when a regular request is denied. */
 #define TIMESLOT_TIMEOUT_DEFAULT_US         (50000)         /**< Timeout supplied to SD for "earliest" request. */
-#define TIMESLOT_MAX_LENGTH_US              (10000000UL)    /**< The upper limit for timeslot extensions. */
-#define TIMESLOT_MAX_LENGTH_FIRST_US        ( 1000000UL)    /**< The upper limit for timeslot extensions for the first timeslot. */
+#define TIMESLOT_MAX_LENGTH_US              (100000UL)    /**< The upper limit for timeslot extensions. */
+#define TIMESLOT_MAX_LENGTH_FIRST_US        (10000UL)    /**< The upper limit for timeslot extensions for the first timeslot. */
 #define RTC_MAX_TIME_TICKS                  (0xFFFFFF)      /**< RTC-clock rollover time. */
 
 /*****************************************************************************
@@ -169,7 +172,6 @@ static void timeslot_end(void)
     m_end_timer_triggered = false;
     CLEAR_PIN(PIN_IN_TS);
     CLEAR_PIN(PIN_IN_CB);
-    NRF_GPIO->OUTCLR = (1 << 4);
 }
 
 /*****************************************************************************
@@ -230,21 +232,17 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     SET_PIN(PIN_IN_CB);
     m_is_in_callback = true;
 
-    NRF_GPIO->OUTSET = (1 << 7);
-
     switch (m_timeslot_forced_command)
     {
         case TS_FORCED_COMMAND_STOP:
             m_ret_param.callback_action = NRF_RADIO_SIGNAL_CALLBACK_ACTION_END;
             m_timeslot_count = 0;
             timeslot_end();
-            NRF_GPIO->OUTCLR = (1 << 7);
             return &m_ret_param;
 
         case TS_FORCED_COMMAND_RESTART:
             ts_order_earliest(TIMESLOT_SLOT_LENGTH_US);
             timeslot_end();
-            NRF_GPIO->OUTCLR = (1 << 7);
             m_timeslot_forced_command = TS_FORCED_COMMAND_NONE;
             return &m_ret_param;
 
@@ -257,7 +255,6 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     {
         case NRF_RADIO_CALLBACK_SIGNAL_TYPE_START:
         {
-            NRF_GPIO->OUTSET = (1 << 4);
             SET_PIN(PIN_IN_TS);
             m_is_in_timeslot = true;
             m_end_timer_triggered = false;
@@ -348,13 +345,14 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
     }
     else
     {
+#ifdef MESH_DFU
         mesh_flash_op_execute(timeslot_remaining_time_get());
+#endif
         requested_extend_time = 0;
     }
 
     m_is_in_callback = false;
     CLEAR_PIN(PIN_IN_CB);
-    NRF_GPIO->OUTCLR = (1 << 7);
     return &m_ret_param;
 }
 

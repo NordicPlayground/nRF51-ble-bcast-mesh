@@ -400,7 +400,7 @@ static void beacon_set(beacon_type_t type)
 
     bootloader_evt_send(&tx_evt);
 
-#ifdef SERIAL
+#ifdef RBC_MESH_SERIAL
     tx_evt.type = BL_EVT_TYPE_TX_SERIAL;
     tx_evt.params.tx.serial.p_dfu_packet = &dfu_packet;
     tx_evt.params.tx.serial.length = length;
@@ -514,14 +514,14 @@ static void start_ready(dfu_packet_t* p_ready_packet)
     m_transaction.transaction_id = p_ready_packet->payload.state.transaction_id;
     m_transaction.authority = p_ready_packet->payload.state.authority;
     m_transaction.flood = p_ready_packet->payload.state.flood;
-    SET_STATE(DFU_STATE_DFU_READY);
+    SET_STATE(DFU_STATE_READY);
 
     beacon_set(state_beacon_type(m_transaction.type));
 }
 
 static void start_target(void)
 {
-    SET_STATE(DFU_STATE_DFU_TARGET);
+    SET_STATE(DFU_STATE_TARGET);
 
     uint32_t segment_size = 0;
     bl_info_entry_t flags_entry;
@@ -846,7 +846,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             return;
         }
 
-        if (m_state == DFU_STATE_DFU_READY)
+        if (m_state == DFU_STATE_READY)
         {
             if (p_packet->payload.start.segment == 0)
             {
@@ -859,7 +859,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 start_req(m_transaction.type, &m_transaction.target_fwid_union); /* go back to req, we've missed packet 0 */
             }
         }
-        else if (m_state == DFU_STATE_DFU_TARGET)
+        else if (m_state == DFU_STATE_TARGET)
         {
             if (p_packet->payload.data.segment > 0 &&
                     p_packet->payload.data.segment <= m_transaction.segment_count)
@@ -1015,7 +1015,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                 }
             }
             break;
-        case DFU_STATE_DFU_READY:
+        case DFU_STATE_READY:
             if (ready_packet_matches_our_req(p_packet, m_transaction.type, &m_transaction.target_fwid_union))
             {
                 if (p_packet->payload.state.authority > m_transaction.authority ||
@@ -1310,11 +1310,11 @@ void dfu_mesh_timeout(void)
             break;
 
         case DFU_STATE_DFU_REQ:
-        case DFU_STATE_DFU_READY:
+        case DFU_STATE_READY:
             send_end_evt(DFU_END_ERROR_NO_START);
             break;
 
-        case DFU_STATE_DFU_TARGET:
+        case DFU_STATE_TARGET:
             start_req(m_transaction.type, &m_transaction.target_fwid_union);
             break;
 

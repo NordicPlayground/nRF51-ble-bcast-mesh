@@ -73,7 +73,7 @@ Additional information:
 */
 
 #ifndef   BUFFER_SIZE_UP
-  #define BUFFER_SIZE_UP                                  1024  // Size of the buffer for terminal output of target, up to host
+  #define BUFFER_SIZE_UP                                  512  // Size of the buffer for terminal output of target, up to host
 #endif
 
 #ifndef   BUFFER_SIZE_DOWN
@@ -137,6 +137,7 @@ static unsigned char _aTerminalId[16] = { '0', '1', '2', '3', '4', '5', '6', '7'
 *
 **********************************************************************
 */
+#if defined(__CC_ARM)
 //
 // Allocate buffers for channel 0
 //
@@ -146,6 +147,22 @@ static char _acDownBuffer[BUFFER_SIZE_DOWN] __attribute__((at(0x20002FF0)));
 // Initialize SEGGER Real-time-Terminal control block (CB)
 //
 SEGGER_RTT_CB _SEGGER_RTT __attribute__((at(0x20002E00)));
+
+#elif defined(__GNUC__)
+
+//
+// Allocate buffers for channel 0
+//
+static char _acUpBuffer  [BUFFER_SIZE_UP];
+static char _acDownBuffer[BUFFER_SIZE_DOWN];
+//
+// Initialize SEGGER Real-time-Terminal control block (CB)
+//
+SEGGER_RTT_CB _SEGGER_RTT;
+
+#else
+#error "Unsupported toolchain."
+#endif
 
 static char _ActiveTerminal;
 

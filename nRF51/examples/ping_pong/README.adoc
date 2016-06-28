@@ -1,67 +1,34 @@
-= Scaling example
-\- A display of how to handle a lot of instances
+= Ping pong example
 
-This example uses UART to control mesh nodes with a significant number of data 
-instances. The devices can be interfaced via a regular serial communication
-application on your PC, using some simple commands to set values and disable 
-propagation.
+The ping pong example is a stress test application for the mesh, meant to be
+used with the Python 2.7 script ping_pong.py, located under ./scripts/. It
+demonstrates the mesh's ability to handle many-to-one applications.
 
-By default, all devices store 100 handle-value pairs, but this number can be 
-configured in the main.c file.
+== How does it work?
 
-Note that this example does not mirror the entire API, and is not meant to 
-replace the existing SPI ACI interface.
+Every device in the mesh gets assigned a single handle, which they push value
+updates to. The device with assigned handle 0 has a server role, and responds
+to all other device's updates with a 0-length ack packet on the other devices'
+handles. As soon as the other devices receive an ack on their handle, they turn
+around to send a new packet on their assigned handle. This way, the central
+device will act as a sort of ping server, acking every message it gets.
 
-== Usage:
-Set up any number of devices and connect two or more to a serial terminal 
-session on your computer with the parameters specified below. Use the commands 
-below to set values, and read them back as events from another device.
+The immediate response mechanism on both sides causes the ping clients to
+operate as fast as they possibly can, displaying the Open Mesh's behavior in
+heavy-load many-to-one type scenarios.
 
-== Changing the number of instances:
-The number of instances on each device can be configured by setting the 
-`HANDLE_COUNT` #define in _main.c_. Note that if you try to allocate more than 
-100 handle-value pairs, you might need to increase the memory area allocated 
-for the Softdevice. This can be done by changing the application RAM starting 
-point in the "Target options"->"Target" in Keil uVision, or in the linker file
-in the gcc directory. In addition, the predefined 
-RBC_MESH_GATTS_ATTR_TABLE_SIZE needs to be set accordingly, as defined in the 
-Softdevice specification document. For gcc, this variable can be set at the 
-top of the makefile.
+== ping_pong.py requirements
 
-Also note that the HEAP size has been set to 4096 in the startup file, which 
-should be sufficient to store any number of handles.
+- Python 2.7
+- pyserial 2.7
 
-== RTT-logging
-As a faster alternative to UART, the SEGGER Real Time Transfer functionality
-may be utilized. Simply set the LOG_RTT flag in the beginning of main.c, and
-start a host side RTT session on your computer as specified on the Segger
-website, https://www.segger.com/rtt.html.
+NOTE: On Windows, the python script looks up all devices with the segger ID in
+the registry. If you have a different set of devices, just remove this
+filtering on line 55, and use the non-Windows-code on line 57 instead.
 
-== UART interface syntax:
-=== Commands:
-Set value: "U <handle number> <content>"
-Disable trickle: "D <handle number>"
 
-End with enter (\\r or \\n).
+== Usage
 
-=== Events:
-RBC_MESH event: "<evt type>[<handle number>] <content>"
-<evt_type>:
-U = update
-C = conflict
-N = new
-I = init framework (will not occur without SPI)
-
-Events ends with a CRLF.
-
-== UART settings:
-
-Baud: 460800
-
-Data bits: 8
-
-Parity bit: no
-
-Stop bit: 1
-
-Flow control enabled (RTS/CTS)
+Build, then flash all devices in the network with the ping_pong firmware. Run
+the ping_pong.py script without parameters. The script will output a list of
+all COM-ports it could find, and the handle they've been assigned.

@@ -118,6 +118,14 @@ typedef enum
     RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE,     /**< The dfu module found a bank available for flashing. Parameters in dfu.bank sub-structure. */
 } rbc_mesh_event_type_t;
 
+/** @brief The various states of the mesh framework. */
+typedef enum
+{
+    MESH_STATE_UNINITIALIZED,   /**< The mesh hasn't been initialized. */
+    MESH_STATE_RUNNING,         /**< The mesh is currently running as normal. */
+    MESH_STATE_STOPPED          /**< The mesh operation has been stopped. */
+} rbc_mesh_state_t;
+
 /** @brief OpenMesh framework generated event. */
 typedef struct
 {
@@ -185,6 +193,19 @@ typedef struct
     } params;
 } rbc_mesh_event_t;
 
+/** Radio TX power enum */
+typedef enum
+{
+    RBC_MESH_TXPOWER_0dBm     = 0x00UL, /**< 0dBm. */
+    RBC_MESH_TXPOWER_Pos4dBm  = 0x04UL, /**< +4dBm. */
+    RBC_MESH_TXPOWER_Neg30dBm = 0xD8UL, /**< -30dBm. */
+    RBC_MESH_TXPOWER_Neg20dBm = 0xECUL, /**< -20dBm. */
+    RBC_MESH_TXPOWER_Neg16dBm = 0xF0UL, /**< -16dBm. */
+    RBC_MESH_TXPOWER_Neg12dBm = 0xF4UL, /**< -12dBm. */
+    RBC_MESH_TXPOWER_Neg8dBm  = 0xF8UL, /**< -8dBm. */
+    RBC_MESH_TXPOWER_Neg4dBm  = 0xFCUL, /**< -4dBm. */
+} rbc_mesh_txpower_t;
+
 /**
 * @brief Initialization parameter struct for the rbc_mesh_init() function.
 *
@@ -205,6 +226,7 @@ typedef struct
 *    millis. Must be between 5 and 60000.
 * @param[in] lfclksrc The LF-clock source parameter supplied to the
 *    softdevice_enable function.
+* @param[in] tx_power The transmit power used in the mesh. See @rbc_mesh_tx_power_t.
 */
 typedef struct
 {
@@ -212,6 +234,7 @@ typedef struct
     uint8_t channel;
     uint32_t interval_min_ms;
     nrf_clock_lfclksrc_t lfclksrc;
+    rbc_mesh_txpower_t tx_power;
 } rbc_mesh_init_params_t;
 
 typedef enum
@@ -258,6 +281,13 @@ typedef void (*rbc_mesh_packet_peek_cb_t)(rbc_mesh_packet_peek_params_t* p_peek_
 * @return NRF_ERROR_SOFTDEVICE_NOT_ENABLED the Softdevice has not been enabled.
 */
 uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params);
+
+/**
+* @brief Get the current state of the mesh.
+*
+* @return The state of the mesh.
+*/
+rbc_mesh_state_t rbc_mesh_state_get(void);
 
 /**
 * @brief Start mesh radio activity after stopping it.
@@ -461,6 +491,13 @@ uint32_t rbc_mesh_persistence_get(rbc_mesh_value_handle_t handle, bool* is_persi
 uint32_t rbc_mesh_tx_event_flag_get(rbc_mesh_value_handle_t handle, bool* is_doing_tx_event);
 
 /**
+* @brief Set TX power for mesh packets.
+*
+* @param[in] tx_power TX power from @rbc_mesh_txpower_t enum.
+*/
+void rbc_mesh_tx_power_set(rbc_mesh_txpower_t tx_power);
+
+/**
 * @brief Event handler to be called upon Softdevice BLE event arrival.
 *
 * @details Event handler taking care of all mesh behavior related to BLE.
@@ -520,25 +557,6 @@ uint32_t rbc_mesh_event_get(rbc_mesh_event_t* p_evt);
 * @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
 */
 uint32_t rbc_mesh_event_peek(rbc_mesh_event_t* p_evt);
-
-/**
-* @brief Free the memory associated with the given mesh packet.
-*
-* @details: In order to reduce the amount of data copying going on for each
-*   data packet, the data field of an rbc_mesh_event points directly to the
-*   framework packet pool. This memory is managed by the mesh_packet module,
-*   and must be explicitly released when the contents is no longer in use.
-*   Failure to do so will result in a NO_MEM error when the framework runs out
-*   of available packets in the packet pool.
-*
-* @param[in] p_data Pointer to a data array which originated from an event
-*   in the framework functions rbc_mesh_event_get and rbc_mesh_event_peek.
-*
-* @return NRF_SUCCESS The memory associated with the given data pointer was
-*   successfully freed.
-* @return NRF_ERROR_INVALID_STATE the framework has not been initialized.
-*/
-uint32_t rbc_mesh_packet_release(uint8_t* p_data);
 
 /**
 * @brief Free the memory associated with the given mesh event.

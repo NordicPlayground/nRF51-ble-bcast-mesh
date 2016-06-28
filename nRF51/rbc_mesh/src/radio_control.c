@@ -105,7 +105,7 @@ static void purge_preemptable(void)
             NRF_RADIO->EVENTS_END = 0;
 
             /* propagate failed rx event */
-            m_rx_cb(current_evt.packet_ptr, false, 0xFFFFFFFF, 100, 0);
+            m_rx_cb(current_evt.packet_ptr, false, 0xFFFFFFFF, 100);
             --events_in_queue;
         }
         else
@@ -144,13 +144,14 @@ static void setup_event(radio_event_t* p_evt)
     NRF_RADIO->EVENTS_END = 0;
     NRF_RADIO->PREFIX1	= ((m_alt_aa >> 24) & 0x000000FF);
     NRF_RADIO->BASE1    = ((m_alt_aa <<  8) & 0xFFFFFF00);
-    
+
     if (p_evt->event_type == RADIO_EVENT_TYPE_TX)
     {
         DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_TX);
         NRF_RADIO->TXADDRESS = p_evt->access_address;
         NRF_RADIO->TASKS_TXEN = 1;
         m_radio_state = RADIO_STATE_TX;
+        NRF_RADIO->TXPOWER  = p_evt->tx_power;
     }
     else
     {
@@ -177,7 +178,7 @@ void radio_init(radio_idle_cb_t idle_cb,
                 radio_rx_cb_t   rx_cb,
                 radio_tx_cb_t   tx_cb)
 {
-	/* Reset all states in the radio peripheral */
+    /* Reset all states in the radio peripheral */
     NRF_RADIO->POWER            = ((RADIO_POWER_POWER_Disabled << RADIO_POWER_POWER_Pos) & RADIO_POWER_POWER_Msk);
     NRF_RADIO->POWER            = ((RADIO_POWER_POWER_Enabled  << RADIO_POWER_POWER_Pos) & RADIO_POWER_POWER_Msk);
 
@@ -213,7 +214,7 @@ void radio_init(radio_idle_cb_t idle_cb,
                         | (((RADIO_PCNF1_WHITEEN_Enabled)   << RADIO_PCNF1_WHITEEN_Pos) & RADIO_PCNF1_WHITEEN_Msk)	// enable packet whitening
                       );
 
-	/* CRC config */
+    /* CRC config */
     NRF_RADIO->CRCPOLY = ((0x00065B << RADIO_CRCPOLY_CRCPOLY_Pos) & RADIO_CRCPOLY_CRCPOLY_Msk);    // CRC polynomial function
     NRF_RADIO->CRCCNF = (((RADIO_CRCCNF_SKIPADDR_Skip) << RADIO_CRCCNF_SKIPADDR_Pos) & RADIO_CRCCNF_SKIPADDR_Msk)
                       | (((RADIO_CRCCNF_LEN_Three)      << RADIO_CRCCNF_LEN_Pos)       & RADIO_CRCCNF_LEN_Msk);
@@ -265,12 +266,17 @@ void radio_alt_aa_set(uint32_t access_address)
 
 uint32_t radio_order(radio_event_t* p_radio_event)
 {
+    if (p_radio_event == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+
     if (p_radio_event->event_type == RADIO_EVENT_TYPE_TX &&
         p_radio_event->access_address > 1)
     {
         return NRF_ERROR_INVALID_ADDR;
     }
-    
+
     if (fifo_push(&m_radio_fifo, p_radio_event) != NRF_SUCCESS)
     {
         return NRF_ERROR_NO_MEM;
@@ -306,8 +312,7 @@ void radio_event_handler(void)
         bool crc_status = NRF_RADIO->CRCSTATUS;
         uint32_t crc = NRF_RADIO->RXCRC;
         uint8_t rssi = 100;
-        uint8_t rx_addr = NRF_RADIO->RXMATCH;
-        
+
         if (NRF_RADIO->EVENTS_RSSIEND)
         {
             NRF_RADIO->EVENTS_RSSIEND = 0;
@@ -320,12 +325,12 @@ void radio_event_handler(void)
         /* pop the event that just finished */
         uint32_t error_code = fifo_pop(&m_radio_fifo, &prev_evt);
         APP_ERROR_CHECK(error_code);
-        
+
         /* send to super space */
         if (prev_evt.event_type == RADIO_EVENT_TYPE_RX ||
             prev_evt.event_type == RADIO_EVENT_TYPE_RX_PREEMPTABLE)
         {
-            m_rx_cb(prev_evt.packet_ptr, crc_status, crc, rssi, rx_addr);
+            m_rx_cb(prev_evt.packet_ptr, crc_status, crc, rssi);
         }
         else
         {

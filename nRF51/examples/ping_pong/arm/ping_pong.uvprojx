@@ -106,11 +106,11 @@
         </CommonProperty>
         <DllOption>
           <SimDllName>SARMCM3.DLL</SimDllName>
-          <SimDllArguments> </SimDllArguments>
+          <SimDllArguments></SimDllArguments>
           <SimDlgDll>DARMCM1.DLL</SimDlgDll>
           <SimDlgDllArguments>-pCM0</SimDlgDllArguments>
           <TargetDllName>SARMCM3.DLL</TargetDllName>
-          <TargetDllArguments> </TargetDllArguments>
+          <TargetDllArguments></TargetDllArguments>
           <TargetDlgDll>TARMCM1.DLL</TargetDlgDll>
           <TargetDlgDllArguments>-pCM0</TargetDlgDllArguments>
         </DllOption>
@@ -175,7 +175,7 @@
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3>"" ()</Flash3>
+          <Flash3></Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -280,7 +280,7 @@
               <IRAM>
                 <Type>0</Type>
                 <StartAddress>0x20000000</StartAddress>
-                <Size>0x8000</Size>
+                <Size>0x4000</Size>
               </IRAM>
               <IROM>
                 <Type>1</Type>
@@ -310,7 +310,7 @@
               <OCR_RVCT4>
                 <Type>1</Type>
                 <StartAddress>0x18000</StartAddress>
-                <Size>0x2b000</Size>
+                <Size>0x28000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -363,7 +363,7 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10028 SOFTDEVICE_PRESENT NRF51 PACKET_STATS DEBUG</Define>
+              <Define>RBC_MESH_HANDLE_CACHE_ENTRIES=40 RBC_MESH_DATA_CACHE_ENTRIES=40 BLE_STACK_SUPPORT_REQD S110 BOARD_PCA10028 SOFTDEVICE_PRESENT NRF51 PACKET_STATS DEBUG</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\s110\headers;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\RTT;..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\..\components\libraries\fifo</IncludePath>
             </VariousControls>
@@ -398,7 +398,7 @@
             <ScatterFile></ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
-            <Misc>--callgraph</Misc>
+            <Misc></Misc>
             <LinkerInputFile></LinkerInputFile>
             <DisabledWarnings></DisabledWarnings>
           </LDads>
@@ -434,14 +434,19 @@
               <FilePath>..\..\..\rbc_mesh\src\radio_control.c</FilePath>
             </File>
             <File>
-              <FileName>timer_control.c</FileName>
+              <FileName>timer.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\timer_control.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\timer.c</FilePath>
             </File>
             <File>
-              <FileName>timeslot_handler.c</FileName>
+              <FileName>timer_scheduler.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\timeslot_handler.c</FilePath>
+              <FilePath>..\..\..\rbc_mesh\src\timer_scheduler.c</FilePath>
+            </File>
+            <File>
+              <FileName>timeslot.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\rbc_mesh\src\timeslot.c</FilePath>
             </File>
             <File>
               <FileName>trickle.c</FileName>
@@ -477,21 +482,6 @@
               <FileName>mesh_packet.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\rbc_mesh\src\mesh_packet.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_info_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_info_app.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_app.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_app.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootloader_util.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\rbc_mesh\src\bootloader_util.c</FilePath>
             </File>
             <File>
               <FileName>rand.c</FileName>
@@ -547,21 +537,6 @@
               <FileName>app_fifo.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\components\libraries\fifo\app_fifo.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>RTT</GroupName>
-          <Files>
-            <File>
-              <FileName>SEGGER_RTT.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\RTT\SEGGER_RTT.c</FilePath>
-            </File>
-            <File>
-              <FileName>SEGGER_RTT_printf.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\RTT\SEGGER_RTT_printf.c</FilePath>
             </File>
           </Files>
         </Group>

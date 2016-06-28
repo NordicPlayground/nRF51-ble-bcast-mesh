@@ -32,11 +32,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __CMD_IF_H__
 
 #include <stdint.h>
+#include <string.h>
 #include <stdio.h>
 #include "app_uart.h"
 
 /** Logging predefines. Hides UART functions */
-#define _LOG(str, ...) do{\
+#define UART_PRINT(str, ...) do{\
         char tx_str[128];\
         sprintf(tx_str, str, ##__VA_ARGS__);\
         char* c = tx_str;\

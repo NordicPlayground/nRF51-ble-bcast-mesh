@@ -252,9 +252,11 @@ uint32_t dfu_init(void)
     m_tx_timer_evt.p_next    = NULL;
     m_tx_scheduled           = true;
 
-    m_tx_config.access_address = RBC_MESH_ACCESS_ADDRESS_BLE_ADV;
+    /* Use standard BLE advertiser parameters */
+    m_tx_config.alt_access_address = false;
     m_tx_config.first_channel = 37;
     m_tx_config.channel_map = (1 << 0) | (1 << 1) | (1 << 2); /* 37, 38, 39 */
+    m_tx_config.tx_power = RBC_MESH_TXPOWER_0dBm;
 
     mesh_flash_init(flash_op_complete);
 
@@ -358,6 +360,21 @@ uint32_t dfu_request(dfu_type_t type,
     cmd.params.dfu.start.target.type = type;
     cmd.params.dfu.start.target.fwid = *p_fwid;
     cmd.params.dfu.start.target.p_bank_start = p_bank_addr;
+    return dfu_cmd_send(&cmd);
+}
+
+uint32_t dfu_relay(dfu_type_t type,
+        fwid_union_t* p_fwid)
+{
+    if (p_fwid == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+    bl_cmd_t cmd;
+    cmd.type = BL_CMD_TYPE_DFU_START_RELAY;
+    cmd.params.dfu.start.relay.type = type;
+    cmd.params.dfu.start.relay.fwid = *p_fwid;
+    cmd.params.dfu.start.relay.transaction_id = 0;
     return dfu_cmd_send(&cmd);
 }
 
@@ -489,11 +506,11 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
         case BL_EVT_TYPE_DFU_START:
             {
                 __LOG("\tDFU start\n");
-                if (m_transfer_state.state == DFU_ROLE_TARGET)
+                if (p_evt->params.dfu.start.role == DFU_ROLE_TARGET)
                 {
-                    m_transfer_state.state = DFU_STATE_DFU_TARGET;
+                    m_transfer_state.state = DFU_STATE_TARGET;
                 }
-                else if (m_transfer_state.state == DFU_ROLE_RELAY)
+                else if (p_evt->params.dfu.start.role == DFU_ROLE_RELAY)
                 {
                     m_transfer_state.state = DFU_STATE_RELAY;
                 }

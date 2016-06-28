@@ -29,7 +29,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include "rbc_mesh.h"
-#include "bootloader_util.h"
+#ifdef MESH_DFU
+#include "dfu_app.h"
+#endif
 
 #include "nrf_adv_conn.h"
 #include "led_config.h"
@@ -44,15 +46,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 
-/* Debug macros for debugging with logic analyzer */
-#define SET_PIN(x) NRF_GPIO->OUTSET = (1 << (x))
-#define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
-#define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
-
-#define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)
-#define MESH_INTERVAL_MIN_MS    (100)
-#define MESH_CHANNEL            (38)
-#define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
+#define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)   /**< Access address for the mesh to operate on. */
+#define MESH_INTERVAL_MIN_MS    (100)                               /**< Mesh minimum advertisement interval in milliseconds. */
+#define MESH_CHANNEL            (38)                                /**< BLE channel to operate on. Single channel only. */
+#define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)    /**< Clock source used by the Softdevice. For calibrating timeslot time. */
 
 /**
 * @brief General error handler.
@@ -61,8 +58,10 @@ static void error_loop(void)
 {
     led_config(2, 1);
     led_config(3, 0);
+    __disable_irq(); /* Prevent the mesh from continuing operation. */
     while (true)
     {
+        __WFE(); /* sleep */
     }
 }
 
@@ -91,6 +90,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     error_loop();
 }
 
+/** @brief Hardware fault handler. */
 void HardFault_Handler(void)
 {
     error_loop();
@@ -110,24 +110,49 @@ void sd_ble_evt_handler(ble_evt_t* p_ble_evt)
 *
 * @param[in] evt RBC event propagated from framework
 */
-static void rbc_mesh_event_handler(rbc_mesh_event_t* evt)
+static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 {
-    TICK_PIN(28);
-    switch (evt->type)
+    switch (p_evt->type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
         case RBC_MESH_EVENT_TYPE_NEW_VAL:
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
-            if (evt->params.rx.value_handle > 1)
+            if (p_evt->params.rx.value_handle > 1)
                 break;
 
-            led_config(evt->params.rx.value_handle, evt->params.rx.p_data[0]);
+            led_config(p_evt->params.rx.value_handle, p_evt->params.rx.p_data[0]);
             break;
+
         case RBC_MESH_EVENT_TYPE_TX:
             break;
+
         case RBC_MESH_EVENT_TYPE_INITIALIZED:
             /* init BLE gateway softdevice application: */
             nrf_adv_conn_init();
+            break;
+#ifdef MESH_DFU
+        case RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE:
+            dfu_bank_flash(p_evt->params.dfu.bank.dfu_type);
+            break;
+
+        case RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE:
+            dfu_request(p_evt->params.dfu.new_fw.dfu_type,
+                &p_evt->params.dfu.new_fw.new_fwid,
+                (uint32_t*) 0x24000);
+            break;
+
+        case RBC_MESH_EVENT_TYPE_DFU_RELAY_REQ:
+            dfu_relay(p_evt->params.dfu.relay_req.dfu_type,
+                &p_evt->params.dfu.relay_req.fwid);
+            break;
+
+        case RBC_MESH_EVENT_TYPE_DFU_START:
+        case RBC_MESH_EVENT_TYPE_DFU_END:
+            break;
+        case RBC_MESH_EVENT_TYPE_DFU_SOURCE_REQ:
+            break;
+#endif
+        default:
             break;
     }
 }
@@ -165,7 +190,7 @@ int main(void)
 {
     /* init leds and pins */
     gpio_init();
-    NRF_GPIO->OUTSET = (1 << 4);
+
     /* Enable Softdevice (including sd_ble before framework */
     SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, NULL);
     softdevice_ble_evt_handler_set(sd_ble_evt_handler); /* app-defined event handler, as we need to send it to the nrf_adv_conn module and the rbc_mesh */
@@ -175,6 +200,7 @@ int main(void)
 
     /* only want to enable serial interface, and let external host setup the framework */
     mesh_aci_init();
+    mesh_aci_start();
 
 #else
 
@@ -184,6 +210,7 @@ int main(void)
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
     init_params.lfclksrc = MESH_CLOCK_SOURCE;
+    init_params.tx_power = RBC_MESH_TXPOWER_0dBm;
 
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
@@ -199,66 +226,34 @@ int main(void)
     nrf_adv_conn_init();
 
 #endif
-    NRF_GPIO->OUTCLR = (1 << 4);
 
-#if !(defined(BUTTONS))
-    /* fetch events */
     rbc_mesh_event_t evt;
     while (true)
     {
-        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+#ifdef BUTTONS
+        for (uint32_t pin = BUTTON_START; pin <= BUTTON_STOP; ++pin)
         {
-            rbc_mesh_event_handler(&evt);
-            rbc_mesh_event_release(&evt);
-        }
+            if(nrf_gpio_pin_read(pin) == 0)
+            {
+                while(nrf_gpio_pin_read(pin) == 0);
+                uint8_t mesh_data[1];
+                uint32_t led_status = !!((pin - BUTTON_START) & 0x01); /* even buttons are OFF, odd buttons are ON */
+                uint32_t led_offset = !!((pin - BUTTON_START) & 0x02); /* two buttons per led */
 
-        sd_app_evt_wait();
-    }
-#else
-    uint8_t mesh_data[16] = {0,0};
-    rbc_mesh_event_t evt;
-    while (true)
-    {
-        // red off
-        if(nrf_gpio_pin_read(BUTTON_1) == 0)
-        {
-            while(nrf_gpio_pin_read(BUTTON_1) == 0);
-            mesh_data[0] = 0;
-            rbc_mesh_value_set(0, mesh_data, 1);
-            led_config(0, 0);
+                mesh_data[0] = led_status;
+                if (rbc_mesh_value_set(led_offset, mesh_data, 1) == NRF_SUCCESS)
+                {
+                    led_config(led_offset, led_status);
+                }
+            }
         }
-        // red on
-        if(nrf_gpio_pin_read(BUTTON_2) == 0)
-        {
-            while(nrf_gpio_pin_read(BUTTON_2) == 0);
-            mesh_data[0] = 1;
-            rbc_mesh_value_set(0, mesh_data, 1);
-            led_config(0, 1);
-        }
-        // green off
-        if(nrf_gpio_pin_read(BUTTON_3) == 0)
-        {
-            while(nrf_gpio_pin_read(BUTTON_3) == 0);
-            mesh_data[0] = 0;
-            rbc_mesh_value_set(1, mesh_data, 1);
-            led_config(1, 0);
-        }
-        // green on
-        if(nrf_gpio_pin_read(BUTTON_4) == 0)
-        {
-            while(nrf_gpio_pin_read(BUTTON_4) == 0);
-            mesh_data[0] = 1;
-            rbc_mesh_value_set(1, mesh_data, 1);
-            led_config(1, 1);
-        }
-
-        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
-        {
-            rbc_mesh_event_handler(&evt);
-            rbc_mesh_event_release(&evt);
-        }
-    }
 #endif
 
+        if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
+        {
+            rbc_mesh_event_handler(&evt);
+            rbc_mesh_event_release(&evt);
+        }
+    }
 }
 

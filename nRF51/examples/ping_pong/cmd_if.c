@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static cmd_rx_cb_t m_rx_cb;
 
-/** 
+/**
 * @brief Handle incoming character on the control channel (UART or RTT).
 *   Holds text until a \r or \n has been received, upon which it calls cmd_rx()
 */
@@ -43,7 +43,7 @@ static void char_rx(uint8_t c)
 {
     static uint8_t rx_buf[32];
     static uint8_t* pp = rx_buf;
-    
+
     if (c != '\r' && c != '\n')
     {
         *(pp++) = c;

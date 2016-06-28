@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "event_handler.h"
 #include "toolchain.h"
+#include "rbc_mesh_common.h"
 
 #include "nrf_soc.h"
 #include "nrf51_bitfields.h"
@@ -42,7 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** Time from timeslot API starts the TIMER0 until we are sure we have had time to set all timeouts. */
 #define TIMER_TS_BEGIN_MARGIN_US    (120)
 
-#define TIMER_BACKOFF_TIME_US       (30)
+#define TIMER_BACKOFF_TIME_US       (6)
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
@@ -57,13 +58,13 @@ static uint32_t*        mp_ppi_tasks[TIMER_COMPARE_COUNT];
 /** Timestamps set for each timeout.  */
 static timestamp_t      m_timeouts[TIMER_COMPARE_COUNT];
 /** Time from which the TIMER0 is started. */
-static timestamp_t      m_reference_time = 0;
+static timestamp_t      m_reference_time;
 /** Time captured at the end of the previous timeslot. */
-static timestamp_t      m_ts_end_time = 0;
+static timestamp_t      m_ts_end_time;
 /** Timeslot currently in progress. */
-static bool             m_is_in_ts = false;
+static bool             m_is_in_ts;
 /** Timer mutex. */
-static bool             m_timer_mut = false;
+static uint32_t         m_timer_mut;
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
@@ -79,32 +80,13 @@ static void timer_set(uint8_t timer, timestamp_t timeout)
     timers may safely be changed */
 static inline void timer_mut_lock(void)
 {
-#ifdef NRF51
-    /* only disable all IRQs for a short time to safely disable TIMER-IRQ. */
-    uint32_t was_masked;
-    _DISABLE_IRQS(was_masked);
-    if (m_is_in_ts)
-    {
-        m_timer_mut = true;
-        NVIC_DisableIRQ(TIMER0_IRQn);
-    }
-    _ENABLE_IRQS(was_masked);
-#endif
+    _DISABLE_IRQS(m_timer_mut);
 }
 
 /** Implement mutex unlock, the SD-mut is hidden behind SVC, and cannot be used in IRQ level <= 1 */
 static inline void timer_mut_unlock(void)
 {
-#ifdef NRF51
-    uint32_t was_masked;
-    _DISABLE_IRQS(was_masked);
-    if (m_timer_mut && m_is_in_ts)
-    {
-        m_timer_mut = false;
-        NVIC_EnableIRQ(TIMER0_IRQn);
-    }
-    _ENABLE_IRQS(was_masked);
-#endif
+    _ENABLE_IRQS(m_timer_mut);
 }
 /*****************************************************************************
 * Interface functions
@@ -116,30 +98,31 @@ void timer_event_handler(void)
     {
         if (NRF_TIMER0->EVENTS_COMPARE[i])
         {
-            if (m_active_callbacks & (1 << i))
+            NRF_TIMER0->EVENTS_COMPARE[i] = 0;
+            APP_ERROR_CHECK_BOOL(m_active_callbacks & (1 << i));
+
+            m_active_callbacks &= ~(1 << i);
+            NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
+            timestamp_t time_now = timer_now();
+            if (m_attributes[i] & TIMER_ATTR_SYNCHRONOUS)
             {
-                m_active_callbacks &= ~(1 << i);
-                NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
-                timestamp_t time_now = timer_now();
-                if (m_attributes[i] & TIMER_ATTR_SYNCHRONOUS)
+                CHECK_FP(m_callbacks[i]);
+                m_callbacks[i](time_now);
+            }
+            else
+            {
+                async_event_t evt;
+                evt.type = EVENT_TYPE_TIMER;
+                CHECK_FP(m_callbacks[i]);
+                evt.callback.timer.cb = m_callbacks[i];
+                evt.callback.timer.timestamp = time_now;
+                if (event_handler_push(&evt) != NRF_SUCCESS)
                 {
-                    m_callbacks[i](time_now);
+                    /* failed pushing the event. Wait some time and try again */
+                    m_timeouts[i] += TIMER_BACKOFF_TIME_US;
+                    timer_set(i, NRF_TIMER0->CC[i] + TIMER_BACKOFF_TIME_US);
+                    m_active_callbacks |= (1 << i);
                 }
-                else
-                {
-                    async_event_t evt;
-                    evt.type = EVENT_TYPE_TIMER;
-                    evt.callback.timer.cb = m_callbacks[i];
-                    evt.callback.timer.timestamp = time_now;
-                    if (event_handler_push(&evt) != NRF_SUCCESS)
-                    {
-                        /* failed pushing the event. Wait some time and try again */
-                        m_timeouts[i] += TIMER_BACKOFF_TIME_US;
-                        timer_set(i, NRF_TIMER0->CC[i] + TIMER_BACKOFF_TIME_US);
-                        m_active_callbacks |= (1 << i);
-                    }
-                }
-                NRF_TIMER0->EVENTS_COMPARE[i] = 0;
             }
         }
     }
@@ -164,9 +147,9 @@ uint32_t timer_order_cb(uint8_t timer,
 
     m_callbacks[timer] = callback;
     m_timeouts[timer] = time;
-    m_active_callbacks |= (1 << timer);
     m_attributes[timer] = attributes;
     mp_ppi_tasks[timer] = NULL;
+    m_active_callbacks |= (1 << timer);
 
     if (m_is_in_ts)
     {
@@ -208,7 +191,7 @@ uint32_t timer_order_cb_ppi(uint8_t timer,
         /* Setup PPI */
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) p_task;
-        NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
+        NRF_PPI->CHENSET 			      = (1 << (TIMER_PPI_CH_START + timer));
     }
 
     timer_mut_unlock();
@@ -239,7 +222,7 @@ uint32_t timer_order_ppi(uint8_t timer, timestamp_t time, uint32_t* p_task, time
         /* Setup PPI */
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) p_task;
-        NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
+        NRF_PPI->CHENSET 			      = (1 << (TIMER_PPI_CH_START + timer));
     }
 
     timer_mut_unlock();
@@ -339,13 +322,7 @@ void timer_on_ts_begin(timestamp_t timeslot_start_time)
         }
     }
 
-    /* only enable interrupts if we're not locked. */
-    if (!m_timer_mut)
-    {
-#if NRF51
-        NVIC_EnableIRQ(TIMER0_IRQn);
-#endif
-    }
+    NVIC_EnableIRQ(TIMER0_IRQn);
 
     m_reference_time = timeslot_start_time;
     m_is_in_ts = true;
