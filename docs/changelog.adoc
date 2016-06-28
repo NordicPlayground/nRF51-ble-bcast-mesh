@@ -1,5 +1,15 @@
 = Changelog
 
+== 0.8.5 Cleanup of debug code
+
+Some debug code was left around in the timer.c module by mistake for v0.8.4,
+affecting performance. v0.8.5 fixes this.
+
+=== Fixes
+
+- Removed debug code causing the timer module to fail regularly, affecting
+  performance.
+
 == 0.8.4 Side by side DFU
 
 This release brings in concurrent DFU operation with the application. By
