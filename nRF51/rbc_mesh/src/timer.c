@@ -94,7 +94,6 @@ static inline void timer_mut_unlock(void)
 
 void timer_event_handler(void)
 {
-    static uint32_t s_disturbance = 0;
     for (uint32_t i = 0; i < TIMER_COMPARE_COUNT; ++i)
     {
         if (NRF_TIMER0->EVENTS_COMPARE[i])
@@ -117,7 +116,7 @@ void timer_event_handler(void)
                 CHECK_FP(m_callbacks[i]);
                 evt.callback.timer.cb = m_callbacks[i];
                 evt.callback.timer.timestamp = time_now;
-                if (!((s_disturbance++) & 0x03) || event_handler_push(&evt) != NRF_SUCCESS)
+                if (event_handler_push(&evt) != NRF_SUCCESS)
                 {
                     /* failed pushing the event. Wait some time and try again */
                     m_timeouts[i] += TIMER_BACKOFF_TIME_US;
