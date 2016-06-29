@@ -80,7 +80,7 @@ def reset_device(serial_number, port):
     sys.stdout.write("Resetting device..\t\t")
     try:
         s = serial.Serial(port, 115200, rtscts = True)
-    except Exception(e):
+    except:
         print("ERROR: Could not open COM port " + port)
         exit(1)
     nrfjprog("-s " + serial_number + " --reset")
@@ -102,7 +102,7 @@ def echo(port):
     sys.stdout.write("Checking serial connection..\t")
     try:
         s = serial.Serial(port, 115200, rtscts = True)
-    except Exception (e):
+    except:
         print("ERROR: Could not open COM port " + port)
         exit(1)
     s.write(b"\x03\x02\xaa\xbb")
