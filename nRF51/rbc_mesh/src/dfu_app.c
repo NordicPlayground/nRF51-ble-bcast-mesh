@@ -607,8 +607,9 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
 
             if (m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet)
             {
-                mesh_packet_ref_count_dec(m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet);
+                mesh_packet_t* p_packet = m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet;
                 m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet = NULL;
+                mesh_packet_ref_count_dec(p_packet);
             }
             if (mesh_packet_acquire(&m_tx_slots[p_evt->params.tx.radio.tx_slot].p_packet))
             {
