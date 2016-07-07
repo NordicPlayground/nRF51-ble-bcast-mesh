@@ -1,3 +1,4 @@
+import binascii
 import subprocess
 import sys
 import serial
@@ -87,16 +88,19 @@ def reset_device(serial_number, port):
     time.sleep(0.2)
     response = read_serial_event(s)
 
-    if not b"\x81\x01\x00" in response:
-        print("ERROR: Invalid start sequence from bootloader.")
+    if b"\x81\x02\x00" == response[:3]:
+        print("OK (In application)")
+    elif not b"\x81\x01\x00" in response:
+        print("ERROR: Invalid start sequence from bootloader: " + binascii.hexlify(response))
         print("Checkpoints:")
         print("\tHave you flashed the bootloader with nrfjprog?")
         print("\tDoes your bootloader have serial communication enabled?")
         s.close()
         exit(1)
-    time.sleep(0.5)
+    else:
+        print("OK.")
+    time.sleep(0.1)
     s.close()
-    print("OK.")
 
 def echo(port):
     sys.stdout.write("Checking serial connection..\t")
