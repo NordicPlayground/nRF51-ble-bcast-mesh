@@ -42,7 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
-#define LAST_RAM_WORD    (0x20007FFC)
+
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
@@ -65,7 +65,9 @@ uint32_t bootloader_app_bridge_init(void)
 {
     /* Write the address of the command handler to the last word in RAM. The
        application will know this, and use it. */
-    volatile bl_if_cmd_handler_t* p_last = (bl_if_cmd_handler_t*) LAST_RAM_WORD;
+    volatile bl_if_cmd_handler_t* p_last = ((bl_if_cmd_handler_t*) (
+                0x20000000 +
+                ((uint32_t) (NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK) - 4)));
     *p_last = bl_cmd_handler;
     m_in_bl = true;
 
