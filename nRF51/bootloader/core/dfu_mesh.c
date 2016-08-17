@@ -903,40 +903,6 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
 
 static void handle_state_packet(dfu_packet_t* p_packet)
 {
-#if 0 //RTT_LOG
-    __LOG("RX STATE PACKET\n");
-    __LOG("\tType: %s\n", m_dfu_type_strs[p_packet->payload.state.dfu_type]);
-    switch (p_packet->payload.state.dfu_type)
-    {
-        case DFU_TYPE_APP:
-            __LOG("\tOur version: %x.%x.%x\n",
-                    (uint32_t) m_bl_info_pointers.p_fwid->app.company_id,
-                    (uint32_t) m_bl_info_pointers.p_fwid->app.app_id,
-                    (uint32_t) m_bl_info_pointers.p_fwid->app.app_version);
-            __LOG("\tIncoming version: %x.%x.%x\n",
-                    (uint32_t) p_packet->payload.state.fwid.app.company_id,
-                    (uint32_t) p_packet->payload.state.fwid.app.app_id,
-                    (uint32_t) p_packet->payload.state.fwid.app.app_version);
-            break;
-        case DFU_TYPE_SD:
-            __LOG("\tOur version: %x\n",
-                    (uint32_t) m_bl_info_pointers.p_fwid->sd);
-            __LOG("\tIncoming version: %x\n",
-                    (uint32_t) p_packet->payload.state.fwid.sd);
-            break;
-        case DFU_TYPE_BOOTLOADER:
-            __LOG("\tOur version: %x.%x\n",
-                    (uint32_t) m_bl_info_pointers.p_fwid->bootloader.id,
-                    (uint32_t) m_bl_info_pointers.p_fwid->bootloader.ver);
-            __LOG("\tIncoming version: %x.%x\n",
-                    (uint32_t) p_packet->payload.state.fwid.bootloader.id,
-                    (uint32_t) p_packet->payload.state.fwid.bootloader.ver);
-            break;
-        default:
-            break;
-    }
-#endif
-
     switch (m_state)
     {
         case DFU_STATE_FIND_FWID:
