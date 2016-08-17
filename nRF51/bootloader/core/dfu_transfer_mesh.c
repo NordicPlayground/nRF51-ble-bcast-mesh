@@ -89,7 +89,6 @@ uint32_t dfu_transfer_start(
         uint32_t* p_start_addr,
         uint32_t* p_bank_addr,
         uint32_t size,
-        uint32_t section_size,
         bool final_transfer)
 {
     dfu_transfer_init();

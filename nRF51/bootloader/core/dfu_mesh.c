@@ -523,27 +523,20 @@ static void start_target(void)
 {
     SET_STATE(DFU_STATE_TARGET);
 
-    uint32_t segment_size = 0;
     bl_info_entry_t flags_entry;
     memset(&flags_entry, 0xFF, (BL_INFO_LEN_FLAGS + 3) & ~0x03UL);
 
     switch (m_transaction.type)
     {
         case DFU_TYPE_SD:
-            segment_size = m_bl_info_pointers.p_segment_sd->length;
             flags_entry.flags.sd_intact = false;
             break;
         case DFU_TYPE_APP:
-            segment_size = m_bl_info_pointers.p_segment_app->length;
             flags_entry.flags.app_intact = false;
             break;
         case DFU_TYPE_BOOTLOADER:
-            segment_size = m_bl_info_pointers.p_segment_bl->length;
             flags_entry.flags.bl_intact = false;
-
             break;
-        default:
-            segment_size = 0;
     }
 
     if (m_transaction.p_bank_addr != m_transaction.p_start_addr)
@@ -633,7 +626,6 @@ static void start_target(void)
                 m_transaction.p_start_addr,
                 m_transaction.p_bank_addr,
                 m_transaction.length,
-                segment_size,
                 m_transaction.segment_is_valid_after_transfer) == NRF_SUCCESS)
     {
         bl_evt_t abort_evt;
