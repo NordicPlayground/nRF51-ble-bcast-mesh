@@ -474,6 +474,7 @@ static void send_bank_notifications(void)
                     dfu_types[i]);
             bank_evt.params.bank_available.p_bank_addr = p_bank_entry->bank.p_bank_addr;
             bank_evt.params.bank_available.bank_length = p_bank_entry->bank.length;
+            bank_evt.params.bank_available.is_signed = p_bank_entry->bank.has_signature;
             bootloader_evt_send(&bank_evt);
         }
     }
