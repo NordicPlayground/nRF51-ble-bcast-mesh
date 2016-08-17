@@ -980,7 +980,13 @@ static void handle_state_packet(dfu_packet_t* p_packet)
             }
             break;
         case DFU_STATE_DFU_REQ:
-            if (p_packet->payload.state.authority > 0)
+        case DFU_STATE_READY:
+            if (p_packet->payload.state.authority > m_transaction.authority ||
+                    (
+                     p_packet->payload.state.authority == m_transaction.authority &&
+                     p_packet->payload.state.transaction_id > m_transaction.transaction_id
+                    )
+               )
             {
                 if (ready_packet_matches_our_req(p_packet, m_transaction.type, &m_transaction.target_fwid_union) ||
                         ready_packet_is_upgrade(p_packet))
@@ -992,7 +998,12 @@ static void handle_state_packet(dfu_packet_t* p_packet)
 
                     start_ready(p_packet);
                 }
-                else
+                /* Notify about relay option if the transfer is different from the current */
+                else if (m_transaction.type != p_packet->payload.state.dfu_type ||
+                        !fwid_union_id_cmp(
+                            &p_packet->payload.state.fwid,
+                            &m_transaction.target_fwid_union,
+                            m_transaction.type))
                 {
                     __LOG("\t->Relayable\n");
                     /* we can relay this transfer, let the app decide whether we should abort our request. */
@@ -1005,23 +1016,6 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                     relay_req_evt.params.dfu.req.authority = p_packet->payload.state.authority;
                     relay_req_evt.params.dfu.req.transaction_id = p_packet->payload.state.transaction_id;
                     bootloader_evt_send(&relay_req_evt);
-                }
-            }
-            break;
-        case DFU_STATE_READY:
-            if (ready_packet_matches_our_req(p_packet, m_transaction.type, &m_transaction.target_fwid_union))
-            {
-                if (p_packet->payload.state.authority > m_transaction.authority ||
-                        (
-                         p_packet->payload.state.authority == m_transaction.authority &&
-                         p_packet->payload.state.transaction_id > m_transaction.transaction_id
-                        )
-                   )
-                {
-                    __LOG("\tHigher authority (%u)\n", p_packet->payload.state.authority);
-                    m_transaction.authority = p_packet->payload.state.authority;
-                    m_transaction.transaction_id = p_packet->payload.state.transaction_id;
-                    beacon_set(state_beacon_type(m_transaction.type));
                 }
             }
             break;

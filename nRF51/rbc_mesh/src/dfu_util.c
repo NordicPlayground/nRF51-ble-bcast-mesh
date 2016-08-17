@@ -101,6 +101,21 @@ bool fwid_union_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type)
     }
 }
 
+bool fwid_union_id_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type)
+{
+    switch (dfu_type)
+    {
+        case DFU_TYPE_APP:
+            return (p_a->app.app_id == p_b->app.app_id &&
+                    p_a->app.company_id == p_b->app.company_id);
+        case DFU_TYPE_SD:
+            return (p_a->sd == p_b->sd);
+        case DFU_TYPE_BOOTLOADER:
+            return (p_a->bootloader.id == p_b->bootloader.id);
+        default: return false;
+    }
+}
+
 bool ready_packet_is_upgrade(dfu_packet_t* p_packet)
 {
     bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);

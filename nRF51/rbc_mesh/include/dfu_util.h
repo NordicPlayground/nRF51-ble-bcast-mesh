@@ -42,6 +42,9 @@ void fwid_union_cpy(fwid_union_t* p_dst, fwid_union_t* p_src, dfu_type_t dfu_typ
 /** Returns true if the two fwids are equal. */
 bool fwid_union_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
 
+/** Returns true if the two fwids have the same ID, ignoring versioning */
+bool fwid_union_id_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
+
 bool ready_packet_is_upgrade(dfu_packet_t* p_packet);
 
 bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_req, fwid_union_t* p_fwid_req);
