@@ -65,5 +65,7 @@ bool packet_in_cache(dfu_packet_t* p_packet);
 
 void packet_cache_put(dfu_packet_t* p_packet);
 
+void packet_cache_flush(void);
+
 #endif /* DFU_UTIL_H__ */
 

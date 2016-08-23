@@ -234,3 +234,8 @@ void packet_cache_put(dfu_packet_t* p_packet)
     m_packet_cache_index++;
 }
 
+void packet_cache_flush(void)
+{
+    memset(m_packet_cache, 0, sizeof(m_packet_cache));
+    m_packet_cache_index = 0;
+}
