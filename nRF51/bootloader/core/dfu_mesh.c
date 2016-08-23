@@ -699,6 +699,10 @@ static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
     m_transaction.p_last_requested_entry            = NULL;
     m_transaction.signature_bitmap                  = 0;
 
+    /* Reset all transfer specific caches. */
+    memset(m_req_cache, 0, REQ_CACHE_SIZE * sizeof(m_req_cache[0]));
+    packet_cache_flush();
+
     /* If no bank was specified, we either have to do it single-banked or find a bank */
     if (m_transaction.p_bank_addr == (uint32_t*) 0xFFFFFFFF)
     {
