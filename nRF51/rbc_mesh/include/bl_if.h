@@ -108,6 +108,7 @@ typedef enum
 {
     BL_RADIO_INTERVAL_TYPE_EXPONENTIAL,
     BL_RADIO_INTERVAL_TYPE_REGULAR,
+    BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW,
 } bl_radio_interval_type_t;
 
 typedef enum
