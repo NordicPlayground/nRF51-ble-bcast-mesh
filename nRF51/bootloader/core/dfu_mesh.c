@@ -52,20 +52,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TX_REPEATS_REQ              (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_START            (TX_REPEATS_DEFAULT);
 
-#define TX_INTERVAL_TYPE_FWID       (BL_RADIO_INTERVAL_TYPE_REGULAR)
-#define TX_INTERVAL_TYPE_DFU_REQ    (BL_RADIO_INTERVAL_TYPE_REGULAR)
+#define TX_INTERVAL_TYPE_FWID       (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
+#define TX_INTERVAL_TYPE_DFU_REQ    (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 #define TX_INTERVAL_TYPE_READY      (BL_RADIO_INTERVAL_TYPE_REGULAR)
 #define TX_INTERVAL_TYPE_DATA       (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_RSP        (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR)
 
 #define SECONDS_TO_US(t)            (t * 1000000)
-#define STATE_TIMEOUT_FIND_FWID     SECONDS_TO_US( 5)
-#define STATE_TIMEOUT_REQ           SECONDS_TO_US( 1)
-#define STATE_TIMEOUT_READY         SECONDS_TO_US( 3)
-#define STATE_TIMEOUT_TARGET        SECONDS_TO_US( 5)
-#define STATE_TIMEOUT_RAMPDOWN      SECONDS_TO_US( 1)
-#define STATE_TIMEOUT_RELAY         SECONDS_TO_US(10)
+#define STATE_TIMEOUT_RAMPDOWN      SECONDS_TO_US(2)
 
 #define TX_SLOT_BEACON              (0)
 
@@ -363,7 +358,14 @@ static void beacon_set(beacon_type_t type)
         dfu_packet.payload.state.relay_node = (m_state == DFU_STATE_RELAY_CANDIDATE);
         dfu_packet.payload.state.fwid = m_transaction.target_fwid_union;
         repeats = TX_REPEATS_READY;
-        interval_type = TX_INTERVAL_TYPE_READY;
+        if (m_transaction.authority == 0)
+        {
+            interval_type = TX_INTERVAL_TYPE_DFU_REQ;
+        }
+        else
+        {
+            interval_type = TX_INTERVAL_TYPE_READY;
+        }
     }
 
     switch (type)

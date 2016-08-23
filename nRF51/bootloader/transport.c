@@ -90,10 +90,10 @@ static void set_next_tx(tx_t* p_tx)
     }
     else
     {
+        const uint32_t interval_scaling = (p_tx->type == TX_INTERVAL_TYPE_REGULAR_SLOW ? 10 : 1);
         /* double interval for regulars */
-        p_tx->ticks_next = (p_tx->ticks_start + (2 * INTERVAL * p_tx->count) +
-            (rand_prng_get(&m_prng) % (INTERVAL)) + INTERVAL) & RTC_MASK;
-    }
+        p_tx->ticks_next = (p_tx->ticks_start + (interval_scaling * 2 * INTERVAL * p_tx->count) +
+            (rand_prng_get(&m_prng) % (interval_scaling * INTERVAL)) + interval_scaling * INTERVAL) & RTC_MASK;
 }
 
 static void order_scan(void)

@@ -41,7 +41,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef enum
 {
     TX_INTERVAL_TYPE_EXPONENTIAL,
-    TX_INTERVAL_TYPE_REGULAR
+    TX_INTERVAL_TYPE_REGULAR,
+    TX_INTERVAL_TYPE_REGULAR_SLOW
 } tx_interval_type_t;
 
 typedef void(*release_cb_t)(mesh_packet_t* p_packet);
