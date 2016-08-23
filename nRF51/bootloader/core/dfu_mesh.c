@@ -69,6 +69,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define REQ_CACHE_SIZE              (4)
 #define REQ_RX_COUNT_RETRY          (8)
 
+#define DATA_REQ_SEGMENT_NONE            (0)
+
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
@@ -85,16 +87,16 @@ typedef struct
     uint32_t        transaction_id;
     uint8_t         authority;
     dfu_type_t      type;
-    uint32_t*       p_start_addr; /* duplicate */
-    uint32_t*       p_bank_addr; /* duplicate */
+    uint32_t*       p_start_addr;
+    uint32_t*       p_bank_addr;
     uint32_t*       p_indicated_start_addr;
     uint32_t*       p_last_requested_entry;
-    uint32_t        length; /* duplicate */
-    uint32_t        signature_length; /* redundant */
+    uint32_t        length;
+    uint32_t        signature_length;
     uint8_t         signature[DFU_SIGNATURE_LEN];
     uint8_t         signature_bitmap;
-    uint16_t        segments_remaining; /* redundant? */
-    uint16_t        segment_count; /* redundant */
+    uint16_t        segments_remaining;
+    uint16_t        segment_count;
     fwid_union_t    target_fwid_union;
     bool            segment_is_valid_after_transfer;
     bool            flood;
@@ -765,10 +767,10 @@ static uint32_t target_rx_data(dfu_packet_t* p_packet, uint16_t length, bool* p_
     {
         if (m_data_req_segment == p_packet->payload.data.segment)
         {
-            m_data_req_segment = 0;
+            m_data_req_segment = DATA_REQ_SEGMENT_NONE;
         }
         p_addr = addr_from_seg(p_packet->payload.data.segment, m_transaction.p_start_addr);
-        error_code  = dfu_transfer_data((uint32_t) p_addr,
+        error_code = dfu_transfer_data((uint32_t) p_addr,
                 p_packet->payload.data.data,
                 length - (DFU_PACKET_LEN_DATA - SEGMENT_LENGTH));
     }
@@ -804,7 +806,7 @@ static uint32_t target_rx_data(dfu_packet_t* p_packet, uint16_t length, bool* p_
     uint32_t* p_req_entry = NULL;
     uint32_t req_entry_len = 0;
 
-    if (m_data_req_segment == 0)
+    if (m_data_req_segment == DATA_REQ_SEGMENT_NONE)
     {
         if (dfu_transfer_get_oldest_missing_entry(
                     m_transaction.p_last_requested_entry,
