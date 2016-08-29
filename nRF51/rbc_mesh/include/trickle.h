@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _TRICKLE_H__
 #define _TRICKLE_H__
-#include "nrf51.h"
+#include "nrf.h"
 #include "toolchain.h"
 #include <stdint.h>
 #include <stdbool.h>

@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _TOOLCHAIN_H__
 #define _TOOLCHAIN_H__
-#include "nrf51.h"
+#include "nrf.h"
 
 #if defined(__CC_ARM)
 

@@ -82,7 +82,11 @@ static nrf_radio_request_t m_radio_request_earliest =
                     .request_type = NRF_RADIO_REQ_TYPE_EARLIEST,
                     .params.earliest =
                     {
-                        .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
+#if (NORDIC_SDK_VERSION >= 11) 
+						.hfclk = NRF_RADIO_HFCLK_CFG_NO_GUARANTEE,
+#else
+						.hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
+#endif
                         .priority = NRF_RADIO_PRIORITY_NORMAL,
                         .length_us = TIMESLOT_SLOT_LENGTH_US,
                         .timeout_us = TIMESLOT_TIMEOUT_DEFAULT_US
@@ -360,13 +364,48 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 * Interface Functions
 *****************************************************************************/
 
+#if (NORDIC_SDK_VERSION >= 11) 
+uint32_t timeslot_init(nrf_clock_lf_cfg_t lfclksrc)
+#else
 uint32_t timeslot_init(nrf_clock_lfclksrc_t lfclksrc)
+#endif
 {
     if (m_framework_initialized)
     {
         return NRF_ERROR_INVALID_STATE;
     }
 
+#if (NORDIC_SDK_VERSION >= 11) 
+    switch (lfclksrc.xtal_accuracy)
+    {
+        case NRF_CLOCK_LF_XTAL_ACCURACY_20_PPM:
+            m_lfclk_ppm = 20;
+            break;
+        case NRF_CLOCK_LF_XTAL_ACCURACY_30_PPM:
+            m_lfclk_ppm = 30;
+            break;
+        case NRF_CLOCK_LF_XTAL_ACCURACY_50_PPM:
+            m_lfclk_ppm = 50;
+            break;
+        case NRF_CLOCK_LF_XTAL_ACCURACY_75_PPM:
+            m_lfclk_ppm = 75;
+            break;
+        case NRF_CLOCK_LF_XTAL_ACCURACY_100_PPM:
+            m_lfclk_ppm = 100;
+            break;
+        case NRF_CLOCK_LF_XTAL_ACCURACY_150_PPM:
+            m_lfclk_ppm = 150;
+            break;
+        case NRF_CLOCK_LF_XTAL_ACCURACY_250_PPM:
+            m_lfclk_ppm = 250;
+            break;
+        case NRF_CLOCK_LF_XTAL_ACCURACY_500_PPM:
+            m_lfclk_ppm = 500;
+            break;
+        default:
+            m_lfclk_ppm = 250;
+    }
+#else
     switch (lfclksrc)
     {
         case NRF_CLOCK_LFCLKSRC_XTAL_100_PPM:
@@ -396,6 +435,7 @@ uint32_t timeslot_init(nrf_clock_lfclksrc_t lfclksrc)
         default: /* all RC-sources are 250 */
             m_lfclk_ppm = 250;
     }
+#endif
 
     m_is_in_callback = false;
     m_framework_initialized = true;

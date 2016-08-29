@@ -33,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "event_handler.h"
 #include "fifo.h"
 #include "nrf_flash.h"
-#include "nrf51.h"
+#include "nrf.h"
 #include "nrf_error.h"
 #include "toolchain.h"
 #include "rtt_log.h"
