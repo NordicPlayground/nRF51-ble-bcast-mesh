@@ -146,7 +146,11 @@ void event_handler_init(void)
     fifo_init(&g_async_evt_fifo_ts);
 
     NVIC_EnableIRQ(EVENT_HANDLER_IRQ);
+#ifdef NRF51
+    NVIC_SetPriority(EVENT_HANDLER_IRQ, 3);
+#else
     NVIC_SetPriority(EVENT_HANDLER_IRQ, 6);
+#endif
     g_is_initialized = true;
 }
 
