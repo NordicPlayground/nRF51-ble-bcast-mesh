@@ -83,9 +83,9 @@ static nrf_radio_request_t m_radio_request_earliest =
                     .params.earliest =
                     {
 #if (NORDIC_SDK_VERSION >= 11) 
-						.hfclk = NRF_RADIO_HFCLK_CFG_NO_GUARANTEE,
+                        .hfclk = NRF_RADIO_HFCLK_CFG_NO_GUARANTEE,
 #else
-						.hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
+                        .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
 #endif
                         .priority = NRF_RADIO_PRIORITY_NORMAL,
                         .length_us = TIMESLOT_SLOT_LENGTH_US,
