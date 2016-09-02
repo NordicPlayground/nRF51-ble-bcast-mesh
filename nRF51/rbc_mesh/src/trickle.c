@@ -35,7 +35,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "timer.h"
 
 #include "nrf_soc.h"
+#ifdef NRF51
+#include "nrf51_bitfields.h"
+#else
 #include "nrf.h"
+#endif
 #include <string.h>
 
 #define TIME_MARGIN (1000)

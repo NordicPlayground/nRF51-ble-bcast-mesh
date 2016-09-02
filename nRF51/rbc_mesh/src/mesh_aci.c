@@ -155,9 +155,9 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
                 init_params.channel = p_serial_cmd->params.init.channel;
                 init_params.interval_min_ms = p_serial_cmd->params.init.interval_min;
 #if (NORDIC_SDK_VERSION >= 11)
-				init_params.lfclksrc = defaultClockSource;
+                init_params.lfclksrc = defaultClockSource;
 #else
-				init_params.lfclksrc = NRF_CLOCK_LFCLKSRC_XTAL_500_PPM; /* choose worst clock, just to be safe */
+                init_params.lfclksrc = NRF_CLOCK_LFCLKSRC_XTAL_500_PPM; /* choose worst clock, just to be safe */
 #endif
 
                 error_code = rbc_mesh_init(init_params);

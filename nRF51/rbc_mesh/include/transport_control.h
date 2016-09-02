@@ -33,7 +33,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "mesh_packet.h"
 #include "ble.h"
+#ifdef NRF51
+#include "nrf51.h"
+#else
 #include "nrf.h"
+#endif
 #include "rbc_mesh.h"
 
 /**

@@ -32,7 +32,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _RBC_MESH_H__
 #include <stdint.h>
 #include <stdbool.h>
+#ifdef NRF51
+#include "nrf51.h"
+#else
 #include "nrf.h"
+#endif
 #include "nrf_sdm.h"
 #include "ble.h"
 #include "dfu_types_mesh.h"

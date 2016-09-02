@@ -36,7 +36,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 
 #include "nrf_soc.h"
+#ifdef NRF51
+#include "nrf51_bitfields.h"
+#else
 #include "nrf.h"
+#endif
 
 #define TIMER_COMPARE_COUNT     (3)
 

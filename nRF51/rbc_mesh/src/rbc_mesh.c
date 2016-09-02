@@ -101,7 +101,6 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
         return error_code;
     }
 
-#ifdef ASSUME_ENABLED
     ble_enable_params_t ble_enable;
     ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     ble_enable.gatts_enable_params.service_changed = 0;
@@ -111,7 +110,6 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     {
         return error_code;
     }
-#endif
 
     error_code = mesh_gatt_init(init_params.access_addr, init_params.channel, init_params.interval_min_ms);
     if (error_code != NRF_SUCCESS)
