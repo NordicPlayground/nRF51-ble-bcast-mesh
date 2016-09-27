@@ -1217,6 +1217,7 @@ uint32_t dfu_mesh_relay(dfu_type_t type, fwid_union_t* p_fwid, uint32_t transact
             &m_transaction.target_fwid_union,
             p_fwid,
             type);
+    beacon_set(state_beacon_type(m_transaction.type));
     return NRF_SUCCESS;
 }
 
