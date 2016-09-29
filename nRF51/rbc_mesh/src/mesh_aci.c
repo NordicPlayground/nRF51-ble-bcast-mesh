@@ -47,6 +47,9 @@
 #endif
 #endif
 
+#if (NORDIC_SDK_VERSION >= 11)
+#include "nrf_nvic.h"
+#endif
 
 /* event push isn't present in the API header file. */
 extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_evt);
@@ -126,11 +129,7 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
 #ifdef SOFTDEVICE_PRESENT
             sd_power_reset_reason_clr(0x0F000F);
             sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
-#if (NORDIC_SDK_VERSION >= 11)
-            NVIC_SystemReset();
-#else
-            sd_nvic_SystemReset(); // can't be found >11?
-#endif
+            sd_nvic_SystemReset(); 
 #else
             NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
             NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_FORCED_REBOOT;
