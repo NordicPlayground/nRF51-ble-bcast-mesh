@@ -136,13 +136,24 @@ static uint32_t mesh_gatt_evt_push(mesh_gatt_evt_t* p_gatt_evt)
     }
 
     uint8_t count;
-    if (sd_ble_tx_buffer_count_get(&count) != NRF_SUCCESS)
+    uint8_t err_code;
+
+#if (NORDIC_SDK_VERSION >= 11) 
+    err_code = sd_ble_tx_packet_count_get(m_active_conn_handle, &count);
+#else
+    err_code = sd_ble_tx_buffer_count_get(&count);
+#endif
+    if (err_code != NRF_SUCCESS) 
     {
         return NRF_ERROR_BUSY;
     }
     if (count == 0)
     {
+#if (NORDIC_SDK_VERSION >= 11) 
+        return BLE_ERROR_NO_TX_PACKETS;
+#else
         return BLE_ERROR_NO_TX_BUFFERS;
+#endif
     }
 
     ble_gatts_hvx_params_t hvx_params;

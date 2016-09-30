@@ -30,8 +30,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include "nrf_flash.h"
+#ifdef NRF51
 #include "nrf51.h"
 #include "nrf51_bitfields.h"
+#else
+#include "nrf.h"
+#endif
 
 /** @brief Function for erasing a page in flash.
  *

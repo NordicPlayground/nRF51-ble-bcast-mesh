@@ -36,7 +36,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rbc_mesh_common.h"
 
 #include "nrf_soc.h"
+#ifdef NRF51
 #include "nrf51_bitfields.h"
+#else
+#include "nrf.h"
+#endif
 
 #define TIMER_COMPARE_COUNT     (3)
 
@@ -99,8 +103,11 @@ void timer_event_handler(void)
         if (NRF_TIMER0->EVENTS_COMPARE[i])
         {
             NRF_TIMER0->EVENTS_COMPARE[i] = 0;
+#ifdef RACE_CONDITION_SOLVED
             APP_ERROR_CHECK_BOOL(m_active_callbacks & (1 << i));
-
+#else
+            if (!(m_active_callbacks & (1 << i))) continue;
+#endif
             m_active_callbacks &= ~(1 << i);
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
             timestamp_t time_now = timer_now();
