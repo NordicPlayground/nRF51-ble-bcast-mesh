@@ -94,6 +94,7 @@ static void set_next_tx(tx_t* p_tx)
         /* double interval for regulars */
         p_tx->ticks_next = (p_tx->ticks_start + (interval_scaling * 2 * INTERVAL * p_tx->count) +
             (rand_prng_get(&m_prng) % (interval_scaling * INTERVAL)) + interval_scaling * INTERVAL) & RTC_MASK;
+    }
 }
 
 static void order_scan(void)
