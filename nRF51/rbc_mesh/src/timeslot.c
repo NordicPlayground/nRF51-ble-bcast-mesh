@@ -55,7 +55,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TIMESLOT_SLOT_EXTEND_LENGTH_US      (10000)       /**< Base extension length. */
 #define TIMESLOT_SLOT_EMERGENCY_LENGTH_US   (6000)          /**< Base timeslot length for when a regular request is denied. */
 #define TIMESLOT_TIMEOUT_DEFAULT_US         (50000)         /**< Timeout supplied to SD for "earliest" request. */
-#define TIMESLOT_MAX_LENGTH_US              (100000UL)    /**< The upper limit for timeslot extensions. */
+#define TIMESLOT_MAX_LENGTH_US              (10000000UL)    /**< The upper limit for timeslot extensions. */
 #define TIMESLOT_MAX_LENGTH_FIRST_US        (10000UL)    /**< The upper limit for timeslot extensions for the first timeslot. */
 #define RTC_MAX_TIME_TICKS                  (0xFFFFFF)      /**< RTC-clock rollover time. */
 
