@@ -408,11 +408,6 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
                 {
                     return NRF_ERROR_INVALID_LENGTH;
                 }
-                if ((p_evt->params.flash.write.start_addr + p_evt->params.flash.write.length) > NRF_UICR->BOOTLOADERADDR &&
-                    p_evt->params.flash.write.start_addr < 0x3f800)
-                {
-                    APP_ERROR_CHECK(NRF_ERROR_INVALID_ADDR);
-                }
                 flash_queue_entry_t queue_entry;
                 queue_entry.type = FLASH_OP_TYPE_WRITE;
                 memcpy(&queue_entry.op, &p_evt->params.flash, sizeof(flash_op_t));

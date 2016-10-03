@@ -33,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 #ifdef NRF51
-#include "nrf51.h"
+#include "nrf.h"
 #else
 #include "nrf.h"
 #endif

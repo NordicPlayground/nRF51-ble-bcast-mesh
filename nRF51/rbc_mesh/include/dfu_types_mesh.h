@@ -33,14 +33,30 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifndef PAGE_SIZE
-#define PAGE_SIZE                   (0x400)
-#endif
-#ifndef PAGE_COUNT
-#define PAGE_COUNT                   (256)
+#ifdef NRF51
+#define PAGE_SIZE          (0x400)
+
+#ifndef FLASH_SIZE
+#define FLASH_SIZE         (PAGE_SIZE * 256)
 #endif
 
-#define FLASH_SIZE                  (PAGE_SIZE * PAGE_COUNT)
+#define END_OF_RAM         (0x20000000 + NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK)
+
+#define BOOTLOADERADDR()   (NRF_UICR->BOOTLOADERADDR)
+#endif
+
+#ifdef NRF52
+#define PAGE_SIZE          (0x1000)
+
+#ifndef FLASH_SIZE
+#define FLASH_SIZE         (PAGE_SIZE * 512)
+#endif
+
+#define END_OF_RAM         (0x20000000 + NRF_FICR->INFO.RAM * 1024)
+
+#define BOOTLOADERADDR()   (NRF_UICR->NRFFW[0])
+#endif
+
 
 #define SEGMENT_ADDR(segment_id, start_addr) ((segment_id == 1)? \
                                                 (uint32_t) start_addr : \
@@ -57,19 +73,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define APP_START_ADDRESS           SOFTDEVICE_INFORMATION->softdevice_size
 
-#define BOOTLOADER_START_ADDRESS    (FLASH_SIZE - 16 * PAGE_SIZE)
 #define BOOTLOADER_INFO_ADDRESS     (FLASH_SIZE - 1 * PAGE_SIZE)
 #define BOOTLOADER_INFO_BANK_ADDRESS (FLASH_SIZE - 2 * PAGE_SIZE)
-#define BOOTLOADER_MAX_SIZE         (BOOTLOADER_INFO_ADDRESS - BOOTLOADER_START_ADDRESS)
-
-#define DFU_SD_BANK_ADDRESS         (BOOTLOADER_START_ADDRESS / 2)
-#define DFU_SD_MAX_SIZE             (BOOTLOADER_START_ADDRESS - DFU_SD_BANK_ADDRESS)
-
-#define DFU_APP_BANK_ADDRESS        ((BOOTLOADER_START_ADDRESS - APP_START_ADDRESS) / 2 + APP_START_ADDRESS)
-#define DFU_APP_MAX_SIZE            (BOOTLOADER_START_ADDRESS - DFU_APP_BANK_ADDRESS)
-
-#define DFU_BL_BANK_ADDRESS         (DFU_APP_BANK_ADDRESS)
-#define DFU_BL_MAX_SIZE             (BOOTLOADER_MAX_SIZE)
 
 #define SEGMENT_LENGTH              (16)
 
@@ -87,7 +92,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_PACKET_LEN_DATA         (2 + 2 + 4 + SEGMENT_LENGTH)
 #define DFU_PACKET_LEN_DATA_REQ     (2 + 2 + 4)
 #define DFU_PACKET_LEN_DATA_RSP     (2 + 2 + 4 + SEGMENT_LENGTH)
-
 
 #define DFU_PACKET_ADV_OVERHEAD     (1 /* adv_type */ + 2 /* UUID */) /* overhead inside adv data */
 #define DFU_PACKET_OVERHEAD         (MESH_PACKET_BLE_OVERHEAD + 1 + DFU_PACKET_ADV_OVERHEAD) /* dfu packet total overhead */

@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_info.h"
 #include "dfu_types_mesh.h"
 #include "bootloader_app_bridge.h"
-#include "nrf51.h"
+#include "nrf.h"
 #include "nrf_error.h"
 #include "toolchain.h"
 #include "rtt_log.h"

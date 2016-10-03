@@ -36,7 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_mbr.h"
 #include "dfu_types_mesh.h"
 #include "nrf_error.h"
-#include "nrf51.h"
+#include "nrf.h"
 #include "rtt_log.h"
 #include "dfu_util.h"
 #include "toolchain.h"
@@ -92,7 +92,7 @@ static void flash_bank_entry(void)
                                 (uint32_t*) bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_BL)->segment.start,
                                 p_bank_entry->length) != 0)
                     {
-                        /* move the bank with MBR. NRF_UICR->BOOTLOADERADDR must
+                        /* move the bank with MBR. BOOTLOADERADDR() must
                            have been set. */
                         sd_mbr_command_t sd_mbr_cmd;
 

@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_transfer_mesh.h"
 #include "dfu_types_mesh.h"
 #include "dfu_mesh.h"
-#include "nrf51.h"
+#include "nrf.h"
 #include "bootloader_app_bridge.h"
 #include "sha256.h"
 #include "nrf_mbr.h"

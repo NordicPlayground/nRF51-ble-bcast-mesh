@@ -220,9 +220,6 @@ void serial_handler_init(void)
     nrf_gpio_cfg_input(CTS_PIN_NUMBER, NRF_GPIO_PIN_PULLUP);
     nrf_gpio_cfg_output(TX_PIN_NUMBER);
 
-    /* delay to keep hw from outputting weird bits on config */
-    NRF_UART0->POWER         = 0;
-    NRF_UART0->POWER         = 1;
     NRF_UART0->PSELTXD       = TX_PIN_NUMBER;
     NRF_UART0->PSELRXD       = RX_PIN_NUMBER;
     NRF_UART0->PSELCTS       = CTS_PIN_NUMBER;

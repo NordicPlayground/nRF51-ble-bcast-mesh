@@ -327,8 +327,11 @@ static bool signature_check(void)
     }
 
     dfu_transfer_sha256(&hash_context);
-
+#if NORDIC_SDK_VERSION >= 11
+    sha256_final(&hash_context, hash, false);
+#else
     sha256_final(&hash_context, hash);
+#endif
     bool success = (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, m_transaction.signature));
     if (success)
     {
@@ -712,9 +715,9 @@ static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
             uint32_t upper_limit =
                 (m_bl_info_pointers.p_segment_app->start) +
                 (m_bl_info_pointers.p_segment_app->length);
-            if (upper_limit > NRF_UICR->BOOTLOADERADDR)
+            if (upper_limit > BOOTLOADERADDR())
             {
-                upper_limit = NRF_UICR->BOOTLOADERADDR;
+                upper_limit = BOOTLOADERADDR();
             }
             /* Place bootloader bank at end of app section */
             m_transaction.p_bank_addr = (uint32_t*) (upper_limit -
@@ -731,7 +734,7 @@ static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
     else
     {
         if (m_bl_info_pointers.p_segment_app->start +
-            m_bl_info_pointers.p_segment_app->length > NRF_UICR->BOOTLOADERADDR)
+            m_bl_info_pointers.p_segment_app->length > BOOTLOADERADDR())
         {
             send_end_evt(DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA);
             start_find_fwid();
@@ -1186,7 +1189,7 @@ uint32_t dfu_mesh_req(dfu_type_t type, fwid_union_t* p_fwid, uint32_t* p_bank_ad
         return NRF_ERROR_INVALID_STATE;
     }
 
-    if ((uint32_t) p_bank_addr >= NRF_UICR->BOOTLOADERADDR &&
+    if ((uint32_t) p_bank_addr >= BOOTLOADERADDR() &&
         (uint32_t) p_bank_addr != 0xFFFFFFFF)
     {
         __LOG("Attempting to overwrite bootloader\n");
