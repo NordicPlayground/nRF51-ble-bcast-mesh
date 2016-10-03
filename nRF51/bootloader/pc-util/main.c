@@ -132,7 +132,7 @@ static void missing_segment(char* segment_name)
 
 static void print_usage(char* exec_name)
 {
-    printf("Usage: %s <info file>\n", exec_name);
+    printf("Usage: %s <info file> [--nrf52]\n", exec_name);
 }
 
 static uint32_t put_info_entry(uint16_t type, uint32_t length, uint8_t* p_data, uint8_t* p_dest)
@@ -345,7 +345,7 @@ static uint32_t create_info(char* p_file_name, uint8_t* p_data_buf)
 
 int main(int argc, char** argv)
 {
-    if (argc <= 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)
+    if (argc < 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)
     {
         print_usage(argv[0]);
         exit(1);
