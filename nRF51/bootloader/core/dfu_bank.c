@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "nrf_error.h"
 #include "nrf.h"
+#include "nrf_nvic.h"
 #include "rtt_log.h"
 #include "dfu_util.h"
 #include "toolchain.h"
@@ -142,9 +143,9 @@ static void flash_bank_entry(void)
                            reset. We'll come back to finalize the transfer
                            after the reset. */
                         __LOG("IN APP MODE. RESET!\n");
-#ifdef SOFTDEVICE_PRESENT
+#if 1 //def SOFTDEVICE_PRESENT
                         sd_power_reset_reason_clr(0x0F000F);
-                        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);
+                        sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_GO_TO_APP);
                         sd_nvic_SystemReset();
 #else
                         NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
