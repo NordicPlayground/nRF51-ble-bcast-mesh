@@ -140,7 +140,12 @@ uint32_t mesh_packet_set_local_addr(mesh_packet_t* p_packet)
 {
 #ifdef SOFTDEVICE_PRESENT
     ble_gap_addr_t my_addr;
-    uint32_t error_code = sd_ble_gap_address_get(&my_addr);
+    uint32_t error_code;
+#if (NRF_SD_BLE_API_VERSION == 3)
+    error_code = sd_ble_gap_addr_get(&my_addr);
+#else
+    error_code = sd_ble_gap_address_get(&my_addr);
+#endif
     if (error_code != NRF_SUCCESS)
     {
         return error_code;

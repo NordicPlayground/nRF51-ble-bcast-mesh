@@ -127,11 +127,16 @@ static void serial_command_handler(serial_cmd_t* p_serial_cmd)
 
             /* kill ourself :) */
 #ifdef SOFTDEVICE_PRESENT
-            sd_power_reset_reason_clr(0x0F000F);
+            sd_power_reset_reason_clr(0xFFFFFFFF);
+#ifdef NRF51
             sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
+#endif
+#ifdef NRF52
+            sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
+#endif
             sd_nvic_SystemReset(); 
 #else
-            NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
+            NRF_POWER->RESETREAS = 0xFFFFFFFF; /* erase reset-reason to avoid wrongful state-readout on reboot */
             NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_FORCED_REBOOT;
             NVIC_SystemReset();
 #endif
