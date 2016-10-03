@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "toolchain.h"
 #include "bl_if.h"
+#include "nrf_nvic.h"
 #include "nrf_flash.h"
 #include "mesh_packet.h"
 #include "rbc_mesh_common.h"
@@ -230,10 +231,10 @@ static void flash_op_complete(flash_op_type_t type, void* p_context)
 
 uint32_t dfu_init(void)
 {
-    m_cmd_handler = *((bl_if_cmd_handler_t*) (0x20000000 + ((uint32_t) (NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK) - 4)));
+    m_cmd_handler = *((bl_if_cmd_handler_t*) (END_OF_RAM - 4));
     if (m_cmd_handler == NULL ||
         (uint32_t) m_cmd_handler >= (NRF_FICR->CODESIZE * NRF_FICR->CODEPAGESIZE) ||
-        (uint32_t) m_cmd_handler < NRF_UICR->BOOTLOADERADDR)
+        (uint32_t) m_cmd_handler < BOOTLOADERADDR())
     {
         __LOG(RTT_CTRL_TEXT_RED "ERROR, command handler @0x%x\n" RTT_CTRL_TEXT_WHITE, m_cmd_handler);
         m_cmd_handler = NULL;
@@ -303,18 +304,18 @@ uint32_t dfu_init(void)
 
 uint32_t dfu_jump_to_bootloader(void)
 {
-    if (NRF_UICR->BOOTLOADERADDR != 0xFFFFFFFF)
+    if (BOOTLOADERADDR() != 0xFFFFFFFF)
     {
         interrupts_disable();
 
 #ifdef SOFTDEVICE_PRESENT
-        sd_power_reset_reason_clr(0x0F000F);
-        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
+        sd_power_reset_reason_clr(0xFFFFFFFF);
+        sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
         sd_nvic_SystemReset();
 #else
-        NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
+        NRF_POWER->RESETREAS = 0xFFFFFFFF; /* erase reset-reason to avoid wrongful state-readout on reboot */
         NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_FORCED_REBOOT;
-        NVIC_SystemReset(); //TODO: Wait for serial commands and flash?
+        NVIC_SystemReset(); 
 #endif
         return NRF_SUCCESS; /* unreachable */
     }
