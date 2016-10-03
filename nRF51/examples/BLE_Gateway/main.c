@@ -41,6 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "boards.h"
+#include "nrf_nvic.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -49,7 +50,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)   /**< Access address for the mesh to operate on. */
 #define MESH_INTERVAL_MIN_MS    (100)                               /**< Mesh minimum advertisement interval in milliseconds. */
 #define MESH_CHANNEL            (38)                                /**< BLE channel to operate on. Single channel only. */
+#if NORDIC_SDK_VERSION >= 11
+nrf_nvic_state_t nrf_nvic_state = {0};
+static nrf_clock_lf_cfg_t m_clock_cfg = 
+{
+    .source = NRF_CLOCK_LF_SRC_XTAL,    
+    .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_75_PPM
+};
+
+#define MESH_CLOCK_SOURCE       (m_clock_cfg)    /**< Clock source used by the Softdevice. For calibrating timeslot time. */
+#else
 #define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)    /**< Clock source used by the Softdevice. For calibrating timeslot time. */
+#endif
+
+
 
 /**
 * @brief General error handler.
@@ -96,6 +110,10 @@ void HardFault_Handler(void)
     error_loop();
 }
 
+void app_error_fault_handler(uint32_t id, uint32_t pc, uint32_t info)
+{
+    error_loop();
+}
 /**
 * @brief Softdevice event handler
 */
@@ -104,6 +122,7 @@ void sd_ble_evt_handler(ble_evt_t* p_ble_evt)
     rbc_mesh_ble_evt_handler(p_ble_evt);
     nrf_adv_conn_evt_handler(p_ble_evt);
 }
+
 /**
 * @brief RBC_MESH framework event handler. Defined in rbc_mesh.h. Handles
 *   events coming from the mesh. Sets LEDs according to data
@@ -138,7 +157,7 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
         case RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE:
             dfu_request(p_evt->params.dfu.new_fw.dfu_type,
                 &p_evt->params.dfu.new_fw.new_fwid,
-                (uint32_t*) 0x24000);
+                (uint32_t*) 0x26000);
             break;
 
         case RBC_MESH_EVENT_TYPE_DFU_RELAY_REQ:
@@ -170,11 +189,11 @@ void gpio_init(void)
         nrf_gpio_pin_set(LED_START + i);
     }
 
-#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028)
+#if defined(BOARD_PCA10001) || defined(BOARD_PCA10028) || defined(BOARD_PCA10040)
     nrf_gpio_range_cfg_output(0, 32);
 #endif
 
-#ifdef BOARD_PCA10028
+#if defined(BOARD_PCA10028) || defined(BOARD_PCA10040)
     #ifdef BUTTONS
         nrf_gpio_cfg_input(BUTTON_1, NRF_GPIO_PIN_PULLUP);
         nrf_gpio_cfg_input(BUTTON_2, NRF_GPIO_PIN_PULLUP);
@@ -192,17 +211,13 @@ int main(void)
     gpio_init();
 
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, NULL);
+    SOFTDEVICE_HANDLER_INIT(&MESH_CLOCK_SOURCE, NULL);
     softdevice_ble_evt_handler_set(sd_ble_evt_handler); /* app-defined event handler, as we need to send it to the nrf_adv_conn module and the rbc_mesh */
     softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
 
 #ifdef RBC_MESH_SERIAL
-
-    /* only want to enable serial interface, and let external host setup the framework */
     mesh_aci_init();
-    mesh_aci_start();
-
-#else
+#endif
 
     rbc_mesh_init_params_t init_params;
 
@@ -221,10 +236,11 @@ int main(void)
         error_code = rbc_mesh_value_enable(i);
         APP_ERROR_CHECK(error_code);
     }
-
     /* init BLE gateway softdevice application: */
     nrf_adv_conn_init();
-
+    
+#ifdef RBC_MESH_SERIAL
+    APP_ERROR_CHECK(mesh_aci_start());
 #endif
 
     rbc_mesh_event_t evt;

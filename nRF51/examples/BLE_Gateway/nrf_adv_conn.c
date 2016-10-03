@@ -57,13 +57,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static ble_gap_adv_params_t ble_adv_params = {
     BLE_GAP_ADV_TYPE_ADV_IND,  /* Use ADV_IND advertisements */
     NULL,                      /* Not used for this type of advertisement */
+#if NORDIC_SDK_VERSION < 11
+    NULL,                      /* No Whitelist */
+#endif
     BLE_GAP_ADV_FP_ANY,        /* Don't filter */
-    NULL,                      /* Whitelist not in use */
     BLE_ADV_INTERVAL_200MS,    /* Advertising interval set to intentionally disrupt the timeslot example */
     0,                         /* Timeout in seconds */
-        {
-            0, 0, 0
-        }
+    {0, 0, 0}
 };
 
 static ble_advdata_t ble_adv_data;
@@ -136,7 +136,8 @@ void nrf_adv_conn_init(void)
     ble_enable_params_t ble_enable;
     ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     ble_enable.gatts_enable_params.service_changed = 0;
-    error_code = sd_ble_enable(&ble_enable);
+    uint32_t ram_base = RAM_R1_BASE;
+    error_code = sd_ble_enable(&ble_enable, &ram_base);
     if (error_code != NRF_SUCCESS && 
         error_code != NRF_ERROR_INVALID_STATE)
     {
@@ -154,8 +155,11 @@ void nrf_adv_conn_init(void)
 
     ble_gap_conn_sec_mode_t name_sec_mode = {1, 1};
     ble_gap_addr_t my_addr;
-    
+#if (NRF_SD_BLE_API_VERSION == 3)
+    error_code = sd_ble_gap_addr_get(&my_addr);
+#else
     error_code = sd_ble_gap_address_get(&my_addr);
+#endif
     APP_ERROR_CHECK(error_code);
     
     char name[64];
