@@ -57,9 +57,8 @@ volatile uint32_t* m_uicr_bootloader_start_address
 #error "Unsupported toolchain."
 #endif
 
-void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+void app_error_handler_bare(uint32_t error_code)
 {
-    __LOG(RTT_CTRL_TEXT_RED "APP ERROR %d, @%s:L%d\n", error_code, p_file_name, line_num);
     __disable_irq();
 #ifdef DEBUG_LEDS
     NRF_GPIO->OUTSET = (1 << 7);
@@ -68,6 +67,13 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     __BKPT(0);
     while (1);
 }
+
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+{
+    __LOG(RTT_CTRL_TEXT_RED "APP ERROR %d, @%s:L%d\n", error_code, p_file_name, line_num);
+    app_error_handler_bare(error_code);
+}
+
 
 void HardFault_Handler(uint32_t pc, uint32_t lr)
 {
