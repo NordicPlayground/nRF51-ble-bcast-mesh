@@ -166,6 +166,7 @@ void UART0_IRQHandler(void)
     while (NRF_UART0->EVENTS_RXDRDY)
     {
         NRF_UART0->EVENTS_RXDRDY = 0;
+			  (void) NRF_UART0->EVENTS_RXDRDY ;
         char_rx(NRF_UART0->RXD);
     }
 

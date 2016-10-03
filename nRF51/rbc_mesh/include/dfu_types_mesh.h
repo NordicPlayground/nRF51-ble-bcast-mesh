@@ -49,7 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PAGE_SIZE          (0x1000)
 
 #ifndef FLASH_SIZE
-#define FLASH_SIZE         (PAGE_SIZE * 512)
+#define FLASH_SIZE         (1024 * 512)
 #endif
 
 #define END_OF_RAM         (0x20000000 + NRF_FICR->INFO.RAM * 1024)
