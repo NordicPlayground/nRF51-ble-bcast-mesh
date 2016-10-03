@@ -7440,8 +7440,8 @@
         </DebugOption>
         <Utilities>
           <Flash1>
-            <UseTargetDll>0</UseTargetDll>
-            <UseExternalTool>1</UseExternalTool>
+            <UseTargetDll>1</UseTargetDll>
+            <UseExternalTool>0</UseExternalTool>
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
             <Capability>1</Capability>
@@ -7449,7 +7449,7 @@
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3></Flash3>
+          <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -7584,8 +7584,8 @@
               </OCR_RVCT3>
               <OCR_RVCT4>
                 <Type>1</Type>
-                <StartAddress>0x0</StartAddress>
-                <Size>0x80000</Size>
+                <StartAddress>0x78000</StartAddress>
+                <Size>0x6000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -7609,13 +7609,13 @@
               </OCR_RVCT8>
               <OCR_RVCT9>
                 <Type>0</Type>
-                <StartAddress>0x20000000</StartAddress>
-                <Size>0x9000</Size>
+                <StartAddress>0x20000004</StartAddress>
+                <Size>0x8ffc</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
                 <StartAddress>0x20009000</StartAddress>
-                <Size>0x1000</Size>
+                <Size>0xffc</Size>
               </OCR_RVCT10>
             </OnChipMemories>
             <RvctStartVector></RvctStartVector>
@@ -7645,7 +7645,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>--c99 --debug</MiscControls>
-              <Define>NORDIC_SDK_VERSION=12 NRF52 BOARD_PCA10028 BOOTLOADER RBC_MESH_SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
+              <Define>DEBUG_LEDS NORDIC_SDK_VERSION=12 NRF52 BOARD_PCA10040 BOOTLOADER RBC_MESH_SERIAL RBC_MESH_PACKET_POOL_SIZE=32 uECC_CURVE=uECC_secp256r1 uECC_PLATFORM=uECC_arm</Define>
               <Undefine></Undefine>
               <IncludePath>..\..\rbc_mesh\include;..\..\RTT;..\..\..\..\..\components\softdevice\s132\headers;..\..\..\..\SDK\bsp;..\..\..\..\..\components\drivers_nrf\hal;..\..\rbc_mesh;..\..\..\..\..\components\libraries\util;..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\components\libraries\fifo;..\include;..\..\..\..\..\components\device;..\..\..\..\..\components\libraries\sha256;..\..\SDK\bsp;..\core\include;..\..\..\..\..\components\toolchain\cmsis\include;..\..\..\..\..\components\softdevice\s132\headers\nrf52</IncludePath>
             </VariousControls>
