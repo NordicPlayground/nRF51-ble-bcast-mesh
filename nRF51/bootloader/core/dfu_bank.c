@@ -197,12 +197,10 @@ static void flash_bank_entry(void)
         case BL_INFO_BANK_STATE_FLASH_META:
             {
                 bl_info_entry_t fwid_entry;
-                bl_info_entry_t* p_old_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
                 bl_info_type_t signature_type;
-                APP_ERROR_CHECK_BOOL(p_old_fwid_entry != NULL);
                 APP_ERROR_CHECK_BOOL(p_bank_entry);
 
-                memcpy(&fwid_entry, p_old_fwid_entry, sizeof(bl_info_version_t));
+                memset(&fwid_entry, 0xFF, sizeof(bl_info_version_t));
                 switch (m_dfu_type)
                 {
                     case DFU_TYPE_SD:
