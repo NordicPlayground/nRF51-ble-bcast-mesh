@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rtt_log.h"
 #include "rbc_mesh.h"
 #include "dfu_bank.h"
+#include "boards.h"
 
 #include "app_error.h"
 #include "nrf_gpio.h"
@@ -61,7 +62,7 @@ void app_error_handler_bare(uint32_t error_code)
 {
     __disable_irq();
 #ifdef DEBUG_LEDS
-    NRF_GPIO->OUTSET = (1 << 7);
+    
     NRF_GPIO->OUTCLR = (1 << 23);
 #endif
     __BKPT(0);

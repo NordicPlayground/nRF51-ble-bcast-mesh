@@ -50,7 +50,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define FLASH_OP_QUEUE_LEN					(8)
 
 #define FLASH_OP_POST_PROCESS_TIME_US		(500)
-#define FLASH_OP_MAX_TIME_US                (50000)
+#define FLASH_OP_MAX_TIME_US                (100000)
 
 #ifdef NRF51
 #define FLASH_TIME_TO_ERASE_PAGE_US         (22050)
@@ -105,7 +105,6 @@ static timestamp_t operation_time(operation_t* p_op)
 
 static void operation_execute(operation_t* p_op)
 {
-    NRF_GPIO->OUTSET = (1 << 0);
     if (p_op->type == FLASH_OP_TYPE_ERASE)
     {
         nrf_flash_erase((uint32_t*) p_op->operation.erase.start_addr, p_op->operation.erase.length);
@@ -118,7 +117,6 @@ static void operation_execute(operation_t* p_op)
                         p_op->operation.write.length,
                         0);
     }
-    NRF_GPIO->OUTCLR = (1 << 0);
 }
 
 static void write_as_much_as_possible(flash_op_t* p_write_op, timestamp_t* p_available_time, uint32_t* p_bytes_written)
@@ -215,7 +213,6 @@ static bool send_end_evt(void)
     }
     if (event_handler_push(&end_evt) != NRF_SUCCESS)
     {
-        NRF_GPIO->OUTCLR = (1 << 13);
         return false;
     }
 
@@ -233,7 +230,6 @@ static bool send_end_evt(void)
         else
         {
             __LOG(RTT_CTRL_TEXT_RED "NOOOOOOOOOOOO\n");
-            NRF_GPIO->OUTCLR = (1 << 13);
             return;
         }
     }
@@ -247,7 +243,6 @@ static bool get_next_operation(void)
     if (fifo_pop(&m_flash_op_fifo, &m_curr_op) != NRF_SUCCESS)
     {
         m_curr_op.type = FLASH_OP_TYPE_NONE;
-        NRF_GPIO->OUTCLR = (1 << 13);
         return false;
     }
     APP_ERROR_CHECK_BOOL(m_curr_op.type != FLASH_OP_TYPE_NONE);
@@ -300,24 +295,20 @@ bool mesh_flash_in_progress(void)
 
 void mesh_flash_op_execute(timestamp_t available_time)
 {
-    NRF_GPIO->OUTSET = (1 << 13);
     while (true)
     {
         if (m_suspended)
         {
-            NRF_GPIO->OUTCLR = (1 << 13);
             return;
         }
         if (operation_time(&m_curr_op) == 0) /* done with previous event */
         {
             if (!send_end_evt())
             {
-                NRF_GPIO->OUTCLR = (1 << 13);
                 return;
             }
             if (!get_next_operation())
             {
-                NRF_GPIO->OUTCLR = (1 << 13);
                 return;
             }
         }
@@ -334,7 +325,6 @@ void mesh_flash_op_execute(timestamp_t available_time)
 
         if (available_time <= FLASH_OP_POST_PROCESS_TIME_US || byte_count == 0)
         {
-            NRF_GPIO->OUTCLR = (1 << 13);
             return;
         }
 
@@ -347,16 +337,6 @@ void mesh_flash_set_suspended(bool suspend)
     static uint32_t suspend_count = 0;
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
-#if 0
-    if (suspend)
-    {
-        __LOG(RTT_CTRL_TEXT_YELLOW "<<<<SUSPEND\n");
-    }
-    else
-    {
-        __LOG(RTT_CTRL_TEXT_YELLOW ">>>>RELEASE\n");
-    }
-#endif
     suspend_count += (2 * suspend - 1);
     m_suspended = (suspend_count > 0);
     _ENABLE_IRQS(was_masked);

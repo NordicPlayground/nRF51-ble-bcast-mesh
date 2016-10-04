@@ -423,28 +423,8 @@ static void beacon_set(beacon_type_t type)
 
 static void relay_packet(dfu_packet_t* p_packet, uint16_t length)
 {
-    mesh_packet_t* p_mesh_packet = mesh_packet_get_aligned(p_packet);
-    if (!p_mesh_packet)
-    {
-        if (!mesh_packet_acquire(&p_mesh_packet))
-        {
-            APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
-        }
-        mesh_packet_build(
-            p_mesh_packet,
-            p_packet->packet_type,
-            p_packet->payload.data.segment,
-            (uint8_t*) &p_packet->payload.data.transaction_id,
-            length - 4);
-    }
-    else
-    {
-        mesh_packet_ref_count_inc(p_mesh_packet);
-    }
-
     packet_tx_dynamic(p_packet, length, TX_INTERVAL_TYPE_DATA, TX_REPEATS_DATA);
     packet_cache_put(p_packet);
-    mesh_packet_ref_count_dec(p_mesh_packet);
 }
 
 static void send_bank_notifications(void)

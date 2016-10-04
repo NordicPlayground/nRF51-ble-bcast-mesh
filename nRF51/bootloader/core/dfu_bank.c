@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "nrf_error.h"
 #include "nrf.h"
+#include "nrf_nvic.h"
 #include "rtt_log.h"
 #include "dfu_util.h"
 #include "toolchain.h"
@@ -142,9 +143,9 @@ static void flash_bank_entry(void)
                            reset. We'll come back to finalize the transfer
                            after the reset. */
                         __LOG("IN APP MODE. RESET!\n");
-#ifdef SOFTDEVICE_PRESENT
+#if 1 //def SOFTDEVICE_PRESENT
                         sd_power_reset_reason_clr(0x0F000F);
-                        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);
+                        sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_GO_TO_APP);
                         sd_nvic_SystemReset();
 #else
                         NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
@@ -196,12 +197,10 @@ static void flash_bank_entry(void)
         case BL_INFO_BANK_STATE_FLASH_META:
             {
                 bl_info_entry_t fwid_entry;
-                bl_info_entry_t* p_old_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
                 bl_info_type_t signature_type;
-                APP_ERROR_CHECK_BOOL(p_old_fwid_entry != NULL);
                 APP_ERROR_CHECK_BOOL(p_bank_entry);
 
-                memcpy(&fwid_entry, p_old_fwid_entry, sizeof(bl_info_version_t));
+                memset(&fwid_entry, 0xFF, sizeof(bl_info_version_t));
                 switch (m_dfu_type)
                 {
                     case DFU_TYPE_SD:
