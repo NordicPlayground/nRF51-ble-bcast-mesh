@@ -10,6 +10,7 @@
       <TargetName>nRF51422 xxAC serial</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
+      <pCCUsed>5060061::V5.06 update 1 (build 61)::ARMCC</pCCUsed>
       <TargetOption>
         <TargetCommonOption>
           <Device>nRF51422_xxAC</Device>
@@ -441,14 +442,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf52.c</FileName>
+              <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\system_nrf52.c</FilePath>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
             <File>
-              <FileName>arm_startup_nrf52.s</FileName>
+              <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\arm_startup_nrf52.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -1464,14 +1465,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf52.c</FileName>
+              <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\system_nrf52.c</FilePath>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
             <File>
-              <FileName>arm_startup_nrf52.s</FileName>
+              <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\arm_startup_nrf52.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -2393,14 +2394,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf52.c</FileName>
+              <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\system_nrf52.c</FilePath>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
             <File>
-              <FileName>arm_startup_nrf52.s</FileName>
+              <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\arm_startup_nrf52.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -3510,14 +3511,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf52.c</FileName>
+              <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\system_nrf52.c</FilePath>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
             <File>
-              <FileName>arm_startup_nrf52.s</FileName>
+              <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\arm_startup_nrf52.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -4533,14 +4534,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf52.c</FileName>
+              <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\system_nrf52.c</FilePath>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
             <File>
-              <FileName>arm_startup_nrf52.s</FileName>
+              <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\arm_startup_nrf52.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -5650,14 +5651,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf52.c</FileName>
+              <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\system_nrf52.c</FilePath>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
             <File>
-              <FileName>arm_startup_nrf52.s</FileName>
+              <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\arm_startup_nrf52.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -6673,14 +6674,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf52.c</FileName>
+              <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\system_nrf52.c</FilePath>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
             <File>
-              <FileName>arm_startup_nrf52.s</FileName>
+              <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\arm_startup_nrf52.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -7791,14 +7792,14 @@
           <GroupName>core</GroupName>
           <Files>
             <File>
-              <FileName>system_nrf52.c</FileName>
+              <FileName>system_nrf51.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\system_nrf52.c</FilePath>
+              <FilePath>.\system_nrf51.c</FilePath>
             </File>
             <File>
-              <FileName>arm_startup_nrf52.s</FileName>
+              <FileName>arm_startup_nrf51.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\arm_startup_nrf52.s</FilePath>
+              <FilePath>.\arm_startup_nrf51.s</FilePath>
             </File>
           </Files>
         </Group>

@@ -17,4 +17,6 @@ nrfjprog --program .\pc-util\example52.hex --family NRF52
 REM nrfjprog --program .\test\rbc_gateway_example_serial_trsn_21_sep_16_2.hex
 nrfjprog --program "C:\Users\anba\nordic sdk\nRF5_SDK_12.0.0_12f24da\examples\nRF51-ble-broadcast-mesh-private\nRF51\examples\BLE_Gateway\arm\_build\rbc_gateway_example_52.hex" --family NRF52 
 nrfjprog --reset --family NRF52  
-C:\Users\anba\Desktop\pc-nrfutil\nrfutil.exe dfu genpkg --application test/nrf52832_xxaa.hex --company-id 0x00000059 --application-id 1 --application-version 2 --sd-req 0x0084 --mesh dfu_test.zip
+C:\Users\anba\Desktop\pc-nrfutil\nrfutil.exe dfu genpkg --application test/nrf52832_xxaa_PCA10040_S132_v_3_Blinky.hex --company-id 0x00000059 --application-id 1 --application-version 2 --sd-req 0x0084 --mesh dfu_test.zip
+
+
