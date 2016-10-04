@@ -32,7 +32,7 @@ def nrfjprog(args):
 
 def read_uicr(serial_number):
     sys.stdout.write("Reading UICR..\t\t\t")
-    read = nrfjprog("-s " + serial_number + " --memrd 0x10001014 --n 4 --w 32").strip()
+    read = nrfjprog("-s " + serial_number + " --memrd 0x10001014 --n 4 --w 32 --family NRF52").strip()
     bootloader_addr = str(read).split()[1]
     if bootloader_addr == "FFFFFFFF":
         print("ERROR: UICR NOT SET.")
@@ -41,7 +41,7 @@ def read_uicr(serial_number):
         print("\tDid you flash the Softdevice BEFORE the bootloader?")
         exit(1)
 
-    read = nrfjprog("-s " + serial_number + " --memrd 0x" + bootloader_addr + " --n 4 --w 32").strip()
+    read = nrfjprog("-s " + serial_number + " --memrd 0x" + bootloader_addr + " --n 4 --w 32 --family NRF52").strip()
     bootloader_vector_pointer = str(read).split()[1]
     if bootloader_vector_pointer < "20000000":
         print("ERROR: Bootloader vector pointer invalid.")
@@ -62,7 +62,7 @@ def read_uicr(serial_number):
 
 def read_device_page(serial_number):
     sys.stdout.write("Reading Device page..\t\t")
-    device_page = nrfjprog("-s " + serial_number + " --memrd 0x0003FC00 --n 4 --w 32").strip()
+    device_page = nrfjprog("-s " + serial_number + " --memrd 0x7F000 --n 4 --w 32 --family NRF52").strip()
     device_page_header = str(device_page).split()[1]
     if device_page_header == "FFFFFFFF":
         print("ERROR: DEVICE PAGE NOT PRESENT.")
@@ -84,7 +84,7 @@ def reset_device(serial_number, port):
     except:
         print("ERROR: Could not open COM port " + port)
         exit(1)
-    nrfjprog("-s " + serial_number + " --reset")
+    nrfjprog("-s " + serial_number + " --reset --family NRF52")
     time.sleep(0.2)
     response = read_serial_event(s)
 
