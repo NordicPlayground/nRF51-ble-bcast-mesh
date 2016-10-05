@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rtt_log.h"
 #include "dfu_util.h"
 #include "dfu_bank.h"
+#include "boards.h"
 
 /*****************************************************************************
 * Local defines
@@ -542,17 +543,11 @@ static void start_target(void)
             /* if a bank is overlapping, we should erase info pointing to it. */
             if (p_banks[i])
             {
-                if (
-                        (
-                         p_banks[i]->bank.p_bank_addr >= m_transaction.p_bank_addr &&
-                         p_banks[i]->bank.p_bank_addr <  m_transaction.p_bank_addr + m_transaction.length / sizeof(uint32_t)
-                        )
-                        ||
-                        (
-                         m_transaction.p_bank_addr >= p_banks[i]->bank.p_bank_addr &&
-                         m_transaction.p_bank_addr <= p_banks[i]->bank.p_bank_addr + p_banks[i]->bank.length / sizeof(uint32_t)
-                        )
-                   )
+                if (section_overlap(
+                    (uint32_t) p_banks[i]->bank.p_bank_addr, 
+                    p_banks[i]->bank.length, 
+                    (uint32_t) m_transaction.p_bank_addr, 
+                    m_transaction.length))
                 {
                     __LOG("Invalidate bank type %s (%d)\n", m_dfu_type_strs[(1 << i)], i);
                     APP_ERROR_CHECK(bootloader_info_entry_invalidate((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + (1 << i))));
@@ -713,13 +708,21 @@ static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
     }
     else
     {
-        if (m_bl_info_pointers.p_segment_app->start +
-            m_bl_info_pointers.p_segment_app->length > BOOTLOADERADDR())
+        if ((uint32_t) m_transaction.p_bank_addr + m_transaction.length > BOOTLOADERADDR())
         {
             send_end_evt(DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA);
             start_find_fwid();
             return;
         }
+    }
+    
+    if (m_transaction.p_start_addr != m_transaction.p_bank_addr &&
+        section_overlap((uint32_t) m_transaction.p_start_addr, m_transaction.length, 
+                        (uint32_t) m_transaction.p_bank_addr, m_transaction.length))
+    {
+        send_end_evt(DFU_END_ERROR_BANK_AND_DESTINATION_OVERLAP);
+        start_find_fwid();
+        return;
     }
 
     __LOG("Set transaction parameters:\n");
@@ -731,7 +734,7 @@ static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
     __LOG("\tsigned:     %s\n", m_transaction.signature_length > 0 ? "YES" : "NO");
 
     if ((uint32_t) m_transaction.p_start_addr >= p_segment->start &&
-            (uint32_t) m_transaction.p_start_addr + m_transaction.length <= p_segment->start + p_segment->length)
+        (uint32_t) m_transaction.p_start_addr + m_transaction.length <= p_segment->start + p_segment->length)
     {
         start_target();
         *p_do_relay = true;
@@ -1210,14 +1213,13 @@ uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
     static bool led = false;
     if (led)
     {
-        NRF_GPIO->OUTCLR = (1 << 22);
+        NRF_GPIO->OUTCLR = LED_2;
     }
     else
     {
-        NRF_GPIO->OUTSET = (1 << 22);
+        NRF_GPIO->OUTSET = LED_2;
     }
     led = !led;
-    NRF_GPIO->OUTSET = (1 << 1);
 #endif
 
     switch (p_packet->packet_type)
@@ -1246,9 +1248,6 @@ uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
             /* don't care */
             break;
     }
-#ifdef DEBUG_LEDS
-    NRF_GPIO->OUTCLR = (1 << 1);
-#endif
     return NRF_SUCCESS;
 }
 

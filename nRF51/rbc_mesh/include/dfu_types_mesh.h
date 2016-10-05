@@ -254,7 +254,8 @@ typedef enum
     DFU_END_ERROR_SEGMENT_VIOLATION,
     DFU_END_ERROR_MBR_CALL_FAILED,
     DFU_END_ERROR_INVALID_TRANSFER,
-    DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA
+    DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA,
+    DFU_END_ERROR_BANK_AND_DESTINATION_OVERLAP    /**< When copying the finished bank to its intended destination, it will have to overwrite itself. */
 } dfu_end_t;
 
 typedef enum

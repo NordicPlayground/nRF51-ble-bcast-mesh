@@ -69,5 +69,7 @@ void packet_cache_put(dfu_packet_t* p_packet);
 
 void packet_cache_flush(void);
 
+bool section_overlap(uint32_t section_a_start, uint32_t section_a_length, 
+                     uint32_t section_b_start, uint32_t section_b_length);
 #endif /* DFU_UTIL_H__ */
 
