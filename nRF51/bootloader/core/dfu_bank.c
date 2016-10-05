@@ -37,7 +37,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "nrf_error.h"
 #include "nrf.h"
+#if (NORDIC_SDK_VERSION >= 11)
 #include "nrf_nvic.h"
+#endif
 #include "rtt_log.h"
 #include "dfu_util.h"
 #include "toolchain.h"
@@ -145,7 +147,11 @@ static void flash_bank_entry(void)
                         __LOG("IN APP MODE. RESET!\n");
 #if 1 //def SOFTDEVICE_PRESENT
                         sd_power_reset_reason_clr(0x0F000F);
+#if NORDIC_SDK_VERSION >= 11
                         sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_GO_TO_APP);
+#else
+                        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);
+#endif                        
                         sd_nvic_SystemReset();
 #else
                         NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
@@ -198,25 +204,33 @@ static void flash_bank_entry(void)
             {
                 bl_info_entry_t fwid_entry;
                 bl_info_type_t signature_type;
+                bl_info_entry_t flags_entry;
+                bl_info_entry_t* p_old_fwid_entry  = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+                bl_info_entry_t* p_old_flags_entry = bootloader_info_entry_get(BL_INFO_TYPE_FLAGS);
+                APP_ERROR_CHECK_BOOL(p_old_fwid_entry);
                 APP_ERROR_CHECK_BOOL(p_bank_entry);
 
-                memset(&fwid_entry, 0xFF, sizeof(bl_info_version_t));
+                memcpy(&fwid_entry, p_old_fwid_entry, sizeof(bl_info_version_t));
+                memcpy(&flags_entry, p_old_flags_entry, sizeof(bl_info_flags_t));
                 switch (m_dfu_type)
                 {
                     case DFU_TYPE_SD:
                         fwid_entry.version.sd = p_bank_entry->fwid.sd;
                         signature_type = BL_INFO_TYPE_SIGNATURE_SD;
+                        flags_entry.flags.sd_intact = true;
                         break;
                     case DFU_TYPE_BOOTLOADER:
                         fwid_entry.version.bootloader.id  = p_bank_entry->fwid.bootloader.id;
                         fwid_entry.version.bootloader.ver = p_bank_entry->fwid.bootloader.ver;
                         signature_type = BL_INFO_TYPE_SIGNATURE_BL;
+                        flags_entry.flags.bl_intact = true;
                         break;
                     case DFU_TYPE_APP:
                         fwid_entry.version.app.company_id   = p_bank_entry->fwid.app.company_id;
                         fwid_entry.version.app.app_id       = p_bank_entry->fwid.app.app_id;
                         fwid_entry.version.app.app_version  = p_bank_entry->fwid.app.app_version;
                         signature_type = BL_INFO_TYPE_SIGNATURE_APP;
+                        flags_entry.flags.app_intact = true;
                         break;
                     default:
                         APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
@@ -238,6 +252,13 @@ static void flash_bank_entry(void)
                         m_waiting_for_idle = true;
                         return;
                     }
+                }
+                if (!bootloader_info_entry_put(BL_INFO_TYPE_FLAGS,
+                            &flags_entry,
+                            BL_INFO_LEN_FLAGS))
+                {
+                    m_waiting_for_idle = true;
+                    return;
                 }
 
                 /* Update state */
@@ -261,6 +282,7 @@ static void flash_bank_entry(void)
                 m_waiting_for_idle = true;
             }
             break;
+            
     }
 }
 
