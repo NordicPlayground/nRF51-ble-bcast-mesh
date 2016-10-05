@@ -150,13 +150,6 @@ static void flash_bank_entry(void)
 
 #if 1 //def SOFTDEVICE_PRESENT
                         sd_power_reset_reason_clr(0x0F000F);
-<<<<<<< HEAD
-#if NORDIC_SDK_VERSION >= 11
-                        sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_GO_TO_APP);
-#else
-                        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);
-#endif
-=======
 
 #if NORDIC_SDK_VERSION >= 11
                         sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_GO_TO_APP);
@@ -165,11 +158,18 @@ static void flash_bank_entry(void)
 #endif
 
 
+#if NORDIC_SDK_VERSION >= 11
+                        sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_GO_TO_APP);
+#else
+                        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);
+#endif
 
 
 
 
->>>>>>> b9938ec9a40232b6fcde8d480785a5d17685eb3d
+
+
+
                         sd_nvic_SystemReset();
 #else
                         NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
