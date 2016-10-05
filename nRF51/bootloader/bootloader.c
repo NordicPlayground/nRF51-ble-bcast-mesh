@@ -46,6 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_app_bridge.h"
 #include "rtt_log.h"
 #include "dfu_util.h"
+#include "boards.h"
 
 /*****************************************************************************
 * Local defines
@@ -576,7 +577,7 @@ void bootloader_abort(dfu_end_t end_reason)
                     err_code = sd_softdevice_vector_table_base_set(p_segment_entry->segment.start);
                     APP_ERROR_CHECK(err_code);
 #ifdef DEBUG_LEDS
-                    NRF_GPIO->OUTSET = (1 << 21) | (1 << 22) | (1 << 23) | (1 << 24);
+                    NRF_GPIO->OUTSET = LEDS_MASK;
 #endif
                     bootloader_util_app_start(p_segment_entry->segment.start);
                 }

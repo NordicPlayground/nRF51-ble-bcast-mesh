@@ -252,7 +252,6 @@ void send_end_evt(dfu_end_t end_reason)
 
 uint32_t flash_write(void* p_dest, void* p_data, uint32_t length)
 {
-    NRF_GPIO->OUTSET = (1 << 2);
     uint32_t error_code;
     bl_evt_t evt =
     {
@@ -265,19 +264,11 @@ uint32_t flash_write(void* p_dest, void* p_data, uint32_t length)
         }
     };
     error_code = bootloader_evt_send(&evt);
-    if (error_code == NRF_SUCCESS)
-    {
-        NRF_GPIO->OUTSET = (1 << 16);
-        NRF_GPIO->OUTSET = (1 << 0);
-    }
-    NRF_GPIO->OUTCLR = (1 << 2);
-    NRF_GPIO->OUTCLR = (1 << 16);
     return error_code;
 }
 
 uint32_t flash_erase(void* p_dest, uint32_t length)
 {
-    NRF_GPIO->OUTSET = (1 << 1);
     uint32_t error_code;
     bl_evt_t evt =
     {
@@ -289,11 +280,6 @@ uint32_t flash_erase(void* p_dest, uint32_t length)
         }
     };
     error_code = bootloader_evt_send(&evt);
-    if (error_code == NRF_SUCCESS)
-    {
-        NRF_GPIO->OUTSET = (1 << 0);
-    }
-    NRF_GPIO->OUTCLR = (1 << 1);
     return error_code;
 }
 

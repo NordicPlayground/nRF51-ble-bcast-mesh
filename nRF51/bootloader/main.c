@@ -62,8 +62,7 @@ void app_error_handler_bare(uint32_t error_code)
 {
     __disable_irq();
 #ifdef DEBUG_LEDS
-    
-    NRF_GPIO->OUTCLR = (1 << 23);
+    NRF_GPIO->OUTCLR = LED_4;
 #endif
     __BKPT(0);
     while (1);
@@ -81,8 +80,7 @@ void HardFault_Handler(uint32_t pc, uint32_t lr)
     __LOG(RTT_CTRL_TEXT_RED "HARDFAULT pc=0x%x\n", pc);
     __disable_irq();
 #ifdef DEBUG_LEDS
-    NRF_GPIO->OUTSET = (1 << 7);
-    NRF_GPIO->OUTCLR = (1 << 23);
+    NRF_GPIO->OUTCLR = LED_4;
 #endif
     __BKPT(0);
     while (1);
@@ -91,8 +89,8 @@ void HardFault_Handler(uint32_t pc, uint32_t lr)
 static void init_leds(void)
 {
 #ifdef DEBUG_LEDS
-    nrf_gpio_range_cfg_output(21, 24);
-    NRF_GPIO->OUT = (1 << 22) | (1 << 21) | (1 << 24);
+    nrf_gpio_range_cfg_output(LED_START, LED_STOP);
+    NRF_GPIO->OUT = LEDS_MASK;
 #endif
 }
 
