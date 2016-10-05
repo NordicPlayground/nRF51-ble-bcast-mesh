@@ -41,7 +41,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "boards.h"
+
+#if NORDIC_SDK_VERSION >= 11
 #include "nrf_nvic.h"
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -211,7 +215,12 @@ int main(void)
     gpio_init();
 
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(&MESH_CLOCK_SOURCE, NULL);
+#ifdef NRF52
+    SOFTDEVICE_HANDLER_INIT(&MESH_CLOCK_SOURCE,NULL); 
+#else
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE,NULL); 
+#endif    
+    
     softdevice_ble_evt_handler_set(sd_ble_evt_handler); /* app-defined event handler, as we need to send it to the nrf_adv_conn module and the rbc_mesh */
     softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
 

@@ -136,8 +136,14 @@ void nrf_adv_conn_init(void)
     ble_enable_params_t ble_enable;
     ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     ble_enable.gatts_enable_params.service_changed = 0;
+    
+#if NORDIC_SDK_VERSION >= 11
     uint32_t ram_base = RAM_R1_BASE;
     error_code = sd_ble_enable(&ble_enable, &ram_base);
+#else
+    error_code = sd_ble_enable(&ble_enable);
+
+#endif    
     if (error_code != NRF_SUCCESS && 
         error_code != NRF_ERROR_INVALID_STATE)
     {
