@@ -105,8 +105,9 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     memset (&ble_enable, 0, sizeof(ble_enable));
     ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     ble_enable.gatts_enable_params.service_changed = 0;
-    ble_enable.gap_enable_params.periph_conn_count = 1;
+    
 #if(NORDIC_SDK_VERSION >= 11)
+    ble_enable.gap_enable_params.periph_conn_count = 1;
     uint32_t ramBase = RAM_R1_BASE;
     error_code = sd_ble_enable(&ble_enable, &ramBase);
 #else

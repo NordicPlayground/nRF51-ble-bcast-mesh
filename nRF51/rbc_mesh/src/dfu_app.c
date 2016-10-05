@@ -37,7 +37,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "toolchain.h"
 #include "bl_if.h"
+
+#if NORDIC_SDK_VERSION >= 11
 #include "nrf_nvic.h"
+#endif
+
 #include "nrf_flash.h"
 #include "mesh_packet.h"
 #include "rbc_mesh_common.h"
@@ -310,13 +314,21 @@ uint32_t dfu_jump_to_bootloader(void)
 
 #ifdef SOFTDEVICE_PRESENT
         sd_power_reset_reason_clr(0xFFFFFFFF);
+                          
+#if NORDIC_SDK_VERSION >= 11        
         sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
+#else    
+        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);     
+        
+#endif        
         sd_nvic_SystemReset();
 #else
         NRF_POWER->RESETREAS = 0xFFFFFFFF; /* erase reset-reason to avoid wrongful state-readout on reboot */
         NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_FORCED_REBOOT;
         NVIC_SystemReset(); 
-#endif
+        
+#endif //SOFTDEVICE_PRESENT 
+        
         return NRF_SUCCESS; /* unreachable */
     }
     else
