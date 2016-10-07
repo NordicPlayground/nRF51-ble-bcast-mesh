@@ -191,6 +191,15 @@ static void abort_timeout(uint32_t timestamp, void* p_context)
     bl_cmd_t abort_cmd;
     abort_cmd.type = BL_CMD_TYPE_DFU_ABORT;
     dfu_cmd_send(&abort_cmd);
+
+    rbc_mesh_event_t evt;
+    evt.type = RBC_MESH_EVENT_TYPE_DFU_END;
+    evt.params.dfu.end.dfu_type = m_transfer_state.type;
+    evt.params.dfu.end.role = m_transfer_state.role;
+    evt.params.dfu.end.fwid = m_transfer_state.fwid;
+    evt.params.dfu.end.end_reason = DFU_END_ERROR_TIMEOUT;
+    memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+    rbc_mesh_event_push(&evt);
 }
 
 static void timer_timeout(uint32_t timestamp, void* p_context)
