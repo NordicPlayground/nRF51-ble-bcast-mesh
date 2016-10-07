@@ -58,6 +58,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 
+#define WORD_SIZE          (4)
+
+
 #define SEGMENT_ADDR(segment_id, start_addr) ((segment_id == 1)? \
                                                 (uint32_t) start_addr : \
                                                 (((uint32_t) start_addr) & 0xFFFFFFF0) + ((segment_id) - 1) * 16)
