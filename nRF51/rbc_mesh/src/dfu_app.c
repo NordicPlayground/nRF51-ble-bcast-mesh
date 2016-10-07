@@ -186,7 +186,6 @@ static void tx_timeout(uint32_t timestamp, void* p_context)
 
 static void abort_timeout(uint32_t timestamp, void* p_context)
 {
-    NRF_GPIO->OUTCLR = (1 << 1);
     __LOG("ABORT Timeout fired @%d\n", timestamp);
     bl_cmd_t abort_cmd;
     abort_cmd.type = BL_CMD_TYPE_DFU_ABORT;
@@ -204,7 +203,6 @@ static void abort_timeout(uint32_t timestamp, void* p_context)
 
 static void timer_timeout(uint32_t timestamp, void* p_context)
 {
-    NRF_GPIO->OUTCLR = (1 << 1);
     __LOG("Timeout fired @%d\n", timestamp);
     bl_cmd_t timeout_cmd;
     timeout_cmd.type = BL_CMD_TYPE_TIMEOUT;
@@ -690,7 +688,6 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
 
         case BL_EVT_TYPE_TIMER_SET:
             {
-                NRF_GPIO->OUTSET = (1 << 1);
                 m_timer_evt.cb = timer_timeout;
                 timestamp_t set_time = timer_now() + p_evt->params.timer.set.delay_us;
                 APP_ERROR_CHECK(timer_sch_reschedule(&m_timer_evt, set_time));
