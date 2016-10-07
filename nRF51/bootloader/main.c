@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rtt_log.h"
 #include "rbc_mesh.h"
 #include "dfu_bank.h"
+#include "boards.h"
 
 #include "app_error.h"
 #include "nrf_gpio.h"
@@ -57,25 +58,29 @@ volatile uint32_t* m_uicr_bootloader_start_address
 #error "Unsupported toolchain."
 #endif
 
-void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+void app_error_handler_bare(uint32_t error_code)
 {
-    __LOG(RTT_CTRL_TEXT_RED "APP ERROR %d, @%s:L%d\n", error_code, p_file_name, line_num);
     __disable_irq();
 #ifdef DEBUG_LEDS
-    NRF_GPIO->OUTSET = (1 << 7);
-    NRF_GPIO->OUTCLR = (1 << 23);
+    NRF_GPIO->OUTCLR = LED_4;
 #endif
     __BKPT(0);
     while (1);
 }
+
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+{
+    __LOG(RTT_CTRL_TEXT_RED "APP ERROR %d, @%s:L%d\n", error_code, p_file_name, line_num);
+    app_error_handler_bare(error_code);
+}
+
 
 void HardFault_Handler(uint32_t pc, uint32_t lr)
 {
     __LOG(RTT_CTRL_TEXT_RED "HARDFAULT pc=0x%x\n", pc);
     __disable_irq();
 #ifdef DEBUG_LEDS
-    NRF_GPIO->OUTSET = (1 << 7);
-    NRF_GPIO->OUTCLR = (1 << 23);
+    NRF_GPIO->OUTCLR = LED_4;
 #endif
     __BKPT(0);
     while (1);
@@ -84,8 +89,8 @@ void HardFault_Handler(uint32_t pc, uint32_t lr)
 static void init_leds(void)
 {
 #ifdef DEBUG_LEDS
-    nrf_gpio_range_cfg_output(21, 24);
-    NRF_GPIO->OUT = (1 << 22) | (1 << 21) | (1 << 24);
+    nrf_gpio_range_cfg_output(LED_START, LED_STOP);
+    NRF_GPIO->OUT = LEDS_MASK;
 #endif
 }
 

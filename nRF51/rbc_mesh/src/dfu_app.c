@@ -37,6 +37,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "toolchain.h"
 #include "bl_if.h"
+
+#if NORDIC_SDK_VERSION >= 11
+#include "nrf_nvic.h"
+#endif
+
 #include "nrf_flash.h"
 #include "mesh_packet.h"
 #include "rbc_mesh_common.h"
@@ -181,16 +186,23 @@ static void tx_timeout(uint32_t timestamp, void* p_context)
 
 static void abort_timeout(uint32_t timestamp, void* p_context)
 {
-    NRF_GPIO->OUTCLR = (1 << 1);
     __LOG("ABORT Timeout fired @%d\n", timestamp);
     bl_cmd_t abort_cmd;
     abort_cmd.type = BL_CMD_TYPE_DFU_ABORT;
     dfu_cmd_send(&abort_cmd);
+
+    rbc_mesh_event_t evt;
+    evt.type = RBC_MESH_EVENT_TYPE_DFU_END;
+    evt.params.dfu.end.dfu_type = m_transfer_state.type;
+    evt.params.dfu.end.role = m_transfer_state.role;
+    evt.params.dfu.end.fwid = m_transfer_state.fwid;
+    evt.params.dfu.end.end_reason = DFU_END_ERROR_TIMEOUT;
+    memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+    rbc_mesh_event_push(&evt);
 }
 
 static void timer_timeout(uint32_t timestamp, void* p_context)
 {
-    NRF_GPIO->OUTCLR = (1 << 1);
     __LOG("Timeout fired @%d\n", timestamp);
     bl_cmd_t timeout_cmd;
     timeout_cmd.type = BL_CMD_TYPE_TIMEOUT;
@@ -230,10 +242,10 @@ static void flash_op_complete(flash_op_type_t type, void* p_context)
 
 uint32_t dfu_init(void)
 {
-    m_cmd_handler = *((bl_if_cmd_handler_t*) (0x20000000 + ((uint32_t) (NRF_FICR->SIZERAMBLOCKS * NRF_FICR->NUMRAMBLOCK) - 4)));
+    m_cmd_handler = *((bl_if_cmd_handler_t*) (END_OF_RAM - 4));
     if (m_cmd_handler == NULL ||
         (uint32_t) m_cmd_handler >= (NRF_FICR->CODESIZE * NRF_FICR->CODEPAGESIZE) ||
-        (uint32_t) m_cmd_handler < NRF_UICR->BOOTLOADERADDR)
+        (uint32_t) m_cmd_handler < BOOTLOADERADDR())
     {
         __LOG(RTT_CTRL_TEXT_RED "ERROR, command handler @0x%x\n" RTT_CTRL_TEXT_WHITE, m_cmd_handler);
         m_cmd_handler = NULL;
@@ -303,19 +315,27 @@ uint32_t dfu_init(void)
 
 uint32_t dfu_jump_to_bootloader(void)
 {
-    if (NRF_UICR->BOOTLOADERADDR != 0xFFFFFFFF)
+    if (BOOTLOADERADDR() != 0xFFFFFFFF)
     {
         interrupts_disable();
 
 #ifdef SOFTDEVICE_PRESENT
-        sd_power_reset_reason_clr(0x0F000F);
-        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
+        sd_power_reset_reason_clr(0xFFFFFFFF);
+
+#if NORDIC_SDK_VERSION >= 11
+        sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_FORCED_REBOOT);
+#else
+        sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);
+
+#endif
         sd_nvic_SystemReset();
 #else
-        NRF_POWER->RESETREAS = 0x0F000F; /* erase reset-reason to avoid wrongful state-readout on reboot */
+        NRF_POWER->RESETREAS = 0xFFFFFFFF; /* erase reset-reason to avoid wrongful state-readout on reboot */
         NRF_POWER->GPREGRET = RBC_MESH_GPREGRET_CODE_FORCED_REBOOT;
-        NVIC_SystemReset(); //TODO: Wait for serial commands and flash?
-#endif
+        NVIC_SystemReset();
+
+#endif //SOFTDEVICE_PRESENT
+
         return NRF_SUCCESS; /* unreachable */
     }
     else
@@ -668,7 +688,6 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
 
         case BL_EVT_TYPE_TIMER_SET:
             {
-                NRF_GPIO->OUTSET = (1 << 1);
                 m_timer_evt.cb = timer_timeout;
                 timestamp_t set_time = timer_now() + p_evt->params.timer.set.delay_us;
                 APP_ERROR_CHECK(timer_sch_reschedule(&m_timer_evt, set_time));

@@ -49,13 +49,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PAGE_SIZE          (0x1000)
 
 #ifndef FLASH_SIZE
-#define FLASH_SIZE         (PAGE_SIZE * 512)
+#define FLASH_SIZE         (1024 * 512)
 #endif
 
 #define END_OF_RAM         (0x20000000 + NRF_FICR->INFO.RAM * 1024)
 
 #define BOOTLOADERADDR()   (NRF_UICR->NRFFW[0])
 #endif
+
+
+#define WORD_SIZE          (4)
 
 
 #define SEGMENT_ADDR(segment_id, start_addr) ((segment_id == 1)? \
@@ -254,7 +257,8 @@ typedef enum
     DFU_END_ERROR_SEGMENT_VIOLATION,
     DFU_END_ERROR_MBR_CALL_FAILED,
     DFU_END_ERROR_INVALID_TRANSFER,
-    DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA
+    DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA,
+    DFU_END_ERROR_BANK_AND_DESTINATION_OVERLAP    /**< When copying the finished bank to its intended destination, it will have to overwrite itself. */
 } dfu_end_t;
 
 typedef enum

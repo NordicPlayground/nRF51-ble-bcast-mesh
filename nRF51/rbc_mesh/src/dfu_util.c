@@ -239,3 +239,20 @@ void packet_cache_flush(void)
     memset(m_packet_cache, 0, sizeof(m_packet_cache));
     m_packet_cache_index = 0;
 }
+
+bool section_overlap(uint32_t section_a_start, uint32_t section_a_length, 
+                     uint32_t section_b_start, uint32_t section_b_length)
+{
+    return (
+        (
+         section_a_start >= section_b_start &&
+         section_a_start <  section_b_start + section_b_length
+        )
+        ||
+        (
+         section_b_start >= section_a_start &&
+         section_b_start <= section_a_start + section_a_length
+        )
+     );
+ }
+

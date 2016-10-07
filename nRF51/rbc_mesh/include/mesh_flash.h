@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 typedef void(*mesh_flash_op_cb_t)(flash_op_type_t type, void* p_location);
 
-void mesh_flash_init(mesh_flash_op_cb_t cb);
+uint32_t mesh_flash_init(mesh_flash_op_cb_t cb);
 uint32_t mesh_flash_op_push(flash_op_type_t type, const flash_op_t* p_op);
 uint32_t mesh_flash_op_available_slots(void);
 bool mesh_flash_in_progress(void);

@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rtt_log.h"
 #include "dfu_util.h"
 #include "dfu_bank.h"
+#include "boards.h"
 
 /*****************************************************************************
 * Local defines
@@ -423,28 +424,8 @@ static void beacon_set(beacon_type_t type)
 
 static void relay_packet(dfu_packet_t* p_packet, uint16_t length)
 {
-    mesh_packet_t* p_mesh_packet = mesh_packet_get_aligned(p_packet);
-    if (!p_mesh_packet)
-    {
-        if (!mesh_packet_acquire(&p_mesh_packet))
-        {
-            APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
-        }
-        mesh_packet_build(
-            p_mesh_packet,
-            p_packet->packet_type,
-            p_packet->payload.data.segment,
-            (uint8_t*) &p_packet->payload.data.transaction_id,
-            length - 4);
-    }
-    else
-    {
-        mesh_packet_ref_count_inc(p_mesh_packet);
-    }
-
     packet_tx_dynamic(p_packet, length, TX_INTERVAL_TYPE_DATA, TX_REPEATS_DATA);
     packet_cache_put(p_packet);
-    mesh_packet_ref_count_dec(p_mesh_packet);
 }
 
 static void send_bank_notifications(void)
@@ -562,17 +543,11 @@ static void start_target(void)
             /* if a bank is overlapping, we should erase info pointing to it. */
             if (p_banks[i])
             {
-                if (
-                        (
-                         p_banks[i]->bank.p_bank_addr >= m_transaction.p_bank_addr &&
-                         p_banks[i]->bank.p_bank_addr <  m_transaction.p_bank_addr + m_transaction.length / sizeof(uint32_t)
-                        )
-                        ||
-                        (
-                         m_transaction.p_bank_addr >= p_banks[i]->bank.p_bank_addr &&
-                         m_transaction.p_bank_addr <= p_banks[i]->bank.p_bank_addr + p_banks[i]->bank.length / sizeof(uint32_t)
-                        )
-                   )
+                if (section_overlap(
+                    (uint32_t) p_banks[i]->bank.p_bank_addr, 
+                    p_banks[i]->bank.length, 
+                    (uint32_t) m_transaction.p_bank_addr, 
+                    m_transaction.length))
                 {
                     __LOG("Invalidate bank type %s (%d)\n", m_dfu_type_strs[(1 << i)], i);
                     APP_ERROR_CHECK(bootloader_info_entry_invalidate((bl_info_type_t) (BL_INFO_TYPE_BANK_BASE + (1 << i))));
@@ -733,13 +708,21 @@ static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
     }
     else
     {
-        if (m_bl_info_pointers.p_segment_app->start +
-            m_bl_info_pointers.p_segment_app->length > BOOTLOADERADDR())
+        if ((uint32_t) m_transaction.p_bank_addr + m_transaction.length > BOOTLOADERADDR())
         {
             send_end_evt(DFU_END_ERROR_BANK_IN_BOOTLOADER_AREA);
             start_find_fwid();
             return;
         }
+    }
+    
+    if (m_transaction.p_start_addr != m_transaction.p_bank_addr &&
+        section_overlap((uint32_t) m_transaction.p_start_addr, m_transaction.length, 
+                        (uint32_t) m_transaction.p_bank_addr, m_transaction.length))
+    {
+        send_end_evt(DFU_END_ERROR_BANK_AND_DESTINATION_OVERLAP);
+        start_find_fwid();
+        return;
     }
 
     __LOG("Set transaction parameters:\n");
@@ -751,7 +734,7 @@ static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
     __LOG("\tsigned:     %s\n", m_transaction.signature_length > 0 ? "YES" : "NO");
 
     if ((uint32_t) m_transaction.p_start_addr >= p_segment->start &&
-            (uint32_t) m_transaction.p_start_addr + m_transaction.length <= p_segment->start + p_segment->length)
+        (uint32_t) m_transaction.p_start_addr + m_transaction.length <= p_segment->start + p_segment->length)
     {
         start_target();
         *p_do_relay = true;
@@ -909,9 +892,9 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             default:
                 break;
         }
+        packet_cache_put(p_packet);
     }
 
-    packet_cache_put(p_packet);
 
     if (do_relay)
     {
@@ -1230,14 +1213,13 @@ uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
     static bool led = false;
     if (led)
     {
-        NRF_GPIO->OUTCLR = (1 << 22);
+        NRF_GPIO->OUTCLR = LED_2;
     }
     else
     {
-        NRF_GPIO->OUTSET = (1 << 22);
+        NRF_GPIO->OUTSET = LED_2;
     }
     led = !led;
-    NRF_GPIO->OUTSET = (1 << 1);
 #endif
 
     switch (p_packet->packet_type)
@@ -1266,9 +1248,6 @@ uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
             /* don't care */
             break;
     }
-#ifdef DEBUG_LEDS
-    NRF_GPIO->OUTCLR = (1 << 1);
-#endif
     return NRF_SUCCESS;
 }
 

@@ -1,33 +1,14 @@
-/***********************************************************************************
-Copyright (c) Nordic Semiconductor ASA
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-  1. Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-  2. Redistributions in binary form must reproduce the above copyright notice, this
-  list of conditions and the following disclaimer in the documentation and/or
-  other materials provided with the distribution.
-
-  3. Neither the name of Nordic Semiconductor ASA nor the names of other
-  contributors to this software may be used to endorse or promote products
-  derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-************************************************************************************/
-
+/* Copyright (c) 2014 Nordic Semiconductor. All Rights Reserved.
+ *
+ * The information contained herein is property of Nordic Semiconductor ASA.
+ * Terms and conditions of usage are described in detail in NORDIC
+ * SEMICONDUCTOR STANDARD SOFTWARE LICENSE AGREEMENT.
+ *
+ * Licensees are granted free, non-transferable use of the information. NO
+ * WARRANTY of ANY KIND is provided. This heading must NOT be removed from
+ * the file.
+ *
+ */
 #ifndef BOARDS_H
 #define BOARDS_H
 
@@ -49,12 +30,27 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   #include "pca10028.h"
 #elif defined(BOARD_PCA10031)
   #include "pca10031.h"
+#elif defined(BOARD_PCA10036)
+  #include "pca10036.h"
+#elif defined(BOARD_PCA10040)
+  #include "pca10040.h"
 #elif defined(BOARD_WT51822)
   #include "wt51822.h"
+#elif defined(BOARD_N5DK1)
+  #include "n5_starterkit.h"
+#elif defined (BOARD_D52DK1)
+  #include "d52_starterkit.h"
+#elif defined (BOARD_ARDUINO_PRIMO)
+  #include "arduino_primo.h"
 #elif defined(BOARD_CUSTOM)
   #include "custom_board.h"
 #else
 #error "Board is not defined"
+
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #define LEDS_OFF(leds_mask) do {  NRF_GPIO->OUTSET = (leds_mask) & (LEDS_MASK & LEDS_INV_MASK); \
@@ -73,5 +69,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
                                   for (pin = 0; pin < 32; pin++) \
                                       if ( (leds_mask) & (1 << pin) )   \
                                           nrf_gpio_cfg_output(pin); } while (0)
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

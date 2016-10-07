@@ -1,9 +1,9 @@
 /***********************************************************************************
-Copyright (c) Nordic Semiconductor ASA
-All rights reserved.
+  Copyright (c) Nordic Semiconductor ASA
+  All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
+  Redistribution and use in source and binary forms, with or without modification,
+  are permitted provided that the following conditions are met:
 
   1. Redistributions of source code must retain the above copyright notice, this
   list of conditions and the following disclaimer.
@@ -16,126 +16,140 @@ are permitted provided that the following conditions are met:
   contributors to this software may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-************************************************************************************/
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ************************************************************************************/
 #include <string.h>
 
 #include "mesh_flash.h"
+
+#include "nrf.h"
+
 #include "event_handler.h"
 #include "fifo.h"
 #include "nrf_flash.h"
-#ifdef NRF51
-#include "nrf51.h"
-#else
-#include "nrf.h"
-#endif
 #include "nrf_error.h"
 #include "toolchain.h"
-#include "rtt_log.h"
 #include "app_error.h"
+#include "dfu_util.h"
 
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
 
+/** Number of flash operations that can be queued at once. */
 #define FLASH_OP_QUEUE_LEN					(8)
 
+/** Maximum time spent after a flash operation for cleanup. */
 #define FLASH_OP_POST_PROCESS_TIME_US		(500)
-#define FLASH_OP_MAX_TIME_US                (50000)
+/** Longest time spent on a single flash operation. Longer operations will be
+ * broken up. */
+#define FLASH_OP_MAX_TIME_US                (100000)
 
-#ifdef NRF51
+#if defined(NRF51)
+/** Timer to erase a single flash page. */
 #define FLASH_TIME_TO_ERASE_PAGE_US         (22050)
+/** Timer to write a single flash word. */
 #define FLASH_TIME_TO_WRITE_ONE_WORD_US     (48)
-#endif
-
-#ifdef NRF52
+#elif defined(NRF52)
+/** Timer to erase a single flash page. */
 #define FLASH_TIME_TO_ERASE_PAGE_US         (89700)
+/** Timer to write a single flash word. */
 #define FLASH_TIME_TO_WRITE_ONE_WORD_US     (338)
+#else
+/** Timer to erase a single flash page. */
+#define FLASH_TIME_TO_ERASE_PAGE_US         (20000)
+/** Timer to write a single flash word. */
+#define FLASH_TIME_TO_WRITE_ONE_WORD_US     (50)
 #endif
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
+/** Single flash operation. */
 typedef struct
 {
-    flash_op_type_t type;
-    flash_op_t operation;
+    flash_op_type_t type;     /**< Type of flash operation. */
+    flash_op_t operation;     /**< Operation parameters. */
 } operation_t;
 
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static fifo_t				m_flash_op_fifo;
-static operation_t			m_flash_op_fifo_queue[FLASH_OP_QUEUE_LEN];
-static mesh_flash_op_cb_t	mp_cb;
-static operation_t          m_curr_op;
-static uint32_t             m_op_addr;
-static bool                 m_suspended;
-static uint32_t             m_operation_count;
-static uint32_t             m_operations_reported;
+static fifo_t				m_flash_op_fifo;                           /**< FIFO structure for the flash operations. */
+static operation_t			m_flash_op_fifo_queue[FLASH_OP_QUEUE_LEN]; /**< FIFO buffer for flash operations. */
+static mesh_flash_op_cb_t	mp_cb;                                     /**< Flash operation end callback pointer. Called when a flash operation ended. */
+static operation_t          m_curr_op;                                 /**< Current flash operation. */
+static uint32_t             m_op_addr;                                 /**< Start address of current operation. */
+static bool                 m_suspended;                               /**< Suspend flag, preventing flash operations while set. */
 
+/* In order to check that all flash events have been reported to the user, the
+ * module need to keep track of how many events have been popped from the operation queue.
+ * There might be multiple operation reports queued to the bearer event, without this module
+ * being able to tell. The @c m_operation_count and @c m_operations_reported variables are
+ * responsible for keeping track of this.
+ */
+static uint32_t             m_operation_count;                         /**< Number of flash operations executed since bootup. */
+static uint32_t             m_operations_reported;                     /**< Number of flash operations reported to app as ended since bootup. */
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
 
-static timestamp_t operation_time(operation_t* p_op)
+static timestamp_t operation_time(const operation_t* p_op)
 {
-    if (p_op->type == FLASH_OP_TYPE_WRITE)
+    switch (p_op->type)
     {
-        return ((p_op->operation.write.length + 3)/ 4) * FLASH_TIME_TO_WRITE_ONE_WORD_US;
+        case FLASH_OP_TYPE_WRITE:
+            return ((p_op->operation.write.length + WORD_SIZE - 1) / WORD_SIZE) * FLASH_TIME_TO_WRITE_ONE_WORD_US;
+        case FLASH_OP_TYPE_ERASE:
+            return ((p_op->operation.erase.length + PAGE_SIZE - 1) / PAGE_SIZE) * FLASH_TIME_TO_ERASE_PAGE_US;
+        case FLASH_OP_TYPE_NONE:
+            return 0;
+        default:
+            return 0xFFFFFFFF;
     }
-    if (p_op->type == FLASH_OP_TYPE_ERASE)
-    {
-        return ((p_op->operation.erase.length + PAGE_SIZE - 1) / PAGE_SIZE) * FLASH_TIME_TO_ERASE_PAGE_US;
-    }
-    if (p_op->type == FLASH_OP_TYPE_NONE)
-    {
-        return 0;
-    }
-    return 0xFFFFFFFF;
 }
 
 static void operation_execute(operation_t* p_op)
 {
-    NRF_GPIO->OUTSET = (1 << 0);
-    if (p_op->type == FLASH_OP_TYPE_ERASE)
+    switch (p_op->type)
     {
-        nrf_flash_erase((uint32_t*) p_op->operation.erase.start_addr, p_op->operation.erase.length);
-        while (p_op->operation.erase.length == 0);
+        case FLASH_OP_TYPE_ERASE:
+            nrf_flash_erase((uint32_t*) p_op->operation.erase.start_addr, p_op->operation.erase.length);
+            break;
+        case FLASH_OP_TYPE_WRITE:
+            nrf_flash_store((uint32_t*) p_op->operation.write.start_addr,
+                            p_op->operation.write.p_data,
+                            p_op->operation.write.length, 0);
+            break;
+        default:
+            APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
     }
-    else
-    {
-        nrf_flash_store((uint32_t*) p_op->operation.write.start_addr,
-                        (uint8_t*) p_op->operation.write.p_data,
-                        p_op->operation.write.length,
-                        0);
-    }
-    NRF_GPIO->OUTCLR = (1 << 0);
 }
 
 static void write_as_much_as_possible(flash_op_t* p_write_op, timestamp_t* p_available_time, uint32_t* p_bytes_written)
 {
     const uint32_t max_time = ((*p_available_time < FLASH_OP_MAX_TIME_US) ? *p_available_time : FLASH_OP_MAX_TIME_US);
-    uint32_t bytes_to_write = 4 * ((max_time - FLASH_OP_POST_PROCESS_TIME_US) / FLASH_TIME_TO_WRITE_ONE_WORD_US);
+    uint32_t bytes_to_write = WORD_SIZE * ((max_time - FLASH_OP_POST_PROCESS_TIME_US) / FLASH_TIME_TO_WRITE_ONE_WORD_US);
     if (bytes_to_write > p_write_op->write.length)
     {
         bytes_to_write = p_write_op->write.length;
     }
 
-    *p_bytes_written = bytes_to_write;
-
-    if (bytes_to_write == 0|| max_time < FLASH_OP_POST_PROCESS_TIME_US)
+    if (bytes_to_write == 0 || max_time < FLASH_OP_POST_PROCESS_TIME_US)
     {
+        *p_bytes_written = 0;
         return;
     }
+
+    *p_bytes_written = bytes_to_write;
 
     operation_t temp_op;
     temp_op.type = FLASH_OP_TYPE_WRITE;
@@ -158,12 +172,13 @@ static void erase_as_much_as_possible(flash_op_t* p_erase_op, timestamp_t* p_ava
         bytes_to_erase = p_erase_op->erase.length;
     }
 
-    *p_bytes_erased = bytes_to_erase;
-
     if (bytes_to_erase == 0 || max_time < FLASH_OP_POST_PROCESS_TIME_US)
     {
+        *p_bytes_erased = 0;
         return;
     }
+
+    *p_bytes_erased = bytes_to_erase;
 
     operation_t temp_op;
     temp_op.type = FLASH_OP_TYPE_ERASE;
@@ -175,11 +190,16 @@ static void erase_as_much_as_possible(flash_op_t* p_erase_op, timestamp_t* p_ava
     *p_available_time -= operation_time(&temp_op);
 }
 
+static inline bool all_operations_ended(void)
+{
+    return (fifo_is_empty(&m_flash_op_fifo) && (m_operations_reported == m_operation_count));
+}
+
 static void write_operation_ended(void* p_location)
 {
     mp_cb(FLASH_OP_TYPE_WRITE, p_location);
     ++m_operations_reported;
-    if (fifo_is_empty(&m_flash_op_fifo) && (m_operations_reported == m_operation_count))
+    if (all_operations_ended())
     {
         mp_cb(FLASH_OP_TYPE_ALL, NULL);
     }
@@ -189,7 +209,7 @@ static void erase_operation_ended(void* p_source)
 {
     mp_cb(FLASH_OP_TYPE_ERASE, p_source);
     ++m_operations_reported;
-    if (fifo_is_empty(&m_flash_op_fifo) && (m_operations_reported == m_operation_count))
+    if (all_operations_ended())
     {
         mp_cb(FLASH_OP_TYPE_ALL, NULL);
     }
@@ -215,39 +235,18 @@ static bool send_end_evt(void)
     }
     if (event_handler_push(&end_evt) != NRF_SUCCESS)
     {
-        NRF_GPIO->OUTCLR = (1 << 13);
         return false;
     }
 
-#if 0
-    if (fifo_is_empty(&m_flash_op_fifo))
-    {
-        async_event_t idle_evt;
-        idle_evt.type = EVENT_TYPE_GENERIC;
-        idle_evt.callback.generic.cb = all_operations_ended;
-        idle_evt.callback.generic.p_context = NULL;
-        if (event_handler_push(&idle_evt) == NRF_SUCCESS)
-        {
-            __LOG(RTT_CTRL_TEXT_CYAN "\tPushed idle!\n");
-        }
-        else
-        {
-            __LOG(RTT_CTRL_TEXT_RED "NOOOOOOOOOOOO\n");
-            NRF_GPIO->OUTCLR = (1 << 13);
-            return;
-        }
-    }
-#endif
     return true;
 }
 
-static bool get_next_operation(void)
+static bool next_operation_get(void)
 {
     /* Get next operation */
     if (fifo_pop(&m_flash_op_fifo, &m_curr_op) != NRF_SUCCESS)
     {
         m_curr_op.type = FLASH_OP_TYPE_NONE;
-        NRF_GPIO->OUTCLR = (1 << 13);
         return false;
     }
     APP_ERROR_CHECK_BOOL(m_curr_op.type != FLASH_OP_TYPE_NONE);
@@ -268,20 +267,61 @@ static bool get_next_operation(void)
 * Interface functions
 *****************************************************************************/
 
-void mesh_flash_init(mesh_flash_op_cb_t cb)
+uint32_t mesh_flash_init(mesh_flash_op_cb_t cb)
 {
-    mp_cb = cb;
+    if (cb == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
     m_flash_op_fifo.elem_array = m_flash_op_fifo_queue;
     m_flash_op_fifo.elem_size = sizeof(operation_t);
     m_flash_op_fifo.array_len = FLASH_OP_QUEUE_LEN;
     fifo_init(&m_flash_op_fifo);
+    mp_cb = cb;
     m_curr_op.type = FLASH_OP_TYPE_NONE;
+
+    return NRF_SUCCESS;
 }
 
 uint32_t mesh_flash_op_push(flash_op_type_t type, const flash_op_t* p_op)
 {
-    APP_ERROR_CHECK_BOOL(type != FLASH_OP_TYPE_NONE);
-    APP_ERROR_CHECK_BOOL(p_op != NULL);
+    if (mp_cb == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    if (p_op == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+    if (type == FLASH_OP_TYPE_WRITE)
+    {
+        if (!IS_WORD_ALIGNED(p_op->write.start_addr) ||
+            !IS_WORD_ALIGNED(p_op->write.p_data))
+        {
+            return NRF_ERROR_INVALID_ADDR;
+        }
+        if (!IS_WORD_ALIGNED(p_op->write.length) ||
+            p_op->write.length == 0)
+        {
+            return NRF_ERROR_INVALID_LENGTH;
+        }
+    }
+    else if (type == FLASH_OP_TYPE_ERASE)
+    {
+        if (!IS_PAGE_ALIGNED(p_op->erase.start_addr))
+        {
+            return NRF_ERROR_INVALID_ADDR;
+        }
+        if (p_op->erase.length == 0)
+        {
+            return NRF_ERROR_INVALID_LENGTH;
+        }
+    }
+    else
+    {
+        return NRF_ERROR_INVALID_PARAM;
+    }
+
     operation_t op;
     op.type = type;
     memcpy(&op.operation, p_op, sizeof(flash_op_t));
@@ -300,41 +340,39 @@ bool mesh_flash_in_progress(void)
 
 void mesh_flash_op_execute(timestamp_t available_time)
 {
-    NRF_GPIO->OUTSET = (1 << 13);
     while (true)
     {
         if (m_suspended)
         {
-            NRF_GPIO->OUTCLR = (1 << 13);
             return;
         }
         if (operation_time(&m_curr_op) == 0) /* done with previous event */
         {
             if (!send_end_evt())
             {
-                NRF_GPIO->OUTCLR = (1 << 13);
                 return;
             }
-            if (!get_next_operation())
+            if (!next_operation_get())
             {
-                NRF_GPIO->OUTCLR = (1 << 13);
                 return;
             }
         }
 
         uint32_t byte_count = 0;
-        if (m_curr_op.type == FLASH_OP_TYPE_ERASE)
+        switch (m_curr_op.type)
         {
-            erase_as_much_as_possible(&m_curr_op.operation, &available_time, &byte_count);
-        }
-        else if (m_curr_op.type == FLASH_OP_TYPE_WRITE)
-        {
-            write_as_much_as_possible(&m_curr_op.operation, &available_time, &byte_count);
+            case FLASH_OP_TYPE_ERASE:
+                erase_as_much_as_possible(&m_curr_op.operation, &available_time, &byte_count);
+                break;
+            case FLASH_OP_TYPE_WRITE:
+                write_as_much_as_possible(&m_curr_op.operation, &available_time, &byte_count);
+                break;
+            default:
+                APP_ERROR_CHECK_BOOL(false);
         }
 
         if (available_time <= FLASH_OP_POST_PROCESS_TIME_US || byte_count == 0)
         {
-            NRF_GPIO->OUTCLR = (1 << 13);
             return;
         }
 
@@ -347,16 +385,7 @@ void mesh_flash_set_suspended(bool suspend)
     static uint32_t suspend_count = 0;
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
-#if 0
-    if (suspend)
-    {
-        __LOG(RTT_CTRL_TEXT_YELLOW "<<<<SUSPEND\n");
-    }
-    else
-    {
-        __LOG(RTT_CTRL_TEXT_YELLOW ">>>>RELEASE\n");
-    }
-#endif
+    APP_ERROR_CHECK_BOOL(suspend || suspend_count > 0);
     suspend_count += (2 * suspend - 1);
     m_suspended = (suspend_count > 0);
     _ENABLE_IRQS(was_masked);

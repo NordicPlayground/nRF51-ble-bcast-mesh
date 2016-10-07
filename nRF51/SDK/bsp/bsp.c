@@ -1,32 +1,14 @@
-/***********************************************************************************
-Copyright (c) Nordic Semiconductor ASA
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-  1. Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-  2. Redistributions in binary form must reproduce the above copyright notice, this
-  list of conditions and the following disclaimer in the documentation and/or
-  other materials provided with the distribution.
-
-  3. Neither the name of Nordic Semiconductor ASA nor the names of other
-  contributors to this software may be used to endorse or promote products
-  derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-************************************************************************************/
+/* Copyright (c) 2014 Nordic Semiconductor. All Rights Reserved.
+ *
+ * The information contained herein is property of Nordic Semiconductor ASA.
+ * Terms and conditions of usage are described in detail in NORDIC
+ * SEMICONDUCTOR STANDARD SOFTWARE LICENSE AGREEMENT.
+ *
+ * Licensees are granted free, non-transferable use of the information. NO
+ * WARRANTY of ANY KIND is provided. This heading must NOT be removed from
+ * the file.
+ *
+ */
 
 #include "bsp.h"
 #include <stddef.h>
@@ -36,9 +18,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf_gpio.h"
 #include "nrf_error.h"
 
+#ifdef BSP_UART_SUPPORT
+#define NRF_LOG_MODULE_NAME "BSP"
+#include "nrf_log.h"
+#endif // BSP_UART_SUPPORT
+
 #ifndef BSP_SIMPLE
 #include "app_timer.h"
-#include "app_gpiote.h"
 #include "app_button.h"
 #endif // BSP_SIMPLE
 
@@ -68,15 +54,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static bsp_indication_t m_stable_state        = BSP_INDICATE_IDLE;
 static uint32_t         m_app_ticks_per_100ms = 0;
 static uint32_t         m_indication_type     = 0;
-static app_timer_id_t   m_leds_timer_id;
-static app_timer_id_t   m_alert_timer_id;
+static uint32_t         m_alert_mask          = 0;
+APP_TIMER_DEF(m_leds_timer_id);
+APP_TIMER_DEF(m_alert_timer_id);
 #endif // LEDS_NUMBER > 0 && !(defined BSP_SIMPLE)
 
 #if BUTTONS_NUMBER > 0
 #ifndef BSP_SIMPLE
-static bsp_event_callback_t m_registered_callback         = NULL;
-static bsp_event_t          m_events_list[BUTTONS_NUMBER] = {BSP_EVENT_NOTHING};
-
+static bsp_event_callback_t   m_registered_callback         = NULL;
+static bsp_button_event_cfg_t m_events_list[BUTTONS_NUMBER] = {{BSP_EVENT_NOTHING, BSP_EVENT_NOTHING}};
+APP_TIMER_DEF(m_button_timer_id);
 static void bsp_button_event_handler(uint8_t pin_no, uint8_t button_action);
 #endif // BSP_SIMPLE
 
@@ -150,26 +137,22 @@ uint32_t bsp_buttons_state_get(uint32_t * p_buttons_state)
 }
 
 
-uint32_t bsp_button_is_pressed(uint32_t button, bool * p_state){
-
-    uint32_t result;
-
+uint32_t bsp_button_is_pressed(uint32_t button, bool * p_state)
+{
 #if BUTTONS_NUMBER > 0
-    if(button < BUTTONS_NUMBER)
-        {
-            uint32_t buttons = ~NRF_GPIO->IN;
-            result = NRF_SUCCESS;
-            *p_state = (buttons & (1 << m_buttons_list[button])) ? true : false;
-        }
-        else
-        {
-            result = NRF_ERROR_INVALID_PARAM;
-        }
-
+    if (button < BUTTONS_NUMBER)
+    {
+        uint32_t buttons = ~NRF_GPIO->IN;
+        *p_state = (buttons & (1 << m_buttons_list[button])) ? true : false;
+    }
+    else
+    {
+        *p_state = false;
+    }
 #else
-        result = NRF_ERROR_INVALID_PARAM;
+    *p_state = false;
 #endif // BUTTONS_NUMBER > 0
-    return result;
+    return NRF_SUCCESS;
 }
 
 
@@ -181,26 +164,58 @@ uint32_t bsp_button_is_pressed(uint32_t button, bool * p_state){
  */
 static void bsp_button_event_handler(uint8_t pin_no, uint8_t button_action)
 {
-    bsp_event_t event  = BSP_EVENT_NOTHING;
-    uint32_t    button = 0;
+    bsp_event_t        event  = BSP_EVENT_NOTHING;
+    uint32_t           button = 0;
+    uint32_t           err_code;
+    static uint8_t     current_long_push_pin_no;              /**< Pin number of a currently pushed button, that could become a long push if held long enough. */
+    static bsp_event_t release_event_at_push[BUTTONS_NUMBER]; /**< Array of what the release event of each button was last time it was pushed, so that no release event is sent if the event was bound after the push of the button. */
 
-    if ((button_action == APP_BUTTON_PUSH) && (m_registered_callback != NULL))
+    while ((button < BUTTONS_NUMBER) && (m_buttons_list[button] != pin_no))
     {
-        while ((button < BUTTONS_NUMBER) && (m_buttons_list[button] != pin_no))
-        {
-            button++;
-        }
+        button++;
+    }
 
-        if (button < BUTTONS_NUMBER)
+    if (button < BUTTONS_NUMBER)
+    {
+        switch (button_action)
         {
-            event = m_events_list[button];
-        }
-
-        if (event != BSP_EVENT_NOTHING)
-        {
-            m_registered_callback(event);
+            case APP_BUTTON_PUSH:
+                event = m_events_list[button].push_event;
+                if (m_events_list[button].long_push_event != BSP_EVENT_NOTHING)
+                {
+                    err_code = app_timer_start(m_button_timer_id, BSP_MS_TO_TICK(BSP_LONG_PUSH_TIMEOUT_MS), (void*)&current_long_push_pin_no);
+                    if (err_code == NRF_SUCCESS)
+                    {
+                        current_long_push_pin_no = pin_no;
+                    }
+                }
+                release_event_at_push[button] = m_events_list[button].release_event;
+                break;
+            case APP_BUTTON_RELEASE:
+                (void)app_timer_stop(m_button_timer_id);
+                if (release_event_at_push[button] == m_events_list[button].release_event)
+                {
+                    event = m_events_list[button].release_event;
+                }
+                break;
+            case BSP_BUTTON_ACTION_LONG_PUSH:
+                event = m_events_list[button].long_push_event;
         }
     }
+
+    if ((event != BSP_EVENT_NOTHING) && (m_registered_callback != NULL))
+    {
+        m_registered_callback(event);
+    }
+}
+
+/**@brief Handle events from button timer.
+ *
+ * @param[in]   p_context   parameter registered in timer start function.
+ */
+static void button_timer_handler(void * p_context)
+{
+    bsp_button_event_handler(*(uint8_t *)p_context, BSP_BUTTON_ACTION_LONG_PUSH);
 }
 
 
@@ -218,13 +233,13 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
     switch (indicate)
     {
         case BSP_INDICATE_IDLE:
-            LEDS_OFF(LEDS_MASK & ~ALERT_LED_MASK);
+            LEDS_OFF(LEDS_MASK & ~m_alert_mask);
             m_stable_state = indicate;
             break;
 
         case BSP_INDICATE_SCANNING:
         case BSP_INDICATE_ADVERTISING:
-            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~ALERT_LED_MASK);
+            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~m_alert_mask);
 
             // in advertising blink LED_0
             if (LED_IS_ON(BSP_LED_0_MASK))
@@ -247,7 +262,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             break;
 
         case BSP_INDICATE_ADVERTISING_WHITELIST:
-            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~ALERT_LED_MASK);
+            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~m_alert_mask);
 
             // in advertising quickly blink LED_0
             if (LED_IS_ON(BSP_LED_0_MASK))
@@ -271,7 +286,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             break;
 
         case BSP_INDICATE_ADVERTISING_SLOW:
-            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~ALERT_LED_MASK);
+            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~m_alert_mask);
 
             // in advertising slowly blink LED_0
             if (LED_IS_ON(BSP_LED_0_MASK))
@@ -293,7 +308,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             break;
 
         case BSP_INDICATE_ADVERTISING_DIRECTED:
-            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~ALERT_LED_MASK);
+            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~m_alert_mask);
 
             // in advertising very quickly blink LED_0
             if (LED_IS_ON(BSP_LED_0_MASK))
@@ -317,7 +332,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             break;
 
         case BSP_INDICATE_BONDING:
-            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~ALERT_LED_MASK);
+            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~m_alert_mask);
 
             // in bonding fast blink LED_0
             if (LED_IS_ON(BSP_LED_0_MASK))
@@ -335,7 +350,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             break;
 
         case BSP_INDICATE_CONNECTED:
-            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~ALERT_LED_MASK);
+            LEDS_OFF(LEDS_MASK & ~BSP_LED_0_MASK & ~m_alert_mask);
             LEDS_ON(BSP_LED_0_MASK);
             m_stable_state = indicate;
             break;
@@ -367,6 +382,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
         case BSP_INDICATE_FATAL_ERROR:
             // on fatal error turn on all leds
             LEDS_ON(LEDS_MASK);
+            m_stable_state = indicate;
             break;
 
         case BSP_INDICATE_ALERT_0:
@@ -380,16 +396,18 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             // a little trick to find out that if it did not fall through ALERT_OFF
             if (next_delay && (err_code == NRF_SUCCESS))
             {
+                m_alert_mask = ALERT_LED_MASK;
                 if (next_delay > 1)
                 {
                     err_code = app_timer_start(m_alert_timer_id, BSP_MS_TO_TICK(
                                                    (next_delay * ALERT_INTERVAL)), NULL);
                 }
-                LEDS_ON(ALERT_LED_MASK);
+                LEDS_ON(m_alert_mask);
             }
             else
             {
-                LEDS_OFF(ALERT_LED_MASK);
+                LEDS_OFF(m_alert_mask);
+                m_alert_mask = 0;
             }
             break;
 
@@ -484,9 +502,8 @@ uint32_t bsp_indication_text_set(bsp_indication_t indicate, char const * p_text)
     uint32_t err_code = bsp_indication_set(indicate);
 
 #ifdef BSP_UART_SUPPORT
-    printf("%s", p_text);
+    NRF_LOG_INFO("%s",(uint32_t)p_text);
 #endif // BSP_UART_SUPPORT
-
     return err_code;
 }
 
@@ -508,18 +525,30 @@ uint32_t bsp_init(uint32_t type, uint32_t ticks_per_100ms, bsp_event_callback_t 
     // BSP will support buttons and generate events
     if (type & BSP_INIT_BUTTONS)
     {
-        uint32_t cnt;
+        uint32_t num;
 
-        for (cnt = 0; ((cnt < BUTTONS_NUMBER) && (err_code == NRF_SUCCESS)); cnt++)
+        for (num = 0; ((num < BUTTONS_NUMBER) && (err_code == NRF_SUCCESS)); num++)
         {
-            err_code = bsp_event_to_button_assign(cnt, (bsp_event_t)(BSP_EVENT_KEY_0 + cnt) );
+            err_code = bsp_event_to_button_action_assign(num, BSP_BUTTON_ACTION_PUSH, BSP_EVENT_DEFAULT);
         }
-        APP_BUTTON_INIT((app_button_cfg_t *)app_buttons, BUTTONS_NUMBER, ticks_per_100ms / 2,
-                        false);
+
+        if (err_code == NRF_SUCCESS)
+        {
+            err_code = app_button_init((app_button_cfg_t *)app_buttons,
+                                       BUTTONS_NUMBER,
+                                       ticks_per_100ms / 2);
+        }
 
         if (err_code == NRF_SUCCESS)
         {
             err_code = app_button_enable();
+        }
+
+        if (err_code == NRF_SUCCESS)
+        {
+            err_code = app_timer_create(&m_button_timer_id,
+                                        APP_TIMER_MODE_SINGLE_SHOT,
+                                        button_timer_handler);
         }
     }
 #elif (BUTTONS_NUMBER > 0) && (defined BSP_SIMPLE)
@@ -540,7 +569,6 @@ uint32_t bsp_init(uint32_t type, uint32_t ticks_per_100ms, bsp_event_callback_t 
 
     if (type & BSP_INIT_LED)
     {
-        NRF_GPIO->DIRCLR = BUTTONS_MASK;
         LEDS_OFF(LEDS_MASK);
         NRF_GPIO->DIRSET = LEDS_MASK;
     }
@@ -566,15 +594,33 @@ uint32_t bsp_init(uint32_t type, uint32_t ticks_per_100ms, bsp_event_callback_t 
 #ifndef BSP_SIMPLE
 /**@brief Assign specific event to button.
  */
-uint32_t bsp_event_to_button_assign(uint32_t button, bsp_event_t event)
+uint32_t bsp_event_to_button_action_assign(uint32_t button, bsp_button_action_t action, bsp_event_t event)
 {
     uint32_t err_code = NRF_SUCCESS;
 
 #if BUTTONS_NUMBER > 0
-
     if (button < BUTTONS_NUMBER)
     {
-        m_events_list[button] = event;
+        if (event == BSP_EVENT_DEFAULT)
+        {
+            // Setting default action: BSP_EVENT_KEY_x for PUSH actions, BSP_EVENT_NOTHING for RELEASE and LONG_PUSH actions.
+            event = (action == BSP_BUTTON_ACTION_PUSH) ? (bsp_event_t)(BSP_EVENT_KEY_0 + button) : BSP_EVENT_NOTHING;
+        }
+        switch (action)
+        {
+            case BSP_BUTTON_ACTION_PUSH:
+                m_events_list[button].push_event = event;
+                break;
+            case BSP_BUTTON_ACTION_LONG_PUSH:
+                m_events_list[button].long_push_event = event;
+                break;
+            case BSP_BUTTON_ACTION_RELEASE:
+                m_events_list[button].release_event = event;
+                break;
+            default:
+                err_code = NRF_ERROR_INVALID_PARAM;
+                break;
+        }
     }
     else
     {
@@ -586,37 +632,51 @@ uint32_t bsp_event_to_button_assign(uint32_t button, bsp_event_t event)
 
     return err_code;
 }
+
 #endif // BSP_SIMPLE
 
 
-/**@brief Enable specified buttons (others are disabled).
- */
-uint32_t bsp_buttons_enable(uint32_t buttons)
+uint32_t bsp_buttons_enable()
 {
-    UNUSED_PARAMETER(buttons);
-
-#if BUTTONS_NUMBER > 0
-    uint32_t button_no;
-    uint32_t pin_no;
-
-    for (button_no = 0; button_no < BUTTONS_NUMBER; button_no++)
-    {
-        pin_no = m_buttons_list[button_no];
-
-        if (buttons & (1 << button_no))
-        {
-            NRF_GPIO->PIN_CNF[pin_no] &= ~GPIO_PIN_CNF_SENSE_Msk;
-            NRF_GPIO->PIN_CNF[pin_no] |= GPIO_PIN_CNF_SENSE_Low << GPIO_PIN_CNF_SENSE_Pos;
-        }
-        else
-        {
-            NRF_GPIO->PIN_CNF[pin_no] &= ~GPIO_PIN_CNF_SENSE_Msk;
-            NRF_GPIO->PIN_CNF[pin_no] |= GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos;
-        }
-    }
-#endif // BUTTONS_NUMBER > 0
-
-    return NRF_SUCCESS;
+#if (BUTTONS_NUMBER > 0) && !defined(BSP_SIMPLE)
+    return app_button_enable();
+#else
+    return NRF_ERROR_NOT_SUPPORTED;
+#endif
 }
 
+uint32_t bsp_buttons_disable()
+{
+#if (BUTTONS_NUMBER > 0) && !defined(BSP_SIMPLE)
+    return app_button_disable();
+#else
+    return NRF_ERROR_NOT_SUPPORTED;
+#endif
+}
 
+uint32_t bsp_wakeup_buttons_set(uint32_t wakeup_buttons)
+{
+#if (BUTTONS_NUMBER > 0) && !defined(BSP_SIMPLE)
+    for (uint32_t i = 0; i < BUTTONS_NUMBER; i++)
+    {
+        uint32_t new_cnf = NRF_GPIO->PIN_CNF[m_buttons_list[i]];
+        uint32_t new_sense = ((1 << i) & wakeup_buttons) ? GPIO_PIN_CNF_SENSE_Low : GPIO_PIN_CNF_SENSE_Disabled;
+        new_cnf &= ~GPIO_PIN_CNF_SENSE_Msk;
+        new_cnf |= (new_sense << GPIO_PIN_CNF_SENSE_Pos);
+        NRF_GPIO->PIN_CNF[m_buttons_list[i]] = new_cnf;
+    }
+    return NRF_SUCCESS;
+#else
+    return NRF_ERROR_NOT_SUPPORTED;
+#endif
+}
+
+uint32_t bsp_wakeup_nfc_set(void)
+{
+#if defined(BOARD_PCA10040)
+    NRF_NFCT->TASKS_SENSE = 1;
+    return NRF_SUCCESS;
+#else
+    return NRF_ERROR_NOT_SUPPORTED;
+#endif
+}

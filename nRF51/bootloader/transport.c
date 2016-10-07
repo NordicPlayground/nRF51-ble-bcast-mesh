@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rand.h"
 #include "bootloader_rtc.h"
 #include "serial_handler.h"
+#include "boards.h"
 
 /******************************************************************************
 * Static defines
@@ -334,7 +335,7 @@ void transport_rtc_irq_handler(void)
             radio_evt.access_address = 0;
 
 #ifdef DEBUG_LEDS
-            NRF_GPIO->OUT ^= (1 << 21);
+            NRF_GPIO->OUT ^= LED_1;
 #endif
             uint8_t radio_refs = 0;
             if (m_tx[i].redundancy < REDUNDANCY_MAX)

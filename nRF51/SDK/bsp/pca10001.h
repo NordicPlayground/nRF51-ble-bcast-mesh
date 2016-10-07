@@ -1,34 +1,20 @@
-/***********************************************************************************
-Copyright (c) Nordic Semiconductor ASA
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-  1. Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-  2. Redistributions in binary form must reproduce the above copyright notice, this
-  list of conditions and the following disclaimer in the documentation and/or
-  other materials provided with the distribution.
-
-  3. Neither the name of Nordic Semiconductor ASA nor the names of other
-  contributors to this software may be used to endorse or promote products
-  derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-************************************************************************************/
+/* Copyright (c) 2012 Nordic Semiconductor. All Rights Reserved.
+ *
+ * The information contained herein is property of Nordic Semiconductor ASA.
+ * Terms and conditions of usage are described in detail in NORDIC
+ * SEMICONDUCTOR STANDARD SOFTWARE LICENSE AGREEMENT.
+ *
+ * Licensees are granted free, non-transferable use of the information. NO
+ * WARRANTY of ANY KIND is provided. This heading must NOT be removed from
+ * the file.
+ *
+ */
 #ifndef PCA10001_H
 #define PCA10001_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define LED_START      18
 #define LED_0          18
@@ -68,10 +54,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RTS_PIN_NUMBER 8
 #define HWFC           true
 
-#define SPIS_MISO_PIN  20    // SPI MISO signal. 
-#define SPIS_CSN_PIN   21    // SPI CSN signal. 
-#define SPIS_MOSI_PIN  22    // SPI MOSI signal. 
-#define SPIS_SCK_PIN   23    // SPI SCK signal. 
+#define SPIS_MISO_PIN  20    // SPI MISO signal.
+#define SPIS_CSN_PIN   21    // SPI CSN signal.
+#define SPIS_MOSI_PIN  22    // SPI MOSI signal.
+#define SPIS_SCK_PIN   23    // SPI SCK signal.
 
 #define SPIM0_SCK_PIN       23u     /**< SPI clock GPIO pin number. */
 #define SPIM0_MOSI_PIN      20u     /**< SPI Master Out Slave In GPIO pin number. */
@@ -143,5 +129,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #define SER_CONN_ASSERT_LED_PIN     LED_0
+
+// Low frequency clock source to be used by the SoftDevice
+#define NRF_CLOCK_LFCLKSRC      {.source        = NRF_CLOCK_LF_SRC_XTAL,            \
+                                 .rc_ctiv       = 0,                                \
+                                 .rc_temp_ctiv  = 0,                                \
+                                 .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_20_PPM}
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

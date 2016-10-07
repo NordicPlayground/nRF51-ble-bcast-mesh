@@ -34,8 +34,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <malloc.h>
 #include <stdlib.h>
 
-#define PAGE_SIZE       (1024)
-#define BL_INFO_PAGE    (0x3FC00)
+#define NRF51_PAGE_SIZE       (1024)
+#define NRF51_BL_INFO_PAGE    (0x40000 - NRF51_PAGE_SIZE)
+#define NRF52_PAGE_SIZE       (4096)
+#define NRF52_BL_INFO_PAGE    (0x80000 - NRF52_PAGE_SIZE)
 
 typedef enum
 {
@@ -130,7 +132,7 @@ static void missing_segment(char* segment_name)
 
 static void print_usage(char* exec_name)
 {
-    printf("Usage: %s <info file>\n", exec_name);
+    printf("Usage: %s <info file> [--nrf52]\n", exec_name);
 }
 
 static uint32_t put_info_entry(uint16_t type, uint32_t length, uint8_t* p_data, uint8_t* p_dest)
@@ -151,7 +153,7 @@ static uint32_t put_info_entry(uint16_t type, uint32_t length, uint8_t* p_data, 
     return 0;
 }
 
-static void generate_hex_file(char* file_name, uint8_t* data, uint32_t length)
+static void generate_hex_file(char* file_name, uint8_t* data, uint32_t length, uint32_t start_addr)
 {
     char bin_file_name[256];
     sprintf(bin_file_name, "%s.bin", file_name);
@@ -167,7 +169,7 @@ static void generate_hex_file(char* file_name, uint8_t* data, uint32_t length)
     fclose(p_bin_out);
 
     char tohex_str[256];
-    sprintf(tohex_str, "objcopy --change-address %#X -I binary -O ihex %s %s", BL_INFO_PAGE, bin_file_name, hex_file_name);
+    sprintf(tohex_str, "objcopy --change-address %#X -I binary -O ihex %s %s", start_addr, bin_file_name, hex_file_name);
     system(tohex_str);
 }
 
@@ -343,13 +345,25 @@ static uint32_t create_info(char* p_file_name, uint8_t* p_data_buf)
 
 int main(int argc, char** argv)
 {
-    if (argc != 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)
+    if (argc < 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)
     {
         print_usage(argv[0]);
         exit(1);
     }
+    uint32_t page_size  = NRF51_PAGE_SIZE;
+    uint32_t start_addr = NRF51_BL_INFO_PAGE;
+    for (uint32_t i = 0; i < argc; i++)
+    {
+        if (strcmp(argv[i], "--nrf52") == 0 || strcmp(argv[i], "--NRF52") == 0)
+        {
+            page_size  = NRF52_PAGE_SIZE;
+            start_addr = NRF52_BL_INFO_PAGE;
+            break;
+        }
+    }
 
-    uint8_t data_buf[PAGE_SIZE];
-    generate_hex_file(argv[1], data_buf, create_info(argv[1], data_buf));
+    uint8_t* p_data_buf = malloc(page_size);
+    generate_hex_file(argv[1], p_data_buf, create_info(argv[1], p_data_buf), start_addr);
+    free(p_data_buf);
 }
 

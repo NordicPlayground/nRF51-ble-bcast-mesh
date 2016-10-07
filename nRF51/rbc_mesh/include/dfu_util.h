@@ -36,7 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nrf.h"
 
 #define IS_PAGE_ALIGNED(p) (((uint32_t)(p) & (PAGE_SIZE - 1)) == 0)
-#define IS_WORD_ALIGNED(p) (((uint32_t)(p) & (0x03)) == 0)
+#define IS_WORD_ALIGNED(p) (((uint32_t)(p) & (WORD_SIZE - 1)) == 0)
 
 
 void fwid_union_cpy(fwid_union_t* p_dst, fwid_union_t* p_src, dfu_type_t dfu_type);
@@ -69,5 +69,7 @@ void packet_cache_put(dfu_packet_t* p_packet);
 
 void packet_cache_flush(void);
 
+bool section_overlap(uint32_t section_a_start, uint32_t section_a_length, 
+                     uint32_t section_b_start, uint32_t section_b_length);
 #endif /* DFU_UTIL_H__ */
 
