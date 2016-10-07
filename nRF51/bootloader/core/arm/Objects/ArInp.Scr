@@ -1,7 +1,0 @@
---create .\Objects\bl_core.lib
-.\objects\bootloader_app_bridge.o
-.\objects\bootloader_info.o
-.\objects\bootloader_mesh.o
-.\objects\dfu_mesh.o
-.\objects\uecc.o
-.\objects\sha256.o
