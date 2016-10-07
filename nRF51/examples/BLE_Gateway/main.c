@@ -67,6 +67,13 @@ static nrf_clock_lf_cfg_t m_clock_cfg =
 #define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)    /**< Clock source used by the Softdevice. For calibrating timeslot time. */
 #endif
 
+#ifdef NRF51
+#define EXAMPLE_DFU_BANK_ADDR   (0x26000)
+#endif
+#ifdef NRF52
+#define EXAMPLE_DFU_BANK_ADDR   (0x40000)
+#endif
+
 
 
 /**
@@ -161,7 +168,7 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
         case RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE:
             dfu_request(p_evt->params.dfu.new_fw.dfu_type,
                 &p_evt->params.dfu.new_fw.new_fwid,
-                (uint32_t*) 0x26000);
+                (uint32_t*) EXAMPLE_DFU_BANK_ADDR);
             break;
 
         case RBC_MESH_EVENT_TYPE_DFU_RELAY_REQ:
@@ -194,7 +201,7 @@ void gpio_init(void)
     }
 
 #if defined(BOARD_PCA10001) || defined(BOARD_PCA10028) || defined(BOARD_PCA10040)
-    nrf_gpio_range_cfg_output(0, 32);
+    nrf_gpio_range_cfg_output(9, 32);
 #endif
 
 #if defined(BOARD_PCA10028) || defined(BOARD_PCA10040)
