@@ -82,8 +82,8 @@ static nrf_radio_request_t m_radio_request_earliest =
                     .request_type = NRF_RADIO_REQ_TYPE_EARLIEST,
                     .params.earliest =
                     {
-#if (NORDIC_SDK_VERSION >= 11) 
-                        .hfclk = NRF_RADIO_HFCLK_CFG_NO_GUARANTEE,
+#if (NORDIC_SDK_VERSION >= 11)
+                        .hfclk = NRF_RADIO_HFCLK_CFG_XTAL_GUARANTEED,
 #else
                         .hfclk = NRF_RADIO_HFCLK_CFG_DEFAULT,
 #endif
@@ -176,6 +176,18 @@ static void timeslot_end(void)
     m_end_timer_triggered = false;
     CLEAR_PIN(PIN_IN_TS);
     CLEAR_PIN(PIN_IN_CB);
+    
+#ifdef NRF52
+    NRF_TIMER0->TASKS_STOP = 0;
+    NRF_TIMER0->TASKS_SHUTDOWN = 1;
+    for (uint32_t i = 0; i < 6; i++)
+    {
+        NRF_TIMER0->EVENTS_COMPARE[i] = 0;
+        NRF_TIMER0->CC[i] = 0;
+    }
+    NRF_TIMER0->INTENCLR = 0xFFFFFFFF;
+    NVIC_ClearPendingIRQ(TIMER0_IRQn);
+#endif
 }
 
 /*****************************************************************************
@@ -364,7 +376,7 @@ static nrf_radio_signal_callback_return_param_t* radio_signal_callback(uint8_t s
 * Interface Functions
 *****************************************************************************/
 
-#if (NORDIC_SDK_VERSION >= 11) 
+#if (NORDIC_SDK_VERSION >= 11)
 uint32_t timeslot_init(nrf_clock_lf_cfg_t lfclksrc)
 #else
 uint32_t timeslot_init(nrf_clock_lfclksrc_t lfclksrc)
@@ -375,7 +387,7 @@ uint32_t timeslot_init(nrf_clock_lfclksrc_t lfclksrc)
         return NRF_ERROR_INVALID_STATE;
     }
 
-#if (NORDIC_SDK_VERSION >= 11) 
+#if (NORDIC_SDK_VERSION >= 11)
     switch (lfclksrc.xtal_accuracy)
     {
         case NRF_CLOCK_LF_XTAL_ACCURACY_20_PPM:
