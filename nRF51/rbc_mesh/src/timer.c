@@ -111,7 +111,6 @@ void timer_event_handler(void)
                 evt.callback.timer.timestamp = time_now;
                 event_handler_push(&evt);
             }
-            NRF_TIMER0->CC[i] = 0xFFFFFFFF;
             NRF_TIMER0->EVENTS_COMPARE[i] = 0;
             (void) NRF_TIMER0->EVENTS_COMPARE[i];
             if (i == 0)
@@ -275,6 +274,7 @@ void timer_on_ts_begin(timestamp_t timeslot_start_time)
 
     for (uint32_t i = 0; i < TIMER_COMPARE_COUNT; ++i)
     {
+        NRF_TIMER0->CC[i] = 0;
         NRF_TIMER0->EVENTS_COMPARE[i] = 0;
         (void) NRF_TIMER0->EVENTS_COMPARE[i];
         /* Timer already timed out, execute immediately. */
