@@ -892,9 +892,9 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             default:
                 break;
         }
+        packet_cache_put(p_packet);
     }
 
-    packet_cache_put(p_packet);
 
     if (do_relay)
     {
