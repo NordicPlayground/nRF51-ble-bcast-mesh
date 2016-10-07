@@ -20,7 +20,6 @@ infos["00210016"] = ("BANK_SD_SIGNED", 21)
 infos["00220016"] = ("BANK_BL_SIGNED", 21)
 infos["00240016"] = ("BANK_APP_SIGNED", 21)
 
-
 def nrfjprog(args):
     process = subprocess.Popen("nrfjprog "+args, stdout=subprocess.PIPE, universal_newlines=True)
     out, err = process.communicate()
@@ -30,7 +29,13 @@ def nrfjprog(args):
         exit(2)
     return str(out)
 
-readout = nrfjprog("--memrd 0x3fc00 --n 1024")
+is_nrf52 = ("--52" in sys.argv or "--nrf52" in sys.argv)
+if is_nrf52:
+    family = " -f NRF52"
+else:
+    family = ""
+
+readout = nrfjprog("--memrd 0x7f000 --n 1024" + family)
 words = ""
 for line in readout.splitlines(True):
     words += line[12:48]
