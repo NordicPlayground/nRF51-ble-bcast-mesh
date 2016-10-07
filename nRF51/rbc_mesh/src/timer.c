@@ -33,26 +33,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "event_handler.h"
 #include "toolchain.h"
-#include "rbc_mesh_common.h"
+#include "app_error.h"
 
-#include "nrf_soc.h"
-#ifdef NRF51
-#include "nrf51_bitfields.h"
-#else
 #include "nrf.h"
-#endif
 
 #define TIMER_COMPARE_COUNT     (3)
 
 /** Time from timeslot API starts the TIMER0 until we are sure we have had time to set all timeouts. */
 #define TIMER_TS_BEGIN_MARGIN_US    (120)
-
-#define TIMER_BACKOFF_TIME_US       (6)
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-/** Bitfield for which callbacks are currently valid. */
-static uint8_t          m_active_callbacks;
 /** Bitfield for the attributes given to the timer */
 static timer_attr_t     m_attributes[TIMER_COMPARE_COUNT];
 /** Array of function pointers for callbacks for each timer. */
@@ -74,9 +65,11 @@ static uint32_t         m_timer_mut;
 *****************************************************************************/
 static void timer_set(uint8_t timer, timestamp_t timeout)
 {
-    NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
+    APP_ERROR_CHECK_BOOL(timer < 2);
     NRF_TIMER0->INTENSET  = (1 << (TIMER_INTENSET_COMPARE0_Pos + timer));
     NRF_TIMER0->CC[timer] = timeout;
+    NRF_TIMER0->EVENTS_COMPARE[timer] = 0;
+    (void)NRF_TIMER0->EVENTS_COMPARE[timer];
 }
 
 /** Implement mutex lock, the SD-mut is hidden behind SVC, and cannot be used in IRQ level <= 1.
@@ -95,41 +88,35 @@ static inline void timer_mut_unlock(void)
 /*****************************************************************************
 * Interface functions
 *****************************************************************************/
-
 void timer_event_handler(void)
 {
     for (uint32_t i = 0; i < TIMER_COMPARE_COUNT; ++i)
     {
         if (NRF_TIMER0->EVENTS_COMPARE[i])
         {
-            NRF_TIMER0->EVENTS_COMPARE[i] = 0;
-#ifdef RACE_CONDITION_SOLVED
-            APP_ERROR_CHECK_BOOL(m_active_callbacks & (1 << i));
-#else
-            if (!(m_active_callbacks & (1 << i))) continue;
-#endif
-            m_active_callbacks &= ~(1 << i);
+            timer_callback_t cb = m_callbacks[i];
+            APP_ERROR_CHECK_BOOL(cb != NULL);
+            m_callbacks[i] = NULL;
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + i));
             timestamp_t time_now = timer_now();
             if (m_attributes[i] & TIMER_ATTR_SYNCHRONOUS)
             {
-                CHECK_FP(m_callbacks[i]);
-                m_callbacks[i](time_now);
+                cb(time_now);
             }
             else
             {
                 async_event_t evt;
                 evt.type = EVENT_TYPE_TIMER;
-                CHECK_FP(m_callbacks[i]);
-                evt.callback.timer.cb = m_callbacks[i];
+                evt.callback.timer.cb = cb;
                 evt.callback.timer.timestamp = time_now;
-                if (event_handler_push(&evt) != NRF_SUCCESS)
-                {
-                    /* failed pushing the event. Wait some time and try again */
-                    m_timeouts[i] += TIMER_BACKOFF_TIME_US;
-                    timer_set(i, NRF_TIMER0->CC[i] + TIMER_BACKOFF_TIME_US);
-                    m_active_callbacks |= (1 << i);
-                }
+                event_handler_push(&evt);
+            }
+            NRF_TIMER0->CC[i] = 0xFFFFFFFF;
+            NRF_TIMER0->EVENTS_COMPARE[i] = 0;
+            (void) NRF_TIMER0->EVENTS_COMPARE[i];
+            if (i == 0)
+            {
+                break;
             }
         }
     }
@@ -156,7 +143,6 @@ uint32_t timer_order_cb(uint8_t timer,
     m_timeouts[timer] = time;
     m_attributes[timer] = attributes;
     mp_ppi_tasks[timer] = NULL;
-    m_active_callbacks |= (1 << timer);
 
     if (m_is_in_ts)
     {
@@ -189,7 +175,6 @@ uint32_t timer_order_cb_ppi(uint8_t timer,
     m_callbacks[timer] = callback;
     m_timeouts[timer] = time;
     mp_ppi_tasks[timer] = p_task;
-    m_active_callbacks |= (1 << timer);
     m_attributes[timer] = attributes;
 
     if (m_is_in_ts)
@@ -198,7 +183,7 @@ uint32_t timer_order_cb_ppi(uint8_t timer,
         /* Setup PPI */
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) p_task;
-        NRF_PPI->CHENSET 			      = (1 << (TIMER_PPI_CH_START + timer));
+        NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
     }
 
     timer_mut_unlock();
@@ -229,7 +214,7 @@ uint32_t timer_order_ppi(uint8_t timer, timestamp_t time, uint32_t* p_task, time
         /* Setup PPI */
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].EEP   = (uint32_t) &(NRF_TIMER0->EVENTS_COMPARE[timer]);
         NRF_PPI->CH[TIMER_PPI_CH_START + timer].TEP   = (uint32_t) p_task;
-        NRF_PPI->CHENSET 			      = (1 << (TIMER_PPI_CH_START + timer));
+        NRF_PPI->CHENSET 			                  = (1 << (TIMER_PPI_CH_START + timer));
     }
 
     timer_mut_unlock();
@@ -244,7 +229,7 @@ uint32_t timer_abort(uint8_t timer)
         return NRF_ERROR_INVALID_PARAM;
     }
 
-    if (mp_ppi_tasks[timer] == NULL || !(m_active_callbacks & (1 << timer)))
+    if (mp_ppi_tasks[timer] == NULL && m_callbacks[timer] == NULL)
     {
         return NRF_ERROR_NOT_FOUND;
     }
@@ -252,8 +237,8 @@ uint32_t timer_abort(uint8_t timer)
     timer_mut_lock();
     if (timer < TIMER_COMPARE_COUNT)
     {
-        m_active_callbacks &= ~(1 << timer);
-        m_attributes[timer] = (timer_attr_t) 0;
+        m_callbacks[timer] = NULL;
+        m_attributes[timer] = TIMER_ATTR_NONE;
         if (m_is_in_ts)
         {
             NRF_TIMER0->INTENCLR = (1 << (TIMER_INTENCLR_COMPARE0_Pos + timer));
@@ -290,24 +275,27 @@ void timer_on_ts_begin(timestamp_t timeslot_start_time)
 
     for (uint32_t i = 0; i < TIMER_COMPARE_COUNT; ++i)
     {
+        NRF_TIMER0->EVENTS_COMPARE[i] = 0;
+        (void) NRF_TIMER0->EVENTS_COMPARE[i];
         /* Timer already timed out, execute immediately. */
         if (
             TIMER_DIFF(m_timeouts[i], m_reference_time) <
             TIMER_DIFF(timeslot_start_time + TIMER_TS_BEGIN_MARGIN_US, m_reference_time)
            )
         {
-            if (m_active_callbacks & (1 << i))
+            if (m_callbacks[i] != NULL)
             {
-                m_active_callbacks &= ~(1 << i);
+                timer_callback_t cb = m_callbacks[i];
+                m_callbacks[i] = NULL;
                 if (m_attributes[i] & TIMER_ATTR_SYNCHRONOUS)
                 {
-                    m_callbacks[i](timeslot_start_time);
+                    cb(timeslot_start_time);
                 }
                 else
                 {
                     async_event_t evt;
                     evt.type = EVENT_TYPE_TIMER;
-                    evt.callback.timer.cb = m_callbacks[i];
+                    evt.callback.timer.cb = cb;
                     evt.callback.timer.timestamp = timeslot_start_time;
                     event_handler_push(&evt);
                 }
@@ -322,14 +310,20 @@ void timer_on_ts_begin(timestamp_t timeslot_start_time)
         else
         {
             /* reschedule timers to fit new reference */
-            if (m_active_callbacks & (1 << i))
+            if (m_callbacks[i] != NULL)
             {
                 timer_set(i, TIMER_DIFF(m_timeouts[i], timeslot_start_time));
             }
         }
     }
 
-    NVIC_EnableIRQ(TIMER0_IRQn);
+    /* only enable interrupts if we're not locked. */
+    if (!m_timer_mut)
+    {
+#if defined(NRF51) || defined(NRF52)
+        NVIC_EnableIRQ(TIMER0_IRQn);
+#endif
+    }
 
     m_reference_time = timeslot_start_time;
     m_is_in_ts = true;
@@ -343,8 +337,7 @@ void timer_on_ts_end(timestamp_t timeslot_end_time)
     {
         if (m_attributes[i] & TIMER_ATTR_TIMESLOT_LOCAL)
         {
-            m_active_callbacks &= ~(1 << i);
-            m_attributes[i] = (timer_attr_t) 0;
+            m_attributes[i] = TIMER_ATTR_NONE;
             m_callbacks[i] = NULL;
             mp_ppi_tasks[i] = NULL;
         }
