@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #ifndef RBC_MESH_DEBUG
-#define RBC_MESH_DEBUG  (1)
+#define RBC_MESH_DEBUG  (0)
 #endif
 /******************************************************************************
 * Debug related defines
