@@ -15,7 +15,7 @@
 *.lst
 *.lnp
 *.bak
-*.hex
+
 *.ini
 *.iex
 *.sct
