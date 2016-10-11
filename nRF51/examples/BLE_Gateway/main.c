@@ -32,6 +32,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef MESH_DFU
 #include "dfu_app.h"
 #endif
+#ifdef BLINKY
+#include "blinky.h"
+#endif
 
 #include "nrf_adv_conn.h"
 #include "led_config.h"
@@ -234,7 +237,9 @@ int main(void)
 #ifdef RBC_MESH_SERIAL
     mesh_aci_init();
 #endif
-
+    
+    
+    
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr = MESH_ACCESS_ADDR;
@@ -259,6 +264,17 @@ int main(void)
     APP_ERROR_CHECK(mesh_aci_start());
 #endif
 
+    
+#ifdef BLINKY
+    
+    led_init ();
+    rtc_1_init ();
+    start_blink_interval_s(1);
+    
+#endif
+    
+    
+    
     rbc_mesh_event_t evt;
     while (true)
     {
@@ -280,6 +296,9 @@ int main(void)
             }
         }
 #endif
+
+     
+        
 
         if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
         {
