@@ -16,7 +16,7 @@ interfaced over the serial port, and one gets the DFU from the other over the me
 NOTE: For each call to the `nrfjprog` command, you are expected to add the `-s <serial-number>` option, to
 match the Segger ID of your device.
 
-IMPORTANT: All precompiled hex-files are made for the 256k Flash/32k RAM version of the nRF51. Recompile to make them work on other hardware configurations.
+IMPORTANT: All precompiled hex-files are made for the 256k Flash/32k RAM version of the nRF51. Recompile to make them work on other hardware configurations. It is also important that you use the same board type (nRF51-DK only or nRF51-Dongle only, do not mix the board types) when testing the DFU. 
 
 == LED color meanings
 - RED: Initial app, no serial
@@ -104,7 +104,8 @@ In the same folder as the example device page file, there's a main.c file that y
 to create the device page generator. See its respective README for instructions. Once you have
 a working generator, generate an example device page file:
 
-`device_page example`
+`device_page example` (for nRF51)
+`device_page example52 --nrf52` (for nRF52)
 
 This creates a device page .bin file (example.bin) and a device page .hex file (example.hex).
 We'll use the .hex file in step 8.
@@ -118,10 +119,16 @@ your device (including UICR):
 == 6. Flash the Softdevice on all devices.
 NOTE: It's important that steps 6-9 are executed in order.
 
+nRF51
 Get a copy of the S110 v8.0 Softdevice at www.nordicsemi.com, and flash it onto your device with
 nrfjprog:
 
-`nrfjprog --program <S110 hex-file>`
+nRF52
+Get a copy of the S132 v3.0 Softdevice at www.nordicsemi.com, and flash it onto your device with
+nrfjprog:
+
+
+`nrfjprog --program <Softdevice hex-file>`
 
 == 7. Flash the serial bootloader on all devices.
 Flash the precompiled bootloader_serial.hex (in nRF51/bootloader/test/) to your device with nrfjprog:
@@ -133,7 +140,7 @@ Flash the device page .hex that you generated in step 4 to the device:
 
 `nrfjprog --program <device page hex-file>`
 
-== 9. Flash the first application on all devices (serial version on the serial-gateway device).
+== 9. Flash the first application on all devices (serial version on all the devices for convenience).
 Finally, flash the example application app_LED1.hex to all devices, except the device you want to
 connect to via serial. For this device, use app_serial_LED1.hex instead. When finished, your devices
 should have its LED1 lit if it's an nRF51 development kit, or the red LED lit if it's an nRF51 dongle.
@@ -145,34 +152,13 @@ Then reset your device:
 
 `nrfjprog --reset`
 
-== 10. Verify your bootloader with the bootloader_verify.py script (optional)
-Run the bootloader verification script located in nRF51/bootloader/pc-util:
 
-NOTE: bootloader_verify.py requires the link:https://pypi.python.org/pypi/pyserial[pyserial package],
-and that nrfjprog is present in your PATH.
-
-`python bootloader_verify.py <serial number> <COM-port>`
-
-The output should look like this:
-
-----
-Reading UICR..                  OK.
-Reading Device page..           OK.
-Resetting device..              OK.
-Checking serial connection..    OK.
-
-Bootloader verification OK
-----
-
-The bootloader verification script does not alter your setup in any way, and you may safely continue
-without it. It serves as a checkpoint and help utility in the process.
-
-== 11. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
+== 10. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
 To do a DFU, you need to create a DFU-file. The DFU file is really
 a .zip, which contains the application binary, along with some metadata. Matching the FWIDs in
 your device page file, call the nrfutil tool from /nRF51/bootloader/:
 
-`nrfutil dfu genpkg --application test/app_LED2.hex --company-id 0x00000059 --application-id 1 --application-version 2 --key-file private.txt --sd-req 0x0064 --mesh dfu_test.zip`
+`nrfutil dfu genpkg --application test/app.hex --company-id 0x00000059 --application-id 1 --application-version 2 --key-file private.txt --sd-req 0x0064 --mesh dfu_test.zip`
 
 You can see that we still used the Nordic Semiconductor company ID, make sure you use your own. Also
 note that the application version is set to 2. A device will only accept application trasfers of
@@ -182,7 +168,7 @@ This will generate a DFU file called dfu_test.zip in the current directory. You 
 Note that only some of them apply to mesh-DFU, as the tool still supports the regular
 Nordic Semiconductor DFU transfer.
 
-== 12. Transfer the DFU-file over serial with the pc-nrfutil tool.
+== 11. Transfer the DFU-file over serial with the pc-nrfutil tool.
 
 WARNING: For this step, it is important that you close any running instance of nRFgo Studio,
 as it has been known to trip up the reset procedure for the nRF51.
@@ -201,3 +187,42 @@ should be lit. You now have the app_LED2.hex on all your devices. You will not b
 twice, as the application version in the device page on your device will have incremented to 2,
 and the bootloader will reject any attempt to retransfer the firmware. It would be redundant after
 all.
+
+== Utilities (Windows only) to script the quick start steps using powershell/cmd.exe 
+
+nRF51
+for_loop_batch_nRF51.bat
+
+nRF52
+for_loop_batch_nRF52.bat
+
+The for_loop_batch script is a convenience utility that will flash all your attached nRF51 or nRF52 boards with the softdevice, bootloader, device page and application hex files.
+This calls the flash_open_mesh_nRF51.bat or flash_open_mesh_nRF52.bat files to do the flashing using nrfjprog
+The script should be run from the nRF51/bootloader folder
+
+Parameters for the for_loop_batch script
+<folder nRF51/bootlaoder>
+<folder containing the softdevice hex file>
+
+
+== Troubleshooting. Verify your bootloader with the bootloader_verify.py script (optional)
+Run the bootloader verification script located in nRF51/bootloader/pc-util:
+
+NOTE: bootloader_verify.py requires the link:https://pypi.python.org/pypi/pyserial[pyserial package],
+and that nrfjprog is present in your PATH.
+
+`python bootloader_verify_nRF51.py <serial number> <COM-port>` (for nRF51)
+`python bootloader_verify_nRF52.py <serial number> <COM-port>` (for nRF52)
+
+The output should look like this:
+
+----
+Reading UICR..                  OK.
+Reading Device page..           OK.
+Resetting device..              OK.
+Checking serial connection..    OK.
+
+Bootloader verification OK
+----
+
+Run `nrfjprog --reset` to reset the board back to a well known state of operation after running the boot loader verification script.
