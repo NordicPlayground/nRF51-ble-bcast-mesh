@@ -301,9 +301,7 @@ int main(void)
         }
 #endif
 
-        nrf_gpio_cfg_output(LED_3);
-        
-        nrf_gpio_pin_clear(LED_3);
+       
         
           
 

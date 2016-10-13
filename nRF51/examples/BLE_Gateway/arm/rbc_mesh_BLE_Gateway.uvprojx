@@ -4602,7 +4602,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\_build\</OutputDirectory>
-          <OutputName>rbc_gateway_example_serial</OutputName>
+          <OutputName>rbc_gateway_example_serial_blinky_PCA10031_nRF51822_xxAC</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -5275,7 +5275,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\_build\</OutputDirectory>
-          <OutputName>rbc_gateway_example_serial</OutputName>
+          <OutputName>rbc_gateway_example_serial_blinky_PCA10028_nRF51822_xxAC</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
