@@ -149,9 +149,10 @@ static void setup_event(radio_event_t* p_evt)
     {
         DEBUG_RADIO_SET_STATE(PIN_RADIO_STATE_TX);
         NRF_RADIO->TXADDRESS = p_evt->access_address;
+        NRF_RADIO->TXPOWER  = p_evt->tx_power;
         NRF_RADIO->TASKS_TXEN = 1;
         m_radio_state = RADIO_STATE_TX;
-        NRF_RADIO->TXPOWER  = p_evt->tx_power;
+        
     }
     else
     {

@@ -43,6 +43,7 @@ void led_init ()
     nrf_gpio_cfg_output(LED_RGB_BLUE);
 #elif defined(BOARD_PCA10028)|| defined(BOARD_PCA10040)
     nrf_gpio_cfg_output(LED_4);
+    nrf_gpio_cfg_output(LED_3);
 #endif
     
 
@@ -89,7 +90,9 @@ if (NRF_RTC1->EVENTS_COMPARE[1] == 1)
 #if defined(BOARD_PCA10031)
     LEDS_INVERT(1 << LED_RGB_BLUE );
 #elif defined(BOARD_PCA10028)|| defined(BOARD_PCA10040)
-    LEDS_INVERT(1 << LED_4  );     
+    LEDS_INVERT(1 << LED_4  ); 
+    LEDS_INVERT(1 << LED_3  ); 
+     
 #endif 
  }
 
