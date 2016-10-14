@@ -29,7 +29,10 @@ nrfjprog -s %seggerid% --program ..\examples\BLE_Gateway\bin\rbc_gateway_example
 
 
 
+
 nrfutil.exe dfu genpkg --application ..\examples\BLE_Gateway\bin\rbc_gateway_example_serial_blinky_PCA10031_nRF51422_xxAC.hex --company-id 0x00000059 --application-id 1 --application-version 2 --sd-req 0x0064 --mesh dfu_test.zip
+
+
 
 
 
