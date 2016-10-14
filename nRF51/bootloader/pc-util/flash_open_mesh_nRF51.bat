@@ -29,7 +29,7 @@ nrfjprog -s %seggerid% --program .\pc-util\example.hex --family NRF51
 nrfjprog -s %seggerid% --program ..\examples\BLE_Gateway\bin\rbc_gateway_example_serial.hex --family NRF51
 
 
-..\..\..\pc-nrfutil\nrfutil.exe dfu genpkg --application test\nrf51422_xxac_PCA10031_S110_Blinky.hex --company-id 0x00000059 --application-id 1 --application-version 2 --sd-req 0x0064 --mesh dfu_test.zip
+nrfutil.exe dfu genpkg --application test\nrf51422_xxac_PCA10031_S110_Blinky.hex --company-id 0x00000059 --application-id 1 --application-version 2 --sd-req 0x0064 --mesh dfu_test.zip
 
 
 
