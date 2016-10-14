@@ -80,7 +80,7 @@ h|Flag response     | 0x12          2+| HANDLE                      | FLAG INDEX
 |===
 |Result                  | Value
 
-h|Success                | 0x00         
+h|Success                | 0x80         
 h|Error BUSY             | 0xF0        
 h|Error NOT FOUND        | 0xF1       
 h|Error INVALID HANDLE   | 0xF2      

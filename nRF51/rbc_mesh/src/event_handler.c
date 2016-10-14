@@ -38,15 +38,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "toolchain.h"
 #include "handle_storage.h"
 #include <string.h>
+#include "rbc_mesh.h"
+
 
 #define EVENT_HANDLER_IRQ       (QDEC_IRQn)
 
-#define ASYNC_EVENT_FIFO_QUEUE_SIZE (8)
+
 
 static fifo_t g_async_evt_fifo;
-static async_event_t g_async_evt_fifo_buffer[ASYNC_EVENT_FIFO_QUEUE_SIZE];
+
+static async_event_t g_async_evt_fifo_buffer[RBC_MESH_INTERNAL_EVENT_QUEUE_LENGTH];
 static fifo_t g_async_evt_fifo_ts;
-static async_event_t g_async_evt_fifo_buffer_ts[ASYNC_EVENT_FIFO_QUEUE_SIZE];
+
+static async_event_t g_async_evt_fifo_buffer_ts[RBC_MESH_INTERNAL_EVENT_QUEUE_LENGTH];
 static bool g_is_initialized;
 static uint32_t g_critical = 0;
 
@@ -133,13 +137,15 @@ void event_handler_init(void)
         return;
     }
     /* init event queues */
-    g_async_evt_fifo.array_len = ASYNC_EVENT_FIFO_QUEUE_SIZE;
+  
+     g_async_evt_fifo.array_len =RBC_MESH_INTERNAL_EVENT_QUEUE_LENGTH ;
     g_async_evt_fifo.elem_array = g_async_evt_fifo_buffer;
     g_async_evt_fifo.elem_size = sizeof(async_event_t);
     g_async_evt_fifo.memcpy_fptr = NULL;
     fifo_init(&g_async_evt_fifo);
 
-    g_async_evt_fifo_ts.array_len = ASYNC_EVENT_FIFO_QUEUE_SIZE;
+ 
+    g_async_evt_fifo_ts.array_len = RBC_MESH_INTERNAL_EVENT_QUEUE_LENGTH; 
     g_async_evt_fifo_ts.elem_array = g_async_evt_fifo_buffer_ts;
     g_async_evt_fifo_ts.elem_size = sizeof(async_event_t);
     g_async_evt_fifo_ts.memcpy_fptr = NULL;
