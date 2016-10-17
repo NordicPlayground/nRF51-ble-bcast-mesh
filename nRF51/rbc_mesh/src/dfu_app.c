@@ -270,6 +270,7 @@ uint32_t dfu_init(void)
     m_tx_config.channel_map = (1 << 0) | (1 << 1) | (1 << 2); /* 37, 38, 39 */
     m_tx_config.tx_power = RBC_MESH_TXPOWER_0dBm;
 
+
     mesh_flash_init(flash_op_complete);
 
     bl_cmd_t init_cmd =
