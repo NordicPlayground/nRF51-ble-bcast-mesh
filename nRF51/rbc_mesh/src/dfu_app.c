@@ -380,7 +380,17 @@ uint32_t dfu_request(dfu_type_t type,
     cmd.params.dfu.start.target.type = type;
     cmd.params.dfu.start.target.fwid = *p_fwid;
     cmd.params.dfu.start.target.p_bank_start = p_bank_addr;
-    return dfu_cmd_send(&cmd);
+    
+    uint32_t status = dfu_cmd_send(&cmd);
+    if (status == NRF_SUCCESS)
+    {
+        m_transfer_state.type = type;
+        memcpy(&m_transfer_state.fwid, p_fwid, sizeof(fwid_union_t));
+        m_transfer_state.state = DFU_STATE_DFU_REQ;
+        m_transfer_state.role = DFU_ROLE_TARGET;
+        m_transfer_state.data_progress = 0;
+    }
+    return status;
 }
 
 uint32_t dfu_relay(dfu_type_t type,
@@ -395,7 +405,16 @@ uint32_t dfu_relay(dfu_type_t type,
     cmd.params.dfu.start.relay.type = type;
     cmd.params.dfu.start.relay.fwid = *p_fwid;
     cmd.params.dfu.start.relay.transaction_id = 0;
-    return dfu_cmd_send(&cmd);
+    uint32_t status = dfu_cmd_send(&cmd);
+    if (status == NRF_SUCCESS)
+    {
+        m_transfer_state.type = type;
+        memcpy(&m_transfer_state.fwid, p_fwid, sizeof(fwid_union_t));
+        m_transfer_state.state = DFU_STATE_READY;
+        m_transfer_state.role = DFU_ROLE_RELAY;
+        m_transfer_state.data_progress = 0;
+    }
+    return status;
 }
 
 uint32_t dfu_abort(void)
@@ -561,6 +580,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 evt.params.dfu.end.fwid = p_evt->params.dfu.end.fwid;
                 evt.params.dfu.end.end_reason = DFU_END_SUCCESS;
                 evt.params.dfu.end.role = p_evt->params.dfu.end.role;
+                memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
                 rbc_mesh_event_push(&evt);
                 timer_sch_abort(&m_timer_evt);
             }
