@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "blinky.h"
 #include "nrf_gpio.h"
 #include "boards.h"
+#include "nrf_soc.h"
 
 
 
@@ -59,13 +60,30 @@ NRF_RTC1->PRESCALER = 327;
 NRF_RTC1->TASKS_CLEAR = 1;
 NRF_RTC1->EVENTS_COMPARE[1]=0;
 NRF_RTC1->INTENSET = (1<< (RTC_INTENSET_COMPARE1_Pos + 0));
-NVIC_EnableIRQ (RTC1_IRQn);
+    
     
 #if defined(NRF51)
-NVIC_SetPriority(RTC1_IRQn , 3); 
+        #if defined(SOFTDEVICE_PRESENT) 
+            sd_nvic_SetPriority(RTC1_IRQn , 3); 
+        #else 
+            NVIC_SetPriority(RTC1_IRQn , 3); 
+        #endif
+    
 #elif defined(NRF52) 
-NVIC_SetPriority(RTC1_IRQn , 6); 
-#endif  
+        #if defined(SOFTDEVICE_PRESENT) 
+            sd_nvic_SetPriority(RTC1_IRQn , 6); 
+        #else 
+            NVIC_SetPriority(RTC1_IRQn , 6); 
+        #endif 
+#endif 
+
+#if defined(SOFTDEVICE_PRESENT) 
+    sd_nvic_EnableIRQ(RTC1_IRQn);
+#else  
+    NVIC_EnableIRQ (RTC1_IRQn);
+#endif
+    
+ 
     
 }
 
