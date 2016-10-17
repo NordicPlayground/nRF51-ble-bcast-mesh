@@ -825,77 +825,78 @@ static uint32_t target_rx_data(dfu_packet_t* p_packet, uint16_t length, bool* p_
 
 static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
 {
-    bool do_relay = false;
-    if (p_packet->payload.data.transaction_id == m_transaction.transaction_id)
+    if (p_packet->payload.data.transaction_id != m_transaction.transaction_id)
     {
-        if (packet_in_cache(p_packet))
-        {
-            return;
-        }
-
-        switch (m_state)
-        {
-            case DFU_STATE_READY:
-                if (p_packet->payload.start.segment == 0)
-                {
-                    target_rx_start(p_packet, &do_relay);
-                }
-                else
-                {
-                    __LOG("ERROR: Received non-0 segment.\n");
-                    tid_cache_entry_put(m_transaction.transaction_id);
-                    start_req(m_transaction.type, &m_transaction.target_fwid_union); /* go back to req, we've missed packet 0 */
-                }
-                break;
-
-            case DFU_STATE_TARGET:
-                if (p_packet->payload.data.segment > 0 &&
-                    p_packet->payload.data.segment <= m_transaction.segment_count)
-                {
-                    target_rx_data(p_packet, length, &do_relay);
-                }
-
-                /* ending the DFU */
-                if (m_transaction.segments_remaining == 0)
-                {
-                    dfu_transfer_end();
-                    start_rampdown();
-                }
-                break;
-            case DFU_STATE_RELAY_CANDIDATE:
-                if (p_packet->payload.data.segment == 0)
-                {
-                    m_transaction.segment_count = segment_count_from_start_packet(p_packet);
-                }
-                send_progress_event(p_packet->payload.data.segment, m_transaction.segment_count);
-                do_relay = true;
-                break;
-                
-            case DFU_STATE_RELAY:
-            {
-                if (p_packet->payload.data.segment == 0)
-                {
-                    m_transaction.segment_count = segment_count_from_start_packet(p_packet);
-                }
-                SET_STATE(DFU_STATE_RELAY);
-                tx_abort(TX_SLOT_BEACON);
-                bl_evt_t relay_evt;
-                relay_evt.type = BL_EVT_TYPE_DFU_START;
-                relay_evt.params.dfu.start.role = DFU_ROLE_RELAY;
-                relay_evt.params.dfu.start.fwid = m_transaction.target_fwid_union;
-                relay_evt.params.dfu.start.dfu_type = m_transaction.type;
-                bootloader_evt_send(&relay_evt);
-                
-                do_relay = true;
-                break;
-            }
-            default:
-                break;
-        }
-        packet_cache_put(p_packet);
+        return;
     }
+    if (packet_in_cache(p_packet))
+    {
+        return;
+    }
+    
+    bool do_relay = false;
 
+    switch (m_state)
+    {
+        case DFU_STATE_READY:
+            if (p_packet->payload.start.segment == 0)
+            {
+                target_rx_start(p_packet, &do_relay);
+            }
+            else
+            {
+                __LOG("ERROR: Received non-0 segment.\n");
+                tid_cache_entry_put(m_transaction.transaction_id);
+                start_req(m_transaction.type, &m_transaction.target_fwid_union); /* go back to req, we've missed packet 0 */
+            }
+            break;
 
+        case DFU_STATE_TARGET:
+            if (p_packet->payload.data.segment > 0 &&
+                p_packet->payload.data.segment <= m_transaction.segment_count)
+            {
+                target_rx_data(p_packet, length, &do_relay);
+            }
+
+            /* ending the DFU */
+            if (m_transaction.segments_remaining == 0)
+            {
+                dfu_transfer_end();
+                start_rampdown();
+            }
+            break;
+            
+        case DFU_STATE_RELAY_CANDIDATE:
+        {
+            if (p_packet->payload.data.segment == 0)
+            {
+                m_transaction.segment_count = segment_count_from_start_packet(p_packet);
+            }
+            SET_STATE(DFU_STATE_RELAY);
+            tx_abort(TX_SLOT_BEACON);
+            bl_evt_t relay_evt;
+            relay_evt.type = BL_EVT_TYPE_DFU_START;
+            relay_evt.params.dfu.start.role = DFU_ROLE_RELAY;
+            relay_evt.params.dfu.start.fwid = m_transaction.target_fwid_union;
+            relay_evt.params.dfu.start.dfu_type = m_transaction.type;
+            bootloader_evt_send(&relay_evt);
+            
+            do_relay = true;
+            break;
+        }
+        case DFU_STATE_RELAY:
+            if (p_packet->payload.data.segment == 0)
+            {
+                m_transaction.segment_count = segment_count_from_start_packet(p_packet);
+            }
+            send_progress_event(p_packet->payload.data.segment, m_transaction.segment_count);
+            do_relay = true;
+            break;
+        default:
+            break;
+    }
+    packet_cache_put(p_packet);
+    
     if (do_relay)
     {
         relay_packet(p_packet, length);
