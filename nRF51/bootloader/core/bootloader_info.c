@@ -719,9 +719,9 @@ uint32_t bootloader_info_reset(void)
 {
     APP_ERROR_CHECK_BOOL(m_state == BL_INFO_STATE_IDLE);
 
-    __LOG( "RESET\n");
+    __LOG("RESET\n");
     m_state = BL_INFO_STATE_RESET;
-    mp_write_pos = mp_bl_info_page->data; /* THIS SHIT */
+    mp_write_pos = mp_bl_info_page->data;
     return backup();
 }
 
