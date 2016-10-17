@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "uECC.h"
 #include "bl_if.h"
 
-#define INFO_ENTRY_MAX_LEN  (64)
+#define INFO_ENTRY_MAX_LEN  (0x54)
 
 typedef struct
 {
