@@ -34,6 +34,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "boards.h"
 #include "nrf_soc.h"
 
+#if NORDIC_SDK_VERSION >= 11
+#include "nrf_nvic.h"
+#endif
 
 
 

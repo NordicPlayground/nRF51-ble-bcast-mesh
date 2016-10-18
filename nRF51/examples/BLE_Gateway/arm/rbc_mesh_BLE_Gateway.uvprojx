@@ -3836,7 +3836,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\_build\</OutputDirectory>
-          <OutputName>rbc_gateway_example_52</OutputName>
+          <OutputName>rbc_gateway_example_serial_blinky_PCA10040_nRF52832_xxAA</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
