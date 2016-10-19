@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>nRF51822 xxAC</TargetName>
+      <TargetName>nRF51422 xxAC</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pCCUsed>5060300::V5.06 update 3 (build 300)::ARMCC</pCCUsed>
@@ -774,7 +774,7 @@
       </Groups>
     </Target>
     <Target>
-      <TargetName>nRF51822 xxAC serial</TargetName>
+      <TargetName>nRF51422 xxAC serial</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pCCUsed>5060061::V5.06 update 1 (build 61)::ARMCC</pCCUsed>
@@ -1447,7 +1447,7 @@
       </Groups>
     </Target>
     <Target>
-      <TargetName>nRF51822 xxAC buttons</TargetName>
+      <TargetName>nRF51422 xxAC buttons</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pCCUsed>5060061::V5.06 update 1 (build 61)::ARMCC</pCCUsed>
@@ -3836,7 +3836,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\_build\</OutputDirectory>
-          <OutputName>rbc_gateway_example_52</OutputName>
+          <OutputName>rbc_gateway_example_serial_blinky_PCA10040_nRF52832_xxAA</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -4562,7 +4562,7 @@
       </Groups>
     </Target>
     <Target>
-      <TargetName>nRF51822 xxAC serial blinky_10031</TargetName>
+      <TargetName>nRF51422 xxAC serial blinky_10031</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pCCUsed>5060061::V5.06 update 1 (build 61)::ARMCC</pCCUsed>
@@ -4603,7 +4603,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\_build\</OutputDirectory>
-          <OutputName>rbc_gateway_example_serial_blinky_PCA10031_nRF51822_xxAC</OutputName>
+          <OutputName>rbc_gateway_example_serial_blinky_PCA10031_nRF51422_xxAC</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -5235,7 +5235,7 @@
       </Groups>
     </Target>
     <Target>
-      <TargetName>nRF51822 xxAC serial blinky_10028</TargetName>
+      <TargetName>nRF51422 xxAC serial blinky_10028</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pCCUsed>5060061::V5.06 update 1 (build 61)::ARMCC</pCCUsed>
@@ -5276,7 +5276,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\_build\</OutputDirectory>
-          <OutputName>rbc_gateway_example_serial_blinky_PCA10028_nRF51822_xxAC</OutputName>
+          <OutputName>rbc_gateway_example_serial_blinky_PCA10028_nRF51422_xxAC</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
