@@ -98,6 +98,7 @@ static bool segment_is_missing(uint16_t segment)
 *****************************************************************************/
 void dfu_transfer_init(void)
 {
+    memset(&m_transfer, 0, sizeof(dfu_transfer_t));
     m_transfer.segment_max = INVALID_SEGMENT_INDEX;
 }
 
@@ -263,7 +264,8 @@ uint32_t dfu_transfer_sha256(sha256_context_t* p_hash_context)
 
 void dfu_transfer_end(void)
 {
-
+    memset(&m_transfer, 0, sizeof(m_transfer));
+    m_transfer.segment_max = INVALID_SEGMENT_INDEX;
 }
 
 void dfu_transfer_flash_write_complete(uint8_t* p_write_src)

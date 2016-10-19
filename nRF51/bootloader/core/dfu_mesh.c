@@ -477,6 +477,7 @@ static void start_find_fwid(void)
 
 static void start_req(dfu_type_t type, fwid_union_t* p_fwid)
 {
+    memset(&m_transaction, 0, sizeof(transaction_t));
     m_transaction.authority = 0;
     m_transaction.length = 0;
     m_transaction.p_start_addr = NULL;
@@ -1131,8 +1132,7 @@ static void handle_data_rsp_packet(dfu_packet_t* p_packet, uint16_t length)
 void dfu_mesh_init(uint8_t tx_slots)
 {
     SET_STATE(DFU_STATE_INITIALIZED);
-    m_transaction.transaction_id = 0;
-    m_transaction.type = DFU_TYPE_NONE;
+    memset(&m_transaction, 0, sizeof(transaction_t));
     memset(m_req_cache, 0, REQ_CACHE_SIZE * sizeof(m_req_cache[0]));
     m_req_index = 0;
     m_tx_slots = tx_slots;
@@ -1142,6 +1142,7 @@ void dfu_mesh_init(uint8_t tx_slots)
 
 void dfu_mesh_start(void)
 {
+    memset(&m_transaction, 0, sizeof(transaction_t));
     get_info_pointers();
     send_bank_notifications();
 
