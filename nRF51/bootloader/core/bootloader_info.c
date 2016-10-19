@@ -38,8 +38,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rtt_log.h"
 #include "dfu_util.h"
 
-#define WORD_ALIGN(data) data = (((uint32_t) data + 4) & 0xFFFFFFFC)
-
 #define HEADER_LEN       (sizeof(bootloader_info_header_t))
 
 #ifdef DEBUG
@@ -764,6 +762,10 @@ void bootloader_info_on_flash_op_end(flash_op_type_t type, void* p_context)
 void bootloader_info_on_flash_idle(void)
 {
     m_write_in_progress = false;
+
+    mp_info_entry_head = (info_buffer_t*) mp_info_entry_buffer;
+    mp_info_entry_tail = (info_buffer_t*) mp_info_entry_buffer;
+    mp_info_entry_head->header.type = BL_INFO_TYPE_INVALID;
     if (m_info_copy.state != INFO_COPY_STATE_IDLE)
     {
         copy_page_on_flash_idle();
