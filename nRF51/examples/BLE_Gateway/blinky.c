@@ -65,28 +65,13 @@ NRF_RTC1->EVENTS_COMPARE[1]=0;
 NRF_RTC1->INTENSET = (1<< (RTC_INTENSET_COMPARE1_Pos + 0));
     
     
-#if defined(NRF51)
-        #if defined(SOFTDEVICE_PRESENT) 
-            sd_nvic_SetPriority(RTC1_IRQn , 3); 
-        #else 
-            NVIC_SetPriority(RTC1_IRQn , 3); 
-        #endif
-    
+#if defined(NRF51) 
+    NVIC_SetPriority(RTC1_IRQn , 3); 
 #elif defined(NRF52) 
-        #if defined(SOFTDEVICE_PRESENT) 
-            sd_nvic_SetPriority(RTC1_IRQn , 6); 
-        #else 
-            NVIC_SetPriority(RTC1_IRQn , 6); 
-        #endif 
+    NVIC_SetPriority(RTC1_IRQn , 6);   
 #endif 
 
-#if defined(SOFTDEVICE_PRESENT) 
-    sd_nvic_EnableIRQ(RTC1_IRQn);
-#else  
-    NVIC_EnableIRQ (RTC1_IRQn);
-#endif
-    
- 
+NVIC_EnableIRQ (RTC1_IRQn);
     
 }
 

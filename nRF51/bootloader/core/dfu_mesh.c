@@ -477,7 +477,7 @@ static void start_find_fwid(void)
 
 static void start_req(dfu_type_t type, fwid_union_t* p_fwid)
 {
-    memset(&m_transaction, 0, sizeof(transaction_t));
+   
     m_transaction.authority = 0;
     m_transaction.length = 0;
     m_transaction.p_start_addr = NULL;
