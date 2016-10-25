@@ -862,7 +862,7 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             /* ending the DFU */
             if (m_transaction.segments_remaining == 0)
             {
-                dfu_transfer_end();
+                
                 start_rampdown();
             }
             break;
@@ -1452,7 +1452,7 @@ void dfu_mesh_on_flash_idle(void)
             end_evt.params.dfu.end.dfu_type = m_transaction.type;
             fwid_union_cpy(&end_evt.params.dfu.end.fwid, &m_transaction.target_fwid_union, m_transaction.type);
             bootloader_evt_send(&end_evt);
-
+            dfu_transfer_end();
             get_info_pointers();
             dfu_mesh_start();
         }

@@ -55,10 +55,7 @@ void led_init ()
 
 
 void rtc_1_init ()
-{   
-    
-    
-    
+{       
 NRF_RTC1->PRESCALER = 327;
 NRF_RTC1->TASKS_CLEAR = 1;
 NRF_RTC1->EVENTS_COMPARE[1]=0;
