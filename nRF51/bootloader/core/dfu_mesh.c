@@ -265,7 +265,7 @@ static void send_progress_event(uint16_t segment, uint16_t total_segments)
     bootloader_evt_send(&segment_rx);
 }
 
-static void packet_tx_dynamic(dfu_packet_t* p_packet,
+static uint32_t packet_tx_dynamic(dfu_packet_t* p_packet,
     uint32_t length,
     bl_radio_interval_type_t interval_type,
     uint8_t repeats)
@@ -278,12 +278,13 @@ static void packet_tx_dynamic(dfu_packet_t* p_packet,
     tx_evt.params.tx.radio.interval_type = interval_type;
     tx_evt.params.tx.radio.tx_count = repeats;
     tx_evt.params.tx.radio.tx_slot = tx_slot;
-    bootloader_evt_send(&tx_evt);
+    uint32_t status = bootloader_evt_send(&tx_evt);
 
     if (++tx_slot >= m_tx_slots)
     {
         tx_slot = 1;
     }
+    return status;
 }
 
 static bool signature_check(void)
@@ -334,6 +335,7 @@ static bool signature_check(void)
     sha256_final(&hash_context, hash);
 #endif
     bool success = (bool) (uECC_verify(m_bl_info_pointers.p_ecdsa_public_key, hash, m_transaction.signature));
+
     if (success)
     {
         __LOG("OK\n");
@@ -422,10 +424,14 @@ static void beacon_set(beacon_type_t type)
     }
 }
 
-static void relay_packet(dfu_packet_t* p_packet, uint16_t length)
+static uint32_t relay_packet(dfu_packet_t* p_packet, uint16_t length)
 {
-    packet_tx_dynamic(p_packet, length, TX_INTERVAL_TYPE_DATA, TX_REPEATS_DATA);
-    packet_cache_put(p_packet);
+    uint32_t status = packet_tx_dynamic(p_packet, length, TX_INTERVAL_TYPE_DATA, TX_REPEATS_DATA);
+    if (status == NRF_SUCCESS)
+    {
+        packet_cache_put(p_packet);
+    }
+    return status;
 }
 
 static void send_bank_notifications(void)
@@ -477,7 +483,7 @@ static void start_find_fwid(void)
 
 static void start_req(dfu_type_t type, fwid_union_t* p_fwid)
 {
-   
+
     m_transaction.authority = 0;
     m_transaction.length = 0;
     m_transaction.p_start_addr = NULL;
@@ -545,9 +551,9 @@ static void start_target(void)
             if (p_banks[i])
             {
                 if (section_overlap(
-                    (uint32_t) p_banks[i]->bank.p_bank_addr, 
-                    p_banks[i]->bank.length, 
-                    (uint32_t) m_transaction.p_bank_addr, 
+                    (uint32_t) p_banks[i]->bank.p_bank_addr,
+                    p_banks[i]->bank.length,
+                    (uint32_t) m_transaction.p_bank_addr,
                     m_transaction.length))
                 {
                     __LOG("Invalidate bank type %s (%d)\n", m_dfu_type_strs[(1 << i)], i);
@@ -716,9 +722,9 @@ static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
             return;
         }
     }
-    
+
     if (m_transaction.p_start_addr != m_transaction.p_bank_addr &&
-        section_overlap((uint32_t) m_transaction.p_start_addr, m_transaction.length, 
+        section_overlap((uint32_t) m_transaction.p_start_addr, m_transaction.length,
                         (uint32_t) m_transaction.p_bank_addr, m_transaction.length))
     {
         send_end_evt(DFU_END_ERROR_BANK_AND_DESTINATION_OVERLAP);
@@ -824,17 +830,18 @@ static uint32_t target_rx_data(dfu_packet_t* p_packet, uint16_t length, bool* p_
     return error_code;
 }
 
-static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
+static uint32_t handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
 {
     if (p_packet->payload.data.transaction_id != m_transaction.transaction_id)
     {
-        return;
+        return NRF_ERROR_INVALID_DATA;
     }
     if (packet_in_cache(p_packet))
     {
-        return;
+        return NRF_SUCCESS;
     }
-    
+
+    uint32_t status;
     bool do_relay = false;
 
     switch (m_state)
@@ -843,12 +850,14 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             if (p_packet->payload.start.segment == 0)
             {
                 target_rx_start(p_packet, &do_relay);
+                status = NRF_SUCCESS;
             }
             else
             {
                 __LOG("ERROR: Received non-0 segment.\n");
                 tid_cache_entry_put(m_transaction.transaction_id);
                 start_req(m_transaction.type, &m_transaction.target_fwid_union); /* go back to req, we've missed packet 0 */
+                status = NRF_ERROR_INVALID_STATE;
             }
             break;
 
@@ -857,16 +866,20 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
                 p_packet->payload.data.segment <= m_transaction.segment_count)
             {
                 target_rx_data(p_packet, length, &do_relay);
+                status = NRF_SUCCESS;
+            }
+            else
+            {
+                status = NRF_ERROR_INVALID_DATA;
             }
 
             /* ending the DFU */
             if (m_transaction.segments_remaining == 0)
             {
-                
                 start_rampdown();
             }
             break;
-            
+
         case DFU_STATE_RELAY_CANDIDATE:
         {
             if (p_packet->payload.data.segment == 0)
@@ -880,8 +893,8 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             relay_evt.params.dfu.start.role = DFU_ROLE_RELAY;
             relay_evt.params.dfu.start.fwid = m_transaction.target_fwid_union;
             relay_evt.params.dfu.start.dfu_type = m_transaction.type;
-            bootloader_evt_send(&relay_evt);
-            
+            status = bootloader_evt_send(&relay_evt);
+
             do_relay = true;
             break;
         }
@@ -892,20 +905,26 @@ static void handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             }
             send_progress_event(p_packet->payload.data.segment, m_transaction.segment_count);
             do_relay = true;
+            status = NRF_SUCCESS;
             break;
         default:
+            status = NRF_ERROR_INVALID_STATE;
             break;
     }
     packet_cache_put(p_packet);
-    
+
     if (do_relay)
     {
         relay_packet(p_packet, length);
     }
+
+    return status;
 }
 
-static void handle_state_packet(dfu_packet_t* p_packet)
+static uint32_t handle_state_packet(dfu_packet_t* p_packet)
 {
+    uint32_t status;
+
     switch (m_state)
     {
         case DFU_STATE_FIND_FWID:
@@ -925,7 +944,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                             &fw_evt.params.dfu.new_fw.fwid,
                             &p_packet->payload.state.fwid,
                             (dfu_type_t) p_packet->payload.state.dfu_type);
-                    bootloader_evt_send(&fw_evt);
+                    status = bootloader_evt_send(&fw_evt);
                 }
                 else
                 {
@@ -939,13 +958,14 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                     relay_req_evt.params.dfu.req.state = m_state;
                     relay_req_evt.params.dfu.req.authority = p_packet->payload.state.authority;
                     relay_req_evt.params.dfu.req.transaction_id = p_packet->payload.state.transaction_id;
-                    bootloader_evt_send(&relay_req_evt);
+                    status = bootloader_evt_send(&relay_req_evt);
                 }
             }
             else
             {
                 //TODO
                 //handle relaying of requests
+                status = NRF_ERROR_NOT_SUPPORTED;
             }
             break;
         case DFU_STATE_DFU_REQ:
@@ -966,6 +986,7 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                     m_transaction.target_fwid_union = p_packet->payload.state.fwid;
 
                     start_ready(p_packet);
+                    status = NRF_SUCCESS;
                 }
                 /* Notify about relay option if the transfer is different from the current */
                 else if (m_transaction.type != p_packet->payload.state.dfu_type ||
@@ -984,8 +1005,17 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                     relay_req_evt.params.dfu.req.state = m_state;
                     relay_req_evt.params.dfu.req.authority = p_packet->payload.state.authority;
                     relay_req_evt.params.dfu.req.transaction_id = p_packet->payload.state.transaction_id;
-                    bootloader_evt_send(&relay_req_evt);
+                    status = bootloader_evt_send(&relay_req_evt);
                 }
+                else
+                {
+                    /* Source is worse than the current, ignore */
+                    status = NRF_SUCCESS;
+                }
+            }
+            else
+            {
+                status = NRF_SUCCESS;
             }
             break;
         case DFU_STATE_RELAY_CANDIDATE:
@@ -1002,15 +1032,19 @@ static void handle_state_packet(dfu_packet_t* p_packet)
                     beacon_set(state_beacon_type(m_transaction.type));
                 }
             }
+            status = NRF_SUCCESS;
             break;
         default:
-            break;
+            status = NRF_ERROR_INVALID_STATE;
     }
 
+    return status;
 }
 
-static void handle_fwid_packet(dfu_packet_t* p_packet)
+static uint32_t handle_fwid_packet(dfu_packet_t* p_packet)
 {
+    uint32_t status;
+
     if (m_state == DFU_STATE_FIND_FWID)
     {
         /* always upgrade bootloader first */
@@ -1023,7 +1057,7 @@ static void handle_fwid_packet(dfu_packet_t* p_packet)
             fwid_evt.params.dfu.new_fw.fwid.bootloader.id  = p_packet->payload.fwid.bootloader.id;
             fwid_evt.params.dfu.new_fw.fwid.bootloader.ver = p_packet->payload.fwid.bootloader.ver;
             fwid_evt.params.dfu.new_fw.state = m_state;
-            bootloader_evt_send(&fwid_evt);
+            status = bootloader_evt_send(&fwid_evt);
         }
         else if (app_is_newer(&p_packet->payload.fwid.app))
         {
@@ -1036,7 +1070,7 @@ static void handle_fwid_packet(dfu_packet_t* p_packet)
                 fwid_evt.params.dfu.new_fw.fw_type = DFU_TYPE_SD;
                 fwid_evt.params.dfu.new_fw.fwid.sd = p_packet->payload.fwid.sd;
                 fwid_evt.params.dfu.new_fw.state = m_state;
-                bootloader_evt_send(&fwid_evt);
+                status = bootloader_evt_send(&fwid_evt);
             }
             else
             {
@@ -1046,26 +1080,40 @@ static void handle_fwid_packet(dfu_packet_t* p_packet)
                 fwid_evt.params.dfu.new_fw.fw_type = DFU_TYPE_APP;
                 fwid_evt.params.dfu.new_fw.state = m_state;
                 memcpy(&fwid_evt.params.dfu.new_fw.fwid.app, &p_packet->payload.fwid.app, sizeof(app_id_t));
-                bootloader_evt_send(&fwid_evt);
+                status = bootloader_evt_send(&fwid_evt);
             }
         }
+        else
+        {
+            status = NRF_ERROR_INVALID_DATA;
+        }
     }
+    else
+    {
+        status = NRF_ERROR_INVALID_STATE;
+    }
+    return status;
 }
 
-static void handle_data_req_packet(dfu_packet_t* p_packet)
+static uint32_t handle_data_req_packet(dfu_packet_t* p_packet)
 {
+    uint32_t status;
     if (p_packet->payload.data.transaction_id == m_transaction.transaction_id)
     {
         __LOG("RX data REQ #%u\n", p_packet->payload.data.segment);
         if (m_state == DFU_STATE_RELAY)
         {
             /* only relay new packets, look for it in cache */
-            if (!packet_in_cache(p_packet))
+            if (packet_in_cache(p_packet))
             {
-                relay_packet(p_packet, 8);
+                status = NRF_SUCCESS;
+            }
+            else
+            {
+                status = relay_packet(p_packet, 8);
             }
         }
-        else
+        else /* In transfer */
         {
             req_cache_entry_t* p_req_entry = NULL;
             /* check that we haven't served this request recently. */
@@ -1075,7 +1123,7 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
                 {
                     if (m_req_cache[i].rx_count++ < REQ_RX_COUNT_RETRY)
                     {
-                        return;
+                        return NRF_SUCCESS;
                     }
                     p_req_entry = &m_req_cache[i];
                     break;
@@ -1093,11 +1141,15 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
                 dfu_rsp.payload.rsp_data.segment = p_packet->payload.req_data.segment;
                 dfu_rsp.payload.rsp_data.transaction_id = p_packet->payload.req_data.transaction_id;
 
-                packet_tx_dynamic(&dfu_rsp, DFU_PACKET_LEN_DATA_RSP, TX_INTERVAL_TYPE_RSP, TX_REPEATS_RSP);
+                status = packet_tx_dynamic(&dfu_rsp, DFU_PACKET_LEN_DATA_RSP, TX_INTERVAL_TYPE_RSP, TX_REPEATS_RSP);
+            }
+            else
+            {
+                status = NRF_ERROR_NOT_FOUND;
             }
 
             /* log our attempt at responding */
-            if (!p_req_entry)
+            if (status == NRF_SUCCESS && !p_req_entry)
             {
                 p_req_entry = &m_req_cache[(m_req_index++) & (REQ_CACHE_SIZE - 1)];
                 p_req_entry->segment = p_packet->payload.req_data.segment;
@@ -1105,24 +1157,35 @@ static void handle_data_req_packet(dfu_packet_t* p_packet)
             p_req_entry->rx_count = 0;
         }
     }
+    else
+    {
+        status = NRF_ERROR_INVALID_DATA;
+    }
+    return status;
 }
 
-static void handle_data_rsp_packet(dfu_packet_t* p_packet, uint16_t length)
+static uint32_t handle_data_rsp_packet(dfu_packet_t* p_packet, uint16_t length)
 {
+    uint32_t status;
     if (m_state == DFU_STATE_RELAY)
     {
         /* only relay new packets, look for it in cache */
-        if (!packet_in_cache(p_packet))
+        if (packet_in_cache(p_packet))
+        {
+            status = NRF_SUCCESS;
+        }
+        else
         {
             send_progress_event(m_transaction.segment_count - m_transaction.segments_remaining + 1,
                     m_transaction.segment_count);
-            relay_packet(p_packet, length);
+            status = relay_packet(p_packet, length);
         }
     }
     else
     {
-        handle_data_packet(p_packet, length);
+        status = handle_data_packet(p_packet, length);
     }
+    return status;
 }
 
 /*****************************************************************************
@@ -1223,34 +1286,36 @@ uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
     }
     led = !led;
 #endif
+    uint32_t status;
 
     switch (p_packet->packet_type)
     {
         case DFU_PACKET_TYPE_FWID:
-            handle_fwid_packet(p_packet);
+            status = handle_fwid_packet(p_packet);
             break;
 
         case DFU_PACKET_TYPE_STATE:
-            handle_state_packet(p_packet);
+            status = handle_state_packet(p_packet);
             break;
 
         case DFU_PACKET_TYPE_DATA:
-            handle_data_packet(p_packet, length);
+            status = handle_data_packet(p_packet, length);
             break;
 
         case DFU_PACKET_TYPE_DATA_REQ:
-            handle_data_req_packet(p_packet);
+            status = handle_data_req_packet(p_packet);
             break;
 
         case DFU_PACKET_TYPE_DATA_RSP:
-            handle_data_rsp_packet(p_packet, length);
+            status = handle_data_rsp_packet(p_packet, length);
             break;
 
         default:
             /* don't care */
+            status = NRF_ERROR_INVALID_DATA;
             break;
     }
-    return NRF_SUCCESS;
+    return status;
 }
 
 void dfu_mesh_timeout(void)
