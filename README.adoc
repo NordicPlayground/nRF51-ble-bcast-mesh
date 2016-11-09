@@ -1,7 +1,7 @@
 = nRF OpenMesh (formerly nRF51-ble-broadcast-mesh)
 
-Bluetooth Low Energy based rebroadcasting mesh implementation on the nRF51 called *nRF OpenMesh*.
-Works with SoftDevice S110 v8.x and S130 v1.0 with Timeslot API, and the nRF51 SDK8.1.
+Bluetooth Low Energy based rebroadcasting mesh implementation on the nRF5x called *nRF OpenMesh*.
+Works with SoftDevice S110 v8.x (for nRF51) and S131 v3.0.0 (for nRF52) with Timeslot API, and the nRF51 SDK8.1 and the nRF5x SDK 12.0.0
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
@@ -33,12 +33,13 @@ the serial interface with the rest of the project.
 
 === Getting started
 
-The framework requires nRF51 SDK 8.1, and can be built with both Keil uVision
+The framework requires nRF51 SDK 8.1 and nRF5 SDK 12.0.0, and can be built with both Keil uVision
 and GCC-arm-none-eabi.
 
 The example projects utilizes the *non-pack* version of the SDK, available
 at http://developer.nordicsemi.com/[Nordic Semiconductor's developer portal].
-Clone this repo into _<SDK8-folder>/examples/<Project-folder>_.
+Clone this repo into _<SDK8-folder>/examples/<Project-folder>_ for nRF51 and 
+into _<SDK12-folder>/examples/<Project-folder>_  for nRF52
 
 This will ensure that all references to the SDK are correctly placed, so that
 you don't have to change all references to the SDK in the project files. If
