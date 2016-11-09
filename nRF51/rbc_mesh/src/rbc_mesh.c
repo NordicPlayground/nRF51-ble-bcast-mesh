@@ -48,7 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Static globals
 *****************************************************************************/
-static rbc_mesh_state_t m_mesh_state;
+static rbc_mesh_state_t m_mesh_state = MESH_STATE_UNINITIALIZED;
 static uint32_t         m_access_addr;
 static uint8_t          m_channel;
 static uint32_t         m_interval_min_ms;
