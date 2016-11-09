@@ -484,10 +484,10 @@ void bootloader_enable(void)
     }
     else
     {
-#ifdef RTT_LOG
-        __LOG(RTT_CTRL_TEXT_RED "APP is invalid.\n");
         bl_info_flags_t* p_flags = &bootloader_info_entry_get(BL_INFO_TYPE_FLAGS)->flags;
         bl_info_segment_t* p_seg = &bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP)->segment;
+#ifdef RTT_LOG
+        __LOG(RTT_CTRL_TEXT_RED "APP is invalid.\n");
         __LOG("\tINTACT: SD: %d APP: %d BL: %d\n",
                 p_flags->sd_intact,
                 p_flags->app_intact,
@@ -501,6 +501,13 @@ void bootloader_enable(void)
         if (dfu_bank_flash(DFU_TYPE_BOOTLOADER) == NRF_SUCCESS)
         {
             return;
+        }
+
+        /* If there's no application, ensure that the flag also agrees. */
+        if (p_flags->app_intact && *((uint32_t*) p_seg->start) == 0xFFFFFFFF)
+        {
+            uint32_t new_flags = ~DFU_TYPE_APP;
+            bootloader_info_entry_overwrite(BL_INFO_TYPE_FLAGS, (bl_info_entry_t*) &new_flags);
         }
 
         dfu_type_t missing = dfu_mesh_missing_type_get();
