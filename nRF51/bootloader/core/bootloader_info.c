@@ -763,8 +763,6 @@ void bootloader_info_on_flash_idle(void)
 {
     m_write_in_progress = false;
 
-    mp_info_entry_head = (info_buffer_t*) mp_info_entry_buffer;
-    mp_info_entry_tail = (info_buffer_t*) mp_info_entry_buffer;
     mp_info_entry_head->header.type = BL_INFO_TYPE_INVALID;
     if (m_info_copy.state != INFO_COPY_STATE_IDLE)
     {
