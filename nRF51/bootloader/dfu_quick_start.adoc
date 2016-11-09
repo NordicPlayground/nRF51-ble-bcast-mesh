@@ -171,7 +171,11 @@ To do a DFU, you need to create a DFU-file. The DFU file is really
 a .zip, which contains the application binary, along with some metadata. Matching the FWIDs in
 your device page file, call the nrfutil tool from /nRF51/bootloader/:
 
-`nrfutil dfu genpkg --application ../examples/BLE_Gateway/bin/rbc_gateway_example_serial_blinky_PCA10028_nRF51422_xxAC.hex --company-id 0x00000059 --application-id 1 --application-version 2 --key-file private.txt --sd-req 0x0064 --mesh dfu_test.zip`
+*nRF51*:
+`.\pc-util\nrfutil dfu genpkg --application ../examples/BLE_Gateway/bin/rbc_gateway_example_serial_blinky_PCA10028_nRF51422_xxAC.hex --company-id 0x00000059 --application-id 1 --application-version 2 --key-file private.txt --sd-req 0x0064 --mesh dfu_test.zip`
+
+*nRF52*:
+`.\pc-util\nrfutil dfu genpkg --application ../examples/BLE_Gateway/bin/rbc_gateway_example_serial_blinky_PCA10040_nRF52832_xxAA.hex --company-id 0x00000059 --application-id 1 --application-version 2 --key-file private.txt --sd-req 0x0064 --mesh dfu_test.zip`
 
 You can see that we still used the Nordic Semiconductor company ID, make sure you use your own. Also
 note that the application version is set to 2. A device will only accept application trasfers of
