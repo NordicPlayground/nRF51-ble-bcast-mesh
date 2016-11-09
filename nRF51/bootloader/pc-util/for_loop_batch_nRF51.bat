@@ -1,11 +1,11 @@
 SETLOCAL
 ECHO ON
 
-REM parameter 1 = nRF51/bootloader folder
-REM parameter 2 = folder with the S110 v8.0.0 softdevice
-
-
+REM Store the segger ids of all connected nRF51 devices 
 nrfjprog -i > .\tmp_remove_me.txt
-FOR /f %%i IN (.\tmp_remove_me.txt) DO "%~dp0/flash_open_mesh_nRF51.bat" "%~f1" "%~f2" %%i
 
+REM Program each nRF51 device with new hex files
+FOR /f %%i IN (.\tmp_remove_me.txt) DO .\pc-util\flash_open_mesh_nRF51.bat %%i
+
+REM Delete the temporary file
 del .\tmp_remove_me.txt

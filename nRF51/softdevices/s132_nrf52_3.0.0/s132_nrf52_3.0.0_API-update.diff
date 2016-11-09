@@ -1,0 +1,393 @@
+
+|-----------------------------------------------------------------------------|
+|  Long ATT MTU                                                               |
+|-----------------------------------------------------------------------------|
+-#define GATT_RX_MTU 23 /* Use GATT_MTU_SIZE_DEFAULT instead */
+ 
+/* Gatt params when enabling SoftDevice */
+ typedef struct {
++  ble_gatt_enable_params_t          gatt_enable_params;    /**< GATT init parameters @ref ble_gatt_enable_params_t. */
+ } ble_enable_params_t;
++typedef struct
++{
++  uint16_t  att_mtu;
++} ble_gatt_enable_params_t;
+ 
+ 
+ enum BLE_GATTC_SVCS
+ {
++  SD_BLE_GATTC_EXCHANGE_MTU_REQUEST,                           /**< Exchange MTU Request. */
+ };
+ 
+ enum BLE_GATTC_EVTS
+ {
++  BLE_GATTC_EVT_EXCHANGE_MTU_RSP,                         /**< Exchange MTU Response event. */
+ };
+ 
++/**@brief Event structure for @ref BLE_GATTC_EVT_EXCHANGE_MTU_RSP. */
++typedef struct
++{
++  uint16_t          server_rx_mtu;            /**< Server RX MTU size. */
++} ble_gattc_evt_exchange_mtu_rsp_t;
++
+ 
++typedef struct
++{
++  uint16_t conn_handle;                                       /**< Connection Handle on which the event occurred. */
++  union
++  {
++    ble_gatt_evt_mtu_exchanged_t          mtu_exchanged;      /**< ATT_MTU exchanged Event Parameters. */
++  } params;                                                   /**< Event Parameters. */
++} ble_gatt_evt_t;
+ 
+/*  GATTS Event */
+ enum BLE_GATTS_EVTS
+ {
++  BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST,             /**< Exchange MTU Request. */
+ };
+ 
+/* GATTS SVC */
+ enum BLE_GATTS_SVCS
+ {
++  SD_BLE_GATTS_EXCHANGE_MTU_REPLY                /**< Reply to Exchange MTU Request. */
+ };
+ 
++/**@brief Event structure for @ref BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST. */
++typedef struct
++{
++  uint16_t          client_rx_mtu;              /**< Client RX MTU size. */
++} ble_gatts_evt_exchange_mtu_request_t;
++
+ 
+/**@brief GATTC event structure. */
+typedef struct
+{
+  union
+  {
++    ble_gattc_evt_exchange_mtu_rsp_t            exchange_mtu_rsp;           /**< Exchange MTU Response Event Parameters. */
+  } params;                                                                 /**< Event Parameters. @note Only valid if @ref gatt_status == @ref BLE_GATT_STATUS_SUCCESS. */
+} ble_gattc_evt_t;
+
++/**@brief GATTS event structure. */
+ typedef struct
+ {
+   uint16_t conn_handle;                                       /**< Connection Handle on which the event occurred. */
+   union
+   {
++    ble_gatts_evt_exchange_mtu_request_t  exchange_mtu_request;  /**< Exchange MTU Request Event Parameters. */
++  } params;                                                      /**< Event Parameters. */
+ } ble_gatts_evt_t;
+ 
+ /* Optimized size of event. */
+- typedef struct
+- {
+-  union {
+-    ble_uuid_t    uuid16;              /**< 16-bit Attribute UUID. */
+-    ble_uuid128_t uuid128;             /**< 128-bit Attribute UUID. */
+-  } info;                              /**< Attribute information union. */
+-} ble_gattc_attr_info_t;
+ 
++ typedef struct
++ {
++  uint16_t       handle;               /**< Attribute handle. */
++  ble_uuid_t     uuid;                 /**< 16-bit Attribute UUID. */
++} ble_gattc_attr_info16_t;
+ 
++typedef struct
++{
++  uint16_t       handle;               /**< Attribute handle. */
++  ble_uuid128_t  uuid;                 /**< 128-bit Attribute UUID. */
++} ble_gattc_attr_info128_t;
+ 
+typedef struct
+ {
+-  ble_gattc_attr_info_t        attr_info[1]; /**< Attribute information. @note This is a variable length array. The size of 1 indicated is only a placeholder for compilation.
++  union {
++    ble_gattc_attr_info16_t  attr_info16[1];     /**< Attribute information for 16-bit Attribute UUID.
++                                                      @note This is a variable length array. The size of 1 indicated is only a placeholder for compilation.
++                                                      See @ref sd_ble_evt_get for more information on how to use event structures with variable length array members. */
++    ble_gattc_attr_info128_t attr_info128[1];    /**< Attribute information for 128-bit Attribute UUID.
++                                                      @note This is a variable length array. The size of 1 indicated is only a placeholder for compilation.
+                                                       See @ref sd_ble_evt_get for more information on how to use event structures with variable length array members. */
++  } info;
+ } ble_gattc_evt_attr_info_disc_rsp_t;
+ 
+/* Size of event optimized, and added utility function to parse data. */
+ typedef struct
+ {
+-  ble_gattc_handle_value_t  handle_value[1];  /**< Handle-Value(s) list. @note This is a variable length array. The size of 1 indicated is only a placeholder for compilation.
++  uint8_t                   handle_value[1];  /**< Handle-Value(s) list. To iterate through the list use @ref sd_ble_gattc_evt_char_val_by_uuid_read_rsp_iter.
++                                                   @note This is a variable length array. The size of 1 indicated is only a placeholder for compilation.
+ } ble_gattc_evt_char_val_by_uuid_read_rsp_t;
+ 
++static inline uint32_t sd_ble_gattc_evt_char_val_by_uuid_read_rsp_iter(ble_gattc_evt_t *p_gattc_evt, ble_gattc_handle_value_t *p_iter)
+
+
+|-----------------------------------------------------------------------------|
+|  LE Ping                                                                    |
+|-----------------------------------------------------------------------------|
+/* New GAP option to set authenticated payload timeout, BLE_GAP_OPT_AUTH_PAYLOAD_TIMEOUT */
++typedef struct
++{
++  uint16_t   conn_handle;
++  uint16_t   auth_payload_timeout;
++} ble_gap_opt_auth_payload_timeout_t;
+ 
+typedef union
+ {
++  ble_gap_opt_ext_len_t                 ext_len;                   /**< Parameters for the extended length option. */ 
++  ble_gap_opt_auth_payload_timeout_t    auth_payload_timeout;      /**< Parameters for the authenticated payload timeout option.*/
+ } ble_gap_opt_t;
+ 
+/* New timeout */
++#define BLE_GAP_TIMEOUT_SRC_AUTH_PAYLOAD               0x04 /**< Authenticated payload timeout. */
+
+
+|-----------------------------------------------------------------------------|
+|  DLE                                                                        |
+|-----------------------------------------------------------------------------|
+/* New GAP option with the Option API */
++  BLE_GAP_OPT_EXT_LEN,                          /**< Extended length packets. @ref ble_gap_opt_ext_len_t */
+ 
++typedef struct
++{
++  uint8_t  rxtx_max_pdu_payload_size;      /**< Max PDU payload size (in octets). */
++} ble_gap_opt_ext_len_t;
+ 
+typedef union
+ {
++  ble_gap_opt_ext_len_t                 ext_len;                   /**< Parameters for the extended length option. */
+ } ble_gap_opt_t;
+
+enum BLE_COMMON_EVTS
+ {
+   BLE_EVT_TX_COMPLETE  = BLE_EVT_BASE,  /**< Transmission Complete. @ref ble_evt_tx_complete_t */
+   BLE_EVT_USER_MEM_REQUEST,             /**< User Memory request. @ref ble_evt_user_mem_request_t */
+-  BLE_EVT_USER_MEM_RELEASE              /**< User Memory release. @ref ble_evt_user_mem_release_t */
++  BLE_EVT_USER_MEM_RELEASE,             /**< User Memory release. @ref ble_evt_user_mem_release_t */
++  BLE_EVT_DATA_LENGTH_CHANGED           /**< Link layer PDU length changed. @ref ble_evt_data_length_changed_t. */
+ };
+
+
+/**@brief Event structure for events not associated with a specific function module. */
+ typedef struct
+   uint16_t conn_handle;                                 /**< Connection Handle on which this event occurred. */
+   union
+   {
++    ble_evt_data_length_changed_t   data_length_changed; /**< Data Length Changed Event Parameters. */
++  } params;                                              /**< Event parameter union. */
+ } ble_common_evt_t;
+
++/**@brief Event structure for @ref BLE_EVT_DATA_LENGTH_CHANGED. */
++typedef struct
++{
++  uint16_t max_tx_octets;                 /**< The maximum number of payload octets in a Link Layer Data Channel PDU that the local Controller will send. Range: 27-251 */
++  uint16_t max_tx_time;                   /**< The maximum time (in microseconds) that the local Controller will take to send a Link Layer Data Channel PDU. Range: 328-2120  */
++  uint16_t max_rx_octets;                 /**< The maximum number of payload octets in a Link Layer Data Channel PDU that the local controller expects to receive. Range: 27-251 */
++  uint16_t max_rx_time;                   /**< The maximum time (in microseconds) that the local Controller expects to take to receive a Link Layer Data Channel PDU. Range: 328-2120 */
++} ble_evt_data_length_changed_t;
+
+
+|-----------------------------------------------------------------------------|
+|  LL Privacy                                                                 |
+|-----------------------------------------------------------------------------|
+/* New GAP characteristic. Increased minimum ATTR_TAB_SIZE. */
++#define BLE_UUID_GAP_CHARACTERISTIC_CAR               0x2AA6 /**< Central Address Resolution Characteristic. */
+-#define BLE_GATTS_ATTR_TAB_SIZE_MIN         216    /**< Minimum Attribute Table size */
++#define BLE_GATTS_ATTR_TAB_SIZE_MIN         248    /**< Minimum Attribute Table size */
+ 
+/* Renamed GAP SVCs */
+-  SD_BLE_GAP_ADDRESS_SET  = BLE_GAP_SVC_BASE,
+-  SD_BLE_GAP_ADDRESS_GET,
++  SD_BLE_GAP_ADDR_SET = BLE_GAP_SVC_BASE,
++  SD_BLE_GAP_ADDR_GET,
+ 
+/* New GAP SVCs */
++  SD_BLE_GAP_WHITELIST_SET,        /* Set the whitelist */
++  SD_BLE_GAP_DEVICE_IDENTITIES_SET,/* Set the device identity list, peer addresses and IRKs */
++  SD_BLE_GAP_PRIVACY_SET,
++  SD_BLE_GAP_PRIVACY_GET,
+ 
+/* Removed GAP option */
+-  BLE_GAP_OPT_PRIVACY, /* Use sd_ble_gap_privacy_set/get instead */
+ 
+/* New error codes */
++#define BLE_ERROR_GAP_DEVICE_IDENTITIES_IN_USE      (NRF_GAP_ERR_BASE + 0x004)
++#define BLE_ERROR_GAP_DEVICE_IDENTITIES_DUPLICATE   (NRF_GAP_ERR_BASE + 0x005)
+ 
+/* Address cycling is removed from GAP API (Privacy mode always cycles),
+   sd_ble_gap_addr_set can only set public/random static address, to enable private addresses use sd_ble_gap_privacy_set. */
+-#define BLE_GAP_ADDR_CYCLE_MODE_NONE      0x00
+-#define BLE_GAP_ADDR_CYCLE_MODE_AUTO      0x01
+-SVCALL(SD_BLE_GAP_ADDRESS_SET, uint32_t, sd_ble_gap_address_set(uint8_t addr_cycle_mode, ble_gap_addr_t const *p_addr));
++SVCALL(SD_BLE_GAP_ADDR_SET, uint32_t, sd_ble_gap_addr_set(ble_gap_addr_t const *p_addr));
+ 
+/* New defines, default and max cycle intervals */
++#define BLE_GAP_DEFAULT_PRIVATE_ADDR_CYCLE_INTERVAL_S (900) /* 15 minutes. */
++#define BLE_GAP_MAX_PRIVATE_ADDR_CYCLE_INTERVAL_S     (41400) /* 11 hours 30 minutes. */
+ 
+/* Renaming */
+-#define BLE_GAP_WHITELIST_IRK_MAX_COUNT (8)
++#define BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT (8)
+ 
+/* New field in the ble_gap_addr_type_t, indicates an IRK/identity match of a peer. */
+ typedef struct
+ {
+-  uint8_t addr_type;                    /**< See @ref BLE_GAP_ADDR_TYPES. */
++  uint8_t addr_id_peer : 1;       /**< Only valid for peer addresses.
++                                       Reference to peer in device identities list (as set with @ref sd_ble_gap_device_identities_set) when peer is using privacy. */
++  uint8_t addr_type    : 7;       /**< See @ref BLE_GAP_ADDR_TYPES. */
+   uint8_t addr[BLE_GAP_ADDR_LEN]; /**< 48-bit address, LSB format. */
+ } ble_gap_addr_t;
+ 
++/**@brief Identity Resolving Key. */
+ typedef struct
+ {
+-  ble_gap_addr_t    **pp_addrs;        /**< Pointer to an array of device address pointers, pointing to addresses to be used in whitelist. NULL if none are given. */
+-  uint8_t             addr_count;      /**< Count of device addresses in array, up to @ref BLE_GAP_WHITELIST_ADDR_MAX_COUNT. */
+-  ble_gap_irk_t     **pp_irks;         /**< Pointer to an array of Identity Resolving Key (IRK) pointers, each pointing to an IRK in the whitelist. NULL if none are given. */
+-  uint8_t             irk_count;       /**< Count of IRKs in array, up to @ref BLE_GAP_WHITELIST_IRK_MAX_COUNT. */
+-} ble_gap_whitelist_t;
++  uint8_t irk[BLE_GAP_SEC_KEY_LEN];   /**< Array containing IRK. */
++} ble_gap_irk_t;
+ 
+/* Whitelisting type is removed */
+-typedef struct
+-{
+-  ble_gap_addr_t    **pp_addrs;
+-  uint8_t             addr_count;
+-  ble_gap_irk_t     **pp_irks;
+-  uint8_t             irk_count;
+-} ble_gap_whitelist_t;
+ 
+/* Removed/replaced variables from ble_gap_*_params_t structs */
+ble_gap_adv_params_t
+-  ble_gap_whitelist_t  *p_whitelist;
+ 
+/* Scan params changes, selective renamed to use_whitelist, p_whitelist replaced by sd_ble_gap_whitelist_set.
+   New: adv_dir_report, enabled extended scanner filter policies. */
+ble_gap_scan_params_t
+-  uint8_t                 selective : 1;
+-  ble_gap_whitelist_t *   p_whitelist;
++  uint8_t  use_whitelist  : 1;
++  uint8_t  adv_dir_report : 1;
+ 
+/* Privacy mode. */
++#define BLE_GAP_PRIVACY_MODE_OFF                       0x00
++#define BLE_GAP_PRIVACY_MODE_DEVICE_PRIVACY            0x01
+ 
+/* New privacy config struct to use with the new get and set SVC's */
++typedef struct
++{
++  uint8_t        privacy_mode;
++  uint8_t        private_addr_type;
++  uint16_t       private_addr_cycle_s;
++  ble_gap_irk_t *p_device_irk;
++} ble_gap_privacy_params_t;
+ 
+/* Changed connected event. Own address removed. Irk_match is given by the address
+   If irk_match peer_addr.addr_id_peer = 1, peer_addr is the address of the peer, set by sd_ble_gap_device_identities_set. */
+ typedef struct
+ {
+-  ble_gap_addr_t        own_addr;
+   uint8_t               role;
+-  uint8_t               irk_match :1;
+-  uint8_t               irk_match_idx  :7;
+   ble_gap_conn_params_t conn_params;
+ } ble_gap_evt_connected_t;
+ 
+/* ADV report can report directed advertiser where initiator address is an unresolved private resolvable address.
+   Extended scanner filter policies */
+ typedef struct
+ {
+   ble_gap_addr_t peer_addr;
++  ble_gap_addr_t direct_addr;
+   int8_t         rssi;
+   uint8_t        scan_rsp : 1;
+   uint8_t        type     : 2;
+   uint8_t        dlen     : 5;
+   uint8_t        data[BLE_GAP_ADV_MAX_SIZE];
+ } ble_gap_evt_adv_report_t;
+ 
+/* Privacy removed from Options API, replaced by sd_ble_gap_privacy_set/get */
+-typedef struct
+-{
+-  ble_gap_irk_t * p_irk;
+-  uint16_t        interval_s;
+-} ble_gap_opt_privacy_t;
+
+
+|-----------------------------------------------------------------------------|
+|  Full length device name                                                    |
+|-----------------------------------------------------------------------------|
+-#define BLE_GAP_DEVNAME_MAX_LEN           31
++#define BLE_GAP_DEVNAME_DEFAULT                  "nRF5x"
++#define BLE_GAP_DEVNAME_DEFAULT_LEN              31
++#define BLE_GAP_DEVNAME_MAX_LEN                  248
+ 
++typedef struct
++{
++  ble_gap_conn_sec_mode_t  write_perm;   /**< Write permissions. */
++  uint8_t                  vloc:2;       /**< Value location, see @ref BLE_GATTS_VLOCS.*/
++  uint8_t                 *p_value;      /**< Pointer to where the value (device name) is stored or will be stored.*/
++  uint16_t                 current_len;  /**< Current length in bytes of the memory pointed to by p_value.*/
++  uint16_t                 max_len;      /**< Maximum length in bytes of the memory pointed to by p_value.*/
++} ble_gap_device_name_t;
+
+
+|-----------------------------------------------------------------------------|
+|  Dynamic extension of connection event length                               |
+|-----------------------------------------------------------------------------|
+ enum BLE_COMMON_OPTS
+ {
+   BLE_COMMON_OPT_CONN_BW = BLE_OPT_BASE,     /**< Bandwidth configuration @ref ble_common_opt_conn_bw_t */
+-  BLE_COMMON_OPT_PA_LNA                      /**< PA and LNA options */
++  BLE_COMMON_OPT_PA_LNA,                     /**< PA and LNA options */
++  BLE_COMMON_OPT_CONN_EVT_EXT,               /**< Extended connection events option */
+ };
+ 
++/**
++ * @brief Configuration of extended BLE connection events.
++ *
++ * When enabled the SoftDevice will dynamically extend the connection event when possible.
++ *
++ * The connection event length is controlled by the bandwidth configuration as set by @ref ble_common_opt_conn_bw_t.
++ * The connection event can be extended if there is time to send another packet pair before the start of the next connection interval,
++ * and if there are no conflicts with other BLE roles requesting radio time.
++ *
++ * @note @ref sd_ble_opt_get is not supported for this option.
++ */
++typedef struct
++{
++   uint8_t enable : 1; /**< Enable extended BLE connection events, disabled by default. */
++} ble_common_opt_conn_evt_ext_t;
++
+ /**@brief Option structure for common options. */
+ typedef union
+ {
+-  ble_common_opt_conn_bw_t conn_bw;       /**< Parameters for the connection bandwidth option. */
+-  ble_common_opt_pa_lna_t  pa_lna;        /**< Parameters for controlling PA and LNA pin toggling. */
++  ble_common_opt_conn_bw_t      conn_bw;       /**< Parameters for the connection bandwidth option. */
++  ble_common_opt_pa_lna_t       pa_lna;        /**< Parameters for controlling PA and LNA pin toggling. */
++  ble_common_opt_conn_evt_ext_t conn_evt_ext;  /**< Parameters for enabling extended connection events. */
+ } ble_common_opt_t;
+
+
+|-----------------------------------------------------------------------------|
+|  Max BLE event length calculation                                           |
+|-----------------------------------------------------------------------------|
++#define BLE_EVTS_LEN_MAX(ATT_MTU) (MAX( \
++  sizeof(ble_evt_t), \
++  MAX( \
++    offsetof(ble_evt_t, evt.gattc_evt.params.char_disc_rsp.chars) + ((ATT_MTU) - 2) / 7 * sizeof(ble_gattc_char_t), \
++    offsetof(ble_evt_t, evt.gattc_evt.params.attr_info_disc_rsp.info.attr_info16) + ((ATT_MTU) - 2) / 4 * sizeof(ble_gattc_attr_info16_t) \
++  ) \
++))
+
+ 
+|-----------------------------------------------------------------------------|
+|  Misc                                                                       |
+|-----------------------------------------------------------------------------|
+/* Rename invalid BW parameter */
+-  BLE_CONN_BW_NONE = 0,                 /**< Invalid connection bandwidth. */
++  BLE_CONN_BW_INVALID = 0,              /**< Invalid connection bandwidth. */

@@ -32,6 +32,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef MESH_DFU
 #include "dfu_app.h"
 #endif
+#ifdef BLINKY
+#include "blinky.h"
+#endif
 
 #include "nrf_adv_conn.h"
 #include "led_config.h"
@@ -81,8 +84,11 @@ static nrf_clock_lf_cfg_t m_clock_cfg =
 */
 static void error_loop(void)
 {
+    led_config(0, 1);
     led_config(2, 1);
-    led_config(3, 0);
+    led_config(3, 1);
+    led_config(1, 1);
+    
     __disable_irq(); /* Prevent the mesh from continuing operation. */
     while (true)
     {
@@ -141,7 +147,7 @@ void sd_ble_evt_handler(ble_evt_t* p_ble_evt)
 * @param[in] evt RBC event propagated from framework
 */
 static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
-{
+{   
     switch (p_evt->type)
     {
         case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
@@ -234,15 +240,17 @@ int main(void)
 #ifdef RBC_MESH_SERIAL
     mesh_aci_init();
 #endif
-
+    
+    
+    
     rbc_mesh_init_params_t init_params;
 
     init_params.access_addr = MESH_ACCESS_ADDR;
     init_params.interval_min_ms = MESH_INTERVAL_MIN_MS;
     init_params.channel = MESH_CHANNEL;
     init_params.lfclksrc = MESH_CLOCK_SOURCE;
-    init_params.tx_power = RBC_MESH_TXPOWER_0dBm;
-
+    init_params.tx_power = RBC_MESH_TXPOWER_0dBm ;
+    
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
 
@@ -259,6 +267,17 @@ int main(void)
     APP_ERROR_CHECK(mesh_aci_start());
 #endif
 
+    
+#ifdef BLINKY
+    
+    led_init ();
+    rtc_1_init ();
+    start_blink_interval_s(1);
+    
+#endif
+    
+    
+    
     rbc_mesh_event_t evt;
     while (true)
     {
@@ -281,8 +300,12 @@ int main(void)
         }
 #endif
 
+       
+        
+          
+
         if (rbc_mesh_event_get(&evt) == NRF_SUCCESS)
-        {
+        {   
             rbc_mesh_event_handler(&evt);
             rbc_mesh_event_release(&evt);
         }

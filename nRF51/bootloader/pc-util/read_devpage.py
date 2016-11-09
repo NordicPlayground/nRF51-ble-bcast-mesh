@@ -32,10 +32,12 @@ def nrfjprog(args):
 is_nrf52 = ("--52" in sys.argv or "--nrf52" in sys.argv)
 if is_nrf52:
     family = " -f NRF52"
+    device_page_address="0x7f000"
 else:
     family = ""
+    device_page_address="0x3FC00"
 
-readout = nrfjprog("--memrd 0x7f000 --n 1024" + family)
+readout = nrfjprog("--memrd "+ device_page_address + " --n 1024" + family)
 words = ""
 for line in readout.splitlines(True):
     words += line[12:48]

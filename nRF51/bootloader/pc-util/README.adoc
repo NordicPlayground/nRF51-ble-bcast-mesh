@@ -1,3 +1,10 @@
+= Utilities and Tools
+
+* Device page generator tool
+* pc-nrfutil
+* Batch files (Windows only) 
+
+
 = Device page generator tool
 
 This simple tool is intended for PC/Linux/Mac, and will generate a device page from a
@@ -49,3 +56,56 @@ operation and a short description.
 
 
 For further documentation on the different handles and their uses, see the guide under /docs/dfu/.
+
+= pc-nrfutil
+
+nrfutil is a Python package that includes the nrfutil command line utility and the nordicsemi library. 
+
+This application is used to provide :
+
+* Device Firmware Update package generation
+* Cryptographic key generation, management and storage
+* Bootloader DFU settings generation and display
+
+*Version:* The supported version of the pc-nrfutil for mesh DFU is 0.3.0.x
+
+*Build:* User can built a fresh copy of the nrfutil.exe by following the steps provided in the following link :
+ https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu
+
+= Batch files (Windows only) 
+ 
+Two batch files named "for_loop_batch_nRF51.bat" and "for_loop_batch_nRF52.bat" are provided to flash necessary hex files into all connected 
+nRF51 and nRF52 devices respectively. 
+ 
+This batch file executes the following commands sequentially :
+
+* Erase all sectors of the flash memory of the connected devices
+* Flash the connected devices with correct softdevice hex files
+* Flash the connected devices with intended bootloader hex files
+* Generate a fresh device page (example.hex for the nRF51 and example52.hex for the nRF52)
+* Flash the connected devices with the generated device page (example.hex for the nRF51 and example52.hex for the nRF52)
+* Flash the connected devices with application hex files 
+* Generate the DFU package 
+* Reset the connected devices 
+
+*Note:* For nRF51 devices "for_loop_batch_nRF51.bat" and for nRF52 devices "for_loop_batch_nRF52.bat" are used . These batch files can be called either using 
+command line or powershell .But in both cases , they should be called from the "bootloader" folder level. An example is provided below :
+
+* From command line for nRF51 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF51.bat
+* From Powershell for nRF51 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF51.bat
+* From command line for nRF52 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF52.bat
+* From Powershell for nRF52 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF52.bat
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
