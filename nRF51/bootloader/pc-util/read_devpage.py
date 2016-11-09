@@ -16,9 +16,9 @@ infos["001C0011"] = ("SIGN_APP", 17)
 infos["00210006"] = ("BANK_SD", 6)
 infos["00220006"] = ("BANK_BL", 6)
 infos["00240006"] = ("BANK_APP", 6)
-infos["00210016"] = ("BANK_SD_SIGNED", 21)
-infos["00220016"] = ("BANK_BL_SIGNED", 21)
-infos["00240016"] = ("BANK_APP_SIGNED", 21)
+infos["00210016"] = ("BANK_SD_SIGNED", 22)
+infos["00220016"] = ("BANK_BL_SIGNED", 22)
+infos["00240016"] = ("BANK_APP_SIGNED", 22)
 
 def nrfjprog(args):
     process = subprocess.Popen("nrfjprog "+args, stdout=subprocess.PIPE, universal_newlines=True)
