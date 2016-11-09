@@ -69,7 +69,7 @@ static fifo_t           m_rx_fifo;
 static mesh_packet_t*   m_rx_fifo_buf[RADIO_RX_FIFO_LEN];
 static uint32_t         m_ticks_at_order_time;
 static prng_t           m_prng;
-static bool             m_started = false;
+static bool             m_running = false;
 uint16_t                m_tx_evt_bitfield; /**< Bitfield of events for each handle in the reserved handle range 0xFFF0-0xFFFE. */
 /******************************************************************************
 * Static functions
@@ -102,15 +102,18 @@ static void order_scan(void)
 {
     radio_event_t evt;
     evt.event_type = RADIO_EVENT_TYPE_RX_PREEMPTABLE;
-    if (!mesh_packet_acquire((mesh_packet_t**) &evt.packet_ptr))
+    if (mesh_packet_acquire((mesh_packet_t**) &evt.packet_ptr))
     {
-        APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
+        evt.access_address = 0;
+        evt.channel = 37;
+        if (radio_order(&evt) != NRF_SUCCESS)
+        {
+            mesh_packet_ref_count_dec((mesh_packet_t*) &evt.packet_ptr);
+        }
     }
-    evt.access_address = 0;
-    evt.channel = 37;
-    if (radio_order(&evt) != NRF_SUCCESS)
+    else
     {
-        mesh_packet_ref_count_dec((mesh_packet_t*) &evt.packet_ptr);
+        m_running = false;
     }
 }
 
@@ -150,7 +153,7 @@ static void radio_rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rss
 
 static void radio_idle_cb(void)
 {
-    if (m_started)
+    if (m_running)
     {
         order_scan();
     }
@@ -195,6 +198,12 @@ void SWI0_IRQHandler(void)
         m_rx_cb(p_packet);
         mesh_packet_ref_count_dec(p_packet);
     }
+
+    /* Restart the radio if it stopped because we ran out of memory */
+    if (!m_running)
+    {
+        transport_start();
+    }
 }
 
 void RADIO_IRQHandler(void)
@@ -215,7 +224,7 @@ bool timeslot_is_in_ts(void)
 ******************************************************************************/
 void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 {
-    m_started = false;
+    m_running = false;
     m_rx_cb = rx_cb;
     m_tx_evt_bitfield = 0;
     memset(m_tx, 0, sizeof(tx_t) * TRANSPORT_TX_SLOTS);
@@ -239,9 +248,9 @@ void transport_init(rx_cb_t rx_cb, uint32_t access_addr)
 
 void transport_start(void)
 {
-    if (!m_started)
+    if (!m_running)
     {
-        m_started = true;
+        m_running = true;
         order_scan();
     }
 }

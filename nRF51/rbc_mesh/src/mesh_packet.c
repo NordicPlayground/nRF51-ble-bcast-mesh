@@ -65,7 +65,6 @@ bool mesh_packet_acquire(mesh_packet_t** pp_packet)
         }
         _ENABLE_IRQS(was_masked);
     }
-    APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
     return false;
 }
 
