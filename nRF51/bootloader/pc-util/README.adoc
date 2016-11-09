@@ -85,9 +85,9 @@ This batch file executes the following commands sequentially :
 command line or powershell .But in both cases , they should be called from the "bootloader" folder level. An example is provided below :
 
 * From command line for nRF51 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF51.bat
-* From Powershell for nRf51 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF51.bat
+* From Powershell for nRF51 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF51.bat
 * From command line for nRF52 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF52.bat
-* From Powershell for nRf52 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF52.bat
+* From Powershell for nRF52 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF52.bat
  
  
  
