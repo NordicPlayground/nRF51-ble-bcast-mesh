@@ -52,8 +52,9 @@ For further documentation on the different handles and their uses, see the guide
 
 == pc-nrfutil
 
-nrfutil is a Python package that includes the nrfutil command line utility and the nordicsemi library. This application is used with DFU because of the 
-following reasons :
+nrfutil is a Python package that includes the nrfutil command line utility and the nordicsemi library. 
+
+This application is used with DFU because of the following reasons :
 
 * Device Firmware Update package generation
 * Cryptographic key generation, management and storage
@@ -61,15 +62,15 @@ following reasons :
 
 *Version:* The supported version of the pc-nrfutil for mesh DFU is 0.3.0.0 .
 
-*Build:* User can built a fresh copy of the nrfutil.exe can be built by following the steps provided in the following link :
+*Build:* User can built a fresh copy of the nrfutil.exe by following the steps provided in the following link :
  https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu
 
- == Batch files
+== Batch files
  
- Two batch files named "for_loop_batch_nRF51.bat" and "for_loop_batch_nRF52.bat" are provided to flash necessary hex files into all connected nRF51 and nRF52 
- devices respectively. 
+Two batch files named "for_loop_batch_nRF51.bat" and "for_loop_batch_nRF52.bat" are provided to flash necessary hex files into all connected 
+nRF51 and nRF52 devices respectively. 
  
- This batch file executes the following commands sequentially :
+This batch file executes the following commands sequentially :
 
 * Erase all sectors of the flash memory of the connected devices
 * Flash the connected devices with correct softdevice hex files
@@ -83,10 +84,10 @@ following reasons :
 *Note:* For nRF51 devices "for_loop_batch_nRF51.bat" and for nRF52 devices "for_loop_batch_nRF52.bat" are used . These batch files can be called either using 
 command line or powershell .But in both cases , they should be called from the "bootloader" folder level. An example is provided below :
 
-*From command line for nRF51 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF51.bat
-*From Powershell for nRf51 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF51.bat
-*From command line for nRF52 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF52.bat
-*From Powershell for nRf52 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF52.bat
+* From command line for nRF51 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF51.bat
+* From Powershell for nRf51 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF51.bat
+* From command line for nRF52 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF52.bat
+* From Powershell for nRf52 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF52.bat
  
  
  
