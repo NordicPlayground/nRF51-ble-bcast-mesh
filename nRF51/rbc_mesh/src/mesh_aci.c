@@ -69,24 +69,25 @@ static aci_status_code_t error_code_translate(uint32_t nrf_error_code)
 {
     switch (nrf_error_code)
     {
-        case NRF_SUCCESS:
-            return ACI_STATUS_SUCCESS;
-        case NRF_ERROR_INVALID_PARAM:
-            return ACI_STATUS_ERROR_INVALID_PARAMETER;
-        case NRF_ERROR_INVALID_STATE:
-            return ACI_STATUS_ERROR_DEVICE_STATE_INVALID;
-        case NRF_ERROR_NOT_SUPPORTED:
-            return ACI_STATUS_ERROR_CMD_UNKNOWN;
-        case NRF_ERROR_SOFTDEVICE_NOT_ENABLED:
-            return ACI_STATUS_ERROR_BUSY;
-        case NRF_ERROR_INVALID_LENGTH:
-            return ACI_STATUS_ERROR_INVALID_LENGTH;
-        case NRF_ERROR_NOT_FOUND:
-            return ACI_STATUS_ERROR_PIPE_INVALID;
-        case NRF_ERROR_BUSY:
-            return ACI_STATUS_ERROR_BUSY;
-        default:
-            return ACI_STATUS_ERROR_UNKNOWN;
+        case NRF_SUCCESS:                      return ACI_STATUS_SUCCESS;
+        case NRF_ERROR_SVC_HANDLER_MISSING:    return ACI_STATUS_ERROR_DEVICE_STATE_INVALID;
+        case NRF_ERROR_SOFTDEVICE_NOT_ENABLED: return ACI_STATUS_ERROR_DEVICE_STATE_INVALID;
+        case NRF_ERROR_INTERNAL:               return ACI_STATUS_ERROR_UNKNOWN;
+        case NRF_ERROR_NO_MEM:                 return ACI_STATUS_ERROR_BUSY;
+        case NRF_ERROR_NOT_FOUND:              return ACI_STATUS_ERROR_PIPE_INVALID;
+        case NRF_ERROR_NOT_SUPPORTED:          return ACI_STATUS_ERROR_CMD_UNKNOWN;
+        case NRF_ERROR_INVALID_PARAM:          return ACI_STATUS_ERROR_INVALID_PARAMETER;
+        case NRF_ERROR_INVALID_STATE:          return ACI_STATUS_ERROR_DEVICE_STATE_INVALID;
+        case NRF_ERROR_INVALID_LENGTH:         return ACI_STATUS_ERROR_INVALID_LENGTH;
+        case NRF_ERROR_INVALID_FLAGS:          return ACI_STATUS_ERROR_INVALID_PARAMETER;
+        case NRF_ERROR_INVALID_DATA:           return ACI_STATUS_ERROR_INVALID_PARAMETER;
+        case NRF_ERROR_DATA_SIZE:              return ACI_STATUS_ERROR_INVALID_LENGTH;
+        case NRF_ERROR_TIMEOUT:                return ACI_STATUS_ERROR_UNKNOWN;
+        case NRF_ERROR_NULL:                   return ACI_STATUS_ERROR_INVALID_PARAMETER;
+        case NRF_ERROR_FORBIDDEN:              return ACI_STATUS_ERROR_BUSY;
+        case NRF_ERROR_INVALID_ADDR:           return ACI_STATUS_ERROR_INVALID_PARAMETER;
+        case NRF_ERROR_BUSY:                   return ACI_STATUS_ERROR_BUSY;
+        default:                               return ACI_STATUS_ERROR_UNKNOWN;
     }
 }
 
