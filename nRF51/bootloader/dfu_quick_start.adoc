@@ -1,5 +1,5 @@
 = Mesh-DFU quick start guide
-Creating a DFU file and transfer it!
+Create a DFU file and transfer it!
 
 This quick start guide offers step by step instructions on how you can do a Direct Firmware Upgrade
 (DFU) of your own, using example firmware. It should provide a reasonable basis for using the
@@ -8,6 +8,7 @@ Mesh-DFU to transfer any firmware to any mesh.
 The steps are listed below, with a more detailed explanation for each step at the end. A set of
 example hex-files have been added under /test/ to help you to get started. The pc-nrfutil tool
 is available (and open sourced) at https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu[its repository].
+A pre-build version of the pc-nrfutil in the mesh_dfu branch is placed in the bootloader/pcutils folder.
 Note the branch: The master branch does not contain the additional code to handle a mesh-dfu.
 See the tool's documentation for installation and prerequisites.
 The guide assumes that you have at least 2 development kits or devices, where one is to be
@@ -16,12 +17,11 @@ interfaced over the serial port, and one gets the DFU from the other over the me
 NOTE: For each call to the `nrfjprog` command, you are expected to add the `-s <serial-number>` option, to
 match the Segger ID of your device.
 
-IMPORTANT: All precompiled hex-files are made for the 256k Flash/32k RAM version of the nRF51. Recompile to make them work on other hardware configurations. It is also important that you use the same board type (nRF51-DK only or nRF51-Dongle only, do not mix the board types) when testing the DFU. 
+IMPORTANT: All precompiled hex-files are made for the 256K Flash/32K RAM version of the nRF51 and the 512K Flash/64K RAM version of the nRF52. Recompile to make them work on other hardware configurations. It is also important that you use the same board type (nRF51-DK only or nRF51-Dongle only, or nRF52-DK only do not mix the board types) when testing the DFU. However the DFU does support mixed networks of nRF51 and nRF52
 
 == LED color meanings
-- RED: Initial app, no serial
-- None: Bootloader
-- Green: New app
+- Blinking: Blinky app
+- None: Bootloader with Serial
 
 == Steps
 
@@ -34,9 +34,25 @@ IMPORTANT: All precompiled hex-files are made for the 256k Flash/32k RAM version
 7. Flash the serial bootloader on all devices.
 8. Flash the device page on all devices.
 9. Flash the first application on all devices (serial version on the serial-gateway device).
-10. Verify your bootloader with the bootloader verification script.
-11. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
-12. Transfer the DFU-file over serial with the pc-nrfutil tool.
+10. Generate a DFU-file with the pc-nrfutil tool, giving arguments that match the device-page.
+11. Transfer the DFU-file over serial with the pc-nrfutil tool.
+
+== Utilities (Windows only) to script the minimal quick start steps using powershell/cmd.exe 
+
+nRF51
+for_loop_batch_nRF51.bat
+
+nRF52
+for_loop_batch_nRF52.bat
+
+The for_loop_batch script is a convenience utility that will flash all your attached nRF51 or nRF52 boards with the softdevice, bootloader, device page and application hex files.
+This calls the flash_open_mesh_nRF51.bat or flash_open_mesh_nRF52.bat files to do the flashing using nrfjprog
+The script should be run from the nRF51/bootloader folder
+
+The for_loop_batch script must be run from the nRF51/bootloader folder
+
+Run step 11 alone needs to be done manually after this using the batch file.
+
 
 == 1. Turn off mass storage driver on all devices (Windows only)
 
@@ -119,14 +135,7 @@ your device (including UICR):
 == 6. Flash the Softdevice on all devices.
 NOTE: It's important that steps 6-9 are executed in order.
 
-nRF51
-Get a copy of the S110 v8.0 Softdevice at www.nordicsemi.com, and flash it onto your device with
-nrfjprog:
-
-nRF52
-Get a copy of the S132 v3.0 Softdevice at www.nordicsemi.com, and flash it onto your device with
-nrfjprog:
-
+nRF51 and nRF52 Softdevices are in the nRF51/softdevices folder
 
 `nrfjprog --program <Softdevice hex-file>`
 
@@ -141,10 +150,14 @@ Flash the device page .hex that you generated in step 4 to the device:
 `nrfjprog --program <device page hex-file>`
 
 == 9. Flash the first application on all devices (serial version on all the devices for convenience).
-Finally, flash the example application app_LED1.hex to all devices, except the device you want to
-connect to via serial. For this device, use app_serial_LED1.hex instead. When finished, your devices
-should have its LED1 lit if it's an nRF51 development kit, or the red LED lit if it's an nRF51 dongle.
-The example applications are compiled from he BLE_Gateway example in this repository.
+
+nRF51:
+Flash the example application in nRF51\examples\BLE_Gateway\bin\rbc_gateway_example_serial_nRF51422_xxAC.hex to all devices 
+
+nRF52:
+Flash the example application in nRF51\examples\BLE_Gateway\bin\rbc_gateway_example_serial_nRF52832_xxAA.hex to all devices
+
+The example applications are compiled from he BLE_Gateway example with the serial target in this repository.
 
 `nrfjprog --program <app hex-file>`
 
@@ -158,7 +171,7 @@ To do a DFU, you need to create a DFU-file. The DFU file is really
 a .zip, which contains the application binary, along with some metadata. Matching the FWIDs in
 your device page file, call the nrfutil tool from /nRF51/bootloader/:
 
-`nrfutil dfu genpkg --application test/app.hex --company-id 0x00000059 --application-id 1 --application-version 2 --key-file private.txt --sd-req 0x0064 --mesh dfu_test.zip`
+`nrfutil dfu genpkg --application ../examples/BLE_Gateway/bin/rbc_gateway_example_serial_blinky_PCA10028_nRF51422_xxAC.hex --company-id 0x00000059 --application-id 1 --application-version 2 --key-file private.txt --sd-req 0x0064 --mesh dfu_test.zip`
 
 You can see that we still used the Nordic Semiconductor company ID, make sure you use your own. Also
 note that the application version is set to 2. A device will only accept application trasfers of
@@ -179,7 +192,7 @@ is on. Mine is on COM138. Now call the nrfutil one final time:
 `nrfutil dfu serial -pkg dfu_test.zip -p COM138 -b 115200 -fc --mesh`
 
 A progress bar should pop up, and the transfer should take approximately 15 minutes. Your devices
-should start flashing their LED2 (the green LED on the dongle), while leaving the LED1 on (red on
+should start flashing their LEDs (the green LED on the dongle), while leaving the LED1 on (red on
 dongle). Note that the color blend will look like red and yellow on the dongle.
 
 Once finished, the bootloader should switch to the application, and only the LED2 (green on dongle)
@@ -187,22 +200,6 @@ should be lit. You now have the app_LED2.hex on all your devices. You will not b
 twice, as the application version in the device page on your device will have incremented to 2,
 and the bootloader will reject any attempt to retransfer the firmware. It would be redundant after
 all.
-
-== Utilities (Windows only) to script the quick start steps using powershell/cmd.exe 
-
-nRF51
-for_loop_batch_nRF51.bat
-
-nRF52
-for_loop_batch_nRF52.bat
-
-The for_loop_batch script is a convenience utility that will flash all your attached nRF51 or nRF52 boards with the softdevice, bootloader, device page and application hex files.
-This calls the flash_open_mesh_nRF51.bat or flash_open_mesh_nRF52.bat files to do the flashing using nrfjprog
-The script should be run from the nRF51/bootloader folder
-
-Parameters for the for_loop_batch script
-<folder nRF51/bootlaoder>
-<folder containing the softdevice hex file>
 
 
 == Troubleshooting. Verify your bootloader with the bootloader_verify.py script (optional)
