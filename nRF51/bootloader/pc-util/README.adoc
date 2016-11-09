@@ -1,3 +1,10 @@
+= Utilities and Tools
+
+* Device page generator tool
+* pc-nrfutil
+* Batch files (Windows only) 
+
+
 = Device page generator tool
 
 This simple tool is intended for PC/Linux/Mac, and will generate a device page from a
@@ -50,22 +57,22 @@ operation and a short description.
 
 For further documentation on the different handles and their uses, see the guide under /docs/dfu/.
 
-== pc-nrfutil
+= pc-nrfutil
 
 nrfutil is a Python package that includes the nrfutil command line utility and the nordicsemi library. 
 
-This application is used with DFU because of the following reasons :
+This application is used to provide :
 
 * Device Firmware Update package generation
 * Cryptographic key generation, management and storage
 * Bootloader DFU settings generation and display
 
-*Version:* The supported version of the pc-nrfutil for mesh DFU is 0.3.0.0 .
+*Version:* The supported version of the pc-nrfutil for mesh DFU is 0.3.0.x
 
 *Build:* User can built a fresh copy of the nrfutil.exe by following the steps provided in the following link :
  https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu
 
-== Batch files
+= Batch files (Windows only) 
  
 Two batch files named "for_loop_batch_nRF51.bat" and "for_loop_batch_nRF52.bat" are provided to flash necessary hex files into all connected 
 nRF51 and nRF52 devices respectively. 
