@@ -596,6 +596,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 evt.params.dfu.bank.fwid         = p_evt->params.bank_available.bank_fwid;
                 evt.params.dfu.bank.is_signed    = p_evt->params.bank_available.is_signed;
                 evt.params.dfu.bank.p_start_addr = p_evt->params.bank_available.p_bank_addr;
+                evt.params.dfu.bank.length       = p_evt->params.bank_available.bank_length;
                 rbc_mesh_event_push(&evt);
             }
             break;
