@@ -51,8 +51,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*****************************************************************************
 * Local defines
 *****************************************************************************/
-#define IRQ_ENABLED                 (0x01)  /**< Field that identifies if an interrupt is enabled. */
-#define MAX_NUMBER_INTERRUPTS       (32)    /**< Maximum number of interrupts available. */
 #define FLASH_FIFO_SIZE             (8)     /**< Size of the async-flash queue. Must be greater than 4 to end a transfer. */
 #define FLASH_HANDLER_IRQn          (SWI3_IRQn)
 #define FLASH_HANDLER_IRQHandler    SWI3_IRQHandler
@@ -123,25 +121,6 @@ static void stop_timeout(void)
     __LOG("STOP TIMEOUT\n");
     NRF_RTC0->INTENCLR = (1 << (RTC_BL_STATE_CH + RTC_INTENSET_COMPARE0_Pos));
     m_timeout_action = TIMEOUT_ACTION_NONE;
-}
-
-static void interrupts_disable(void)
-{
-    uint32_t interrupt_setting_mask;
-    uint32_t irq;
-
-    /* Fetch the current interrupt settings. */
-    interrupt_setting_mask = NVIC->ISER[0];
-
-    /* Loop from interrupt 0 for disabling of all interrupts. */
-    for (irq = 0; irq < MAX_NUMBER_INTERRUPTS; irq++)
-    {
-        if (interrupt_setting_mask & (IRQ_ENABLED << irq))
-        {
-            /* The interrupt was enabled, hence disable it. */
-            NVIC_DisableIRQ((IRQn_Type)irq);
-        }
-    }
 }
 
 /** Interrupt indicating new serial command */

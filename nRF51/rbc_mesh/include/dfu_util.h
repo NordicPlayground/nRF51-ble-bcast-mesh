@@ -71,5 +71,7 @@ void packet_cache_flush(void);
 
 bool section_overlap(uint32_t section_a_start, uint32_t section_a_length, 
                      uint32_t section_b_start, uint32_t section_b_length);
+
+void interrupts_disable(void);
 #endif /* DFU_UTIL_H__ */
 

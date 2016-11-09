@@ -40,6 +40,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PACKET_CACHE_SIZE           (16)
 
 
+#define IRQ_ENABLED                 (0x01)  /**< Field that identifies if an interrupt is enabled. */
+#define MAX_NUMBER_INTERRUPTS       (32)    /**< Maximum number of interrupts available. */
+
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
@@ -256,3 +259,21 @@ bool section_overlap(uint32_t section_a_start, uint32_t section_a_length,
      );
  }
 
+void interrupts_disable(void)
+{
+    uint32_t interrupt_setting_mask;
+    uint32_t irq;
+
+    /* Fetch the current interrupt settings. */
+    interrupt_setting_mask = NVIC->ISER[0];
+
+    /* Loop from interrupt 0 for disabling of all interrupts. */
+    for (irq = 0; irq < MAX_NUMBER_INTERRUPTS; irq++)
+    {
+        if (interrupt_setting_mask & (IRQ_ENABLED << irq))
+        {
+            /* The interrupt was enabled, hence disable it. */
+            NVIC_DisableIRQ((IRQn_Type)irq);
+        }
+    }
+}
