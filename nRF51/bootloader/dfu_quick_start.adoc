@@ -191,15 +191,12 @@ is on. Mine is on COM138. Now call the nrfutil one final time:
 
 `nrfutil dfu serial -pkg dfu_test.zip -p COM138 -b 115200 -fc --mesh`
 
-A progress bar should pop up, and the transfer should take approximately 15 minutes. Your devices
-should start flashing their LEDs (the green LED on the dongle), while leaving the LED1 on (red on
-dongle). Note that the color blend will look like red and yellow on the dongle.
+A progress bar should pop up, and the transfer should take approximately 15 minutes. 
 
-Once finished, the bootloader should switch to the application, and only the LED2 (green on dongle)
-should be lit. You now have the app_LED2.hex on all your devices. You will not be able to do the DFU
-twice, as the application version in the device page on your device will have incremented to 2,
+Once finished, the bootloader should switch to the application, and the LEDs should start blinking. 
+You will not be able to do the DFU twice, as the application version in the device page on your device will have incremented to 2,
 and the bootloader will reject any attempt to retransfer the firmware. It would be redundant after
-all.
+all. Re-run step 10 with an increased version number i.e. --application-version 3 , and use the zip file to do the DFU again using step 11.
 
 
 == Troubleshooting. Verify your bootloader with the bootloader_verify.py script (optional)
