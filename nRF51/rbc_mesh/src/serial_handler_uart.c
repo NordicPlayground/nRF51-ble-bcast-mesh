@@ -123,7 +123,13 @@ static void char_rx(uint8_t c)
     *(pp++) = c;
 
     uint32_t len = (uint32_t)(pp - rx_buf.buffer);
-    if (len >= sizeof(rx_buf) || (len > 1 && len >= rx_buf.buffer[0] + 1)) /* end of command */
+    if (rx_buf.buffer[0] > sizeof(rx_buf))
+    {
+        /* don't accept too large packets, as they're invalid data that will
+         * cause overflow. */
+        pp = rx_buf.buffer;
+    }
+    else if (len >= sizeof(rx_buf) || (len > 1 && len >= rx_buf.buffer[0] + 1)) /* end of command */
     {
         if (fifo_push(&m_rx_fifo, &rx_buf) != NRF_SUCCESS)
         {
