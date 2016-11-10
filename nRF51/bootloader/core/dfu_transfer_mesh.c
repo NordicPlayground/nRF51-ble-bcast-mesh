@@ -264,8 +264,7 @@ uint32_t dfu_transfer_sha256(sha256_context_t* p_hash_context)
 
 void dfu_transfer_end(void)
 {
-    memset(&m_transfer, 0, sizeof(m_transfer));
-    m_transfer.segment_max = INVALID_SEGMENT_INDEX;
+    dfu_transfer_init();
 }
 
 void dfu_transfer_flash_write_complete(uint8_t* p_write_src)
