@@ -1,6 +1,6 @@
 = nRF OpenMesh (formerly nRF51-ble-broadcast-mesh)
 
-Bluetooth Low Energy based rebroadcasting mesh implementation on the nRF5x called *nRFx OpenMesh*.
+Bluetooth Low Energy based rebroadcasting mesh implementation on the nRF5x called *nRF OpenMesh*.
 Works with SoftDevice S110 v8.x (for nRF51) and S132 v3.0.0 (for nRF52) with Timeslot API, and the nRF51 SDK8.1 and the nRF5x SDK 12.0.0
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
