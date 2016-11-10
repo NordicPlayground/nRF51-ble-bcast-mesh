@@ -1,0 +1,39 @@
+= BLE Gateway example 
+\- A basic Gateway implementation
+
+This example implements a basic gateway application for the rebroadcasting mesh
+by utilizing the S110 Softdevice. It allows external Bluetooth Low Energy
+enabled devices to access the mesh-global GATT service, by adding a softdevice
+application to the basic application in the LED mesh example. Each node in the
+mesh will be able to act as an access point for external BLE devices. 
+
+The example is made for nRF51x22 Evaluation and Development kits (PCA10000,
+PCA10001, PCA10003 PCA10028, PCA 10031, both dongles and boards), and the two
+characteristics provided in the mesh Service represents LED 0 and LED 1 on the
+board, and RGB RED and GREEN on the dongles. 
+
+== Usage 
+Since the application implements a custom service with custom
+characteristics, it is recommended to connect to the mesh with a developer tool
+such as the Nordic Semiconductor nRF Master Control Panel Desktop application,
+available at the http://www.nordicsemi.com[Nordic Semiconductor
+homepage], or its Android equivalent available
+for BLE enabled Android phones (with Android 4.3 and newer) in the 
+https://play.google.com/store/apps/details?id=no.nordicsemi.android.mcp[Google
+Play Store]. 
+
+After setting up a mesh node, the node automatically begins advertising with
+the name "RBC Mesh node #xxxxx" where xxxxx is a number in the range 0 to
+65536. Connect to one of the nodes in the mesh with the Master Control Panel.
+If you're using the desktop application, remember to press enable services. The
+node's GATT server is listed with a "Generic Access" service, a "Generic
+Attribute" service, and an "Unknown Service" with the 128 bit UUID described in
+the main README. This service contains the metadata characteristic and two
+value characteristics. By writing 1 or 0 to these characteristics, you should
+be able to change the state of the LEDs on the board. This board then notifies
+all other boards across the mesh about the state change, and they copy the
+gateway's LED configuration. The other nodes may be programmed both as a
+Gateway and with the LED_mesh example program, as these use the same
+configuration setup. If you have several Gateways in the same mesh, you may
+access it from any of these Gateway nodes, both reading and updating the state
+of the entire mesh.
