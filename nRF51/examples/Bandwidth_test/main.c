@@ -44,7 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "SEGGER_RTT.h"
 
-#if defined(WITH_ACK_SLAVE)
+#if defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
 #include "handle.h"
 #endif
 
@@ -86,6 +86,17 @@ static uint8_t node_data [RBC_MESH_VALUE_MAX_LEN ] ;
 static uint32_t tx_time=0;
 static uint8_t control=0;
 #endif
+
+#if defined(WITHOUT_ACK_SLAVE)
+
+static char UpBuffer0[BUFFER_SIZE_UP];
+uint32_t node_handle ;
+static uint8_t node_data [RBC_MESH_VALUE_MAX_LEN ] ;
+static uint32_t packet_count __attribute__((at(0x20004688)));
+static uint32_t packet_rcv __attribute__((at(0x2000468C))) ;
+
+#endif
+
 
 
 /**
@@ -148,7 +159,7 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 {
     TICK_PIN(28);
     
-    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)
+    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
     
 	uint32_t error_code;
 	char time_buffer[100];
@@ -216,7 +227,15 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 
                   #endif
         
-        
+                  #if defined (WITHOUT_ACK_SLAVE)
+                     packet_rcv= packet_rcv+1;
+				     if(p_evt->params.rx.value_handle!= node_handle)
+					     {
+						    rbc_mesh_value_disable(p_evt->params.rx.value_handle);
+					     }
+							
+					break;         
+                  #endif
         				   
         case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
 					
@@ -301,7 +320,17 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 							   }
             
                      break;                            
-                   #endif      
+                   #endif   
+  
+                   #if defined (WITHOUT_ACK_SLAVE)
+                      packet_rcv= packet_rcv+1;
+				      if(p_evt->params.rx.value_handle!= node_handle)
+					     {
+						    rbc_mesh_value_disable(p_evt->params.rx.value_handle);
+					     }
+            
+                     break;
+                   #endif                               
                             
                             
         case RBC_MESH_EVENT_TYPE_TX:	
@@ -319,7 +348,20 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
 	          nrf_gpio_pin_toggle(LED_1);
               break;
              #endif
-        
+            #if defined (WITHOUT_ACK_SLAVE)
+              if(p_evt->params.rx.value_handle!= node_handle)
+				{
+					rbc_mesh_value_disable(p_evt->params.rx.value_handle);
+				}
+			  packet_count=packet_count +1 ;	 
+			  node_data[0] = node_data[0] + 1 ;	 
+			  error_code = rbc_mesh_value_set(node_handle,&node_data[0],RBC_MESH_VALUE_MAX_LEN);
+			  APP_ERROR_CHECK(error_code); 		  
+              index_count= snprintf (time_buffer,50, " hdl %d <%d> Tx %d  %d\n",p_evt->params.tx.value_handle,p_evt->params.tx.timestamp_us,p_evt->params.tx.p_data[0],packet_count);
+			  SEGGER_RTT_Write(0, time_buffer,index_count );			
+              nrf_gpio_pin_toggle(LED_1);	 
+	  		  break;       
+            #endif
         case RBC_MESH_EVENT_TYPE_INITIALIZED:
             /* init BLE gateway softdevice application: */
             nrf_adv_conn_init();
@@ -420,11 +462,30 @@ int main(void)
     error_code =rbc_mesh_persistence_set(node_handle, true);
 	APP_ERROR_CHECK(error_code);    
       
-    #endif    
-        
+    #endif   
+
+    #if defined (WITHOUT_ACK_SLAVE)  
+    packet_count=0;
+    for (uint8_t i=0; i < RBC_MESH_VALUE_MAX_LEN ; i++)
+	  {
+		node_data[i] = 1 ;  
+	  }
+		
+    error_code = rbc_mesh_value_set(node_handle,&node_data[0],(RBC_MESH_VALUE_MAX_LEN-1));
+	APP_ERROR_CHECK(error_code);	
+    error_code = rbc_mesh_tx_event_set(node_handle,true);
+    APP_ERROR_CHECK(error_code);	
+	error_code = rbc_mesh_persistence_set(node_handle, true);
+	APP_ERROR_CHECK(error_code);
+    #endif
+      
+    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)    
     SEGGER_RTT_Init();
     SEGGER_RTT_ConfigUpBuffer(0, "UpBuffer0", UpBuffer0, BUFFER_SIZE_UP, SEGGER_RTT_MODE_NO_BLOCK_SKIP);
-
+    #else
+    /* init BLE gateway softdevice application: */
+    nrf_adv_conn_init();
+    #endif 
 
     /* fetch events */
     rbc_mesh_event_t evt;
