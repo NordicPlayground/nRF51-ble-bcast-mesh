@@ -67,6 +67,9 @@ static uint32_t event_handler_counter[5]__attribute__((at(0x200028B8)))={0};
 static uint32_t event_handler_counter[5] __attribute__((at(0x200028CC))) ={0};
 #endif
 
+#if defined(WITHOUT_ACK_SLAVE)
+static uint32_t event_handler_counter[5] __attribute__((at(0x200028B4)))={0};
+#endif
 
 /**
 * @brief execute asynchronous event, based on type
@@ -80,7 +83,7 @@ static void async_event_execute(async_event_t* p_evt)
             CHECK_FP(p_evt->callback.timer.cb);
             p_evt->callback.timer.cb(p_evt->callback.timer.timestamp);
         
-            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
 		    event_handler_counter[0]++;
             #endif
             break;
@@ -88,7 +91,7 @@ static void async_event_execute(async_event_t* p_evt)
             CHECK_FP(p_evt->callback.generic.cb);
             p_evt->callback.generic.cb(p_evt->callback.generic.p_context);
         
-            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
 		    event_handler_counter[1]++;
             #endif
         
@@ -99,7 +102,7 @@ static void async_event_execute(async_event_t* p_evt)
                               p_evt->callback.packet.timestamp,
                               p_evt->callback.packet.rssi);
         
-            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
 		    event_handler_counter[2]++;
             #endif
         
@@ -108,7 +111,7 @@ static void async_event_execute(async_event_t* p_evt)
             handle_storage_flag_set(p_evt->callback.set_flag.handle,
                                     (handle_flag_t) p_evt->callback.set_flag.flag,
                                     p_evt->callback.set_flag.value);
-            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
 			event_handler_counter[3]++;
             #endif
         
@@ -118,7 +121,7 @@ static void async_event_execute(async_event_t* p_evt)
             p_evt->callback.timer_sch.cb(p_evt->callback.timer_sch.timestamp,
                                          p_evt->callback.timer_sch.p_context);
         
-            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
 		    event_handler_counter[4]++;
             #endif
             break;

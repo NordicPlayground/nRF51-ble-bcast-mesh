@@ -112,6 +112,14 @@ static struct
     uint32_t crc_fail;
 } m_packet_stats __attribute__((at(0x20002750))) = {0};
 
+#elif defined(WITHOUT_ACK_SLAVE)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats __attribute__((at(0x20002738))) = {0};
+
 #else
 static struct
 {
@@ -148,7 +156,7 @@ static void order_search(void)
     }
 }
 
-#ifndef WITH_ACK_SLAVE
+
 /* immediate radio callback, executed in STACK_LOW */
 static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 {
@@ -187,52 +195,7 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
 
-#endif
 
-
-#if defined(WITH_ACK_SLAVE)
-/* immediate radio callback, executed in STACK_LOW */
-static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
-{
-	mesh_packet_t* p_mesh_packet = (mesh_packet_t*) p_data;
-    mesh_adv_data_t* p_adv_data = (mesh_adv_data_t*) p_mesh_packet->payload;
-	  
-	if (success &&  (p_adv_data->handle == node_handle) &&((mesh_packet_t*) p_data)->header.length <= MESH_PACKET_BLE_OVERHEAD + BLE_ADV_PACKET_PAYLOAD_MAX_LENGTH)
-     {
-        async_event_t evt;
-        evt.type = EVENT_TYPE_PACKET;
-        evt.callback.packet.payload = p_data;
-        evt.callback.packet.crc = crc;
-        evt.callback.packet.timestamp = timer_now();
-        evt.callback.packet.rssi = rssi;
-        if (event_handler_push(&evt) != NRF_SUCCESS)
-        {
-            m_state.queue_saturation = true;
-#ifdef PACKET_STATS
-            m_packet_stats.queue_drop++;
-#endif
-        }
-        else
-        {
-            mesh_packet_ref_count_inc((mesh_packet_t*) p_data); /* event handler has a ref */
-
-#ifdef PACKET_STATS
-            m_packet_stats.queue_ok++;
-#endif
-        }
-    }
-    else if (crc < 0x1000000) /* don't want to trigger on artifical crc values */
-    {
-#ifdef PACKET_STATS
-        m_packet_stats.crc_fail++;
-#endif
-    }
-
-    /* no longer needed in this context */
-    mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
-}
-
-#endif
 
 
 

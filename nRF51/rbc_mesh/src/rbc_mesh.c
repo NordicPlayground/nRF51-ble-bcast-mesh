@@ -73,6 +73,10 @@ static uint32_t top_queue_counter[4] __attribute__((at(0x200026A0)))  ={0};
 static uint32_t top_queue_drop __attribute__((at(0x200026B0)))  =0;
 #endif
 
+#if defined(WITHOUT_ACK_SLAVE)
+static uint32_t top_queue_counter[4] __attribute__((at(0x200026A0)))  ={0};
+static uint32_t top_queue_drop __attribute__((at(0x200026B0))) =0;
+#endif
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
@@ -355,7 +359,7 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
     
     uint32_t error_code = fifo_push(&m_rbc_event_fifo, p_event);
     
-    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)
+    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)|| defined (WITHOUT_ACK_SLAVE)
     
     
 		
