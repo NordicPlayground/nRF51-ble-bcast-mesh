@@ -78,6 +78,12 @@ static void flash_bank_entry_fw(bl_info_bank_t* p_bank_entry, bl_info_entry_t* p
                         (uint32_t*) bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_BL)->segment.start,
                         p_bank_entry->length) != 0)
             {
+                /* We need interrupts enabled for the SVC calls below to
+                 * function, but don't want to be intterupted by anything else
+                 * now. */
+                interrupts_disable();
+                __enable_irq();
+
                 /* move the bank with MBR. BOOTLOADERADDR() must
                    have been set. */
                 sd_mbr_command_t sd_mbr_cmd;
@@ -96,6 +102,12 @@ static void flash_bank_entry_fw(bl_info_bank_t* p_bank_entry, bl_info_entry_t* p
                         (uint32_t*) bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_SD)->segment.start,
                         p_bank_entry->length) != 0)
             {
+                /* We need interrupts enabled for the SVC calls below to
+                 * function, but don't want to be intterupted by anything else
+                 * now. */
+                interrupts_disable();
+                __enable_irq();
+
                 /* move the bank with MBR. */
                 sd_mbr_command_t sd_mbr_cmd;
 
