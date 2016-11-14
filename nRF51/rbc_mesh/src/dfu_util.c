@@ -119,25 +119,37 @@ bool fwid_union_id_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type
     }
 }
 
-bool ready_packet_is_upgrade(dfu_packet_t* p_packet)
+int fwid_union_version_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type)
 {
-    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
-    switch (p_packet->payload.state.dfu_type)
+    switch (dfu_type)
     {
         case DFU_TYPE_APP:
-            return (p_packet->payload.state.fwid.app.app_id == p_fwid_entry->version.app.app_id &&
-                    p_packet->payload.state.fwid.app.company_id== p_fwid_entry->version.app.company_id &&
-                    p_packet->payload.state.fwid.app.app_version > p_fwid_entry->version.app.app_version);
+            return (p_a->app.app_version - p_b->app.app_version);
+        case DFU_TYPE_SD:
+            return (p_a->sd - p_b->sd);
+        case DFU_TYPE_BOOTLOADER:
+            return (p_a->bootloader.id - p_b->bootloader.id);
+        default: return 0;
+    }
+}
+
+
+bool is_upgrade(fwid_union_t* p_fwid, dfu_type_t dfu_type)
+{
+    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+    switch (dfu_type)
+    {
+        case DFU_TYPE_APP:
+            return (p_fwid->app.app_id     == p_fwid_entry->version.app.app_id &&
+                    p_fwid->app.company_id == p_fwid_entry->version.app.company_id &&
+                    p_fwid->app.app_version > p_fwid_entry->version.app.app_version);
 
         case DFU_TYPE_BOOTLOADER:
-            return (p_packet->payload.state.fwid.bootloader.id ==
-                    p_fwid_entry->version.bootloader.id &&
-                    p_packet->payload.state.fwid.bootloader.ver >
-                    p_fwid_entry->version.bootloader.ver);
+            return (p_fwid->bootloader.id == p_fwid_entry->version.bootloader.id &&
+                    p_fwid->bootloader.ver > p_fwid_entry->version.bootloader.ver);
 
         case DFU_TYPE_SD:
-            return (p_packet->payload.state.fwid.sd ==
-                    p_fwid_entry->version.sd);
+            return (p_fwid->sd == p_fwid_entry->version.sd);
         default:
             return false;
     }
@@ -155,9 +167,13 @@ bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_re
     {
         return false;
     }
-    return fwid_union_cmp(&p_packet->payload.state.fwid,
-                   p_fwid_req,
-                   dfu_type_req);
+    return (fwid_union_id_cmp(&p_packet->payload.state.fwid,
+                p_fwid_req,
+                dfu_type_req)
+            &&
+            (fwid_union_version_cmp(&p_packet->payload.state.fwid,
+                p_fwid_req,
+                dfu_type_req) >= 0));
 }
 
 uint32_t* addr_from_seg(uint16_t segment, uint32_t* p_start_addr)
@@ -243,7 +259,7 @@ void packet_cache_flush(void)
     m_packet_cache_index = 0;
 }
 
-bool section_overlap(uint32_t section_a_start, uint32_t section_a_length, 
+bool section_overlap(uint32_t section_a_start, uint32_t section_a_length,
                      uint32_t section_b_start, uint32_t section_b_length)
 {
     return (

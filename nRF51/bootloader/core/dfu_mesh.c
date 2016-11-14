@@ -647,6 +647,39 @@ static void start_rampdown(void)
     SET_STATE(DFU_STATE_VALIDATE);
 }
 
+static uint32_t notify_state_packet(dfu_packet_t* p_packet)
+{
+    uint32_t status;
+    if (is_upgrade(&p_packet->payload.state.fwid, (dfu_type_t) p_packet->payload.state.dfu_type))
+    {
+        __LOG("\t->Upgradeable\n");
+        bl_evt_t fw_evt;
+        fw_evt.type = BL_EVT_TYPE_DFU_NEW_FW;
+        fw_evt.params.dfu.new_fw.fw_type = (dfu_type_t) p_packet->payload.state.dfu_type;
+        fw_evt.params.dfu.new_fw.state = m_state;
+        fwid_union_cpy(
+                &fw_evt.params.dfu.new_fw.fwid,
+                &p_packet->payload.state.fwid,
+                (dfu_type_t) p_packet->payload.state.dfu_type);
+        status = bootloader_evt_send(&fw_evt);
+    }
+    else
+    {
+        __LOG("\t->Relayable\n");
+        /* we can relay this transfer */
+        bl_evt_t relay_req_evt;
+        relay_req_evt.type = BL_EVT_TYPE_DFU_REQ;
+        relay_req_evt.params.dfu.req.role = DFU_ROLE_RELAY;
+        relay_req_evt.params.dfu.req.dfu_type = (dfu_type_t) p_packet->payload.state.dfu_type;
+        relay_req_evt.params.dfu.req.fwid = p_packet->payload.state.fwid;
+        relay_req_evt.params.dfu.req.state = m_state;
+        relay_req_evt.params.dfu.req.authority = p_packet->payload.state.authority;
+        relay_req_evt.params.dfu.req.transaction_id = p_packet->payload.state.transaction_id;
+        status = bootloader_evt_send(&relay_req_evt);
+    }
+
+    return status;
+}
 /*************** Packet handlers ******************/
 static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
 {
@@ -933,36 +966,7 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
         case DFU_STATE_FIND_FWID:
             if (p_packet->payload.state.authority > 0)
             {
-                m_transaction.type = (dfu_type_t) p_packet->payload.state.dfu_type;
-                m_transaction.target_fwid_union = p_packet->payload.state.fwid;
-
-                if (ready_packet_is_upgrade(p_packet))
-                {
-                    __LOG("\t->Upgradeable\n");
-                    bl_evt_t fw_evt;
-                    fw_evt.type = BL_EVT_TYPE_DFU_NEW_FW;
-                    fw_evt.params.dfu.new_fw.fw_type = (dfu_type_t) p_packet->payload.state.dfu_type;
-                    fw_evt.params.dfu.new_fw.state = m_state;
-                    fwid_union_cpy(
-                            &fw_evt.params.dfu.new_fw.fwid,
-                            &p_packet->payload.state.fwid,
-                            (dfu_type_t) p_packet->payload.state.dfu_type);
-                    status = bootloader_evt_send(&fw_evt);
-                }
-                else
-                {
-                    __LOG("\t->Relayable\n");
-                    /* we can relay this transfer */
-                    bl_evt_t relay_req_evt;
-                    relay_req_evt.type = BL_EVT_TYPE_DFU_REQ;
-                    relay_req_evt.params.dfu.req.role = DFU_ROLE_RELAY;
-                    relay_req_evt.params.dfu.req.dfu_type = (dfu_type_t) p_packet->payload.state.dfu_type;
-                    relay_req_evt.params.dfu.req.fwid = p_packet->payload.state.fwid;
-                    relay_req_evt.params.dfu.req.state = m_state;
-                    relay_req_evt.params.dfu.req.authority = p_packet->payload.state.authority;
-                    relay_req_evt.params.dfu.req.transaction_id = p_packet->payload.state.transaction_id;
-                    status = bootloader_evt_send(&relay_req_evt);
-                }
+                notify_state_packet(p_packet);
             }
             else
             {
@@ -973,15 +977,14 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
             break;
         case DFU_STATE_DFU_REQ:
         case DFU_STATE_READY:
-            if (p_packet->payload.state.authority > m_transaction.authority ||
-                    (
-                     p_packet->payload.state.authority == m_transaction.authority &&
-                     p_packet->payload.state.transaction_id > m_transaction.transaction_id
-                    )
-               )
+            if (ready_packet_matches_our_req(p_packet, m_transaction.type, &m_transaction.target_fwid_union))
             {
-                if (ready_packet_matches_our_req(p_packet, m_transaction.type, &m_transaction.target_fwid_union) ||
-                        ready_packet_is_upgrade(p_packet))
+                if (p_packet->payload.state.authority > m_transaction.authority ||
+                        (
+                         p_packet->payload.state.authority == m_transaction.authority &&
+                         p_packet->payload.state.transaction_id > m_transaction.transaction_id
+                        )
+                   )
                 {
                     __LOG("\t->Upgradeable\n");
                     /* assume that the other device knows what to upgrade */
@@ -991,30 +994,20 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
                     start_ready(p_packet);
                     status = NRF_SUCCESS;
                 }
-                /* Notify about relay option if the transfer is different from the current */
-                else if (m_transaction.type != p_packet->payload.state.dfu_type ||
-                        !fwid_union_id_cmp(
-                            &p_packet->payload.state.fwid,
-                            &m_transaction.target_fwid_union,
-                            m_transaction.type))
-                {
-                    __LOG("\t->Relayable\n");
-                    /* we can relay this transfer, let the app decide whether we should abort our request. */
-                    bl_evt_t relay_req_evt;
-                    relay_req_evt.type = BL_EVT_TYPE_DFU_REQ;
-                    relay_req_evt.params.dfu.req.role = DFU_ROLE_RELAY;
-                    relay_req_evt.params.dfu.req.dfu_type = (dfu_type_t) p_packet->payload.state.dfu_type;
-                    relay_req_evt.params.dfu.req.fwid = p_packet->payload.state.fwid;
-                    relay_req_evt.params.dfu.req.state = m_state;
-                    relay_req_evt.params.dfu.req.authority = p_packet->payload.state.authority;
-                    relay_req_evt.params.dfu.req.transaction_id = p_packet->payload.state.transaction_id;
-                    status = bootloader_evt_send(&relay_req_evt);
-                }
                 else
                 {
                     /* Source is worse than the current, ignore */
                     status = NRF_SUCCESS;
                 }
+            }
+            /* Notify about other transfer if the transfer is different from the current */
+            else if (m_transaction.type != p_packet->payload.state.dfu_type ||
+                    !fwid_union_id_cmp(
+                        &p_packet->payload.state.fwid,
+                        &m_transaction.target_fwid_union,
+                        m_transaction.type))
+            {
+                notify_state_packet(p_packet);
             }
             else
             {

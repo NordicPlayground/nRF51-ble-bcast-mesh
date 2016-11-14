@@ -47,7 +47,16 @@ bool fwid_union_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
 /** Returns true if the two fwids have the same ID, ignoring versioning */
 bool fwid_union_id_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
 
-bool ready_packet_is_upgrade(dfu_packet_t* p_packet);
+/**
+ * Compare two FWID versions. Assumes that the ID is the same for both.
+ *
+ * @returns A positive number if fwid a is higher than fwid b.
+ * @returns A negative number if fwid b is higher than fwid a.
+ * @returns 0 if fwid a equals to fwid b.
+ */
+int fwid_union_version_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
+
+bool is_upgrade(fwid_union_t* p_fwid, dfu_type_t dfu_type);
 
 bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_req, fwid_union_t* p_fwid_req);
 
@@ -69,7 +78,7 @@ void packet_cache_put(dfu_packet_t* p_packet);
 
 void packet_cache_flush(void);
 
-bool section_overlap(uint32_t section_a_start, uint32_t section_a_length, 
+bool section_overlap(uint32_t section_a_start, uint32_t section_a_length,
                      uint32_t section_b_start, uint32_t section_b_length);
 
 void interrupts_disable(void);
