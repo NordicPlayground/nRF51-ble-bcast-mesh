@@ -342,6 +342,7 @@ void transport_rtc_irq_handler(void)
             radio_evt.event_type = RADIO_EVENT_TYPE_TX;
             radio_evt.packet_ptr = (uint8_t*) m_tx[i].p_packet;
             radio_evt.access_address = 0;
+            radio_evt.tx_power = RADIO_TXPOWER_TXPOWER_0dBm;
 
 #ifdef DEBUG_LEDS
             NRF_GPIO->OUT ^= LED_1;
