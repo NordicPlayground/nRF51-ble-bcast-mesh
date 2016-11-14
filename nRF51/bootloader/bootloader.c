@@ -277,32 +277,24 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
             {
                 stop_timeout();
                 __LOG("New FW event\n");
-                switch (p_evt->params.dfu.new_fw.fw_type)
+                if (p_evt->params.dfu.new_fw.state == DFU_STATE_DFU_REQ)
                 {
-                    case DFU_TYPE_APP:
-                        __LOG("\tAPP: %08x.%04x:%08x\n",
-                                (uint32_t) p_evt->params.dfu.new_fw.fwid.app.company_id,
-                                (uint32_t) p_evt->params.dfu.new_fw.fwid.app.app_id,
-                                (uint32_t) p_evt->params.dfu.new_fw.fwid.app.app_version);
-                        break;
-                    case DFU_TYPE_SD:
-                        __LOG("\tSD: %04x\n",
-                                (uint32_t) p_evt->params.dfu.new_fw.fwid.sd);
-                        break;
-                    case DFU_TYPE_BOOTLOADER:
-                        __LOG("\tBL: %02x:%02x\n",
-                                (uint32_t) p_evt->params.dfu.new_fw.fwid.bootloader.id,
-                                (uint32_t) p_evt->params.dfu.new_fw.fwid.bootloader.ver);
-                        break;
-                    default: break;
+                    /* Abort the ongoing request for a transfer. */
+                    bl_cmd_t abort_cmd;
+                    abort_cmd.type = BL_CMD_TYPE_DFU_ABORT;
+                    bootloader_cmd_send(&abort_cmd);
+                    p_evt->params.dfu.new_fw.state = DFU_STATE_FIND_FWID;
                 }
-                /* accept all new firmware, as the bootloader wouldn't run
-                   unless there's an actual reason for it. */
-                rsp_cmd.type = BL_CMD_TYPE_DFU_START_TARGET;
-                rsp_cmd.params.dfu.start.target.p_bank_start = (uint32_t*) 0xFFFFFFFF; /* no banking */
-                rsp_cmd.params.dfu.start.target.type = p_evt->params.dfu.new_fw.fw_type;
-                rsp_cmd.params.dfu.start.target.fwid = p_evt->params.dfu.new_fw.fwid;
-                respond = true;
+                if (p_evt->params.dfu.new_fw.state == DFU_STATE_FIND_FWID)
+                {
+                    /* accept all new firmware, as the bootloader wouldn't run
+                       unless there's an actual reason for it. */
+                    rsp_cmd.type = BL_CMD_TYPE_DFU_START_TARGET;
+                    rsp_cmd.params.dfu.start.target.p_bank_start = (uint32_t*) 0xFFFFFFFF; /* no banking */
+                    rsp_cmd.params.dfu.start.target.type = p_evt->params.dfu.new_fw.fw_type;
+                    rsp_cmd.params.dfu.start.target.fwid = p_evt->params.dfu.new_fw.fwid;
+                    respond = true;
+                }
             }
             break;
 
