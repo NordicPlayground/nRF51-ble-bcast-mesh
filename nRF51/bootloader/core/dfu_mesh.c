@@ -911,7 +911,7 @@ static uint32_t handle_data_packet(dfu_packet_t* p_packet, uint16_t length)
             status = NRF_ERROR_INVALID_STATE;
             break;
     }
-    if (error_code == NRF_SUCCESS)
+    if (status == NRF_SUCCESS)
     {
         packet_cache_put(p_packet);
     }
