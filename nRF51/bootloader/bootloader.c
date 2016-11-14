@@ -57,8 +57,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define TIMER_YIELD_TIMEOUT         (SECS_TO_RTC_TICKS(10)) /**< Time to wait before bootloader yields to application. */
 #define TIMER_REQ_TIMEOUT           (SECS_TO_RTC_TICKS(10)) /**< Time to wait before giving up on an ongoing request. */
-#define TIMER_START_TIMEOUT         (SECS_TO_RTC_TICKS( 5)) /**< Time to wait for first data during a transfer. */
-#define TIMER_DATA_TIMEOUT          (SECS_TO_RTC_TICKS( 1)) /**< Time to wait for next data during a transfer. */
+#define TIMER_START_TIMEOUT         (SECS_TO_RTC_TICKS(20)) /**< Time to wait for first data during a transfer. */
+#define TIMER_DATA_TIMEOUT          (SECS_TO_RTC_TICKS(10)) /**< Time to wait for next data during a transfer. */
 /*****************************************************************************
 * Local typedefs
 *****************************************************************************/
