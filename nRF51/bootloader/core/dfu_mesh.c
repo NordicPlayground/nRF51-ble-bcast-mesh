@@ -1202,8 +1202,12 @@ void dfu_mesh_init(uint8_t tx_slots)
 void dfu_mesh_start(void)
 {
     memset(&m_transaction, 0, sizeof(transaction_t));
+    memset(m_req_cache, 0, sizeof(req_cache_entry_t) * REQ_CACHE_SIZE);
+    m_req_index = 0;
+    m_data_req_segment = false;
     get_info_pointers();
     send_bank_notifications();
+    packet_cache_flush();
 
     if (!dfu_bank_transfer_in_progress())
     {
