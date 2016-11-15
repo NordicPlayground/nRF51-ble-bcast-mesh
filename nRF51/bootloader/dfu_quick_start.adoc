@@ -81,33 +81,29 @@ This will output something like
 These two hex-strings make up your public key, which you may safely show off to everyone (including
 any mortal enemies). The one above is mine, and will only work with my private key.
 
-Your device page is generated from a device page file. An example file (which we will use as a
-basis for this guide) is available at /nRF51/bootloader/pc-util/example. This example file already
-has entries for SD, App and Bootloader sections, firmware IDs and a public key. Replace the public
-key entry with the one you generated. This allows your device to verify that the person that started
-an incoming DFU transfer has your private key.
+Your device page is generated from a device page file. An example file (which we will use as a basis for this guide) is available
+at /nRF51/bootloader/pc-util/example. This example file already has entries for SD, App and Bootloader sections and firmware IDs.
+Paste the public key entry you generated above to two empty lines in the file. This allows your device to verify that the person
+that started an incoming DFU transfer has your private key.
 
-You may also want to change the company-id entry. In the example, the company-ID is set to
-0x00000059, which is the 32bit version of Nordic Semiconductor's
-https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers[Bluetooth SIG assigned Company ID].
-If your company has an assigned ID, you use yours, but if you don't work for a company with an
-assigned ID, or for a company that  won't be signing up for it, you may use a random 32 bit number higher
-than 65535. The company ID works as an address space for application IDs in the Mesh-DFU. This way,
-any company with an assigned company ID may safely use any application ID for their products, without
-risking an app-ID conflict triggering unwarranted transfers. If you use a random number, the risk of
-getting conflicts is present, but highly unlikely given the large pool of numbers and the density
-of mesh networks actually using the DFU. You might still want to go with something more clever than
-0x12345678 though, someone else might have been just as lazy.
+You may also want to change the company-id entry. In the example, the company-ID is set to 0x00000059, which is the 32bit version
+of Nordic Semiconductor's https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers[Bluetooth SIG assigned
+Company ID].  If your company has an assigned ID, you use yours, but if you don't represent a company with an assigned ID, or for
+a company that  won't be signing up for it, you may use a random 32 bit number higher than 65535. The company ID works as an
+address space for application IDs in the Mesh-DFU. This way, any company with an assigned company ID may safely use any
+application ID for their products, without risking an app-ID conflict triggering unwarranted transfers. If you use a random
+number, the risk of getting conflicts is present, but highly unlikely given the large pool of numbers and the density of mesh
+networks actually using the DFU. You might still want to go with something more clever than 0x12345678 though, someone else might
+have been just as lazy.
 
 == 4. Generate a hex version of your device-page with the tool in /nRF51/bootloader/pc-util.
-In the same folder as the example device page file, there's a main.c file that you can compile
-to create the device page generator. See its respective README for instructions. Once you have
-a working generator, generate an example device page file:
+In the same folder as the example device page file, there's a python script that can generate device pages (works for both Python
+2.7 and Python 3, requires the `intelhex` package from PyPi). See the tools README in the pc-util folder for instructions. Run
+the following command from inside the pc-util folder to generate an example device page file:
 
-`device_page example`
+`python device_page.py example`
 
-This creates a device page .bin file (example.bin) and a device page .hex file (example.hex).
-We'll use the .hex file in step 8.
+This creates a device page .hex file (example.hex). We'll use this .hex file in step 8.
 
 == 5. Erase all chip memory including UICR on all devices.
 Using nrfjprog (available on www.nordicsemi.com), erase all previous data on
