@@ -271,6 +271,10 @@ static uint32_t packet_tx_dynamic(dfu_packet_t* p_packet,
     uint8_t repeats)
 {
     static uint8_t tx_slot = 1;
+    if (tx_slot >= m_tx_slots || tx_slot == 0)
+    {
+        tx_slot = 1;
+    }
     bl_evt_t tx_evt;
     tx_evt.type = BL_EVT_TYPE_TX_RADIO;
     tx_evt.params.tx.radio.p_dfu_packet = p_packet;
@@ -279,10 +283,9 @@ static uint32_t packet_tx_dynamic(dfu_packet_t* p_packet,
     tx_evt.params.tx.radio.tx_count = repeats;
     tx_evt.params.tx.radio.tx_slot = tx_slot;
     uint32_t status = bootloader_evt_send(&tx_evt);
-
-    if (++tx_slot >= m_tx_slots)
+    if (status == NRF_SUCCESS)
     {
-        tx_slot = 1;
+        tx_slot++;
     }
     return status;
 }
