@@ -5,6 +5,11 @@ Works with SoftDevice S110 v8.x and S130 v1.0 with Timeslot API, and the nRF51 S
 Offers an API for implementing your own mesh enabled application, operating
 concurrently with regular BLE applications.
 
+== The develop/DFU branch
+
+This branch is dedicated to ongoing maintenance we're doing on the DFU procedure. It will be merged into master when it's in a
+stable state.
+
 == Usage
 In addition to two provided examples, there is a template project under
 _nRF51/examples/_. This may be used as a basis for your own applications, or you
