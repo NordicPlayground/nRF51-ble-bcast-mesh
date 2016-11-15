@@ -2,25 +2,29 @@
 
 * Device page generator tool
 * pc-nrfutil
-* Batch files (Windows only) 
+* Batch files (Windows only)
 
+= Device page generator tool (device_page.py)
 
-= Device page generator tool
+This simple tool will generate a device page from a specified input file. A device page is an in-flash storage area from which
+the bootloader can read device information required for correct operation. Values like application start address, public key for
+verifying dfu-transfers and firmware IDs allows the bootloader to make qualified decisions about whether it should accept
+incoming dfu-transfers, and where the data belongs.
 
-This simple tool is intended for PC/Linux/Mac, and will generate a device page from a
-specified input file. A device page is an in-flash storage area from which the bootloader can read
-device information required for correct operation. Values like application start address, public
-key for verifying dfu-transfers and firmware IDs allows the bootloader to make qualified decisions
-about whether to accept incoming dfu-transfers, and where the data belongs.
+== Requirements
 
-== Build/run
-The GNU Makefile in this repository can be used to build the tool with GCC (tested on Linux with GCC
-4.8.1, and on Windows with MinGW + GCC4.8.1). The application
-only consists of a single file, and should be platform-independent. A pre-built version of the
-tool for Windows can also be found in this directory.
+The device page generator works in both Python 2.7 and 3.2 and above. It depends on the [Intel Hex
+package](https://pypi.python.org/pypi/IntelHex) by Alexander Belchenko, available on pypi.
 
-*NOTE:* The tool depends on the objcopy executable distributed with the GCC toolchain or MinGW.
-Objcopy must present be either in the same directory as the generator tool, or in your PATH env.
+== Usage
+
+....
+
+python device_page.py <info-file> [--nrf52]
+    <info-file> Must be the filename of a info file following the format described below.
+    --nrf52     Optional argument to generate the device page file to fit on an nRF52, rather than an nRF51.
+
+....
 
 == Input file
 
@@ -29,10 +33,9 @@ The handle-value pair assignment must follow this format:
 <handle>: <value>
 There can only be one handle per line. Lines starting with # are comments.
 
-The example file in this directory contains all allowed handles, and their values.
+The example file in this directory contains all mandatory handles, and some common values for each.
 
-Below is a list of all allowed handles, their format, whether they are mandatory for proper
-operation and a short description.
+Below is a list of all allowed handles, their format, whether they are mandatory for proper operation and a short description.
 
 .All handles allowed
 |===
@@ -59,7 +62,7 @@ For further documentation on the different handles and their uses, see the guide
 
 = pc-nrfutil
 
-nrfutil is a Python package that includes the nrfutil command line utility and the nordicsemi library. 
+nrfutil is a Python package that includes the nrfutil command line utility and the nordicsemi library.
 
 This application is used to provide :
 
@@ -67,16 +70,16 @@ This application is used to provide :
 * Cryptographic key generation, management and storage
 * Bootloader DFU settings generation and display
 
-*Version:* The supported version of the pc-nrfutil for mesh DFU is 0.3.0.x
+*Version:* The supported version of the pc-nrfutil for mesh DFU is 0.3.0.Xm
 
 *Build:* User can built a fresh copy of the nrfutil.exe by following the steps provided in the following link :
  https://github.com/NordicSemiconductor/pc-nrfutil/tree/mesh_dfu
 
-= Batch files (Windows only) 
- 
-Two batch files named "for_loop_batch_nRF51.bat" and "for_loop_batch_nRF52.bat" are provided to flash necessary hex files into all connected 
-nRF51 and nRF52 devices respectively. 
- 
+= Batch files (Windows only)
+
+Two batch files named "for_loop_batch_nRF51.bat" and "for_loop_batch_nRF52.bat" are provided to flash necessary hex files into all connected
+nRF51 and nRF52 devices respectively.
+
 This batch file executes the following commands sequentially :
 
 * Erase all sectors of the flash memory of the connected devices
@@ -84,28 +87,28 @@ This batch file executes the following commands sequentially :
 * Flash the connected devices with intended bootloader hex files
 * Generate a fresh device page (example.hex for the nRF51 and example52.hex for the nRF52)
 * Flash the connected devices with the generated device page (example.hex for the nRF51 and example52.hex for the nRF52)
-* Flash the connected devices with application hex files 
-* Generate the DFU package 
-* Reset the connected devices 
+* Flash the connected devices with application hex files
+* Generate the DFU package
+* Reset the connected devices
 
-*Note:* For nRF51 devices "for_loop_batch_nRF51.bat" and for nRF52 devices "for_loop_batch_nRF52.bat" are used . These batch files can be called either using 
+*Note:* For nRF51 devices "for_loop_batch_nRF51.bat" and for nRF52 devices "for_loop_batch_nRF52.bat" are used . These batch files can be called either using
 command line or powershell .But in both cases , they should be called from the "bootloader" folder level. An example is provided below :
 
 * From command line for nRF51 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF51.bat
 * From Powershell for nRF51 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF51.bat
 * From command line for nRF52 : C:\Users\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader>.\pc-util\for_loop_batch_nRF52.bat
 * From Powershell for nRF52 : PS C:\Users\anba\Desktop\nRF51-ble-broadcast-mesh-private\nRF51\bootloader> cmd /c .\pc-util\for_loop_batch_nRF52.bat
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
 
