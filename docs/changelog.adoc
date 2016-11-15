@@ -1,5 +1,45 @@
 = Changelog
 
+== 0.8.7 nRF52 Port and fixes
+
+Porting to nRF52 has been done for the nRF OpenMesh code and ble_gateway example. Added a bandwidth test project to the set of
+examples.
+
+=== Fixed issues:
+
+- Memory issues that prevented the bootloader from running correctly after reset
+
+- Issues #128, #134 , #135 and #130 are fixed
+
+=== Known issues:
+
+1. Side by Side DFU with signing is broken
+
+2. gcc build of bootloader is broken
+
+3. Bandwidth test application does not support nRF52
+
+4. Standalone bootloader is broken
+
+5. Bandwidth test for slave without ack is broken
+
+6. Mesh blinky target is not present in the Keil UV4 build
+
+
+== 0.8.6 Reset issue fixed and porting to nRF52
+
+All the devices should need to be reset before the new application successfully get started for v0.8.5.  This release fixes this.
+
+=== Fixes
+
+- Few memory setting is done so that the new application now gets started without any reset .
+
+- Porting to nRF52 has been done
+
+=== Known Issues
+
+- gcc build of bootloader is broken
+
 == 0.8.5 Cleanup of debug code
 
 Some debug code was left around in the timer.c module by mistake for v0.8.4,

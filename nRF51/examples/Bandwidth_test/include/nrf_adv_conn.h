@@ -27,11 +27,15 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef _VERSION_H__
-#define _VERSION_H__
 
-#define VERSION_MAJOR     (0)
-#define VERSION_MINOR1    (8)
-#define VERSION_MINOR2    (7)
+#ifndef __NRF_ADV_CONN_H__
+#define __NRF_ADV_CONN_H__
 
-#endif /* _VERSION_H__ */
+#include <ble.h>
+
+#include <stdint.h>
+
+void nrf_adv_conn_init(void);
+void nrf_adv_conn_evt_handler(ble_evt_t *evt);
+
+#endif /* __NRF_ADV_CONN_H__ */

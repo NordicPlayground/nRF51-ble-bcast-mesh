@@ -58,8 +58,25 @@ static rbc_mesh_event_t m_rbc_event_buffer[RBC_MESH_APP_EVENT_QUEUE_LENGTH];
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
+#if defined(WITH_ACK_MASTER) 
+static uint32_t top_queue_counter[4] __attribute__((at(0x20002F98)))={0};
+static uint32_t top_queue_drop __attribute__((at(0x20002FA8))) =0;
+#endif
 
+#if defined (WITHOUT_ACK_MASTER)
+static uint32_t top_queue_counter[4] __attribute__((at(0x200026B4))) ={0};
+static uint32_t top_queue_drop __attribute__((at(0x200026C4))) =0;
+#endif
 
+#if defined(WITH_ACK_SLAVE)
+static uint32_t top_queue_counter[4] __attribute__((at(0x200026A0)))  ={0};
+static uint32_t top_queue_drop __attribute__((at(0x200026B0)))  =0;
+#endif
+
+#if defined(WITHOUT_ACK_SLAVE)
+static uint32_t top_queue_counter[4] __attribute__((at(0x200026A0)))  ={0};
+static uint32_t top_queue_drop __attribute__((at(0x200026B0))) =0;
+#endif
 /*****************************************************************************
 * Interface Functions
 *****************************************************************************/
@@ -339,7 +356,39 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
     {
         return NRF_ERROR_NULL;
     }
+    
     uint32_t error_code = fifo_push(&m_rbc_event_fifo, p_event);
+    
+    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)|| defined (WITHOUT_ACK_SLAVE)
+    
+    
+		
+		if (error_code != NRF_SUCCESS)
+			   top_queue_drop++;
+		
+		 switch (p_event->type)
+         {
+            case RBC_MESH_EVENT_TYPE_NEW_VAL:
+					top_queue_counter[0]++;
+				    break;
+						
+            case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
+					top_queue_counter[1]++;
+					break;
+            case RBC_MESH_EVENT_TYPE_CONFLICTING_VAL:
+					top_queue_counter[2]++;
+				    break;
+			case RBC_MESH_EVENT_TYPE_TX:
+					top_queue_counter[3]++;
+					break;
+						
+			default:
+					break;
+		}
+         
+      #endif
+        
+    
 
     if (error_code == NRF_SUCCESS && p_event->params.rx.p_data != NULL)
     {

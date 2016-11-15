@@ -27,11 +27,33 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
-#ifndef _VERSION_H__
-#define _VERSION_H__
 
-#define VERSION_MAJOR     (0)
-#define VERSION_MINOR1    (8)
-#define VERSION_MINOR2    (7)
+#include "led_config.h"
+#include "nrf_soc.h"
+/**
+* @brief configure LEDs for easily visible status check
+*/
+void led_config(uint8_t led, uint8_t conf)
+{
+#if defined(BOARD_PCA10001)
+  if (conf)
+  {
+    NRF_GPIO->OUTSET = (1 << (led + LED_START));
+  }
+  else
+  {
+    NRF_GPIO->OUTCLR = (1 << (led + LED_START));
+  }
+#else /* All other boards are the other way around */
+  if (!conf)
+  {
+    NRF_GPIO->OUTSET = (1 << (led + LED_START));
+  }
+  else
+  {
+    NRF_GPIO->OUTCLR = (1 << (led + LED_START));
+  }
+#endif
+} 
 
-#endif /* _VERSION_H__ */
+
