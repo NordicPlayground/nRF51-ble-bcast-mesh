@@ -30,7 +30,12 @@ class DevicePageEntry:
         return struct.pack('<HH', int((len(self.data) + 4) / 4), self.infotype) + self.data
 
 def parse_hexstring(string):
-    return [int(string[i:i+2], 2) for i in range(0, len(string), 2)]
+    ints = [int(string[i:i+2], 16) for i in range(0, len(string), 2)]
+    # python 2 and python 3 handles bytestrings differently:
+    if sys.version_info < (3,0):
+        return ''.join([chr(i) for i in ints])
+    else:
+        return bytes(ints)
 
 class DevicePage:
 
@@ -47,7 +52,12 @@ class DevicePage:
                 if line.strip().startswith('#') or not ':' in line:
                     continue
                 (key, val) = tuple([part.strip() for part in line.strip().split(':')])
-                entries[key.upper()] = int(val, 0)
+                try:
+                    entries[key.upper()] = int(val, 0)
+                except ValueError:
+                    print(val)
+                    entries[key.upper()] = val
+
 
         # Construct the various entries from parts:
         key_data = None
@@ -57,6 +67,7 @@ class DevicePage:
             key_data = parse_hexstring(entries['VERIFICATION KEY QX'] + entries['VERIFICATION KEY QY'])
 
         if key_data:
+            print(bytes(key_data))
             self.entries.append(DevicePageEntry(DevicePageEntry.BL_INFO_TYPE_ECDSA_PUBLIC_KEY, key_data))
 
 
