@@ -476,17 +476,18 @@ void bootloader_enable(void)
     }
     else
     {
-        bl_info_flags_t* p_flags = &bootloader_info_entry_get(BL_INFO_TYPE_FLAGS)->flags;
-        bl_info_segment_t* p_seg = &bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP)->segment;
+        bl_info_flags_t*   p_flags   = &bootloader_info_entry_get(BL_INFO_TYPE_FLAGS)->flags;
+        bl_info_segment_t* p_app_seg = &bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP)->segment;
+        bl_info_segment_t* p_sd_seg  = &bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_SD)->segment;
 #ifdef RTT_LOG
         __LOG(RTT_CTRL_TEXT_RED "APP is invalid.\n");
         __LOG("\tINTACT: SD: %d APP: %d BL: %d\n",
                 p_flags->sd_intact,
                 p_flags->app_intact,
                 p_flags->bl_intact);
-        if (*((uint32_t*) p_seg->start) == 0xFFFFFFFF)
+        if (*((uint32_t*) p_app_seg->start) == 0xFFFFFFFF)
         {
-            __LOG("\tNo application at 0x%x\n", p_seg->start);
+            __LOG("\tNo application at 0x%x\n", p_app_seg->start);
         }
 #endif
         /* update the bootloader if a bank is available */
@@ -495,10 +496,20 @@ void bootloader_enable(void)
             return;
         }
 
-        /* If there's no application, ensure that the flag also agrees. */
-        if (p_flags->app_intact && *((uint32_t*) p_seg->start) == 0xFFFFFFFF)
+        uint32_t new_flags = 0xFFFFFFFF;
+        if (p_flags->app_intact && *((uint32_t*) p_app_seg->start) == 0xFFFFFFFF)
         {
-            uint32_t new_flags = ~DFU_TYPE_APP;
+            /* If there's no application, ensure that the flag marks it. */
+            new_flags &= ~DFU_TYPE_APP;
+        }
+        if (p_flags->sd_intact && *((uint32_t*) p_sd_seg->start) == 0xFFFFFFFF && (p_sd_seg->length != 0))
+        {
+            /* If there's no softdevice (when we were supposed to have one), ensure that the flag marks it. */
+            new_flags &= ~DFU_TYPE_SD;
+        }
+
+        if (new_flags != 0xFFFFFFFF)
+        {
             bootloader_info_entry_overwrite(BL_INFO_TYPE_FLAGS, (bl_info_entry_t*) &new_flags);
         }
 
