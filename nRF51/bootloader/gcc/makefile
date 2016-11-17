@@ -4,12 +4,10 @@
 # Selectable build options
 #------------------------------------------------------------------------------
 
-#TARGET_BOARD         ?= BOARD_PCA10000
-#TARGET_BOARD         ?= BOARD_PCA10001
-TARGET_BOARD         ?= BOARD_PCA10028
-#TARGET_BOARD         ?= BOARD_PCA10031
-
 USE_RBC_MESH_SERIAL  = "yes"
+#CHIP_VERSION ?= xxAA
+#CHIP_VERSION ?= xxAB
+CHIP_VERSION ?= xxAC
 
 #------------------------------------------------------------------------------
 # Define relative paths to SDK components
@@ -19,7 +17,7 @@ SDK_BASE      := ../../../../..
 COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
-LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld
+LINKER_SCRIPT := ./gcc_bl_nrf51_$(CHIP_VERSION).ld
 
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
   SERIAL_STRING="_serial"
@@ -27,7 +25,7 @@ else
   SERIAL_STRING=""
 endif
 
-OUTPUT_NAME := bootloader$(SERIAL_STRING)_$(TARGET_BOARD)
+OUTPUT_NAME := bootloader$(SERIAL_STRING)_$(CHIP_VERSION)
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
@@ -153,9 +151,10 @@ CFLAGS += -mthumb -mabi=aapcs --std=gnu99
 CFLAGS += -Wall -Werror
 CFLAGS += -Wa,-adhln
 CFLAGS += -mfloat-abi=soft
-CFLAGS += -fdata-sections -ffunction-sections -fno-strict-aliasing
+CFLAGS += -fdata-sections
+CFLAGS += -fno-strict-aliasing
 CFLAGS += -fno-builtin
-CFLAGS += -flto
+CFLAGS += -fno-lto
 
 # Linker flags
 LDFLAGS += -Xlinker -Map=$(LISTING_DIRECTORY)/$(OUTPUT_NAME).map
