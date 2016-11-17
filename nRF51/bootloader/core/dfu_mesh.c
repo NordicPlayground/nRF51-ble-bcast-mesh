@@ -1494,7 +1494,7 @@ uint32_t dfu_mesh_finalize(void)
     __LOG(RTT_CTRL_TEXT_GREEN RTT_CTRL_BG_RED "Transfer complete!" RTT_CTRL_RESET "\n");
     /* Reset the bootloader info page to make room for the next transfer. */
     SET_STATE(DFU_STATE_STABILIZE);
-    bootloader_info_reset();
+    APP_ERROR_CHECK(bootloader_info_reset());
     return NRF_SUCCESS;
 }
 
