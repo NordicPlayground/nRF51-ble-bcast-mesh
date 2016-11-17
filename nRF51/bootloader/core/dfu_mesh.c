@@ -536,6 +536,7 @@ static void start_target(void)
         case DFU_TYPE_BOOTLOADER:
             flags_entry.flags.bl_intact = false;
             break;
+        default: APP_ERROR_CHECK(NRF_ERROR_INVALID_PARAM);
     }
 
     if (m_transaction.p_bank_addr != m_transaction.p_start_addr)
