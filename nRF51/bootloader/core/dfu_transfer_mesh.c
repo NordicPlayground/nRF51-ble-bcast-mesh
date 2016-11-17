@@ -58,7 +58,6 @@ typedef struct
     uint16_t        segment_count;
     bool            final_transfer;
     uint32_t        size;
-    uint32_t*       p_write_pointer;
     bitfield_t      missing_segments;
     uint8_t         write_buffer[SEGMENT_LENGTH];
     uint16_t        segment_max;
@@ -133,7 +132,6 @@ uint32_t dfu_transfer_start(
     m_transfer.p_start_addr = p_start_addr;
     m_transfer.segment_count = segment_count;
     m_transfer.final_transfer = final_transfer;
-    m_transfer.p_write_pointer = m_transfer.p_start_addr;
     m_transfer.size = size;
     m_transfer.missing_segments = 0;
     m_transfer.segment_prev = INVALID_SEGMENT_INDEX;
@@ -188,6 +186,11 @@ uint32_t dfu_transfer_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
         m_transfer.missing_segments &= ~1ULL; /* The newest segment isn't missing. */
         m_transfer.segment_max = segment;
     }
+    else
+    {
+        uint16_t segment_offset = m_transfer.segment_max - segment;
+        m_transfer.missing_segments &= ~(1 << segment_offset);
+    }
 
     m_transfer.segment_prev = segment;
     memcpy(m_transfer.write_buffer, p_data, length);
@@ -196,6 +199,7 @@ uint32_t dfu_transfer_data(uint32_t p_addr, uint8_t* p_data, uint16_t length)
             m_transfer.write_buffer,
             length) != NRF_SUCCESS)
     {
+        /* The flash queue should be scaled to fit this case, abort the transfer */
         transfer_abort(DFU_END_ERROR_NO_MEM);
         return NRF_ERROR_INTERNAL;
     }
@@ -271,8 +275,6 @@ void dfu_transfer_flash_write_complete(uint8_t* p_write_src)
 {
     if (p_write_src == m_transfer.write_buffer)
     {
-        uint32_t offset = m_transfer.segment_max - m_transfer.segment_prev;
-        m_transfer.missing_segments &= ~(1 << offset);
         m_transfer.segment_prev = INVALID_SEGMENT_INDEX;
     }
 }
