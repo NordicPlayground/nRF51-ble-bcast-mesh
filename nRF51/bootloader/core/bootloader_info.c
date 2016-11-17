@@ -523,10 +523,13 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
 
     mp_bl_info_page      = (bootloader_info_t*) p_bl_info_page;
     mp_bl_info_bank_page = (bootloader_info_t*) p_bl_info_bank_page;
+    memset(mp_info_entry_buffer, 0, INFO_WRITE_BUFLEN);
     mp_info_entry_head = (info_buffer_t*) mp_info_entry_buffer;
     mp_info_entry_tail = (info_buffer_t*) mp_info_entry_buffer;
     mp_info_entry_head->header.len = INFO_WRITE_BUFLEN / 4;
     mp_write_pos = bootloader_info_first_unused_get(mp_bl_info_page);
+    memset(&m_info_copy, 0, sizeof(info_copy_t));
+    m_write_in_progress = false;
 
     /* make sure we have an end-of-entries entry */
     if (mp_write_pos == NULL)
