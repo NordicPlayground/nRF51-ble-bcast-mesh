@@ -40,20 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HEADER_LEN       (sizeof(bootloader_info_header_t))
 
-#ifdef DEBUG
-#undef DEBUG
-#define DEBUG 0
-#endif
-
-#define PIN_INVALIDATE      (0)
-#define PIN_RESET           (1)
-#define PIN_ENTRY_GET       (2)
-#define PIN_SET_LEN         (3)
-#define PIN_ENTRY_PUT       (4)
-#define PIN_INIT            (5)
-
 #define INFO_WRITE_BUFLEN   (128)
-#define INFO_CACHE_SIZE     (0)
 
 typedef enum
 {
@@ -97,12 +84,6 @@ typedef struct
     bool wait_for_idle;
 } info_copy_t;
 
-typedef struct
-{
-    bl_info_type_t type;
-    uint16_t offset;
-} info_cache_entry_t;
-
 static bootloader_info_t*               mp_bl_info_page;
 static bootloader_info_t*               mp_bl_info_bank_page;
 static uint8_t                          mp_info_entry_buffer[INFO_WRITE_BUFLEN] __attribute__((aligned(4)));
@@ -113,48 +94,12 @@ static bl_info_state_t                  m_state;
 static bool                             m_write_in_progress;
 static info_copy_t                      m_info_copy;
 static void*                            mp_write_pos;
-#if INFO_CACHE_SIZE > 0
-static info_cache_entry_t               m_info_cache[INFO_CACHE_SIZE];
-static uint8_t                          m_info_cache_index;
-#endif
 #ifdef RTT_LOG
 static char*                            mp_copy_state_str[] = {"IDLE", "ERASE", "METAWRITE", "DATAWRITE", "WAIT FOR IDLE"};
 #endif
 /******************************************************************************
 * Static functions
 ******************************************************************************/
-static bl_info_entry_t* info_entry_get_from_cache(bl_info_type_t type)
-{
-#if INFO_CACHE_SIZE > 0
-#ifdef RTT_LOG
-    static uint32_t hits = 0, misses = 0;
-#endif
-    for (uint32_t i = 0; i < INFO_CACHE_SIZE; ++i)
-    {
-        if (m_info_cache[i].type == type)
-        {
-            __LOG("INFO CACHE HIT! Hits/misses: %u/%u\n", ++hits, misses);
-            return (bl_info_entry_t*) ((uint32_t) mp_bl_info_page + m_info_cache[i].offset);
-        }
-    }
-    ++misses;
-#endif
-    return NULL;
-}
-
-static void info_entry_cache_invalidate(bl_info_type_t type)
-{
-#if INFO_CACHE_SIZE > 0
-    for (uint32_t i = 0; i < INFO_CACHE_SIZE; ++i)
-    {
-        if (m_info_cache[i].type == type)
-        {
-            m_info_cache[i].type = BL_INFO_TYPE_INVALID;
-        }
-    }
-#endif
-}
-
 
 static inline info_buffer_t* bootloader_info_iterate(info_buffer_t* p_buf)
 {
@@ -174,20 +119,18 @@ static bl_info_entry_t* info_entry_get(bootloader_info_t* p_bl_info_page, bl_inf
         ((uint32_t) p_bl_info_page + ((bootloader_info_t*) p_bl_info_page)->metadata.metadata_len);
 
     uint32_t iterations = 0;
-    bl_info_type_t iter_type = (bl_info_type_t) p_buffer->header.type;
-    while (iter_type != type)
+    while (p_buffer->header.type != type)
     {
         p_buffer = bootloader_info_iterate(p_buffer);
         if ((uint32_t) p_buffer > ((uint32_t) p_bl_info_page) + PAGE_SIZE ||
             (
-             (iter_type == BL_INFO_TYPE_LAST) &&
-             (iter_type != type)
+             (p_buffer->header.type == BL_INFO_TYPE_LAST) &&
+             (p_buffer->header.type != type)
             ) ||
             ++iterations > PAGE_SIZE / 2)
         {
             return NULL; /* out of bounds */
         }
-        iter_type = (bl_info_type_t) p_buffer->header.type;
     }
     return &p_buffer->entry;
 }
@@ -515,9 +458,6 @@ static uint32_t backup(void)
 /** Pull in all entries from the bank. */
 static uint32_t recover(void)
 {
-#if INFO_CACHE_SIZE > 0
-    memset(&m_info_cache, 0, sizeof(m_info_cache));
-#endif
     uint32_t error_code = copy_page(mp_bl_info_page, mp_bl_info_bank_page);
     if (error_code == NRF_SUCCESS)
     {
@@ -583,10 +523,13 @@ uint32_t bootloader_info_init(uint32_t* p_bl_info_page, uint32_t* p_bl_info_bank
 
     mp_bl_info_page      = (bootloader_info_t*) p_bl_info_page;
     mp_bl_info_bank_page = (bootloader_info_t*) p_bl_info_bank_page;
+    memset(mp_info_entry_buffer, 0, INFO_WRITE_BUFLEN);
     mp_info_entry_head = (info_buffer_t*) mp_info_entry_buffer;
     mp_info_entry_tail = (info_buffer_t*) mp_info_entry_buffer;
     mp_info_entry_head->header.len = INFO_WRITE_BUFLEN / 4;
     mp_write_pos = bootloader_info_first_unused_get(mp_bl_info_page);
+    memset(&m_info_copy, 0, sizeof(info_copy_t));
+    m_write_in_progress = false;
 
     /* make sure we have an end-of-entries entry */
     if (mp_write_pos == NULL)
@@ -616,19 +559,7 @@ bootloader_info_t* bootloader_info_get(void)
 
 bl_info_entry_t* bootloader_info_entry_get(bl_info_type_t type)
 {
-    bl_info_entry_t* p_entry = info_entry_get_from_cache(type);
-    if (p_entry != NULL)
-    {
-        return p_entry;
-    }
-    p_entry = info_entry_get((bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, type);
-#if INFO_CACHE_SIZE > 0
-    if (p_entry != NULL)
-    {
-        m_info_cache[(m_info_cache_index++) & (INFO_CACHE_SIZE - 1)] = (info_cache_entry_t) { type, (uint32_t) p_entry - (uint32_t) BOOTLOADER_INFO_ADDRESS };
-    }
-#endif
-    return p_entry;
+    return info_entry_get((bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, type);
 }
 
 bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
@@ -676,7 +607,6 @@ bl_info_entry_t* bootloader_info_entry_put(bl_info_type_t type,
     /* invalidate old entry of this type */
     if (p_old_header != NULL)
     {
-        info_entry_cache_invalidate(type);
         if (entry_header_invalidate(p_old_header) != NRF_SUCCESS)
         {
             APP_ERROR_CHECK(NRF_ERROR_NO_MEM);
@@ -709,7 +639,6 @@ uint32_t bootloader_info_entry_overwrite(bl_info_type_t type, bl_info_entry_t* p
 uint32_t bootloader_info_entry_invalidate(bl_info_type_t type)
 {
     __LOG("INVALIDATE 0x%x\n", type);
-    info_entry_cache_invalidate(type);
     return entry_invalidate((bootloader_info_t*) BOOTLOADER_INFO_ADDRESS, type);
 }
 

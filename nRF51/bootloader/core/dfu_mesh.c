@@ -46,12 +46,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *****************************************************************************/
 #define TX_REPEATS_DEFAULT          (3)
 #define TX_REPEATS_FWID             (TX_REPEATS_INF)
-#define TX_REPEATS_DFU_REQ          (TX_REPEATS_INF)
 #define TX_REPEATS_READY            (TX_REPEATS_INF)
 #define TX_REPEATS_DATA             (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_RSP              (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_REQ              (TX_REPEATS_DEFAULT)
-#define TX_REPEATS_START            (TX_REPEATS_DEFAULT);
 
 #define TX_INTERVAL_TYPE_FWID       (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 #define TX_INTERVAL_TYPE_DFU_REQ    (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
@@ -60,8 +58,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TX_INTERVAL_TYPE_RSP        (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR)
 
-#define SECONDS_TO_US(t)            (t * 1000000)
-#define STATE_TIMEOUT_RAMPDOWN      SECONDS_TO_US(2)
+#define STATE_TIMEOUT_RAMPDOWN      (2000000)
 
 #define TX_SLOT_BEACON              (0)
 
@@ -536,6 +533,7 @@ static void start_target(void)
         case DFU_TYPE_BOOTLOADER:
             flags_entry.flags.bl_intact = false;
             break;
+        default: APP_ERROR_CHECK(NRF_ERROR_INVALID_PARAM);
     }
 
     if (m_transaction.p_bank_addr != m_transaction.p_start_addr)
@@ -969,7 +967,7 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
         case DFU_STATE_FIND_FWID:
             if (p_packet->payload.state.authority > 0)
             {
-                notify_state_packet(p_packet);
+                status = notify_state_packet(p_packet);
             }
             else
             {
@@ -1010,7 +1008,7 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
                         &m_transaction.target_fwid_union,
                         m_transaction.type))
             {
-                notify_state_packet(p_packet);
+                status = notify_state_packet(p_packet);
             }
             else
             {
@@ -1496,7 +1494,7 @@ uint32_t dfu_mesh_finalize(void)
     __LOG(RTT_CTRL_TEXT_GREEN RTT_CTRL_BG_RED "Transfer complete!" RTT_CTRL_RESET "\n");
     /* Reset the bootloader info page to make room for the next transfer. */
     SET_STATE(DFU_STATE_STABILIZE);
-    bootloader_info_reset();
+    APP_ERROR_CHECK(bootloader_info_reset());
     return NRF_SUCCESS;
 }
 

@@ -267,6 +267,7 @@ static void flash_bank_entry(void)
                         flags_entry.flags.app_intact = true;
                         break;
                     default:
+                        signature_type = BL_INFO_TYPE_INVALID;
                         APP_ERROR_CHECK(NRF_ERROR_INVALID_DATA);
                 }
                 if (!bootloader_info_entry_put(BL_INFO_TYPE_VERSION,
