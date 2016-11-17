@@ -969,7 +969,7 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
         case DFU_STATE_FIND_FWID:
             if (p_packet->payload.state.authority > 0)
             {
-                notify_state_packet(p_packet);
+                status = notify_state_packet(p_packet);
             }
             else
             {
@@ -1010,7 +1010,7 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
                         &m_transaction.target_fwid_union,
                         m_transaction.type))
             {
-                notify_state_packet(p_packet);
+                status = notify_state_packet(p_packet);
             }
             else
             {
