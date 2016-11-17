@@ -9,6 +9,8 @@ USE_RBC_MESH_SERIAL  = "yes"
 #CHIP_VERSION ?= xxAB
 CHIP_VERSION ?= xxAC
 
+TARGET_BOARD ?= BOARD_PCA10028
+
 #------------------------------------------------------------------------------
 # Define relative paths to SDK components
 #------------------------------------------------------------------------------
