@@ -135,7 +135,7 @@ OUTPUT_BINARY_DIRECTORY = $(OBJECT_DIRECTORY)
 BUILD_DIRECTORIES := $(sort $(OBJECT_DIRECTORY) $(OUTPUT_BINARY_DIRECTORY) $(LISTING_DIRECTORY) )
 
 ifeq ($(BUILD_TYPE),debug)
-  DEBUG_FLAGS += -D DEBUG -g -O0
+  DEBUG_FLAGS += -D DEBUG -g -Os
 else
   DEBUG_FLAGS += -D NDEBUG -Os
 endif
@@ -153,6 +153,7 @@ CFLAGS += -mthumb -mabi=aapcs --std=gnu99
 CFLAGS += -Wall -Werror
 CFLAGS += -Wa,-adhln
 CFLAGS += -mfloat-abi=soft
+CFLAGS += -fomit-frame-pointer
 CFLAGS += -fdata-sections
 CFLAGS += -fno-strict-aliasing
 CFLAGS += -fno-builtin
