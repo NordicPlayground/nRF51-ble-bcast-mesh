@@ -21,40 +21,10 @@ GROUP(-lgcc -lc -lnosys)
 MEMORY
 {
   FLASH (rx) : ORIGIN = 0x0003A000, LENGTH = 22K
-  RAM (rwx) :  ORIGIN = 0x20000004, LENGTH = 0x3cfc
-  CORE_BL_RAM (rwx) :  ORIGIN = 0x20003D00, LENGTH = 0x2fc
-  UICR_BOOTADDR (rx) : ORIGIN = 0x10001014, LENGTH = 0x04
+  RAM (rw) :  ORIGIN = 0x20000004, LENGTH = 0x3cfc
+  CORE_BL_RAM (rw) :  ORIGIN = 0x20003D00, LENGTH = 0x2fc
+  UICR_BOOTADDR (r) : ORIGIN = 0x10001014, LENGTH = 0x04
 }
 
-SECTIONS
-{
-    .core_data :
-    {
-        . = ALIGN(4);
-        _build/sha256.o(.data*)
-        _build/bootloader_app_bridge.o(.data*)
-        _build/bootloader_info.o(.data*)
-        _build/uECC.o(.data*)
-        _build/dfu_mesh.o(.data*)
-        _build/dfu_transfer_mesh.o(.data*)
-        _build/dfu_bank.o(.data*)
-        _build/dfu_util.o(.data*)
-        . = ALIGN(4);
-    } > CORE_BL_RAM
-
-    .core_bss :
-    {
-        . = ALIGN(4);
-        _build/sha256.o(.bss*)
-        _build/bootloader_app_bridge.o(.bss*)
-        _build/bootloader_info.o(.bss*)
-        _build/uECC.o(.bss*)
-        _build/dfu_mesh.o(.bss*)
-        _build/dfu_transfer_mesh.o(.bss*)
-        _build/dfu_bank.o(.bss*)
-        _build/dfu_util.o(.bss*)
-        . = ALIGN(4);
-    } > CORE_BL_RAM
-}
-
+INCLUDE "gcc_bl_nrf51_common.ld"
 INCLUDE "gcc_nrf51_common.ld"
