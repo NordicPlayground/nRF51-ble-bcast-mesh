@@ -1402,11 +1402,12 @@ dfu_type_t dfu_mesh_missing_type_get(void)
 
 bool dfu_mesh_app_is_valid(void)
 {
-    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+    bl_info_entry_t* p_fwid_entry    = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+    bl_info_entry_t* p_app_seg_entry = bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP);
 
-    return (p_fwid_entry != NULL &&
-            (uint32_t*) m_bl_info_pointers.p_segment_app->start != (uint32_t*) 0xFFFFFFFF &&
-            *((uint32_t*) m_bl_info_pointers.p_segment_app->start) != 0xFFFFFFFF &&
+    return (p_fwid_entry != NULL && p_app_seg_entry != NULL &&
+            (uint32_t*) p_app_seg_entry->segment.start != (uint32_t*) 0xFFFFFFFF &&
+            *((uint32_t*) p_app_seg_entry->segment.start) != 0xFFFFFFFF &&
             p_fwid_entry->version.app.app_version != APP_VERSION_INVALID &&
             fw_is_verified());
 }
