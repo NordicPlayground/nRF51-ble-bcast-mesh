@@ -34,4 +34,4 @@ This script flashes the master with the "rbc_mesh_example_without_ack_master.hex
 
 It also runs the test for some definite time (i.e 60 secs) and calculate the bandwidth by using the equation mentioned above.
 
-Note : This script supports Python 2.7.9 (32 bit) and pynrfjprog-9.0.0
+== Note : This script supports Python 2.7.9 (32 bit) and pynrfjprog-9.0.0
