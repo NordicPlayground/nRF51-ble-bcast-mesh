@@ -33,3 +33,5 @@ Example : python Bandwidth.py 680740323 s110_softdevice.hex rbc_mesh_example_wit
 This script flashes the master with the "rbc_mesh_example_without_ack_master.hex" and all the slaves with "rbc_mesh_example_without_ack_slave.hex" for without ACK test or flashes the master with "rbc_mesh_example_with_ack_master.hex" and all the slaves with "rbc_mesh_example_with_ack_slave.hex" for with ACK test.
 
 It also runs the test for some definite time (i.e 60 secs) and calculate the bandwidth by using the equation mentioned above.
+
+Note : This script supports Python 2.7.9 (32 bit) and pynrfjprog-9.0.0
