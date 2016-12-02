@@ -58,6 +58,8 @@ static rbc_mesh_event_t m_rbc_event_buffer[RBC_MESH_APP_EVENT_QUEUE_LENGTH];
 /*****************************************************************************
 * Static Functions
 *****************************************************************************/
+#if defined (NRF51)
+
 #if defined(WITH_ACK_MASTER) 
 static uint32_t top_queue_counter[4] __attribute__((at(0x20002F98)))={0};
 static uint32_t top_queue_drop __attribute__((at(0x20002FA8))) =0;
@@ -76,6 +78,32 @@ static uint32_t top_queue_drop __attribute__((at(0x200026B0)))  =0;
 #if defined(WITHOUT_ACK_SLAVE)
 static uint32_t top_queue_counter[4] __attribute__((at(0x200026A0)))  ={0};
 static uint32_t top_queue_drop __attribute__((at(0x200026B0))) =0;
+#endif
+
+#endif
+
+#if defined (NRF52)
+
+#if defined(WITH_ACK_MASTER) 
+static uint32_t top_queue_counter[4] ;
+static uint32_t top_queue_drop ;
+#endif
+
+#if defined (WITHOUT_ACK_MASTER)
+static uint32_t top_queue_counter[4] ;
+static uint32_t top_queue_drop ;
+#endif
+
+#if defined(WITH_ACK_SLAVE)
+static uint32_t top_queue_counter[4] ;
+static uint32_t top_queue_drop ;
+#endif
+
+#if defined(WITHOUT_ACK_SLAVE)
+static uint32_t top_queue_counter[4] ;
+static uint32_t top_queue_drop ;
+#endif
+
 #endif
 /*****************************************************************************
 * Interface Functions
@@ -360,7 +388,7 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
     uint32_t error_code = fifo_push(&m_rbc_event_fifo, p_event);
     
     #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)|| defined (WITHOUT_ACK_SLAVE)
-    
+      #if defined (NRF51)||defined (NRF52)
     
 		
 		if (error_code != NRF_SUCCESS)
@@ -385,8 +413,9 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
 			default:
 					break;
 		}
+       #endif
          
-      #endif
+     #endif
         
     
 

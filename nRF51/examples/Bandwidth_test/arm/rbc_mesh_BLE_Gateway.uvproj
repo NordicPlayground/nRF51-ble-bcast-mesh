@@ -72,6 +72,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -80,6 +82,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopA1X>0</nStopA1X>
+            <nStopA2X>0</nStopA2X>
           </AfterMake>
           <SelectedForBatchBuild>0</SelectedForBatchBuild>
           <SVCSIdString></SVCSIdString>
@@ -141,7 +145,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -224,6 +227,7 @@
             <useUlib>1</useUlib>
             <EndSel>1</EndSel>
             <uLtcg>0</uLtcg>
+            <nSecure>0</nSecure>
             <RoSelD>3</RoSelD>
             <RwSelD>3</RwSelD>
             <CodeSel>0</CodeSel>
@@ -358,6 +362,10 @@
             <uSurpInc>0</uSurpInc>
             <uC99>0</uC99>
             <useXO>0</useXO>
+            <v6Lang>0</v6Lang>
+            <v6LangP>0</v6LangP>
+            <vShortEn>0</vShortEn>
+            <vShortWch>0</vShortWch>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
               <Define>BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT __WEAK=__weak DEBUG</Define>
@@ -508,6 +516,10 @@
                     <uSurpInc>2</uSurpInc>
                     <uC99>2</uC99>
                     <useXO>2</useXO>
+                    <v6Lang>0</v6Lang>
+                    <v6LangP>0</v6LangP>
+                    <vShortEn>0</vShortEn>
+                    <vShortWch>0</vShortWch>
                     <VariousControls>
                       <MiscControls></MiscControls>
                       <Define></Define>
@@ -556,6 +568,10 @@
                     <uSurpInc>2</uSurpInc>
                     <uC99>2</uC99>
                     <useXO>2</useXO>
+                    <v6Lang>0</v6Lang>
+                    <v6LangP>0</v6LangP>
+                    <vShortEn>0</vShortEn>
+                    <vShortWch>0</vShortWch>
                     <VariousControls>
                       <MiscControls></MiscControls>
                       <Define></Define>
@@ -684,6 +700,10 @@
                     <uSurpInc>2</uSurpInc>
                     <uC99>2</uC99>
                     <useXO>2</useXO>
+                    <v6Lang>0</v6Lang>
+                    <v6LangP>0</v6LangP>
+                    <vShortEn>0</vShortEn>
+                    <vShortWch>0</vShortWch>
                     <VariousControls>
                       <MiscControls></MiscControls>
                       <Define></Define>
@@ -769,6 +789,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -777,6 +799,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopA1X>0</nStopA1X>
+            <nStopA2X>0</nStopA2X>
           </AfterMake>
           <SelectedForBatchBuild>0</SelectedForBatchBuild>
           <SVCSIdString></SVCSIdString>
@@ -838,7 +862,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -921,6 +944,7 @@
             <useUlib>1</useUlib>
             <EndSel>1</EndSel>
             <uLtcg>0</uLtcg>
+            <nSecure>0</nSecure>
             <RoSelD>3</RoSelD>
             <RwSelD>3</RwSelD>
             <CodeSel>0</CodeSel>
@@ -1055,6 +1079,10 @@
             <uSurpInc>0</uSurpInc>
             <uC99>0</uC99>
             <useXO>0</useXO>
+            <v6Lang>0</v6Lang>
+            <v6LangP>0</v6LangP>
+            <vShortEn>0</vShortEn>
+            <vShortWch>0</vShortWch>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
               <Define>MESH_DFU RTT_LOG DEBUG BUTTONS BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT RBC_MESH_SERIAL RBC_MESH_DATA_CACHE_ENTRIES=2 RBC_MESH_HANDLE_CACHE_ENTRIES=3 __WEAK=__weak</Define>
@@ -1337,6 +1365,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
@@ -1345,6 +1375,8 @@
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopA1X>0</nStopA1X>
+            <nStopA2X>0</nStopA2X>
           </AfterMake>
           <SelectedForBatchBuild>0</SelectedForBatchBuild>
           <SVCSIdString></SVCSIdString>
@@ -1406,7 +1438,6 @@
             <RestoreToolbox>1</RestoreToolbox>
             <RestoreTracepoints>1</RestoreTracepoints>
             <RestoreSysVw>1</RestoreSysVw>
-            <UsePdscDebugDescription>1</UsePdscDebugDescription>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
           <TargetSelection>6</TargetSelection>
@@ -1489,6 +1520,7 @@
             <useUlib>1</useUlib>
             <EndSel>1</EndSel>
             <uLtcg>0</uLtcg>
+            <nSecure>0</nSecure>
             <RoSelD>3</RoSelD>
             <RwSelD>3</RwSelD>
             <CodeSel>0</CodeSel>
@@ -1623,6 +1655,10 @@
             <uSurpInc>0</uSurpInc>
             <uC99>0</uC99>
             <useXO>0</useXO>
+            <v6Lang>0</v6Lang>
+            <v6LangP>0</v6LangP>
+            <vShortEn>0</vShortEn>
+            <vShortWch>0</vShortWch>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
               <Define>RBC_MESH_DEBUG DEBUG_LOG_RTT BOARD_PCA10028 NRF51 BLE_STACK_SUPPORT_REQD S110 SOFTDEVICE_PRESENT BUTTONS DEBUG __WEAK=__weak</Define>
@@ -1773,6 +1809,10 @@
                     <uSurpInc>2</uSurpInc>
                     <uC99>2</uC99>
                     <useXO>2</useXO>
+                    <v6Lang>0</v6Lang>
+                    <v6LangP>0</v6LangP>
+                    <vShortEn>0</vShortEn>
+                    <vShortWch>0</vShortWch>
                     <VariousControls>
                       <MiscControls></MiscControls>
                       <Define></Define>
@@ -1821,6 +1861,10 @@
                     <uSurpInc>2</uSurpInc>
                     <uC99>2</uC99>
                     <useXO>2</useXO>
+                    <v6Lang>0</v6Lang>
+                    <v6LangP>0</v6LangP>
+                    <vShortEn>0</vShortEn>
+                    <vShortWch>0</vShortWch>
                     <VariousControls>
                       <MiscControls></MiscControls>
                       <Define></Define>
@@ -1949,6 +1993,10 @@
                     <uSurpInc>2</uSurpInc>
                     <uC99>2</uC99>
                     <useXO>2</useXO>
+                    <v6Lang>0</v6Lang>
+                    <v6LangP>0</v6LangP>
+                    <vShortEn>0</vShortEn>
+                    <vShortWch>0</vShortWch>
                     <VariousControls>
                       <MiscControls></MiscControls>
                       <Define></Define>

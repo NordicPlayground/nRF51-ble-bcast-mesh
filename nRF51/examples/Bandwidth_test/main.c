@@ -27,6 +27,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
+#if NORDIC_SDK_VERSION >= 11
+#include "nrf_nvic.h"
+#endif
+
 
 #include "rbc_mesh.h"
 #include "nrf_adv_conn.h"
@@ -45,7 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "SEGGER_RTT.h"
 
 #if defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
-#include "handle.h"
+//#include "handle.h"
 #endif
 
 /* Debug macros for debugging with logic analyzer */
@@ -53,11 +57,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CLEAR_PIN(x) NRF_GPIO->OUTCLR = (1 << (x))
 #define TICK_PIN(x) do { SET_PIN((x)); CLEAR_PIN((x)); }while(0)
 
-#define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)
-#define MESH_INTERVAL_MIN_MS    (100)
-#define MESH_CHANNEL            (38)
-#define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)
+#define MESH_ACCESS_ADDR        (RBC_MESH_ACCESS_ADDRESS_BLE_ADV)   /**< Access address for the mesh to operate on. */
+#define MESH_INTERVAL_MIN_MS    (100)                               /**< Mesh minimum advertisement interval in milliseconds. */
+#define MESH_CHANNEL            (38)                                /**< BLE channel to operate on. Single channel only. */
+#if NORDIC_SDK_VERSION >= 11
+nrf_nvic_state_t nrf_nvic_state = {0};
+static nrf_clock_lf_cfg_t m_clock_cfg = 
+{
+    .source = NRF_CLOCK_LF_SRC_XTAL,    
+    .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_75_PPM
+};
 
+#define MESH_CLOCK_SOURCE       (m_clock_cfg)    /**< Clock source used by the Softdevice. For calibrating timeslot time. */
+#else
+#define MESH_CLOCK_SOURCE       (NRF_CLOCK_LFCLKSRC_XTAL_75_PPM)    /**< Clock source used by the Softdevice. For calibrating timeslot time. */
+#endif
 
 #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)
 
@@ -67,7 +81,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static char UpBuffer0[BUFFER_SIZE_UP];
 static uint8_t packet_array [300] ;
 static uint16_t packet_index = 0 ;
+
+#if defined (NRF51)
 static uint32_t packet_count[NODE_NUMBER] __attribute__((at(0x20004688)));
+#endif
+
+#if defined (NRF52)
+static uint32_t packet_count[NODE_NUMBER] __attribute__((at(0x20003938)));
+#endif
+
 static uint8_t handle_array [NODE_NUMBER] ;
 static uint8_t flag [NODE_NUMBER];
 static uint8_t last_value[NODE_NUMBER];
@@ -80,8 +102,14 @@ static uint32_t global_packet_count = 0;
 
 static char UpBuffer0[BUFFER_SIZE_UP];
 uint32_t node_handle;
+#if defined (NRF51)
 static uint32_t total_tx_number __attribute__((at(0x20004688)));
 static uint32_t packet_rcv __attribute__((at(0x2000468C))) ;
+#endif
+
+static uint32_t total_tx_number;
+static uint32_t packet_rcv  ;
+
 static uint8_t node_data [RBC_MESH_VALUE_MAX_LEN ] ;
 static uint32_t tx_time=0;
 static uint8_t control=0;
@@ -90,10 +118,13 @@ static uint8_t control=0;
 #if defined(WITHOUT_ACK_SLAVE)
 
 static char UpBuffer0[BUFFER_SIZE_UP];
-uint32_t node_handle ;
+uint32_t node_handle=1;
 static uint8_t node_data [RBC_MESH_VALUE_MAX_LEN ] ;
+
+#if defined (NRF51)|| defined (NRF52)
 static uint32_t packet_count __attribute__((at(0x20004688)));
 static uint32_t packet_rcv __attribute__((at(0x2000468C))) ;
+#endif
 
 #endif
 
@@ -137,6 +168,11 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 }
 
 void HardFault_Handler(void)
+{
+    error_loop();
+}
+
+void app_error_fault_handler(uint32_t id, uint32_t pc, uint32_t info)
 {
     error_loop();
 }
@@ -412,7 +448,12 @@ int main(void)
     gpio_init();
     NRF_GPIO->OUTSET = (1 << 4);
     /* Enable Softdevice (including sd_ble before framework */
-    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE, NULL);
+#ifdef NRF52
+    SOFTDEVICE_HANDLER_INIT(&MESH_CLOCK_SOURCE,NULL); 
+#else
+    SOFTDEVICE_HANDLER_INIT(MESH_CLOCK_SOURCE,NULL); 
+#endif 
+    
     softdevice_ble_evt_handler_set(sd_ble_evt_handler); /* app-defined event handler, as we need to send it to the nrf_adv_conn module and the rbc_mesh */
     softdevice_sys_evt_handler_set(rbc_mesh_sd_evt_handler);
     
@@ -442,10 +483,6 @@ int main(void)
     uint32_t error_code = rbc_mesh_init(init_params);
     APP_ERROR_CHECK(error_code);
 
-	
-	ble_gap_addr_t my_addr_new;
-    error_code = sd_ble_gap_address_get(&my_addr_new);
-    APP_ERROR_CHECK(error_code);
 	
     #if defined (WITH_ACK_SLAVE)
         
@@ -482,11 +519,8 @@ int main(void)
     #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)    
     SEGGER_RTT_Init();
     SEGGER_RTT_ConfigUpBuffer(0, "UpBuffer0", UpBuffer0, BUFFER_SIZE_UP, SEGGER_RTT_MODE_NO_BLOCK_SKIP);
-    #else
-    /* init BLE gateway softdevice application: */
-    nrf_adv_conn_init();
     #endif 
-
+      
     /* fetch events */
     rbc_mesh_event_t evt;
     while (true)

@@ -3,7 +3,10 @@
 
 #include <stdint.h>
 
+#if defined (NRF51)
 extern uint32_t node_handle __attribute__((at(0x3F000)));
+#endif
+
 
 #endif
 

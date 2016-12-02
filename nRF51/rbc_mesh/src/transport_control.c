@@ -86,39 +86,81 @@ static rbc_mesh_packet_peek_cb_t mp_packet_peek_cb;
 
 
 #if defined (WITH_ACK_MASTER) 
+
+#if defined (NRF51)
 static struct
 {
     uint32_t queue_drop;
     uint32_t queue_ok;
     uint32_t crc_fail;
 } m_packet_stats __attribute__((at(0x20003030)))  = {0};
+#endif
 
+#if defined (NRF52)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats ;
+#endif
 
 #elif defined(WITHOUT_ACK_MASTER) 
+#if defined (NRF51)
 static struct
 {
     uint32_t queue_drop;
     uint32_t queue_ok;
     uint32_t crc_fail;
 } m_packet_stats __attribute__((at(0x2000273C))) = {0};
-
-
+#endif
+#if defined (NRF52)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats __attribute__((at(0x200092CC)))={0} ;
+#endif
 
 #elif defined(WITH_ACK_SLAVE)
+#if defined (NRF51)
 static struct
 {
     uint32_t queue_drop;
     uint32_t queue_ok;
     uint32_t crc_fail;
 } m_packet_stats __attribute__((at(0x20002750))) = {0};
+#endif
+
+#if defined (NRF52)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats ;
+#endif
 
 #elif defined(WITHOUT_ACK_SLAVE)
+
+#if defined (NRF51)
 static struct
 {
     uint32_t queue_drop;
     uint32_t queue_ok;
     uint32_t crc_fail;
 } m_packet_stats __attribute__((at(0x20002738))) = {0};
+#endif
+
+#if defined (NRF52)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats ;
+#endif
 
 #else
 static struct
