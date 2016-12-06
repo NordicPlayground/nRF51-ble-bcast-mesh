@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_UTIL_H__
 
 #include <stdint.h>
+#include "dfu_packet.h"
 #include "dfu_types_mesh.h"
 #include "nrf.h"
 

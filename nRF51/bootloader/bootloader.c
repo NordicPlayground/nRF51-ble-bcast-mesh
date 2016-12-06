@@ -35,6 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bootloader_info.h"
 #include "dfu_mesh.h"
 #include "dfu_bank.h"
+#include "dfu_packet.h"
 #include "dfu_types_mesh.h"
 #include "nrf_mbr.h"
 #include "nrf_flash.h"

@@ -28,8 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
+
 #ifndef DFU_PACKET_H__
 #define DFU_PACKET_H__
+
+#include "dfu_types_mesh.h"
 
 #define DFU_PACKET_LEN_OVERHEAD     (2)
 

@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BL_IF_H__
 
 #include <stdint.h>
+#include "dfu_packet.h"
 #include "dfu_types_mesh.h"
 
 #define BL_IF_VERSION   (1)
