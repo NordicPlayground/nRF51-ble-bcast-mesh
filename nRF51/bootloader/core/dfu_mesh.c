@@ -49,16 +49,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TX_REPEATS_READY            (TX_REPEATS_INF)
 #define TX_REPEATS_DATA             (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_RSP              (TX_REPEATS_DEFAULT)
-#define TX_REPEATS_REQ              (TX_REPEATS_DEFAULT)
+#define TX_REPEATS_REQ              (TX_REPEATS_INF)
 
 #define TX_INTERVAL_TYPE_FWID       (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 #define TX_INTERVAL_TYPE_DFU_REQ    (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 #define TX_INTERVAL_TYPE_READY      (BL_RADIO_INTERVAL_TYPE_REGULAR)
 #define TX_INTERVAL_TYPE_DATA       (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_RSP        (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
-#define TX_INTERVAL_TYPE_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR)
+#define TX_INTERVAL_TYPE_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 
-#define STATE_TIMEOUT_RAMPDOWN      (2000000)
+#define STATE_TIMEOUT_RAMPDOWN      (5000000)
 
 #define TX_SLOT_BEACON              (0)
 
@@ -128,7 +128,7 @@ static bl_info_pointers_t       m_bl_info_pointers;
 static req_cache_entry_t        m_req_cache[REQ_CACHE_SIZE];
 static uint8_t                  m_req_index;
 static uint8_t                  m_tx_slots;
-static bool                     m_data_req_segment;
+static uint16_t                 m_data_req_segment;
 
 #ifdef RTT_LOG
 static const char*              m_state_strs[] =
@@ -681,6 +681,46 @@ static uint32_t notify_state_packet(dfu_packet_t* p_packet)
 
     return status;
 }
+
+/* check whether we've lost any entries, and request them */
+static void request_missing_data(uint16_t prev_segment)
+{
+    uint32_t* p_req_entry = NULL;
+    uint32_t req_entry_len = 0;
+
+    if (dfu_transfer_get_oldest_missing_entry(
+                m_transaction.p_last_requested_entry,
+                &p_req_entry,
+                &req_entry_len) &&
+            (
+             /* don't request the previous packet yet */
+             ADDR_SEGMENT(p_req_entry, m_transaction.p_start_addr) < prev_segment - 1 ||
+             m_transaction.segment_count == prev_segment
+            )
+       )
+    {
+        dfu_packet_t req_packet;
+        req_packet.packet_type = DFU_PACKET_TYPE_DATA_REQ;
+        req_packet.payload.req_data.segment = ADDR_SEGMENT(p_req_entry, m_transaction.p_start_addr);
+        req_packet.payload.req_data.transaction_id = m_transaction.transaction_id;
+
+        /* Use beacon slot */
+        bl_evt_t tx_evt;
+        tx_evt.type = BL_EVT_TYPE_TX_RADIO;
+        tx_evt.params.tx.radio.p_dfu_packet = &req_packet;
+        tx_evt.params.tx.radio.length = DFU_PACKET_LEN_DATA_REQ;
+        tx_evt.params.tx.radio.interval_type = TX_INTERVAL_TYPE_REQ;
+        tx_evt.params.tx.radio.tx_count = TX_REPEATS_REQ;
+        tx_evt.params.tx.radio.tx_slot = TX_SLOT_BEACON;
+        uint32_t status = bootloader_evt_send(&tx_evt);
+        if (status == NRF_SUCCESS)
+        {
+            m_transaction.p_last_requested_entry = (uint32_t*) p_req_entry;
+            m_data_req_segment = req_packet.payload.req_data.segment;
+            __LOG("TX REQ FOR 0x%x\n", m_data_req_segment);
+        }
+    }
+}
 /*************** Packet handlers ******************/
 static void target_rx_start(dfu_packet_t* p_packet, bool* p_do_relay)
 {
@@ -793,13 +833,19 @@ static uint32_t target_rx_data(dfu_packet_t* p_packet, uint16_t length, bool* p_
     uint32_t* p_addr = NULL;
     uint32_t error_code = NRF_ERROR_NULL;
 
-    if (p_packet->payload.data.segment <=
-            m_transaction.segment_count - m_transaction.signature_length / SEGMENT_LENGTH)
+    if (m_data_req_segment == p_packet->payload.data.segment)
     {
-        if (m_data_req_segment == p_packet->payload.data.segment)
-        {
-            m_data_req_segment = DATA_REQ_SEGMENT_NONE;
-        }
+        /* Got missing packet, stop requesting. */
+        m_data_req_segment = DATA_REQ_SEGMENT_NONE;
+        bl_evt_t tx_abort_evt;
+        tx_abort_evt.type = BL_EVT_TYPE_TX_ABORT;
+        tx_abort_evt.params.tx.abort.tx_slot = TX_SLOT_BEACON;
+        bootloader_evt_send(&tx_abort_evt);
+    }
+
+    if (p_packet->payload.data.segment <=
+        m_transaction.segment_count - m_transaction.signature_length / SEGMENT_LENGTH)
+    {
         p_addr = addr_from_seg(p_packet->payload.data.segment, m_transaction.p_start_addr);
         error_code = dfu_transfer_data((uint32_t) p_addr,
                 p_packet->payload.data.data,
@@ -833,33 +879,9 @@ static uint32_t target_rx_data(dfu_packet_t* p_packet, uint16_t length, bool* p_
     send_progress_event(p_packet->payload.data.segment, m_transaction.segment_count);
     m_transaction.segments_remaining--;
     *p_do_relay = true;
-    /* check whether we've lost any entries, and request them */
-    uint32_t* p_req_entry = NULL;
-    uint32_t req_entry_len = 0;
-
     if (m_data_req_segment == DATA_REQ_SEGMENT_NONE)
     {
-        if (dfu_transfer_get_oldest_missing_entry(
-                    m_transaction.p_last_requested_entry,
-                    &p_req_entry,
-                    &req_entry_len) &&
-                (
-                 /* don't request the previous packet yet */
-                 ADDR_SEGMENT(p_req_entry, m_transaction.p_start_addr) < p_packet->payload.data.segment - 1 ||
-                 m_transaction.segment_count == p_packet->payload.data.segment
-                )
-           )
-        {
-            dfu_packet_t req_packet;
-            req_packet.packet_type = DFU_PACKET_TYPE_DATA_REQ;
-            req_packet.payload.req_data.segment = ADDR_SEGMENT(p_req_entry, m_transaction.p_start_addr);
-            req_packet.payload.req_data.transaction_id = m_transaction.transaction_id;
-
-            packet_tx_dynamic(&req_packet, DFU_PACKET_LEN_DATA_REQ, TX_INTERVAL_TYPE_REQ, TX_REPEATS_REQ);
-            m_transaction.p_last_requested_entry = (uint32_t*) p_req_entry;
-            m_data_req_segment = req_packet.payload.req_data.segment;
-            __LOG("TX REQ FOR 0x%x\n", m_data_req_segment);
-        }
+        request_missing_data(p_packet->payload.data.segment);
     }
     return error_code;
 }
@@ -1381,11 +1403,12 @@ dfu_type_t dfu_mesh_missing_type_get(void)
 
 bool dfu_mesh_app_is_valid(void)
 {
-    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+    bl_info_entry_t* p_fwid_entry    = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+    bl_info_entry_t* p_app_seg_entry = bootloader_info_entry_get(BL_INFO_TYPE_SEGMENT_APP);
 
-    return (p_fwid_entry != NULL &&
-            (uint32_t*) m_bl_info_pointers.p_segment_app->start != (uint32_t*) 0xFFFFFFFF &&
-            *((uint32_t*) m_bl_info_pointers.p_segment_app->start) != 0xFFFFFFFF &&
+    return (p_fwid_entry != NULL && p_app_seg_entry != NULL &&
+            (uint32_t*) p_app_seg_entry->segment.start != (uint32_t*) 0xFFFFFFFF &&
+            *((uint32_t*) p_app_seg_entry->segment.start) != 0xFFFFFFFF &&
             p_fwid_entry->version.app.app_version != APP_VERSION_INVALID &&
             fw_is_verified());
 }
