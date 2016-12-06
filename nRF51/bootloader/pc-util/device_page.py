@@ -21,12 +21,10 @@ class DevicePageEntry:
         self.data = data
         pad = 4 - len(self.data) % 4
         if pad != 4:
-            print('pad: ' + str(pad))
             for p in range(pad):
                 self.data += b'\xff' #struct.pack('B', [0xFF] * pad)
 
     def as_binary(self):
-        print(self.infotype)
         return struct.pack('<HH', int((len(self.data) + 4) / 4), self.infotype) + self.data
 
 def parse_hexstring(string):
@@ -55,7 +53,6 @@ class DevicePage:
                 try:
                     entries[key.upper()] = int(val, 0)
                 except ValueError:
-                    print(val)
                     entries[key.upper()] = val
 
 
@@ -67,7 +64,6 @@ class DevicePage:
             key_data = parse_hexstring(entries['VERIFICATION KEY QX'] + entries['VERIFICATION KEY QY'])
 
         if key_data:
-            print(bytes(key_data))
             self.entries.append(DevicePageEntry(DevicePageEntry.BL_INFO_TYPE_ECDSA_PUBLIC_KEY, key_data))
 
 
