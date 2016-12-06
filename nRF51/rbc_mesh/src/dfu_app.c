@@ -128,23 +128,6 @@ static uint32_t next_tx_timeout(dfu_tx_t* p_tx)
     }
 }
 
-static void interrupts_disable(void)
-{
-    uint32_t interrupt_setting_mask;
-    uint32_t irq;
-
-    interrupt_setting_mask = NVIC->ISER[0];
-
-    /* Loop through and disable all interrupts. */
-    for (irq = 0; irq < MAX_NUMBER_INTERRUPTS; irq++)
-    {
-        if (interrupt_setting_mask & (IRQ_ENABLED << irq))
-        {
-            NVIC_DisableIRQ((IRQn_Type)irq);
-        }
-    }
-}
-
 static void tx_timeout(uint32_t timestamp, void* p_context)
 {
     uint32_t next_timeout = timestamp + (UINT32_MAX / 2);
@@ -381,7 +364,7 @@ uint32_t dfu_request(dfu_type_t type,
     cmd.params.dfu.start.target.type = type;
     cmd.params.dfu.start.target.fwid = *p_fwid;
     cmd.params.dfu.start.target.p_bank_start = p_bank_addr;
-    
+
     uint32_t status = dfu_cmd_send(&cmd);
     if (status == NRF_SUCCESS)
     {
