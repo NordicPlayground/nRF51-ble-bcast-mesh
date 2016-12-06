@@ -34,7 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include "rbc_mesh.h"
 #include "toolchain.h"
-#include "dfu_types_mesh.h"
+#include "dfu_packet.h"
 
 
 #define MESH_UUID                           (0xFEE4)
