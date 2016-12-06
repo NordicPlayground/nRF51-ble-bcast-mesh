@@ -49,16 +49,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TX_REPEATS_READY            (TX_REPEATS_INF)
 #define TX_REPEATS_DATA             (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_RSP              (TX_REPEATS_DEFAULT)
-#define TX_REPEATS_REQ              (TX_REPEATS_DEFAULT)
+#define TX_REPEATS_REQ              (TX_REPEATS_INF)
 
 #define TX_INTERVAL_TYPE_FWID       (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 #define TX_INTERVAL_TYPE_DFU_REQ    (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 #define TX_INTERVAL_TYPE_READY      (BL_RADIO_INTERVAL_TYPE_REGULAR)
 #define TX_INTERVAL_TYPE_DATA       (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_RSP        (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
-#define TX_INTERVAL_TYPE_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR)
+#define TX_INTERVAL_TYPE_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 
-#define STATE_TIMEOUT_RAMPDOWN      (2000000)
+#define STATE_TIMEOUT_RAMPDOWN      (5000000)
 
 #define TX_SLOT_BEACON              (0)
 
@@ -833,18 +833,19 @@ static uint32_t target_rx_data(dfu_packet_t* p_packet, uint16_t length, bool* p_
     uint32_t* p_addr = NULL;
     uint32_t error_code = NRF_ERROR_NULL;
 
-    if (p_packet->payload.data.segment <=
-            m_transaction.segment_count - m_transaction.signature_length / SEGMENT_LENGTH)
+    if (m_data_req_segment == p_packet->payload.data.segment)
     {
-        if (m_data_req_segment == p_packet->payload.data.segment)
-        {
-            /* Got missing packet, abort request. */
-            m_data_req_segment = DATA_REQ_SEGMENT_NONE;
-            bl_evt_t tx_abort_evt;
-            tx_abort_evt.type = BL_EVT_TYPE_TX_ABORT;
-            tx_abort_evt.params.tx.abort.tx_slot = TX_SLOT_BEACON;
-            bootloader_evt_send(&tx_abort_evt);
-        }
+        /* Got missing packet, stop requesting. */
+        m_data_req_segment = DATA_REQ_SEGMENT_NONE;
+        bl_evt_t tx_abort_evt;
+        tx_abort_evt.type = BL_EVT_TYPE_TX_ABORT;
+        tx_abort_evt.params.tx.abort.tx_slot = TX_SLOT_BEACON;
+        bootloader_evt_send(&tx_abort_evt);
+    }
+
+    if (p_packet->payload.data.segment <=
+        m_transaction.segment_count - m_transaction.signature_length / SEGMENT_LENGTH)
+    {
         p_addr = addr_from_seg(p_packet->payload.data.segment, m_transaction.p_start_addr);
         error_code = dfu_transfer_data((uint32_t) p_addr,
                 p_packet->payload.data.data,
