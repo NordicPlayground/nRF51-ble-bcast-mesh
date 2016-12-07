@@ -174,6 +174,39 @@ uint32_t dfu_bank_flash(dfu_type_t bank_type);
 */
 uint32_t dfu_state_get(dfu_transfer_state_t* p_dfu_transfer_state);
 
+/**
+ * Get the current firmware ID of the given type.
+ *
+ * @param[in] type Firmware ID type to get.
+ * @param[out] p_fwid Firmware ID buffer where the current firmware ID of the
+ * given type is copied to.
+ *
+ * @retval NRF_SUCCESS The firmware ID of the given type was successfully
+ * copied to the given firmware ID buffer.
+ * @retval NRF_ERROR_NULL The given firmware ID buffer was NULL.
+ * @retval NRF_ERROR_INVALID_STATE The dfu module has not been successfully initialized.
+ * @retval NRF_ERROR_INVALID_DATA The given type is unknown to the DFU module.
+ */
+uint32_t dfu_current_fwid_get(dfu_type_t type, fwid_union_t* p_fwid);
+
+/**
+ * Check whether the given fwid is an upgrade of the current firmware of the
+ * same type.
+ *
+ * @note For Softdevice transfers, this always returns true if the transfer is
+ * different from the current. If the current firmware ID is unknown, this
+ * function returns false. This should only happen if the dfu module is
+ * uninitialized, or if the bootloader isn't found.
+ *
+ * @param[in] type Type of firmware to check.
+ * @param[in] p_fwid Firmware ID to check.
+ *
+ * @return Whether the new dfu type is an upgrade of the old, or false if the
+ * current firmware version is unknown.
+ */
+bool dfu_transfer_is_upgrade(dfu_type_t type, const fwid_union_t* p_fwid);
+
+
 
 
 /**
