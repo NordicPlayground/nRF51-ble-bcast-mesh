@@ -650,36 +650,15 @@ static void start_rampdown(void)
 
 static uint32_t notify_state_packet(dfu_packet_t* p_packet)
 {
-    uint32_t status;
-    if (is_upgrade(&p_packet->payload.state.fwid, (dfu_type_t) p_packet->payload.state.dfu_type))
-    {
-        __LOG("\t->Upgradeable\n");
-        bl_evt_t fw_evt;
-        fw_evt.type = BL_EVT_TYPE_DFU_NEW_FW;
-        fw_evt.params.dfu.new_fw.fw_type = (dfu_type_t) p_packet->payload.state.dfu_type;
-        fw_evt.params.dfu.new_fw.state = m_state;
-        fwid_union_cpy(
-                &fw_evt.params.dfu.new_fw.fwid,
-                &p_packet->payload.state.fwid,
-                (dfu_type_t) p_packet->payload.state.dfu_type);
-        status = bootloader_evt_send(&fw_evt);
-    }
-    else
-    {
-        __LOG("\t->Relayable\n");
-        /* we can relay this transfer */
-        bl_evt_t relay_req_evt;
-        relay_req_evt.type = BL_EVT_TYPE_DFU_REQ;
-        relay_req_evt.params.dfu.req.role = DFU_ROLE_RELAY;
-        relay_req_evt.params.dfu.req.dfu_type = (dfu_type_t) p_packet->payload.state.dfu_type;
-        relay_req_evt.params.dfu.req.fwid = p_packet->payload.state.fwid;
-        relay_req_evt.params.dfu.req.state = m_state;
-        relay_req_evt.params.dfu.req.authority = p_packet->payload.state.authority;
-        relay_req_evt.params.dfu.req.transaction_id = p_packet->payload.state.transaction_id;
-        status = bootloader_evt_send(&relay_req_evt);
-    }
-
-    return status;
+    bl_evt_t fw_evt;
+    fw_evt.type = BL_EVT_TYPE_DFU_NEW_FW;
+    fw_evt.params.dfu.new_fw.fw_type = (dfu_type_t) p_packet->payload.state.dfu_type;
+    fw_evt.params.dfu.new_fw.state = m_state;
+    fwid_union_cpy(
+            &fw_evt.params.dfu.new_fw.fwid,
+            &p_packet->payload.state.fwid,
+            (dfu_type_t) p_packet->payload.state.dfu_type);
+    return bootloader_evt_send(&fw_evt);
 }
 
 /* check whether we've lost any entries, and request them */
