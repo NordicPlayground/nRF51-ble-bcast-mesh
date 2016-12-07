@@ -60,7 +60,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define WORD_SIZE          (4)
 
-
 #define SEGMENT_ADDR(segment_id, start_addr) ((segment_id == 1)? \
                                                 (uint32_t) start_addr : \
                                                 (((uint32_t) start_addr) & 0xFFFFFFF0) + ((segment_id) - 1) * 16)
@@ -69,12 +68,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define PAGE_ALIGN(p_pointer)       (((uint32_t) p_pointer) & (~((uint32_t) (PAGE_SIZE - 1))))
 #define PAGE_OFFSET(p_pointer)      (((uint32_t) p_pointer) & (PAGE_SIZE - 1))
-
-#define SOFTDEVICE_INFORMATION_BASE     0x0003000                                                       /**< Location in the SoftDevice image which holds the SoftDevice informations. */
-#define SOFTDEVICE_INFORMATION          ((SOFTDEVICE_INFORMATION_Type *) SOFTDEVICE_INFORMATION_BASE)   /**< Make SoftDevice information accessible through the structure. */
 #define NRF_UICR_BOOT_START_ADDRESS     (NRF_UICR_BASE + 0x14)                                          /**< Register where the bootloader start address is stored in the UICR register. */
-
-#define APP_START_ADDRESS           SOFTDEVICE_INFORMATION->softdevice_size
 
 #define BOOTLOADER_INFO_ADDRESS     (FLASH_SIZE - 1 * PAGE_SIZE)
 #define BOOTLOADER_INFO_BANK_ADDRESS (FLASH_SIZE - 2 * PAGE_SIZE)
@@ -87,17 +81,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFU_FWID_LEN_BL             (2)
 #define DFU_FWID_LEN_SD             (2)
 
-#define DFU_PACKET_LEN_FWID         (2 + 2 + 1 + 1 + 4 + 2 + 4)
-#define DFU_PACKET_LEN_STATE_SD     (2 + 1 + 1 + 4 + DFU_FWID_LEN_SD)
-#define DFU_PACKET_LEN_STATE_BL     (2 + 1 + 1 + 4 + DFU_FWID_LEN_BL)
-#define DFU_PACKET_LEN_STATE_APP    (2 + 1 + 1 + 4 + DFU_FWID_LEN_APP)
-#define DFU_PACKET_LEN_START        (2 + 2 + 4 + 4 + 4 + 2 + 1)
-#define DFU_PACKET_LEN_DATA         (2 + 2 + 4 + SEGMENT_LENGTH)
-#define DFU_PACKET_LEN_DATA_REQ     (2 + 2 + 4)
-#define DFU_PACKET_LEN_DATA_RSP     (2 + 2 + 4 + SEGMENT_LENGTH)
-
-#define DFU_PACKET_ADV_OVERHEAD     (1 /* adv_type */ + 2 /* UUID */) /* overhead inside adv data */
-#define DFU_PACKET_OVERHEAD         (MESH_PACKET_BLE_OVERHEAD + 1 + DFU_PACKET_ADV_OVERHEAD) /* dfu packet total overhead */
 #define SERIAL_PACKET_OVERHEAD      (1)
 
 #define DFU_PUBLIC_KEY_LEN          (64)
@@ -113,15 +96,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 typedef uint16_t segment_t;
 typedef uint16_t seq_t;
-
-typedef enum
-{
-    DFU_PACKET_TYPE_DATA_RSP    = 0xFFFA,
-    DFU_PACKET_TYPE_DATA_REQ    = 0xFFFB,
-    DFU_PACKET_TYPE_DATA        = 0xFFFC,
-    DFU_PACKET_TYPE_STATE       = 0xFFFD,
-    DFU_PACKET_TYPE_FWID        = 0xFFFE,
-} dfu_packet_type_t;
 
 typedef enum
 {
@@ -158,56 +132,6 @@ typedef union __attribute((packed))
     bl_id_t bootloader;
     uint16_t sd;
 } fwid_union_t;
-
-typedef struct __attribute((packed))
-{
-    uint16_t packet_type;
-    union __attribute((packed))
-    {
-        fwid_t fwid;
-        struct __attribute((packed))
-        {
-            uint8_t dfu_type    : 4;
-            uint8_t _rfu1       : 4;
-            uint8_t authority   : 3;
-            uint8_t flood       : 1;
-            uint8_t relay_node  : 1;
-            uint8_t _rfu2       : 3;
-            uint32_t transaction_id;
-            fwid_union_t fwid;
-        } state;
-        struct __attribute((packed))
-        {
-            uint16_t segment;
-            uint32_t transaction_id;
-            uint32_t start_address;
-            uint32_t length; /* in words */
-            uint16_t signature_length;
-            uint8_t diff        : 1;
-            uint8_t single_bank : 1;
-            uint8_t first       : 1;
-            uint8_t last        : 1;
-            uint8_t _rfu        : 4;
-        } start;
-        struct __attribute((packed))
-        {
-            uint16_t segment;
-            uint32_t transaction_id;
-            uint8_t data[SEGMENT_LENGTH];
-        } data;
-        struct __attribute((packed))
-        {
-            uint16_t segment;
-            uint32_t transaction_id;
-        } req_data;
-        struct __attribute((packed))
-        {
-            uint16_t segment;
-            uint32_t transaction_id;
-            uint8_t data[SEGMENT_LENGTH];
-        } rsp_data;
-    } payload;
-} dfu_packet_t;
 
 typedef enum
 {

@@ -128,23 +128,6 @@ static uint32_t next_tx_timeout(dfu_tx_t* p_tx)
     }
 }
 
-static void interrupts_disable(void)
-{
-    uint32_t interrupt_setting_mask;
-    uint32_t irq;
-
-    interrupt_setting_mask = NVIC->ISER[0];
-
-    /* Loop through and disable all interrupts. */
-    for (irq = 0; irq < MAX_NUMBER_INTERRUPTS; irq++)
-    {
-        if (interrupt_setting_mask & (IRQ_ENABLED << irq))
-        {
-            NVIC_DisableIRQ((IRQn_Type)irq);
-        }
-    }
-}
-
 static void tx_timeout(uint32_t timestamp, void* p_context)
 {
     uint32_t next_timeout = timestamp + (UINT32_MAX / 2);
@@ -381,7 +364,7 @@ uint32_t dfu_request(dfu_type_t type,
     cmd.params.dfu.start.target.type = type;
     cmd.params.dfu.start.target.fwid = *p_fwid;
     cmd.params.dfu.start.target.p_bank_start = p_bank_addr;
-    
+
     uint32_t status = dfu_cmd_send(&cmd);
     if (status == NRF_SUCCESS)
     {
@@ -465,6 +448,54 @@ uint32_t dfu_state_get(dfu_transfer_state_t* p_dfu_transfer_state)
     memcpy(p_dfu_transfer_state, &m_transfer_state, sizeof(dfu_transfer_state_t));
     return NRF_SUCCESS;
 }
+
+uint32_t dfu_current_fwid_get(dfu_type_t type, fwid_union_t* p_fwid)
+{
+    if (p_fwid == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+    if (mp_curr_fwid == NULL)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+    switch (type)
+    {
+        case DFU_TYPE_SD:
+            p_fwid->sd = mp_curr_fwid->sd;
+            break;
+        case DFU_TYPE_APP:
+            p_fwid->app = mp_curr_fwid->app;
+            break;
+        case DFU_TYPE_BOOTLOADER:
+            p_fwid->bootloader = mp_curr_fwid->bootloader;
+            break;
+        default:
+            return NRF_ERROR_INVALID_DATA;
+    }
+
+    return NRF_SUCCESS;
+}
+
+bool dfu_transfer_is_upgrade(dfu_type_t type, const fwid_union_t* p_fwid)
+{
+    if (mp_curr_fwid == NULL)
+    {
+        return false;
+    }
+    switch (type)
+    {
+        case DFU_TYPE_SD:
+            return p_fwid->sd != mp_curr_fwid->sd;
+        case DFU_TYPE_APP:
+            return memcmp(&p_fwid->app, &mp_curr_fwid->app, sizeof(app_id_t)) == 0;
+        case DFU_TYPE_BOOTLOADER:
+            return memcmp(&p_fwid->bootloader, &mp_curr_fwid->bootloader, sizeof(bl_id_t)) == 0;
+        default:
+            return false;
+    }
+}
+
 
 uint32_t dfu_cmd_send(bl_cmd_t* p_cmd)
 {

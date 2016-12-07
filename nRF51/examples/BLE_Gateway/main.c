@@ -168,7 +168,10 @@ static void rbc_mesh_event_handler(rbc_mesh_event_t* p_evt)
             break;
 #ifdef MESH_DFU
         case RBC_MESH_EVENT_TYPE_DFU_BANK_AVAILABLE:
-            dfu_bank_flash(p_evt->params.dfu.bank.dfu_type);
+            if (dfu_transfer_is_upgrade(p_evt->params.dfu.bank.dfu_type, &p_evt->params.dfu.bank.fwid))
+            {
+                dfu_bank_flash(p_evt->params.dfu.bank.dfu_type);
+            }
             break;
 
         case RBC_MESH_EVENT_TYPE_DFU_NEW_FW_AVAILABLE:
