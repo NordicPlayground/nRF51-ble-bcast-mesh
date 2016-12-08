@@ -90,8 +90,8 @@ static uint32_t top_queue_drop ;
 #endif
 
 #if defined (WITHOUT_ACK_MASTER)
-static uint32_t top_queue_counter[4] ;
-static uint32_t top_queue_drop ;
+static uint32_t top_queue_counter[4] __attribute__((at(0x2000C000)))  ={0} ;
+static uint32_t top_queue_drop __attribute__((at(0x2000C010)))  ={0} ;
 #endif
 
 #if defined(WITH_ACK_SLAVE)
@@ -100,8 +100,8 @@ static uint32_t top_queue_drop ;
 #endif
 
 #if defined(WITHOUT_ACK_SLAVE)
-static uint32_t top_queue_counter[4] ;
-static uint32_t top_queue_drop ;
+static uint32_t top_queue_counter[4] __attribute__((at(0x2000C000)))  ={0} ;
+static uint32_t top_queue_drop __attribute__((at(0x2000C010)))  ={0}  ;
 #endif
 
 #endif

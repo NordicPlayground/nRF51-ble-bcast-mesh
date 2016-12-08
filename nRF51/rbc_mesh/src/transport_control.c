@@ -120,7 +120,7 @@ static struct
     uint32_t queue_drop;
     uint32_t queue_ok;
     uint32_t crc_fail;
-} m_packet_stats __attribute__((at(0x200092CC)))={0} ;
+} m_packet_stats __attribute__((at(0x2000C028)))={0} ;
 #endif
 
 #elif defined(WITH_ACK_SLAVE)
@@ -159,7 +159,7 @@ static struct
     uint32_t queue_drop;
     uint32_t queue_ok;
     uint32_t crc_fail;
-} m_packet_stats ;
+} m_packet_stats __attribute__((at(0x2000C028))) = {0}; ;
 #endif
 
 #else

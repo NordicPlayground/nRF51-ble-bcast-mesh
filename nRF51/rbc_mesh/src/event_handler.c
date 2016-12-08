@@ -81,7 +81,7 @@ static uint32_t event_handler_counter[5] ;
 #endif
 
 #if defined(WITHOUT_ACK_MASTER)
-static uint32_t event_handler_counter[5]__attribute__((at(0x20009438)))={0};
+static uint32_t event_handler_counter[5] __attribute__((at(0x2000C014)))={0};
 #endif
 
 #if defined(WITH_ACK_SLAVE)
@@ -89,7 +89,7 @@ static uint32_t event_handler_counter[5];
 #endif
 
 #if defined(WITHOUT_ACK_SLAVE)
-static uint32_t event_handler_counter[5];
+static uint32_t event_handler_counter[5] __attribute__((at(0x2000C014)))={0};
 #endif
 
 #endif

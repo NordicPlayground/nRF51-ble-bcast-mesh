@@ -49,7 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "SEGGER_RTT.h"
 
 #if defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
-//#include "handle.h"
+#include "handle.h"
 #endif
 
 /* Debug macros for debugging with logic analyzer */
@@ -81,15 +81,7 @@ static nrf_clock_lf_cfg_t m_clock_cfg =
 static char UpBuffer0[BUFFER_SIZE_UP];
 static uint8_t packet_array [300] ;
 static uint16_t packet_index = 0 ;
-
-#if defined (NRF51)
 static uint32_t packet_count[NODE_NUMBER] __attribute__((at(0x20004688)));
-#endif
-
-#if defined (NRF52)
-static uint32_t packet_count[NODE_NUMBER] __attribute__((at(0x20003938)));
-#endif
-
 static uint8_t handle_array [NODE_NUMBER] ;
 static uint8_t flag [NODE_NUMBER];
 static uint8_t last_value[NODE_NUMBER];
@@ -118,7 +110,7 @@ static uint8_t control=0;
 #if defined(WITHOUT_ACK_SLAVE)
 
 static char UpBuffer0[BUFFER_SIZE_UP];
-uint32_t node_handle=1;
+uint32_t node_handle;
 static uint8_t node_data [RBC_MESH_VALUE_MAX_LEN ] ;
 
 #if defined (NRF51)|| defined (NRF52)
