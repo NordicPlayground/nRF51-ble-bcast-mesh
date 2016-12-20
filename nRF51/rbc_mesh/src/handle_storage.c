@@ -417,10 +417,12 @@ uint32_t handle_storage_local_packet_push(mesh_packet_t* p_packet)
     evt.type = EVENT_TYPE_GENERIC;
     evt.callback.generic.p_context = p_packet;
     evt.callback.generic.cb = local_packet_push;
+
+    mesh_packet_ref_count_inc(p_packet);
     uint32_t error_code = event_handler_push(&evt);
-    if (error_code == NRF_SUCCESS)
+    if (error_code != NRF_SUCCESS)
     {
-        mesh_packet_ref_count_inc(p_packet);
+        mesh_packet_ref_count_dec(p_packet);
     }
     return error_code;
 }
