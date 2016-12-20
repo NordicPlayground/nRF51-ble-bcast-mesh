@@ -168,8 +168,11 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
         evt.callback.packet.crc = crc;
         evt.callback.packet.timestamp = timer_now();
         evt.callback.packet.rssi = rssi;
+        mesh_packet_ref_count_inc((mesh_packet_t*) p_data); /* event handler has a ref */
+        
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
+            mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
             m_state.queue_saturation = true;
 #ifdef PACKET_STATS
             m_packet_stats.queue_drop++;
@@ -177,8 +180,6 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
         }
         else
         {
-            mesh_packet_ref_count_inc((mesh_packet_t*) p_data); /* event handler has a ref */
-
 #ifdef PACKET_STATS
             m_packet_stats.queue_ok++;
 #endif
@@ -239,12 +240,10 @@ static void tx_cb(uint8_t* p_data)
             .p_context = p_data
         }
     };
-    if (event_handler_push(&tx_cb_evt) == NRF_SUCCESS)
+    if (event_handler_push(&tx_cb_evt) != NRF_SUCCESS)
     {
-        mesh_packet_ref_count_inc((mesh_packet_t*) p_data);
+        mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
     }
-
-    mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
 }
 
 static void radio_idle_callback(void)
