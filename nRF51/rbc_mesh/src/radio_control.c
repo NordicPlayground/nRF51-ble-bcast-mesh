@@ -142,7 +142,7 @@ static void setup_event(radio_event_t* p_evt)
     NRF_RADIO->PACKETPTR = (uint32_t) p_evt->packet_ptr;
     NRF_RADIO->INTENSET = RADIO_INTENSET_END_Msk;
     NRF_RADIO->EVENTS_END = 0;
-    NRF_RADIO->PREFIX1	= ((m_alt_aa >> 24) & 0x000000FF);
+    NRF_RADIO->PREFIX0 |= (((m_alt_aa >> 24) << 8) & 0x0000FF00);
     NRF_RADIO->BASE1    = ((m_alt_aa <<  8) & 0xFFFFFF00);
 
     if (p_evt->event_type == RADIO_EVENT_TYPE_TX)
