@@ -194,7 +194,7 @@ void radio_init(radio_idle_cb_t idle_cb,
     /* Configure Access Address  */
     NRF_RADIO->PREFIX0	= ((RADIO_DEFAULT_ADDRESS >> 24) & 0x000000FF);
     NRF_RADIO->BASE0    = ((RADIO_DEFAULT_ADDRESS <<  8) & 0xFFFFFF00);
-    NRF_RADIO->PREFIX1	= ((m_alt_aa >> 24) & 0x000000FF);
+    NRF_RADIO->PREFIX0 |= (((m_alt_aa >> 24) << 8) & 0x0000FF00);
     NRF_RADIO->BASE1    = ((m_alt_aa <<  8) & 0xFFFFFF00);
     NRF_RADIO->TXADDRESS    = 0x00;			    // Use logical address 0 (prefix0 + base0) = 0x8E89BED6 when transmitting
     NRF_RADIO->RXADDRESSES  = 0x01;				// Enable reception on logical address 0 (PREFIX0 + BASE0)
