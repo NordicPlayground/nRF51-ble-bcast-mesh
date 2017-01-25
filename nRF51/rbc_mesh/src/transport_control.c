@@ -310,7 +310,7 @@ void tc_packet_handler(uint8_t* data, uint32_t crc, uint32_t timestamp, uint8_t 
 
     mesh_adv_data_t* p_mesh_adv_data = mesh_packet_adv_data_get(p_packet);
 
-    if (p_mesh_adv_data != NULL)
+    if (p_mesh_adv_data != NULL && p_mesh_adv_data->adv_data_length >= MESH_PACKET_ADV_OVERHEAD)
     {
         /* filter mesh packets on handle range */
         if (p_mesh_adv_data->handle <= RBC_MESH_APP_MAX_HANDLE)
