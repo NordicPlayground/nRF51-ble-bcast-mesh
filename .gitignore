@@ -23,5 +23,6 @@
 *.uvguix.*
 *.tmp
 **/arm/JLinkLog.txt
+**/arm/_build
 **/_viminfo
 **/_vimtags
