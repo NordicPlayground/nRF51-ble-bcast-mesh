@@ -98,6 +98,15 @@ static dfu_transfer_state_t         m_transfer_state;               /**< State o
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
+static void reset_state(void)
+{
+    timer_sch_abort(&m_timer_evt);
+    m_transfer_state.data_progress = 0;
+    m_transfer_state.role = DFU_ROLE_NONE;
+    m_transfer_state.type = DFU_TYPE_NONE;
+    m_transfer_state.state = DFU_STATE_INITIALIZED;
+}
+
 static uint32_t get_curr_fwid(dfu_type_t type, fwid_union_t* p_fwid)
 {
     switch (type)
@@ -184,7 +193,7 @@ static void abort_timeout(uint32_t timestamp, void* p_context)
     evt.params.dfu.end.role = m_transfer_state.role;
     evt.params.dfu.end.fwid = m_transfer_state.fwid;
     evt.params.dfu.end.end_reason = DFU_END_ERROR_TIMEOUT;
-    memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+    reset_state();
     rbc_mesh_event_push(&evt);
 }
 
@@ -412,7 +421,7 @@ uint32_t dfu_abort(void)
     uint32_t error_code = dfu_cmd_send(&cmd);
     if (error_code == NRF_SUCCESS)
     {
-        memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+        reset_state();
     }
     return error_code;
 }
@@ -533,7 +542,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 evt.params.dfu.end.role = m_transfer_state.role;
                 evt.params.dfu.end.fwid = m_transfer_state.fwid;
                 evt.params.dfu.end.end_reason = p_evt->params.dfu.abort.reason;
-                memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+                reset_state();
                 rbc_mesh_event_push(&evt);
             }
             break;
@@ -616,7 +625,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 evt.params.dfu.end.fwid = p_evt->params.dfu.end.fwid;
                 evt.params.dfu.end.end_reason = DFU_END_SUCCESS;
                 evt.params.dfu.end.role = p_evt->params.dfu.end.role;
-                memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+                reset_state();
                 rbc_mesh_event_push(&evt);
                 timer_sch_abort(&m_timer_evt);
             }
