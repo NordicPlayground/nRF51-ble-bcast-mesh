@@ -236,7 +236,7 @@ uint32_t dfu_init(void)
     {
         __LOG(RTT_CTRL_TEXT_RED "ERROR, command handler @0x%x\n" RTT_CTRL_TEXT_WHITE, m_cmd_handler);
         m_cmd_handler = NULL;
-        return NRF_ERROR_NOT_SUPPORTED;
+        return NRF_SUCCESS;
     }
 
     rand_prng_seed(&m_prng);
