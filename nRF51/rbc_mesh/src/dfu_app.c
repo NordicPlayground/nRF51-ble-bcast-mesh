@@ -63,6 +63,7 @@ extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event);
 
 #define DFU_TX_SLOTS                (8)         /**< Number of concurrent transmits available. */
 #define DFU_TX_INTERVAL_US          (100000)    /**< Time between transmits on regular interval, and base-interval on exponential. */
+#define DFU_TX_INTERVAL_SLOW_US     (1000000)   /**< Time between transmits on slow regular interval. */
 #define DFU_TX_START_DELAY_MASK_US  (0xFFFF)    /**< Must be power of two. */
 #define DFU_TX_TIMER_MARGIN_US      (1000)      /**< Time margin for a timeout to be considered instant. */
 
@@ -118,13 +119,16 @@ static uint32_t get_curr_fwid(dfu_type_t type, fwid_union_t* p_fwid)
 
 static uint32_t next_tx_timeout(dfu_tx_t* p_tx)
 {
-    if (p_tx->interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
+    switch (p_tx->interval_type)
     {
-        return (p_tx->order_time + DFU_TX_INTERVAL_US * ((1 << (p_tx->tx_count)) - 1));
-    }
-    else
-    {
-        return (p_tx->order_time + DFU_TX_INTERVAL_US * p_tx->tx_count);
+        case BL_RADIO_INTERVAL_TYPE_EXPONENTIAL:
+            return (p_tx->order_time + DFU_TX_INTERVAL_US * ((1 << (p_tx->tx_count)) - 1));
+        case BL_RADIO_INTERVAL_TYPE_REGULAR:
+            return (p_tx->order_time + DFU_TX_INTERVAL_US * p_tx->tx_count);
+        case BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW:
+            return (p_tx->order_time + DFU_TX_INTERVAL_SLOW_US * p_tx->tx_count);
+        default: /* Any unimplemented intervals will fallback to slow regular */
+            return (p_tx->order_time + DFU_TX_INTERVAL_SLOW_US * p_tx->tx_count);
     }
 }
 
