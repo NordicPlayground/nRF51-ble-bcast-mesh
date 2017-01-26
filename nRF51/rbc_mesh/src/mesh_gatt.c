@@ -571,6 +571,14 @@ void mesh_gatt_sd_ble_event_handle(ble_evt_t* p_ble_evt)
     {
         m_active_conn_handle = CONN_HANDLE_INVALID;
     }
+#ifdef S132
+    else if (p_ble_evt->header.evt_id == BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST)
+    {
+        /* MTU exchange request */
+        sd_ble_gatts_exchange_mtu_reply(p_ble_evt->evt.gap_evt.conn_handle, GATT_MTU_SIZE_DEFAULT);
+    }
+
+#endif
 }
 
 #else /* SOFTDEVICE NOT PRESENT */
