@@ -57,17 +57,19 @@ bool fwid_union_id_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type
  */
 int fwid_union_version_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_type);
 
-bool is_upgrade(fwid_union_t* p_fwid, dfu_type_t dfu_type);
-
 bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_req, fwid_union_t* p_fwid_req);
 
 uint32_t* addr_from_seg(uint16_t segment, uint32_t* p_start_addr);
+
+#ifdef BOOTLOADER
+bool is_upgrade(fwid_union_t* p_fwid, dfu_type_t dfu_type);
 
 bool app_is_newer(app_id_t* p_app_id);
 
 bool bootloader_is_newer(bl_id_t bl_id);
 
 bool fw_is_verified(void);
+#endif
 
 void tid_cache_entry_put(uint32_t tid);
 
