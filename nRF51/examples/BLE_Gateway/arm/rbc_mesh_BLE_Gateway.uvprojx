@@ -2578,7 +2578,7 @@
             <vShortWch>1</vShortWch>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>RBC_MESH_SERIAL MESH_DFU RAM_R1_BASE=0x20003000 NRF_SD_BLE_API_VERSION=3 NORDIC_SDK_VERSION=12 BOARD_PCA10040 NRF52 BLE_STACK_SUPPORT_REQD S130 SOFTDEVICE_PRESENT DEBUG</Define>
+              <Define>RBC_MESH_SERIAL MESH_DFU RAM_R1_BASE=0x20003000 NRF_SD_BLE_API_VERSION=3 NORDIC_SDK_VERSION=12 BOARD_PCA10040 NRF52 NRF52832 BLE_STACK_SUPPORT_REQD S132 SOFTDEVICE_PRESENT DEBUG</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\RTT;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\s132\headers;..\..\..\..\..\..\components\device;..\..\..\..\..\..\components\toolchain\cmsis\include;..\config;..\..\..\..\..\..\components\libraries\log;..\..\..\..\..\..\components\libraries\log\src</IncludePath>
             </VariousControls>
@@ -3392,7 +3392,7 @@
             <vShortWch>1</vShortWch>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>MESH_DFU RBC_MESH_SERIAL RAM_R1_BASE=0x20003000 NRF_SD_BLE_API_VERSION=3 NORDIC_SDK_VERSION=12 BOARD_PCA10040 NRF52 BLE_STACK_SUPPORT_REQD S130 SOFTDEVICE_PRESENT DEBUG</Define>
+              <Define>MESH_DFU RBC_MESH_SERIAL RAM_R1_BASE=0x20003000 NRF_SD_BLE_API_VERSION=3 NORDIC_SDK_VERSION=12 BOARD_PCA10040 NRF52 NRF52832 BLE_STACK_SUPPORT_REQD S132 SOFTDEVICE_PRESENT DEBUG</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\RTT;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\s132\headers;..\..\..\..\..\..\components\device;..\..\..\..\..\..\components\toolchain\cmsis\include;..\config;..\..\..\..\..\..\components\libraries\log;..\..\..\..\..\..\components\libraries\log\src</IncludePath>
             </VariousControls>
@@ -4159,7 +4159,7 @@
             <vShortWch>1</vShortWch>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>MESH_DFU RBC_MESH_SERIAL BLINKY RAM_R1_BASE=0x20003000 NRF_SD_BLE_API_VERSION=3 NORDIC_SDK_VERSION=12 BOARD_PCA10040 NRF52 BLE_STACK_SUPPORT_REQD S130 SOFTDEVICE_PRESENT DEBUG</Define>
+              <Define>MESH_DFU RBC_MESH_SERIAL BLINKY RAM_R1_BASE=0x20003000 NRF_SD_BLE_API_VERSION=3 NORDIC_SDK_VERSION=12 BOARD_PCA10040 NRF52 NRF52832 BLE_STACK_SUPPORT_REQD S132 SOFTDEVICE_PRESENT DEBUG</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\RTT;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\s132\headers;..\..\..\..\..\..\components\device;..\..\..\..\..\..\components\toolchain\cmsis\include;..\config;..\..\..\..\..\..\components\libraries\log;..\..\..\..\..\..\components\libraries\log\src;..\..\..\..\..\..\components\drivers_nrf\delay</IncludePath>
             </VariousControls>
@@ -6272,7 +6272,7 @@
             <vShortWch>1</vShortWch>
             <VariousControls>
               <MiscControls>--c99</MiscControls>
-              <Define>BUTTONS RAM_R1_BASE=0x20003000 NRF_SD_BLE_API_VERSION=3 NORDIC_SDK_VERSION=12 BOARD_PCA10040 NRF52 BLE_STACK_SUPPORT_REQD S130 SOFTDEVICE_PRESENT DEBUG</Define>
+              <Define>BUTTONS RAM_R1_BASE=0x20003000 NRF_SD_BLE_API_VERSION=3 NORDIC_SDK_VERSION=12 BOARD_PCA10040 NRF52 NRF52832 BLE_STACK_SUPPORT_REQD S132 SOFTDEVICE_PRESENT DEBUG</Define>
               <Undefine></Undefine>
               <IncludePath>..\include;..\..\..\RTT;..\..\..\rbc_mesh;..\..\..\rbc_mesh\include;..\..\..\SDK\bsp;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\toolchain\gcc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\..\components\softdevice\s132\headers;..\..\..\..\..\..\components\device;..\..\..\..\..\..\components\toolchain\cmsis\include;..\config;..\..\..\..\..\..\components\libraries\log;..\..\..\..\..\..\components\libraries\log\src</IncludePath>
             </VariousControls>

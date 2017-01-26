@@ -21,9 +21,9 @@ COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
 ifeq ($(USE_DFU), "yes")
-	LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld
-else
 	LINKER_SCRIPT := ./gcc_nrf51_s110_xxac_dfu.ld
+else
+	LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld
 endif
 
 LINKER_SCRIPT := ./gcc_nrf51_s110_xxac.ld

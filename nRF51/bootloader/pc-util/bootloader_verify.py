@@ -4,6 +4,18 @@ import sys
 import serial
 import time
 
+def get_device_family(serial_number):
+    family = {
+        '480': 'NRF51',
+        '680': 'NRF51',
+        '681': 'NRF51',
+        '682': 'NRF52',
+    }
+    if not serial_number[:3] in family:
+        return 'NRF51' # fallback to 51.
+    else:
+        return family[serial_number[:3]]
+
 def read_serial_event(s):
     evt = ""
     while True:
@@ -31,8 +43,10 @@ def nrfjprog(args):
     return out
 
 def read_uicr(serial_number):
+    family = get_device_family(serial_number)
+    sys.stdout.write("Device family:\t\t\t" + family + "\n")
     sys.stdout.write("Reading UICR..\t\t\t")
-    read = nrfjprog("-s " + serial_number + " --memrd 0x10001014 --n 4 --w 32").strip()
+    read = nrfjprog("-s " + serial_number + " --memrd 0x10001014 --n 4 --w 32 --family " + family).strip()
     bootloader_addr = str(read).split()[1]
     if bootloader_addr == "FFFFFFFF":
         print("ERROR: UICR NOT SET.")
@@ -41,7 +55,7 @@ def read_uicr(serial_number):
         print("\tDid you flash the Softdevice BEFORE the bootloader?")
         exit(1)
 
-    read = nrfjprog("-s " + serial_number + " --memrd 0x" + bootloader_addr + " --n 4 --w 32").strip()
+    read = nrfjprog("-s " + serial_number + " --memrd 0x" + bootloader_addr + " --n 4 --w 32 --family " + family).strip()
     bootloader_vector_pointer = str(read).split()[1]
     if bootloader_vector_pointer < "20000000":
         print("ERROR: Bootloader vector pointer invalid.")
@@ -61,8 +75,15 @@ def read_uicr(serial_number):
     return bootloader_addr
 
 def read_device_page(serial_number):
+    family = get_device_family(serial_number)
+    # need to know the flash size to get the device page. Can read this from the FICR:
+    ficr = str(nrfjprog("-s " + serial_number + " --memrd 0x10000010 --n 8 --w 32 --family " + family).strip()).split()[1:]
+    code_page_size = int(ficr[0], 16)
+    code_page_count = int(ficr[1], 16)
+    device_page_location = code_page_size * (code_page_count - 1)
+
     sys.stdout.write("Reading Device page..\t\t")
-    device_page = nrfjprog("-s " + serial_number + " --memrd 0x0003FC00 --n 4 --w 32").strip()
+    device_page = nrfjprog("-s " + serial_number + " --memrd " + hex(device_page_location) + " --n 4 --w 32 --family " + family).strip()
     device_page_header = str(device_page).split()[1]
     if device_page_header == "FFFFFFFF":
         print("ERROR: DEVICE PAGE NOT PRESENT.")
@@ -84,7 +105,7 @@ def reset_device(serial_number, port):
     except:
         print("ERROR: Could not open COM port " + port)
         exit(1)
-    nrfjprog("-s " + serial_number + " --reset")
+    nrfjprog("-s " + serial_number + " --reset --family " + family)
     time.sleep(0.2)
     response = read_serial_event(s)
 

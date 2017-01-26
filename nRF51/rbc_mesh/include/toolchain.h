@@ -53,7 +53,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     } while(0)
 
     #define _ENABLE_IRQS(_was_masked) if (!_was_masked) { __enable_irq(); }
-
+#elif defined(__IAR_SYSTEMS_ICC__)
+  #define __packed_gcc
+  #define __packed_armcc __packed
+  #define _DISABLE_IRQS(_was_masked) do { _was_masked = __get_PRIMASK(); __disable_irq(); } while (0)
+  #define _ENABLE_IRQS(_was_masked) __set_PRIMASK(_was_masked)
+  #if defined(__cplusplus) && !defined(__STDC_LIMIT_MACROS)
+    #error "Please define __STDC_LIMIT_MACROS in your project options!"
+  #endif
 #else
     #warning "Unsupported toolchain"
 #endif

@@ -31,7 +31,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdbool.h>
 #include <string.h>
 #include "dfu_util.h"
+#include "dfu_types_mesh.h"
+
+#ifdef BOOTLOADER
 #include "bootloader_info.h"
+#endif
 
 /*****************************************************************************
 * Local defines
@@ -133,28 +137,6 @@ int fwid_union_version_cmp(fwid_union_t* p_a, fwid_union_t* p_b, dfu_type_t dfu_
     }
 }
 
-
-bool is_upgrade(fwid_union_t* p_fwid, dfu_type_t dfu_type)
-{
-    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
-    switch (dfu_type)
-    {
-        case DFU_TYPE_APP:
-            return (p_fwid->app.app_id     == p_fwid_entry->version.app.app_id &&
-                    p_fwid->app.company_id == p_fwid_entry->version.app.company_id &&
-                    p_fwid->app.app_version > p_fwid_entry->version.app.app_version);
-
-        case DFU_TYPE_BOOTLOADER:
-            return (p_fwid->bootloader.id == p_fwid_entry->version.bootloader.id &&
-                    p_fwid->bootloader.ver > p_fwid_entry->version.bootloader.ver);
-
-        case DFU_TYPE_SD:
-            return (p_fwid->sd == p_fwid_entry->version.sd);
-        default:
-            return false;
-    }
-}
-
 bool ready_packet_matches_our_req(dfu_packet_t* p_packet, dfu_type_t dfu_type_req, fwid_union_t* p_fwid_req)
 {
     if (dfu_type_req != p_packet->payload.state.dfu_type &&
@@ -188,6 +170,28 @@ uint32_t* addr_from_seg(uint16_t segment, uint32_t* p_start_addr)
     }
 }
 
+#ifdef BOOTLOADER
+bool is_upgrade(fwid_union_t* p_fwid, dfu_type_t dfu_type)
+{
+    bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+    switch (dfu_type)
+    {
+        case DFU_TYPE_APP:
+            return (p_fwid->app.app_id     == p_fwid_entry->version.app.app_id &&
+                    p_fwid->app.company_id == p_fwid_entry->version.app.company_id &&
+                    p_fwid->app.app_version > p_fwid_entry->version.app.app_version);
+
+        case DFU_TYPE_BOOTLOADER:
+            return (p_fwid->bootloader.id == p_fwid_entry->version.bootloader.id &&
+                    p_fwid->bootloader.ver > p_fwid_entry->version.bootloader.ver);
+
+        case DFU_TYPE_SD:
+            return (p_fwid->sd == p_fwid_entry->version.sd);
+        default:
+            return false;
+    }
+}
+
 bool app_is_newer(app_id_t* p_app_id)
 {
     bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
@@ -215,6 +219,7 @@ bool fw_is_verified(void)
 
     return true;
 }
+#endif
 
 void tid_cache_entry_put(uint32_t tid)
 {

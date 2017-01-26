@@ -63,6 +63,7 @@ extern uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event);
 
 #define DFU_TX_SLOTS                (8)         /**< Number of concurrent transmits available. */
 #define DFU_TX_INTERVAL_US          (100000)    /**< Time between transmits on regular interval, and base-interval on exponential. */
+#define DFU_TX_INTERVAL_SLOW_US     (1000000)   /**< Time between transmits on slow regular interval. */
 #define DFU_TX_START_DELAY_MASK_US  (0xFFFF)    /**< Must be power of two. */
 #define DFU_TX_TIMER_MARGIN_US      (1000)      /**< Time margin for a timeout to be considered instant. */
 
@@ -97,6 +98,15 @@ static dfu_transfer_state_t         m_transfer_state;               /**< State o
 /*****************************************************************************
 * Static functions
 *****************************************************************************/
+static void reset_state(void)
+{
+    timer_sch_abort(&m_timer_evt);
+    m_transfer_state.data_progress = 0;
+    m_transfer_state.role = DFU_ROLE_NONE;
+    m_transfer_state.type = DFU_TYPE_NONE;
+    m_transfer_state.state = DFU_STATE_INITIALIZED;
+}
+
 static uint32_t get_curr_fwid(dfu_type_t type, fwid_union_t* p_fwid)
 {
     switch (type)
@@ -118,13 +128,16 @@ static uint32_t get_curr_fwid(dfu_type_t type, fwid_union_t* p_fwid)
 
 static uint32_t next_tx_timeout(dfu_tx_t* p_tx)
 {
-    if (p_tx->interval_type == BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
+    switch (p_tx->interval_type)
     {
-        return (p_tx->order_time + DFU_TX_INTERVAL_US * ((1 << (p_tx->tx_count)) - 1));
-    }
-    else
-    {
-        return (p_tx->order_time + DFU_TX_INTERVAL_US * p_tx->tx_count);
+        case BL_RADIO_INTERVAL_TYPE_EXPONENTIAL:
+            return (p_tx->order_time + DFU_TX_INTERVAL_US * ((1 << (p_tx->tx_count)) - 1));
+        case BL_RADIO_INTERVAL_TYPE_REGULAR:
+            return (p_tx->order_time + DFU_TX_INTERVAL_US * p_tx->tx_count);
+        case BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW:
+            return (p_tx->order_time + DFU_TX_INTERVAL_SLOW_US * p_tx->tx_count);
+        default: /* Any unimplemented intervals will fallback to slow regular */
+            return (p_tx->order_time + DFU_TX_INTERVAL_SLOW_US * p_tx->tx_count);
     }
 }
 
@@ -180,7 +193,7 @@ static void abort_timeout(uint32_t timestamp, void* p_context)
     evt.params.dfu.end.role = m_transfer_state.role;
     evt.params.dfu.end.fwid = m_transfer_state.fwid;
     evt.params.dfu.end.end_reason = DFU_END_ERROR_TIMEOUT;
-    memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+    reset_state();
     rbc_mesh_event_push(&evt);
 }
 
@@ -232,7 +245,7 @@ uint32_t dfu_init(void)
     {
         __LOG(RTT_CTRL_TEXT_RED "ERROR, command handler @0x%x\n" RTT_CTRL_TEXT_WHITE, m_cmd_handler);
         m_cmd_handler = NULL;
-        return NRF_ERROR_NOT_SUPPORTED;
+        return NRF_SUCCESS;
     }
 
     rand_prng_seed(&m_prng);
@@ -408,7 +421,7 @@ uint32_t dfu_abort(void)
     uint32_t error_code = dfu_cmd_send(&cmd);
     if (error_code == NRF_SUCCESS)
     {
-        memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+        reset_state();
     }
     return error_code;
 }
@@ -529,7 +542,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 evt.params.dfu.end.role = m_transfer_state.role;
                 evt.params.dfu.end.fwid = m_transfer_state.fwid;
                 evt.params.dfu.end.end_reason = p_evt->params.dfu.abort.reason;
-                memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+                reset_state();
                 rbc_mesh_event_push(&evt);
             }
             break;
@@ -612,7 +625,7 @@ uint32_t dfu_evt_handler(bl_evt_t* p_evt)
                 evt.params.dfu.end.fwid = p_evt->params.dfu.end.fwid;
                 evt.params.dfu.end.end_reason = DFU_END_SUCCESS;
                 evt.params.dfu.end.role = p_evt->params.dfu.end.role;
-                memset(&m_transfer_state, 0, sizeof(dfu_transfer_state_t));
+                reset_state();
                 rbc_mesh_event_push(&evt);
                 timer_sch_abort(&m_timer_evt);
             }

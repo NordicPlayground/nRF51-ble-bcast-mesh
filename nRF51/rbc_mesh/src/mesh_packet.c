@@ -244,8 +244,9 @@ mesh_adv_data_t* mesh_packet_adv_data_get(mesh_packet_t* p_packet)
     while (p_mesh_adv_data->adv_data_type != MESH_ADV_DATA_TYPE ||
            p_mesh_adv_data->mesh_uuid != MESH_UUID)
     {
-        if (p_mesh_adv_data->adv_data_length + ((uint32_t) p_mesh_adv_data - (uint32_t) (p_packet->payload))
-               > p_packet->header.length - MESH_PACKET_BLE_OVERHEAD)
+        if ((p_mesh_adv_data->adv_data_length + ((uint32_t) p_mesh_adv_data - (uint32_t) (p_packet->payload))
+               > p_packet->header.length - MESH_PACKET_BLE_OVERHEAD) ||
+            ((uint8_t*) p_mesh_adv_data >= &p_packet->payload[p_packet->header.length - MESH_PACKET_BLE_OVERHEAD]))
         {
             /* invalid ad length */
             return NULL;
