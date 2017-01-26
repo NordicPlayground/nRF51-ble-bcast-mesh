@@ -66,7 +66,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
           #define RBC_MESH_HANDLE_CACHE_ENTRIES           (105)
     #else
           #define RBC_MESH_HANDLE_CACHE_ENTRIES           (10)
-    #endif      
+    #endif
 #endif
 
 /** @brief Default value for the number of data cache entries */
@@ -378,10 +378,11 @@ uint32_t rbc_mesh_value_enable(rbc_mesh_value_handle_t handle);
 /**
 * @brief Stop rebroadcasting the indicated handle-value pair.
 *
-* @note This will not stop the framework from updating the value in its local
-*   database upon external updates (and consequently give the application
-*   update events), but values will not be propagated to other nodes through
-*   this node before they are either written to or re-enabled.
+* @note This will not stop the framework from accepting future updates to the
+* handle. If we receive a new value on this handle, write to it locally or call
+* @ref rbc_mesh_value_enable on it, it will resume broadcasting. Every update
+* to the value requires a new call to this function, if we want to keep the
+* device from broadcasting it.
 *
 * @param[in] handle Handle to stop broadcasting
 *
