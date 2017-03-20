@@ -41,9 +41,6 @@ if(HOST)
     #make SVC-calls run inline:
     add_definitions(-DSVCALL_AS_NORMAL_FUNCTION)
 
-    if(CMAKE_HOST_UNIX)
-        # add_definitions(-DNETWORK_BEARER=BEARER_SOCKET)
-    endif()
     #add_subdirectory("test")
 else()
 

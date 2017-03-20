@@ -967,7 +967,9 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
     uint32_t status;
 
     /* Forward dfu requests */
-    if (p_packet->payload.state.authority == 0)
+    /* DISABLED - FEATURE DOES NOT WORK.  20/03/17 */
+    if (false)
+    /* if (p_packet->payload.state.authority == 0) */
     {
         uint32_t packet_length = 0;
         switch (p_packet->payload.state.dfu_type)
