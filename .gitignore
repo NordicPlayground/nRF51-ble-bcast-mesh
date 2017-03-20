@@ -26,3 +26,5 @@
 **/arm/_build
 **/_viminfo
 **/_vimtags
+build
+**/__pycache__

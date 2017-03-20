@@ -62,7 +62,7 @@ void app_error_handler_bare(uint32_t error_code)
 {
     __disable_irq();
 #ifdef DEBUG_LEDS
-    NRF_GPIO->OUTCLR = LED_4;
+    NRF_GPIO->OUTCLR = BSP_LED_0;
 #endif
     __BKPT(0);
     while (1);
@@ -80,7 +80,7 @@ void HardFault_Handler(uint32_t pc, uint32_t lr)
     __LOG(RTT_CTRL_TEXT_RED "HARDFAULT pc=0x%x\n", pc);
     __disable_irq();
 #ifdef DEBUG_LEDS
-    NRF_GPIO->OUTCLR = LED_4;
+    NRF_GPIO->OUTCLR = BSP_LED_0;
 #endif
     __BKPT(0);
     while (1);
