@@ -393,6 +393,7 @@ uint32_t vh_order_update(uint32_t time_now)
 
 uint32_t vh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint16_t* length)
 {
+    *length = 0;
     if (!m_is_initialized)
     {
         return NRF_ERROR_INVALID_STATE;

@@ -94,7 +94,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     uint32_t error_code;
     error_code = vh_init(init_params.interval_min_ms * 1000, /* ms -> us */
                          init_params.access_addr,
-                         init_params.channel, 
+                         init_params.channel,
                          init_params.tx_power);
     if (error_code != NRF_SUCCESS)
     {
@@ -105,7 +105,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     memset(&ble_enable, 0, sizeof(ble_enable));
     ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     ble_enable.gatts_enable_params.service_changed = 0;
-    
+
 #if(NORDIC_SDK_VERSION >= 11)
     ble_enable.gap_enable_params.periph_conn_count = 1;
     uint32_t ram_base = RAM_R1_BASE;
@@ -248,6 +248,7 @@ uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
 {
     if (handle > RBC_MESH_APP_MAX_HANDLE)
     {
+        *len = 0;
         return NRF_ERROR_INVALID_ADDR;
     }
     return vh_value_get(handle, data, len);
