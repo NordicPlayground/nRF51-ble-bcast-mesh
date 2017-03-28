@@ -60,7 +60,7 @@ static rbc_mesh_event_t m_rbc_event_buffer[RBC_MESH_APP_EVENT_QUEUE_LENGTH];
 *****************************************************************************/
 #if defined (NRF51)
 
-#if defined(WITH_ACK_MASTER) 
+#if defined(WITH_ACK_MASTER)
 static uint32_t top_queue_counter[4] __attribute__((at(0x20002F98)))={0};
 static uint32_t top_queue_drop __attribute__((at(0x20002FA8))) =0;
 #endif
@@ -84,7 +84,7 @@ static uint32_t top_queue_drop __attribute__((at(0x200026B0))) =0;
 
 #if defined (NRF52)
 
-#if defined(WITH_ACK_MASTER) 
+#if defined(WITH_ACK_MASTER)
 static uint32_t top_queue_counter[4] ;
 static uint32_t top_queue_drop ;
 #endif
@@ -139,7 +139,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     uint32_t error_code;
     error_code = vh_init(init_params.interval_min_ms * 1000, /* ms -> us */
                          init_params.access_addr,
-                         init_params.channel, 
+                         init_params.channel,
                          init_params.tx_power);
     if (error_code != NRF_SUCCESS)
     {
@@ -150,7 +150,7 @@ uint32_t rbc_mesh_init(rbc_mesh_init_params_t init_params)
     memset(&ble_enable, 0, sizeof(ble_enable));
     ble_enable.gatts_enable_params.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT;
     ble_enable.gatts_enable_params.service_changed = 0;
-    
+
 #if(NORDIC_SDK_VERSION >= 11)
     ble_enable.gap_enable_params.periph_conn_count = 1;
     uint32_t ram_base = RAM_R1_BASE;
@@ -293,6 +293,7 @@ uint32_t rbc_mesh_value_get(rbc_mesh_value_handle_t handle, uint8_t* data, uint1
 {
     if (handle > RBC_MESH_APP_MAX_HANDLE)
     {
+        *len = 0;
         return NRF_ERROR_INVALID_ADDR;
     }
     return vh_value_get(handle, data, len);
@@ -384,22 +385,22 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
     {
         return NRF_ERROR_NULL;
     }
-    
+
     uint32_t error_code = fifo_push(&m_rbc_event_fifo, p_event);
-    
+
     #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)|| defined (WITHOUT_ACK_SLAVE)
       #if defined (NRF51)||defined (NRF52)
-    
-		
+
+
 		if (error_code != NRF_SUCCESS)
 			   top_queue_drop++;
-		
+
 		 switch (p_event->type)
          {
             case RBC_MESH_EVENT_TYPE_NEW_VAL:
 					top_queue_counter[0]++;
 				    break;
-						
+
             case RBC_MESH_EVENT_TYPE_UPDATE_VAL:
 					top_queue_counter[1]++;
 					break;
@@ -409,15 +410,15 @@ uint32_t rbc_mesh_event_push(rbc_mesh_event_t* p_event)
 			case RBC_MESH_EVENT_TYPE_TX:
 					top_queue_counter[3]++;
 					break;
-						
+
 			default:
 					break;
 		}
        #endif
-         
+
      #endif
-        
-    
+
+
 
     if (error_code == NRF_SUCCESS && p_event->params.rx.p_data != NULL)
     {
