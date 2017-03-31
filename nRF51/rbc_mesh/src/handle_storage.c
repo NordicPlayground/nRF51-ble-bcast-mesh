@@ -503,7 +503,12 @@ uint32_t handle_storage_flag_set(uint16_t handle, handle_flag_t flag, bool value
                 {
                     /* may safely run this function inline, as we're already in event handler */
                     local_packet_push(p_packet);
-                    return NRF_SUCCESS;
+
+                    handle_index = handle_entry_get(handle, true);
+                    if (handle_index != HANDLE_CACHE_ENTRY_INVALID)
+                    {
+                        trickle_enable(&m_data_cache[m_handle_cache[handle_index].data_entry].trickle);
+                    }
                 }
                 else
                 {

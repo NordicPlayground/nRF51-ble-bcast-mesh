@@ -486,6 +486,10 @@ uint32_t vh_value_enable(rbc_mesh_value_handle_t handle)
     }
 
     uint32_t error_code = handle_storage_flag_set_async(handle, HANDLE_FLAG_DISABLED, false);
+    if (error_code == NRF_SUCCESS)
+    {
+        vh_order_update(timer_now());
+    }
     return error_code;
 }
 
