@@ -48,21 +48,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TX_REPEATS_FWID                 (TX_REPEATS_INF)
 #define TX_REPEATS_READY                (TX_REPEATS_INF)
 #define TX_REPEATS_READY_FWD            (1)
+#define TX_REPEATS_START                (TX_REPEATS_DEFAULT * 2)
 #define TX_REPEATS_DATA                 (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_RSP                  (TX_REPEATS_DEFAULT)
 #define TX_REPEATS_REQ                  (TX_REPEATS_INF)
 
 #define TX_INTERVAL_TYPE_FWID           (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
-#define TX_INTERVAL_TYPE_DFU_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
-#define TX_INTERVAL_TYPE_DFU_REQ_FWD    (BL_RADIO_INTERVAL_TYPE_REGULAR)
+#define TX_INTERVAL_TYPE_DFU_REQ        (BL_RADIO_INTERVAL_TYPE_REGULAR)
+#define TX_INTERVAL_TYPE_DFU_REQ_FWD    (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 #define TX_INTERVAL_TYPE_READY          (BL_RADIO_INTERVAL_TYPE_REGULAR)
 #define TX_INTERVAL_TYPE_DATA           (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_RSP            (BL_RADIO_INTERVAL_TYPE_EXPONENTIAL)
 #define TX_INTERVAL_TYPE_REQ            (BL_RADIO_INTERVAL_TYPE_REGULAR_SLOW)
 
-#define STATE_TIMEOUT_RAMPDOWN          (5000000)
+#define STATE_TIMEOUT_RAMPDOWN          (30000000)
 
 #define TX_SLOT_BEACON                  (0)
+#define TX_SLOT_READY_FORWARDING        (0) /**< Slot to use for ready-packet forwarding. */
 
 #define START_ADDRESS_UNKNOWN           (0xFFFFFFFF)
 
@@ -428,7 +430,13 @@ static void beacon_set(beacon_type_t type)
 
 static uint32_t relay_packet(dfu_packet_t* p_packet, uint16_t length)
 {
-    uint32_t status = packet_tx_dynamic(p_packet, length, TX_INTERVAL_TYPE_DATA, TX_REPEATS_DATA);
+    uint32_t repeats = TX_REPEATS_DATA;
+    if (p_packet->packet_type == DFU_PACKET_TYPE_DATA && p_packet->payload.data.segment == 0)
+    {
+        repeats = TX_REPEATS_START;
+    }
+
+    uint32_t status = packet_tx_dynamic(p_packet, length, TX_INTERVAL_TYPE_DATA, repeats);
     if (status == NRF_SUCCESS)
     {
         packet_cache_put(p_packet);
@@ -966,96 +974,69 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
 {
     uint32_t status;
 
-    /* Forward dfu requests */
-    /* DISABLED - FEATURE DOES NOT WORK.  20/03/17 */
-    if (false)
-    /* if (p_packet->payload.state.authority == 0) */
+    switch (m_state)
     {
-        uint32_t packet_length = 0;
-        switch (p_packet->payload.state.dfu_type)
-        {
-            case DFU_TYPE_BOOTLOADER:
-                packet_length = DFU_PACKET_LEN_STATE_BL;
-                break;
-            case DFU_TYPE_APP:
-                packet_length = DFU_PACKET_LEN_STATE_APP;
-                break;
-            case DFU_TYPE_SD:
-                packet_length = DFU_PACKET_LEN_STATE_SD;
-                break;
-            default:
-                return NRF_ERROR_INVALID_DATA;
-        }
-
-        status = packet_tx_dynamic(p_packet, packet_length, TX_INTERVAL_TYPE_DFU_REQ_FWD, TX_REPEATS_READY_FWD);
-    }
-    else
-    {
-        switch (m_state)
-        {
-            case DFU_STATE_FIND_FWID:
-                status = notify_state_packet(p_packet);
-                break;
-            case DFU_STATE_DFU_REQ:
-            case DFU_STATE_READY:
-                if (ready_packet_matches_our_req(p_packet, m_transaction.type, &m_transaction.target_fwid_union))
+        case DFU_STATE_FIND_FWID:
+            status = notify_state_packet(p_packet);
+            break;
+        case DFU_STATE_DFU_REQ:
+        case DFU_STATE_READY:
+            if (ready_packet_matches_our_req(p_packet, m_transaction.type, &m_transaction.target_fwid_union))
+            {
+                if (p_packet->payload.state.authority > m_transaction.authority ||
+                        (
+                         p_packet->payload.state.authority == m_transaction.authority &&
+                         p_packet->payload.state.transaction_id > m_transaction.transaction_id
+                        )
+                   )
                 {
-                    if (p_packet->payload.state.authority > m_transaction.authority ||
-                            (
-                             p_packet->payload.state.authority == m_transaction.authority &&
-                             p_packet->payload.state.transaction_id > m_transaction.transaction_id
-                            )
-                       )
-                    {
-                        __LOG("\t->Upgradeable\n");
-                        /* assume that the other device knows what to upgrade */
-                        m_transaction.type = (dfu_type_t) p_packet->payload.state.dfu_type;
-                        m_transaction.target_fwid_union = p_packet->payload.state.fwid;
+                    __LOG("\t->Upgradeable\n");
+                    /* assume that the other device knows what to upgrade */
+                    m_transaction.type = (dfu_type_t) p_packet->payload.state.dfu_type;
+                    m_transaction.target_fwid_union = p_packet->payload.state.fwid;
 
-                        start_ready(p_packet);
-                        status = NRF_SUCCESS;
-                    }
-                    else
-                    {
-                        /* Source is worse than the current, ignore */
-                        status = NRF_SUCCESS;
-                    }
-                }
-                /* Notify about other transfer if the transfer is different from the current */
-                else if (m_transaction.type != p_packet->payload.state.dfu_type ||
-                        !fwid_union_id_cmp(
-                            &p_packet->payload.state.fwid,
-                            &m_transaction.target_fwid_union,
-                            m_transaction.type))
-                {
-                    status = notify_state_packet(p_packet);
+                    start_ready(p_packet);
+                    status = NRF_SUCCESS;
                 }
                 else
                 {
+                    /* Source is worse than the current, ignore */
                     status = NRF_SUCCESS;
                 }
-                break;
-            case DFU_STATE_RELAY_CANDIDATE:
-                if (m_transaction.type == p_packet->payload.state.dfu_type &&
-                        fwid_union_cmp(&m_transaction.target_fwid_union, &p_packet->payload.state.fwid, m_transaction.type))
-                {
-                    if (m_transaction.authority < p_packet->payload.state.authority ||
-                            (m_transaction.authority      == p_packet->payload.state.authority &&
-                             m_transaction.transaction_id <  p_packet->payload.state.transaction_id))
-                    {
-                        __LOG("\tHigher authority (%u)\n", p_packet->payload.state.authority);
-                        m_transaction.transaction_id = p_packet->payload.state.transaction_id;
-                        m_transaction.authority      = p_packet->payload.state.authority;
-                        beacon_set(state_beacon_type(m_transaction.type));
-                    }
-                }
+            }
+            /* Notify about other transfer if the transfer is different from the current */
+            else if (m_transaction.type != p_packet->payload.state.dfu_type ||
+                    !fwid_union_id_cmp(
+                        &p_packet->payload.state.fwid,
+                        &m_transaction.target_fwid_union,
+                        m_transaction.type))
+            {
+                status = notify_state_packet(p_packet);
+            }
+            else
+            {
                 status = NRF_SUCCESS;
-                break;
-            default:
-                status = NRF_ERROR_INVALID_STATE;
-        }
+            }
+            break;
+        case DFU_STATE_RELAY_CANDIDATE:
+            if (m_transaction.type == p_packet->payload.state.dfu_type &&
+                    fwid_union_cmp(&m_transaction.target_fwid_union, &p_packet->payload.state.fwid, m_transaction.type))
+            {
+                if (m_transaction.authority < p_packet->payload.state.authority ||
+                        (m_transaction.authority      == p_packet->payload.state.authority &&
+                         m_transaction.transaction_id <  p_packet->payload.state.transaction_id))
+                {
+                    __LOG("\tHigher authority (%u)\n", p_packet->payload.state.authority);
+                    m_transaction.transaction_id = p_packet->payload.state.transaction_id;
+                    m_transaction.authority      = p_packet->payload.state.authority;
+                    beacon_set(state_beacon_type(m_transaction.type));
+                }
+            }
+            status = NRF_SUCCESS;
+            break;
+        default:
+            status = NRF_ERROR_INVALID_STATE;
     }
-
     return status;
 }
 

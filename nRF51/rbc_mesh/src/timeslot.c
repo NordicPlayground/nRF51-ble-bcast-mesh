@@ -176,7 +176,7 @@ static void timeslot_end(void)
     m_end_timer_triggered = false;
     CLEAR_PIN(PIN_IN_TS);
     CLEAR_PIN(PIN_IN_CB);
-    
+
 #ifdef NRF52
     NRF_TIMER0->TASKS_STOP = 0;
     NRF_TIMER0->TASKS_SHUTDOWN = 1;
@@ -464,7 +464,7 @@ void timeslot_stop(void)
     m_timeslot_forced_command = TS_FORCED_COMMAND_STOP;
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
-#ifdef NRF51
+#if defined(NRF51) || defined(NRF52)
     if (m_is_in_timeslot)
     {
         NVIC_SetPendingIRQ(RADIO_IRQn);
@@ -478,7 +478,7 @@ void timeslot_restart(void)
     m_timeslot_forced_command = TS_FORCED_COMMAND_RESTART;
     uint32_t was_masked;
     _DISABLE_IRQS(was_masked);
-#ifdef NRF51
+#if defined(NRF51) || defined(NRF52)
     if (m_is_in_timeslot)
     {
         NVIC_SetPendingIRQ(RADIO_IRQn);
