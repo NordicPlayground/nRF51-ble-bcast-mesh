@@ -29,9 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
 #include <string.h>
-
 #include "transport_control.h"
-
 #include "radio_control.h"
 #include "mesh_gatt.h"
 #include "mesh_packet.h"
@@ -44,6 +42,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "version_handler.h"
 #include "mesh_aci.h"
 #include "app_error.h"
+
+#if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)
+
+#include "SEGGER_RTT.h"
+#include "nrf_gpio.h"
+#include "boards.h"
+#include <stdio.h>
+
+#endif
+
+#if defined(WITH_ACK_SLAVE)
+#include <handle.h>
+#endif
+
+
 
 #ifdef MESH_DFU
 #include "dfu_types_mesh.h"
@@ -70,12 +83,95 @@ static rbc_mesh_packet_peek_cb_t mp_packet_peek_cb;
 
 /* STATS */
 #ifdef PACKET_STATS
+
+
+#if defined (WITH_ACK_MASTER) 
+
+#if defined (NRF51)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats __attribute__((at(0x20003030)))  = {0};
+#endif
+
+#if defined (NRF52)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats ;
+#endif
+
+#elif defined(WITHOUT_ACK_MASTER) 
+#if defined (NRF51)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats __attribute__((at(0x2000273C))) = {0};
+#endif
+#if defined (NRF52)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats __attribute__((at(0x2000C028)))={0} ;
+#endif
+
+#elif defined(WITH_ACK_SLAVE)
+#if defined (NRF51)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats __attribute__((at(0x20002750))) = {0};
+#endif
+
+#if defined (NRF52)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats ;
+#endif
+
+#elif defined(WITHOUT_ACK_SLAVE)
+
+#if defined (NRF51)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats __attribute__((at(0x20002738))) = {0};
+#endif
+
+#if defined (NRF52)
+static struct
+{
+    uint32_t queue_drop;
+    uint32_t queue_ok;
+    uint32_t crc_fail;
+} m_packet_stats __attribute__((at(0x2000C028))) = {0}; ;
+#endif
+
+#else
 static struct
 {
     uint32_t queue_drop;
     uint32_t queue_ok;
     uint32_t crc_fail;
 } m_packet_stats = {0};
+
+#endif
+
 #endif
 /******************************************************************************
 * Static functions
@@ -102,6 +198,7 @@ static void order_search(void)
     }
 }
 
+
 /* immediate radio callback, executed in STACK_LOW */
 static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
 {
@@ -113,8 +210,11 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
         evt.callback.packet.crc = crc;
         evt.callback.packet.timestamp = timer_now();
         evt.callback.packet.rssi = rssi;
+        mesh_packet_ref_count_inc((mesh_packet_t*) p_data); /* event handler has a ref */
+        
         if (event_handler_push(&evt) != NRF_SUCCESS)
         {
+            mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
             m_state.queue_saturation = true;
 #ifdef PACKET_STATS
             m_packet_stats.queue_drop++;
@@ -122,8 +222,6 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
         }
         else
         {
-            mesh_packet_ref_count_inc((mesh_packet_t*) p_data); /* event handler has a ref */
-
 #ifdef PACKET_STATS
             m_packet_stats.queue_ok++;
 #endif
@@ -139,6 +237,11 @@ static void rx_cb(uint8_t* p_data, bool success, uint32_t crc, uint8_t rssi)
     /* no longer needed in this context */
     mesh_packet_ref_count_dec((mesh_packet_t*) p_data);
 }
+
+
+
+
+
 
 /* radio tx cb, executed in APP_LOW */
 static void async_tx_cb(void* p_context)
@@ -179,12 +282,10 @@ static void tx_cb(uint8_t* p_data)
             .p_context = p_data
         }
     };
-    if (event_handler_push(&tx_cb_evt) == NRF_SUCCESS)
+    if (event_handler_push(&tx_cb_evt) != NRF_SUCCESS)
     {
-        mesh_packet_ref_count_inc((mesh_packet_t*) p_data);
+        mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
     }
-
-    mesh_packet_ref_count_dec((mesh_packet_t*) p_data); /* radio ref removed (pushed in tc_tx) */
 }
 
 static void radio_idle_callback(void)

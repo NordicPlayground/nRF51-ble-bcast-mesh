@@ -1,0 +1,37 @@
+= Bandwidth Test example 
+\- A basic Bandwidth Test example on top of the Gateway implementation
+
+This example implements a basic bandwidth test on top of the BLE gateway application for the rebroadcasting mesh
+by utilizing the S110 Softdevice for only nRF51 devices. It allows to calculate the bandwidth of the mesh network 
+for single master-multiple slaves scenario. This example includes bandwidth test for with ACK and without ACK 
+scanario of the MESH network.
+The example is made for nRF51x22 Evaluation and Development kits (PCA10000,PCA10001, PCA10003 PCA10028, PCA 10031,
+both dongles and boards).
+
+== Usage 
+
+As this bandwidth example is made for single master-multiple slaves scenario , one device acts as master and all other devices act as slaves. All the devices have their own handles which are separate from each other(i.e master has handle 0 , slave 1 has handle 1, slave 2 has handle 2 etc).All the slaves can send data to the master by using their own handles only . All the other handles received by each slave from the other slaves have been disabled immediately after receiving. 
+
+For the without ACK bandwidth test scenario , each slave transmits data using their own handle. Master receives that handle-data pair and keeps track of  the number of new data received from slaves per handle basis in the packet_count[NODE_NUMBER] array where NODE_NUMBER is the total number of slaves.
+
+Similarly for the with ACK bandwidth test scenario , each slave also transmits data using their own handle. Master receives that data and sends an ACK to that particular slave. After receiving the ACKs from the master , the slaves send the new data again. Master also  keeps track of the number of new packets received from slaves per handle basis in the packet_count[NODE_NUMBER] array where NODE_NUMBER is the total number of slaves.
+
+The global variable "global_packet_count" is used to calculate the total number of all the packets received by the master.
+
+To run this bandwidth test example, a customized python test script is necessary. The handle number of each slave (the variable named "node_handle") is set by the python test script in the run time using pynrfjprog. Also the array named "packet_count[NODE_NUMBER]" has been read by the test script to calculate the total number of received packets by the master from all slaves and after that the bandwidth can be calculated from this number. For example, the bandwidth (without ack) = (total number of packet received * packet size(in bytes)*8) / test_time .
+
+A simple python test script(Bandwidth_Test.py) is added to calculate the bandwidth of the mesh network for with ACK and without ACK scenario.
+
+For without ACK scenario call this script as: python Bandwidth_Test.py <master_segger_id> <s110_softdevice location> <master hex location> <slave hex location> <run time in second> without_ack
+
+Example : python Bandwidth.py 680740323 s110_softdevice.hex rbc_mesh_example_without_ack_master.hex rbc_mesh_example_without_ack_slave.hex 60 without_ack
+
+For with ACK scenario call this script as: python Bandwidth_Test.py <master_segger_id> <s110_softdevice location> <master hex location> <slave hex location> <run time in second> with_ack
+
+Example : python Bandwidth.py 680740323 s110_softdevice.hex rbc_mesh_example_with_ack_master.hex rbc_mesh_example_with_ack_slave.hex 60 with_ack
+
+This script flashes the master with the "rbc_mesh_example_without_ack_master.hex" and all the slaves with "rbc_mesh_example_without_ack_slave.hex" for without ACK test or flashes the master with "rbc_mesh_example_with_ack_master.hex" and all the slaves with "rbc_mesh_example_with_ack_slave.hex" for with ACK test.
+
+It also runs the test for some definite time (i.e 60 secs) and calculate the bandwidth by using the equation mentioned above.
+
+=== Note : This script supports Python 2.7.9 (32 bit) and pynrfjprog-9.0.0

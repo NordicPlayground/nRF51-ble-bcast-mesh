@@ -17,7 +17,7 @@ nrfjprog -s %seggerid% --program .\bin\bootloader_serial_xxAC.hex --family NRF51
 REM Generate a fresh device page for nRF51
 del .\pc-util\example.hex
 .\pc-util\device_page .\pc-util\example --nrf51
-s
+
 REM Program nRF51 with device page
 nrfjprog -s %seggerid% --program .\pc-util\example.hex --family NRF51
 

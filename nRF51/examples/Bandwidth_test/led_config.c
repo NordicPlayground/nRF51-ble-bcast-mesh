@@ -28,41 +28,32 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#ifndef _TOOLCHAIN_H__
-#define _TOOLCHAIN_H__
-
-#include "nrf.h"
-
-#if defined(__CC_ARM)
-
-/* ARMCC and GCC have different ordering for packed typedefs, must separate macros */
-    #define __packed_gcc
-    #define __packed_armcc __packed
-
-    #define _DISABLE_IRQS(_was_masked) _was_masked = __disable_irq()
-    #define _ENABLE_IRQS(_was_masked) if (!_was_masked) { __enable_irq(); }
-
-#elif defined(__GNUC__)
-
-    #define __packed_armcc
-    #define __packed_gcc __attribute__((packed))
-
-    #define _DISABLE_IRQS(_was_masked) do{ \
-        __ASM volatile ("MRS %0, primask" : "=r" (_was_masked) );\
-        __ASM volatile ("cpsid i" : : : "memory");\
-    } while(0)
-
-    #define _ENABLE_IRQS(_was_masked) if (!_was_masked) { __enable_irq(); }
-#elif defined(__IAR_SYSTEMS_ICC__)
-  #define __packed_gcc
-  #define __packed_armcc __packed
-  #define _DISABLE_IRQS(_was_masked) do { _was_masked = __get_PRIMASK(); __disable_irq(); } while (0)
-  #define _ENABLE_IRQS(_was_masked) __set_PRIMASK(_was_masked)
-  #if defined(__cplusplus) && !defined(__STDC_LIMIT_MACROS)
-    #error "Please define __STDC_LIMIT_MACROS in your project options!"
-  #endif
-#else
-    #warning "Unsupported toolchain"
+#include "led_config.h"
+#include "nrf_soc.h"
+/**
+* @brief configure LEDs for easily visible status check
+*/
+void led_config(uint8_t led, uint8_t conf)
+{
+#if defined(BOARD_PCA10001)
+  if (conf)
+  {
+    NRF_GPIO->OUTSET = (1 << (led + LED_START));
+  }
+  else
+  {
+    NRF_GPIO->OUTCLR = (1 << (led + LED_START));
+  }
+#else /* All other boards are the other way around */
+  if (!conf)
+  {
+    NRF_GPIO->OUTSET = (1 << (led + LED_START));
+  }
+  else
+  {
+    NRF_GPIO->OUTCLR = (1 << (led + LED_START));
+  }
 #endif
+} 
 
-#endif /* _TOOLCHAIN_H__ */
+

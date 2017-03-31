@@ -54,6 +54,46 @@ static async_event_t g_async_evt_fifo_buffer_ts[RBC_MESH_INTERNAL_EVENT_QUEUE_LE
 static bool g_is_initialized;
 static uint32_t g_critical = 0;
 
+#if defined (NRF51)
+
+#if defined(WITH_ACK_MASTER)
+static uint32_t event_handler_counter[5] __attribute__((at(0x200031D0)))={0};
+#endif
+
+#if defined(WITHOUT_ACK_MASTER)
+static uint32_t event_handler_counter[5]__attribute__((at(0x200028B8)))={0};
+#endif
+
+#if defined(WITH_ACK_SLAVE)
+static uint32_t event_handler_counter[5] __attribute__((at(0x200028CC))) ={0};
+#endif
+
+#if defined(WITHOUT_ACK_SLAVE)
+static uint32_t event_handler_counter[5] __attribute__((at(0x200028B4)))={0};
+#endif
+
+#endif
+
+#if defined (NRF52)
+
+#if defined(WITH_ACK_MASTER)
+static uint32_t event_handler_counter[5] ;
+#endif
+
+#if defined(WITHOUT_ACK_MASTER)
+static uint32_t event_handler_counter[5] __attribute__((at(0x2000C014)))={0};
+#endif
+
+#if defined(WITH_ACK_SLAVE)
+static uint32_t event_handler_counter[5];
+#endif
+
+#if defined(WITHOUT_ACK_SLAVE)
+static uint32_t event_handler_counter[5] __attribute__((at(0x2000C014)))={0};
+#endif
+
+#endif
+
 /**
 * @brief execute asynchronous event, based on type
 */
@@ -65,26 +105,58 @@ static void async_event_execute(async_event_t* p_evt)
         case EVENT_TYPE_TIMER:
             CHECK_FP(p_evt->callback.timer.cb);
             p_evt->callback.timer.cb(p_evt->callback.timer.timestamp);
+        
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
+                #if defined (NRF51)||defined (NRF52)
+                    event_handler_counter[0]++;
+                #endif
+            #endif
             break;
         case EVENT_TYPE_GENERIC:
             CHECK_FP(p_evt->callback.generic.cb);
             p_evt->callback.generic.cb(p_evt->callback.generic.p_context);
+        
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
+                #if defined (NRF51)||defined (NRF52)
+                    event_handler_counter[1]++;
+                #endif
+            #endif
+        
             break;
         case EVENT_TYPE_PACKET:
             tc_packet_handler(p_evt->callback.packet.payload,
                               p_evt->callback.packet.crc,
                               p_evt->callback.packet.timestamp,
                               p_evt->callback.packet.rssi);
+        
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
+                 #if defined (NRF51)||defined (NRF52)
+                    event_handler_counter[2]++;
+                 #endif
+            #endif
+        
             break;
         case EVENT_TYPE_SET_FLAG:
             handle_storage_flag_set(p_evt->callback.set_flag.handle,
                                     (handle_flag_t) p_evt->callback.set_flag.flag,
                                     p_evt->callback.set_flag.value);
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
+                 #if defined (NRF51)||defined (NRF52)      
+                    event_handler_counter[3]++;
+                 #endif
+            #endif
+        
             break;
         case EVENT_TYPE_TIMER_SCH:
             CHECK_FP(p_evt->callback.timer_sch.cb);
             p_evt->callback.timer_sch.cb(p_evt->callback.timer_sch.timestamp,
                                          p_evt->callback.timer_sch.p_context);
+        
+            #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)||defined(WITH_ACK_SLAVE)||defined(WITHOUT_ACK_SLAVE)
+                #if defined (NRF51)||defined (NRF52)    
+                    event_handler_counter[4]++;
+                #endif
+            #endif
             break;
         default:
             break;

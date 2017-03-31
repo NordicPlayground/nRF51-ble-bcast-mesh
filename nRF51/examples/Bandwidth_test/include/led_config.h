@@ -28,41 +28,20 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ************************************************************************************/
 
-#ifndef _TOOLCHAIN_H__
-#define _TOOLCHAIN_H__
+#ifndef _LED_CONFIG_H__
+#define _LED_CONFIG_H__
 
-#include "nrf.h"
+#include "boards.h"
+#include <stdint.h>
 
-#if defined(__CC_ARM)
-
-/* ARMCC and GCC have different ordering for packed typedefs, must separate macros */
-    #define __packed_gcc
-    #define __packed_armcc __packed
-
-    #define _DISABLE_IRQS(_was_masked) _was_masked = __disable_irq()
-    #define _ENABLE_IRQS(_was_masked) if (!_was_masked) { __enable_irq(); }
-
-#elif defined(__GNUC__)
-
-    #define __packed_armcc
-    #define __packed_gcc __attribute__((packed))
-
-    #define _DISABLE_IRQS(_was_masked) do{ \
-        __ASM volatile ("MRS %0, primask" : "=r" (_was_masked) );\
-        __ASM volatile ("cpsid i" : : : "memory");\
-    } while(0)
-
-    #define _ENABLE_IRQS(_was_masked) if (!_was_masked) { __enable_irq(); }
-#elif defined(__IAR_SYSTEMS_ICC__)
-  #define __packed_gcc
-  #define __packed_armcc __packed
-  #define _DISABLE_IRQS(_was_masked) do { _was_masked = __get_PRIMASK(); __disable_irq(); } while (0)
-  #define _ENABLE_IRQS(_was_masked) __set_PRIMASK(_was_masked)
-  #if defined(__cplusplus) && !defined(__STDC_LIMIT_MACROS)
-    #error "Please define __STDC_LIMIT_MACROS in your project options!"
-  #endif
-#else
-    #warning "Unsupported toolchain"
+/* Aliases for LEDs */
+#ifdef BOARD_PCA10000
+    #define LED_0 LED_RGB_RED
+    #define LED_1 LED_RGB_GREEN
 #endif
 
-#endif /* _TOOLCHAIN_H__ */
+
+void led_config(uint8_t led, uint8_t conf);
+
+
+#endif /* _LED_CONFIG_H__ */
