@@ -130,7 +130,7 @@ is broadcasted with in milliseconds.
 == Trickle Algorithm
 The Trickle Algorithm was first presented by P. Levis of Stanford University
 and T. Clausen of LIX, Ecole Polytechnique in March 2010, and has since seen
-several revisions until it was published as RFC6202 in March 2011. The Trickle
+several revisions until it was published as RFC6206 in March 2011. The Trickle
 Algorithm provides a method of controlled packet flooding across a mesh of
 low-power lossy network nodes, by letting the nodes dynamically decide when to
 broadcast their values based on network activity and when the last update to
