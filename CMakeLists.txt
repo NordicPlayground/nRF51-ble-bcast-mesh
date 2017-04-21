@@ -64,7 +64,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CONFIG}")
 project(MBTLE_BL C ASM)
 
 if (NOT BUILD_HOST)
-    include(${CMAKE_CONFIG}/Modules/Compiler/ARMCC-C.cmake)
+    if(BUILD_TOOLCHAIN MATCHES "ARM")
+        include(${CMAKE_CONFIG}/Modules/Compiler/ARMCC-C.cmake)
+    endif()
     set(CMAKE_EXECUTABLE_SUFFIX ".elf")
 endif()
 
