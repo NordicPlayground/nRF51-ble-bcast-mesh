@@ -1,11 +1,3 @@
-# set(TCA_SOURCE_FILES
-#     "${CMAKE_SOURCE_DIR}/mod/tca/target_libs/app_fifo.c"
-#     "${CMAKE_SOURCE_DIR}/mod/tca/target_libs/dlestxetx.c"
-#     "${CMAKE_SOURCE_DIR}/mod/tca/target_libs/mem_manager.c"
-#     "${CMAKE_SOURCE_DIR}/mod/tca/target_libs/simple_adapter_protocol.c"
-# )
-
-
 set(MOPEN_S130_HEADERS
     "${SDK_ROOT}/components/softdevice/s130/headers"
     "${SDK_ROOT}/components/softdevice/s130/headers/nrf51"
@@ -23,11 +15,14 @@ set(CMAKE_TOOLCHAIN_HEADERS
     "${CMAKE_CONFIG}/toolchain/cmsis/include"
     )
 
+set(NRF51_LINKER_SEARCH_PATH "${MOPEN_SOURCE_DIR}/nRF51/bootloader/gcc")
+set(NRF52_LINKER_SEARCH_PATH "${MOPEN_SOURCE_DIR}/nRF51/bootloader/gcc")
+
 if (NRF51_SOFTDEVICE STREQUAL "S130")
     set(NRF51_SD_HEADERS   "${MOPEN_S130_HEADERS}")
-    set(NRF51_LINKER_FILE  "${MOPEN_SOURCE_DIR}/nRF51/bootloader/gcc/gcc_bl_nrf51_xxAC.ld")
+    set(NRF51_LINKER_FILE  "${MOPEN_SOURCE_DIR}/nRF51/bootloader/gcc/gcc_bl_nrf51_cmake_xxAC.ld")
     set(NRF51_SCATTER_FILE "${MOPEN_SOURCE_DIR}/nRF51/bootloader/arm/bootloader_serial_xxAC.sct")
-    set(SDK_SOURCE_FILES
+    set(SDK_SRCS
         "${SDK_ROOT}/components/libraries/sha256/sha256.c"
     )
 else ()
@@ -38,7 +33,7 @@ if (NRF52_SOFTDEVICE STREQUAL "S132")
     set(NRF52_SD_HEADERS   "${MOPEN_S132_HEADERS}")
     set(NRF52_LINKER_FILE  "${MOPEN_SOURCE_DIR}/nRF51/bootloader/gcc/gcc_bl_nrf52_xxAC.ld")
     set(NRF52_SCATTER_FILE "${MOPEN_SOURCE_DIR}/nRF51/bootloader/arm/bootloader_serial_nRF52_xxAA.sct")
-    set(SDK_SOURCE_FILES
+    set(SDK_SRCS
         "${SDK_ROOT}/components/libraries/sha256/sha256.c"
     )
 else()

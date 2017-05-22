@@ -1278,16 +1278,7 @@ uint32_t dfu_mesh_relay(dfu_type_t type, fwid_union_t* p_fwid, uint32_t transact
 uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
 {
 #ifdef DEBUG_LEDS
-    static bool led = false;
-    if (led)
-    {
-        NRF_GPIO->OUTCLR = BSP_LED_2;
-    }
-    else
-    {
-        NRF_GPIO->OUTSET = BSP_LED_2;
-    }
-    led = !led;
+    NRF_GPIO->OUT ^= 1 << BSP_LED_2;
 #endif
     uint32_t status;
 

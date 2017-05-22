@@ -66,7 +66,10 @@ project(MBTLE_BL C ASM)
 if (NOT BUILD_HOST)
     if(BUILD_TOOLCHAIN MATCHES "ARM")
         include(${CMAKE_CONFIG}/Modules/Compiler/ARMCC-C.cmake)
+    else(BUILD_TOOLCHAIN MATCHES "GCC")
+        include(${CMAKE_CONFIG}/Modules/Compiler/GCC-C.cmake)
     endif()
+
     set(CMAKE_EXECUTABLE_SUFFIX ".elf")
 endif()
 
