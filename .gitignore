@@ -16,6 +16,7 @@
 *.lnp
 *.bak
 
+*.zip
 *.ini
 *.iex
 *.sct
@@ -26,3 +27,6 @@
 **/arm/_build
 **/_viminfo
 **/_vimtags
+build
+**/__pycache__
+_build

@@ -26,5 +26,5 @@ MEMORY
   UICR_BOOTADDR (r) : ORIGIN = 0x10001014, LENGTH = 0x04
 }
 
-INCLUDE "gcc_bl_nrf51_make_common.ld"
+INCLUDE "gcc_bl_nrf51_cmake_common.ld"
 INCLUDE "gcc_nrf51_common.ld"

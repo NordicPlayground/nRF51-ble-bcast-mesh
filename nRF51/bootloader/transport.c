@@ -345,7 +345,7 @@ void transport_rtc_irq_handler(void)
             radio_evt.tx_power = RADIO_TXPOWER_TXPOWER_0dBm;
 
 #ifdef DEBUG_LEDS
-            NRF_GPIO->OUT ^= LED_1;
+            NRF_GPIO->OUT ^= BSP_LED_1;
 #endif
             uint8_t radio_refs = 0;
             if (m_tx[i].redundancy < REDUNDANCY_MAX)
