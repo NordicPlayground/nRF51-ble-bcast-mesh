@@ -103,7 +103,7 @@ class DevicePage:
         hexoutput.tofile(hexfile, 'hex')
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2 and (len(sys.argv) == 3 and not '--nrf52' in sys.argv):
+    if len(sys.argv) != 2 or (len(sys.argv) == 3 and not '--nrf52' in sys.argv):
         print('Usage: python device_page.py <info file> [--nrf52]')
         exit(1)
     devpage = DevicePage()

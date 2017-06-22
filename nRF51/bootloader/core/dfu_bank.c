@@ -134,7 +134,7 @@ static void flash_bank_entry_fw(bl_info_bank_t* p_bank_entry, bl_info_entry_t* p
                 interrupts_disable();
                 __enable_irq();
 
-#if 1//def SOFTDEVICE_PRESENT
+#if 1 //def SOFTDEVICE_PRESENT
                 sd_power_reset_reason_clr(0x0F000F);
 
 #if NORDIC_SDK_VERSION >= 11

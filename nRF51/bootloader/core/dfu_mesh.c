@@ -648,7 +648,6 @@ static void start_target(void)
 
 static void start_rampdown(void)
 {
-    __LOG("Starting Rampdown...\n");
     bl_evt_t timer_evt;
     timer_evt.type = BL_EVT_TYPE_TIMER_SET;
     timer_evt.params.timer.set.delay_us = STATE_TIMEOUT_RAMPDOWN;
@@ -677,7 +676,6 @@ static void request_missing_data(uint16_t prev_segment)
     uint32_t* p_req_entry = NULL;
     uint32_t req_entry_len = 0;
 
-    __LOG("Retry TX RE  Q to gateway\n");
     if (dfu_transfer_get_oldest_missing_entry(
                 m_transaction.p_last_requested_entry,
                 &p_req_entry,
@@ -1278,7 +1276,16 @@ uint32_t dfu_mesh_relay(dfu_type_t type, fwid_union_t* p_fwid, uint32_t transact
 uint32_t dfu_mesh_rx(dfu_packet_t* p_packet, uint16_t length, bool from_serial)
 {
 #ifdef DEBUG_LEDS
-    NRF_GPIO->OUT ^= 1 << BSP_LED_2;
+    static bool led = false;
+    if (led)
+    {
+        NRF_GPIO->OUTCLR = LED_2;
+    }
+    else
+    {
+        NRF_GPIO->OUTSET = LED_2;
+    }
+    led = !led;
 #endif
     uint32_t status;
 

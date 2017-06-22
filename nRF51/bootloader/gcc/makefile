@@ -15,7 +15,7 @@ TARGET_BOARD ?= BOARD_PCA10028
 # Define relative paths to SDK components
 #------------------------------------------------------------------------------
 
-SDK_BASE      := ../../../../sdk9
+SDK_BASE      := ../../../../..
 COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
