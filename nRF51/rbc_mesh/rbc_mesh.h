@@ -32,11 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _RBC_MESH_H__
 #include <stdint.h>
 #include <stdbool.h>
-#ifdef NRF51
 #include "nrf.h"
-#else
-#include "nrf.h"
-#endif
 #include "nrf_sdm.h"
 #include "ble.h"
 #include "dfu_types_mesh.h"
@@ -62,29 +58,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /** @brief Default value for the number of handle cache entries */
 #ifndef RBC_MESH_HANDLE_CACHE_ENTRIES
-    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)
-          #define RBC_MESH_HANDLE_CACHE_ENTRIES           (105)
-    #else
-          #define RBC_MESH_HANDLE_CACHE_ENTRIES           (10)
-    #endif
+    #define RBC_MESH_HANDLE_CACHE_ENTRIES           (10)
 #endif
 
 /** @brief Default value for the number of data cache entries */
 #ifndef RBC_MESH_DATA_CACHE_ENTRIES
-    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)
-         #define RBC_MESH_DATA_CACHE_ENTRIES             (105)
-    #else
-         #define RBC_MESH_DATA_CACHE_ENTRIES             (10)
-    #endif
+    #define RBC_MESH_DATA_CACHE_ENTRIES             (10)
 #endif
 
 /** @brief Length of app-event FIFO. Must be power of two. */
 #ifndef RBC_MESH_APP_EVENT_QUEUE_LENGTH
-    #if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)
-         #define RBC_MESH_APP_EVENT_QUEUE_LENGTH         (64)
-    #else
-         #define RBC_MESH_APP_EVENT_QUEUE_LENGTH         (8)
-    #endif
+    #define RBC_MESH_APP_EVENT_QUEUE_LENGTH         (8)
 #endif
 
 /** @brief Length of low level radio event FIFO. Must be power of two. */

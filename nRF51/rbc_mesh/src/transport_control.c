@@ -43,21 +43,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mesh_aci.h"
 #include "app_error.h"
 
-#if defined(WITH_ACK_MASTER) || defined (WITHOUT_ACK_MASTER)|| defined (WITH_ACK_SLAVE)
-
-#include "SEGGER_RTT.h"
-#include "nrf_gpio.h"
-#include "boards.h"
-#include <stdio.h>
-
-#endif
-
-#if defined(WITH_ACK_SLAVE)
-#include <handle.h>
-#endif
-
-
-
 #ifdef MESH_DFU
 #include "dfu_types_mesh.h"
 #include "dfu_app.h"
@@ -83,95 +68,12 @@ static rbc_mesh_packet_peek_cb_t mp_packet_peek_cb;
 
 /* STATS */
 #ifdef PACKET_STATS
-
-
-#if defined (WITH_ACK_MASTER) 
-
-#if defined (NRF51)
-static struct
-{
-    uint32_t queue_drop;
-    uint32_t queue_ok;
-    uint32_t crc_fail;
-} m_packet_stats __attribute__((at(0x20003030)))  = {0};
-#endif
-
-#if defined (NRF52)
-static struct
-{
-    uint32_t queue_drop;
-    uint32_t queue_ok;
-    uint32_t crc_fail;
-} m_packet_stats ;
-#endif
-
-#elif defined(WITHOUT_ACK_MASTER) 
-#if defined (NRF51)
-static struct
-{
-    uint32_t queue_drop;
-    uint32_t queue_ok;
-    uint32_t crc_fail;
-} m_packet_stats __attribute__((at(0x2000273C))) = {0};
-#endif
-#if defined (NRF52)
-static struct
-{
-    uint32_t queue_drop;
-    uint32_t queue_ok;
-    uint32_t crc_fail;
-} m_packet_stats __attribute__((at(0x2000C028)))={0} ;
-#endif
-
-#elif defined(WITH_ACK_SLAVE)
-#if defined (NRF51)
-static struct
-{
-    uint32_t queue_drop;
-    uint32_t queue_ok;
-    uint32_t crc_fail;
-} m_packet_stats __attribute__((at(0x20002750))) = {0};
-#endif
-
-#if defined (NRF52)
-static struct
-{
-    uint32_t queue_drop;
-    uint32_t queue_ok;
-    uint32_t crc_fail;
-} m_packet_stats ;
-#endif
-
-#elif defined(WITHOUT_ACK_SLAVE)
-
-#if defined (NRF51)
-static struct
-{
-    uint32_t queue_drop;
-    uint32_t queue_ok;
-    uint32_t crc_fail;
-} m_packet_stats __attribute__((at(0x20002738))) = {0};
-#endif
-
-#if defined (NRF52)
-static struct
-{
-    uint32_t queue_drop;
-    uint32_t queue_ok;
-    uint32_t crc_fail;
-} m_packet_stats __attribute__((at(0x2000C028))) = {0}; ;
-#endif
-
-#else
 static struct
 {
     uint32_t queue_drop;
     uint32_t queue_ok;
     uint32_t crc_fail;
 } m_packet_stats = {0};
-
-#endif
-
 #endif
 /******************************************************************************
 * Static functions
