@@ -16,3 +16,7 @@ SD_VERSION: 0x0064
 
 BL_ID: 0x01
 BL_VERSION: 0x01
+
+# Example verification keys (commented out), replace with your own:
+# Verification key Qx: ed09a58df6db5cd15b8637304f31d31f4042492ed7c7e4839fbe903f260a2ba1
+# Verification key Qy: a855e92b72885825481ad56282bcf549ad7455ec46f000f0f62d97eeec883ba6
