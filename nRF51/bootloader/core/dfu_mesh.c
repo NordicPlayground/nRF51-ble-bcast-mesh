@@ -1002,12 +1002,13 @@ static uint32_t handle_state_packet(dfu_packet_t* p_packet)
                     status = NRF_SUCCESS;
                 }
             }
-            /* Notify about other transfer if the transfer is different from the current */
-            else if (m_transaction.type != p_packet->payload.state.dfu_type ||
+            /* Notify about other transfer if the transfer is different from the current, and
+			   it's a new transfer, not a request */
+            else if ((m_transaction.type != p_packet->payload.state.dfu_type ||
                     !fwid_union_id_cmp(
                         &p_packet->payload.state.fwid,
                         &m_transaction.target_fwid_union,
-                        m_transaction.type))
+                        m_transaction.type)) && p_packet->payload.state.authority != 0)
             {
                 status = notify_state_packet(p_packet);
             }
