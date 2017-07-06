@@ -173,20 +173,24 @@ uint32_t* addr_from_seg(uint16_t segment, uint32_t* p_start_addr)
 #ifdef BOOTLOADER
 bool is_upgrade(fwid_union_t* p_fwid, dfu_type_t dfu_type)
 {
+    /* Consider any version of the firmware (with the same ID) an upgrade if ours is broken */
     bl_info_entry_t* p_fwid_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+    bl_info_entry_t* p_flag_entry = bootloader_info_entry_get(BL_INFO_TYPE_FLAGS);
     switch (dfu_type)
     {
         case DFU_TYPE_APP:
             return (p_fwid->app.app_id     == p_fwid_entry->version.app.app_id &&
                     p_fwid->app.company_id == p_fwid_entry->version.app.company_id &&
-                    p_fwid->app.app_version > p_fwid_entry->version.app.app_version);
+                    (p_fwid->app.app_version > p_fwid_entry->version.app.app_version || (p_flag_entry && !p_flag_entry->flags.app_intact)));
 
         case DFU_TYPE_BOOTLOADER:
             return (p_fwid->bootloader.id == p_fwid_entry->version.bootloader.id &&
-                    p_fwid->bootloader.ver > p_fwid_entry->version.bootloader.ver);
+                    (p_fwid->bootloader.ver > p_fwid_entry->version.bootloader.ver || (p_flag_entry && !p_flag_entry->flags.bl_intact)));
 
         case DFU_TYPE_SD:
-            return (p_fwid->sd == p_fwid_entry->version.sd);
+            /* Only accept the Softdevice if ours is broken. Otherwise, we would be DFUing the same
+               SD over and over. */
+            return (p_fwid->sd == p_fwid_entry->version.sd && (p_flag_entry && !p_flag_entry->flags.sd_intact));
         default:
             return false;
     }

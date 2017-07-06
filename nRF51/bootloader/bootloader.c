@@ -286,10 +286,14 @@ static uint32_t bl_evt_handler(bl_evt_t* p_evt)
                     bootloader_cmd_send(&abort_cmd);
                     p_evt->params.dfu.new_fw.state = DFU_STATE_FIND_FWID;
                 }
-                if (p_evt->params.dfu.new_fw.state == DFU_STATE_FIND_FWID)
+                if (p_evt->params.dfu.new_fw.state == DFU_STATE_FIND_FWID &&
+                    is_upgrade(&p_evt->params.dfu.new_fw.fwid, p_evt->params.dfu.new_fw.fw_type))
                 {
-                    /* accept all new firmware, as the bootloader wouldn't run
-                       unless there's an actual reason for it. */
+                    bl_info_entry_t * p_version_entry = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
+                    APP_ERROR_CHECK_BOOL(p_version_entry != NULL);
+
+                    /* accept all new firmware that matches our FWID, as the bootloader wouldn't
+                       run unless there's an actual reason for it. */
                     rsp_cmd.type = BL_CMD_TYPE_DFU_START_TARGET;
                     rsp_cmd.params.dfu.start.target.p_bank_start = (uint32_t*) 0xFFFFFFFF; /* no banking */
                     rsp_cmd.params.dfu.start.target.type = p_evt->params.dfu.new_fw.fw_type;
