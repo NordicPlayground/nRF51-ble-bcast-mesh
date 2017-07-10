@@ -15,6 +15,8 @@
 *.lst
 *.lnp
 *.bak
+*.elay
+*.ebp
 
 *.ini
 *.iex
@@ -26,3 +28,4 @@
 **/arm/_build
 **/_viminfo
 **/_vimtags
+*.hex
