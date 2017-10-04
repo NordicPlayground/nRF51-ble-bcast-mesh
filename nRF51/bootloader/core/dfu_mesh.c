@@ -1230,6 +1230,7 @@ void dfu_mesh_start(void)
     else
     {
         __LOG("Bank Transfer in progress!\n");
+        SET_STATE(DFU_STATE_INITIALIZED);
     }
 }
 
