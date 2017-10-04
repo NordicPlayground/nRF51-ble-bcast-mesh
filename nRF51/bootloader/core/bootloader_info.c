@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "toolchain.h"
 #include "rtt_log.h"
 #include "dfu_util.h"
+#include "app_error.h"
 
 #define HEADER_LEN       (sizeof(bootloader_info_header_t))
 

@@ -40,6 +40,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_util.h"
 #include "dfu_bank.h"
 #include "boards.h"
+#include "app_error.h"
 
 /*****************************************************************************
 * Local defines

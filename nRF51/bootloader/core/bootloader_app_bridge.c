@@ -38,6 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_transfer_mesh.h"
 #include "SEGGER_RTT.h"
 #include "rtt_log.h"
+#include "app_error.h"
 
 /*****************************************************************************
 * Local defines

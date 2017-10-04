@@ -233,10 +233,10 @@ typedef struct
     uint32_t access_addr;
     uint8_t channel;
     uint32_t interval_min_ms;
-#if (NORDIC_SDK_VERSION >= 11)
-	nrf_clock_lf_cfg_t lfclksrc;
+#if (defined(S140) || defined(S130) || defined(S132))
+    nrf_clock_lf_cfg_t lfclksrc;
 #else
-	nrf_clock_lfclksrc_t lfclksrc;
+    nrf_clock_lfclksrc_t lfclksrc;
 #endif
     rbc_mesh_txpower_t tx_power;
 } rbc_mesh_init_params_t;

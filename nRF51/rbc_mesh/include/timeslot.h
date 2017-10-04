@@ -61,7 +61,7 @@ void timeslot_sd_event_handler(uint32_t evt);
  * @return NRF_ERROR_INVALID_STATE The timeslot module has already been
  *         initialized.
  */
-#if (NORDIC_SDK_VERSION >= 11)
+#if (defined(S140) || defined(S130) || defined(S132))
 uint32_t timeslot_init(nrf_clock_lf_cfg_t lfclksrc);
 #else
 uint32_t timeslot_init(nrf_clock_lfclksrc_t lfclksrc);

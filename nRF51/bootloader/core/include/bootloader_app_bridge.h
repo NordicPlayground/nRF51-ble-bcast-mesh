@@ -34,37 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "bl_if.h"
 
-#ifndef APP_ERROR_CHECK
-#ifdef DEBUG
-
-#define APP_ERROR_CHECK_BOOL(expr) do {\
-    if (!(expr))\
-    {\
-        bootloader_error_post(0, __FILE__, __LINE__);\
-    }\
-} while(0)
-#define APP_ERROR_CHECK(error) do {\
-    if (error != NRF_SUCCESS)\
-    {\
-        bootloader_error_post(error, __FILE__, __LINE__);\
-    }\
-} while(0)
-#else
-#define APP_ERROR_CHECK_BOOL(expr) do {\
-    if (!(expr))\
-    {\
-        bootloader_error_post(0, NULL, 0);\
-    }\
-} while(0)
-#define APP_ERROR_CHECK(error) do {\
-    if (error != NRF_SUCCESS)\
-    {\
-        bootloader_error_post(error, NULL, 0);\
-    }\
-} while(0)
-#endif
-#endif
-
 uint32_t bootloader_app_bridge_init(void);
 uint32_t bootloader_evt_send(bl_evt_t* p_evt);
 uint32_t bl_cmd_handler(bl_cmd_t* p_bl_cmd);

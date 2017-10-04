@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dfu_types_mesh.h"
 #include "nrf_error.h"
 #include "nrf.h"
+#include "app_error.h"
 
 #if NORDIC_SDK_VERSION >= 11
 #include "nrf_nvic.h"
@@ -137,7 +138,7 @@ static void flash_bank_entry_fw(bl_info_bank_t* p_bank_entry, bl_info_entry_t* p
 #if 1 //def SOFTDEVICE_PRESENT
                 sd_power_reset_reason_clr(0x0F000F);
 
-#if NORDIC_SDK_VERSION >= 11
+#if (defined(S140) || defined(S132))
                 sd_power_gpregret_set(0, RBC_MESH_GPREGRET_CODE_GO_TO_APP);
 #else
                 sd_power_gpregret_set(RBC_MESH_GPREGRET_CODE_GO_TO_APP);
@@ -233,8 +234,8 @@ static void flash_bank_entry(void)
                 bl_info_entry_t flags_entry;
                 bl_info_entry_t* p_old_fwid_entry  = bootloader_info_entry_get(BL_INFO_TYPE_VERSION);
                 bl_info_entry_t* p_old_flags_entry = bootloader_info_entry_get(BL_INFO_TYPE_FLAGS);
-                APP_ERROR_CHECK_BOOL(p_old_fwid_entry);
-                APP_ERROR_CHECK_BOOL(p_bank_entry);
+                APP_ERROR_CHECK_BOOL(p_old_fwid_entry != NULL);
+                APP_ERROR_CHECK_BOOL(p_bank_entry != NULL);
 
                 memcpy(&fwid_entry, p_old_fwid_entry, sizeof(bl_info_version_t));
                 if (p_old_flags_entry == NULL)
