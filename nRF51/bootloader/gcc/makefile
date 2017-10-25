@@ -122,10 +122,12 @@ INC_PATHS += -I../../RTT
 INC_PATHS += -I$(COMPONENTS)/device
 INC_PATHS += -I$(COMPONENTS)/toolchain
 INC_PATHS += -I$(COMPONENTS)/toolchain/gcc
+INC_PATHS += -I$(COMPONENTS)/toolchain/cmsis/include
 INC_PATHS += -I$(COMPONENTS)/libraries/util
 INC_PATHS += -I$(COMPONENTS)/libraries/sha256
 INC_PATHS += -I$(COMPONENTS)/drivers_nrf/hal
-INC_PATHS += -I$(COMPONENTS)/softdevice/s110/headers
+INC_PATHS += -I$(COMPONENTS)/softdevice/s130/headers
+INC_PATHS += -I$(COMPONENTS)/softdevice/s130/headers/nrf51
 
 OBJECT_DIRECTORY := _build
 LISTING_DIRECTORY = $(OBJECT_DIRECTORY)
@@ -158,6 +160,9 @@ CFLAGS += -fdata-sections
 CFLAGS += -fno-strict-aliasing
 CFLAGS += -fno-builtin
 CFLAGS += -fno-lto
+CFLAGS += -D NORDIC_SDK_VERSION=11
+CFLAGS += -D S130
+CFLAGS += -DUSE_SOFTDEVICE=s130
 
 # Linker flags
 LDFLAGS += -Xlinker -Map=$(LISTING_DIRECTORY)/$(OUTPUT_NAME).map
@@ -180,6 +185,7 @@ C_OBJECTS = $(addprefix $(OBJECT_DIRECTORY)/, $(C_SOURCE_FILE_NAMES:.c=.o) )
 ASM_SOURCE_FILE_NAMES = $(notdir $(ASM_SOURCE_FILES))
 ASM_PATHS = $(call remduplicates, $(dir $(ASM_SOURCE_FILES) ))
 ASM_OBJECTS = $(addprefix $(OBJECT_DIRECTORY)/, $(ASM_SOURCE_FILE_NAMES:.s=.o) )
+
 
 TOOLCHAIN_BASE = $(basename $(notdir $(GNU_INSTALL_ROOT)))
 
