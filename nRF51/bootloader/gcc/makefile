@@ -4,13 +4,33 @@
 # Selectable build options
 #------------------------------------------------------------------------------
 
+DEVICE_FAMILY ?= nrf51
+
 USE_RBC_MESH_SERIAL  = "yes"
-#CHIP_VERSION ?= xxAA
-#CHIP_VERSION ?= xxAB
-CHIP_VERSION ?= xxAC
 
-TARGET_BOARD ?= BOARD_PCA10028
+# Different defaults for different device families:
+ifeq ($(DEVICE_FAMILY), nrf51)
+	TARGET_BOARD ?= BOARD_PCA10028
+	CHIP_VERSION ?= xxAC
+	SOFTDEVICE   ?= S130
+	DEVICE       ?= NRF51422
+else
+	TARGET_BOARD ?= BOARD_PCA10040
+	CHIP_VERSION ?= xxAA
+	SOFTDEVICE   ?= S132
+	DEVICE       ?= NRF52832
+endif
 
+#------------------------------------------------------------------------------
+# Derived platform definitions
+#------------------------------------------------------------------------------
+ifeq ($(DEVICE_FAMILY), nrf51)
+	CPU			 = cortex-m0
+	DEVICE_DEFINES = -DNRF51 -D$(DEVICE)
+else
+	CPU			 = cortex-m4
+	DEVICE_DEFINES = -DNRF52 -D$(DEVICE)
+endif
 #------------------------------------------------------------------------------
 # Define relative paths to SDK components
 #------------------------------------------------------------------------------
@@ -19,7 +39,7 @@ SDK_BASE      := ../../../../..
 COMPONENTS    := $(SDK_BASE)/components
 TEMPLATE_PATH := $(COMPONENTS)/toolchain/gcc
 
-LINKER_SCRIPT := ./gcc_bl_nrf51_$(CHIP_VERSION).ld
+LINKER_SCRIPT := ./gcc_bl_$(DEVICE)_$(CHIP_VERSION).ld
 
 ifeq ($(USE_RBC_MESH_SERIAL), "yes")
   SERIAL_STRING="_serial"
@@ -27,7 +47,7 @@ else
   SERIAL_STRING=""
 endif
 
-OUTPUT_NAME := bootloader$(SERIAL_STRING)_$(CHIP_VERSION)
+OUTPUT_NAME := bootloader$(SERIAL_STRING)_$(DEVICE)_$(CHIP_VERSION)
 
 #------------------------------------------------------------------------------
 # Proceed cautiously beyond this point.  Little should change.
@@ -103,12 +123,12 @@ C_SOURCE_FILES += ../../rbc_mesh/src/rand.c
 C_SOURCE_FILES += ../../rbc_mesh/src/nrf_flash.c
 
 
-C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_nrf51.c
+C_SOURCE_FILES += $(COMPONENTS)/toolchain/system_$(DEVICE_FAMILY).c
 C_SOURCE_FILES += $(COMPONENTS)/libraries/sha256/sha256.c
 C_SOURCE_FILES += ../../RTT/SEGGER_RTT.c
 
 # assembly files common to all targets
-ASM_SOURCE_FILES  += $(COMPONENTS)/toolchain/gcc/gcc_startup_nrf51.s
+ASM_SOURCE_FILES  += ./gcc_startup_$(DEVICE_FAMILY).s
 
 # includes common to all targets
 
@@ -126,8 +146,8 @@ INC_PATHS += -I$(COMPONENTS)/toolchain/cmsis/include
 INC_PATHS += -I$(COMPONENTS)/libraries/util
 INC_PATHS += -I$(COMPONENTS)/libraries/sha256
 INC_PATHS += -I$(COMPONENTS)/drivers_nrf/hal
-INC_PATHS += -I$(COMPONENTS)/softdevice/s130/headers
-INC_PATHS += -I$(COMPONENTS)/softdevice/s130/headers/nrf51
+INC_PATHS += -I$(COMPONENTS)/softdevice/$(SOFTDEVICE)/headers
+INC_PATHS += -I$(COMPONENTS)/softdevice/$(SOFTDEVICE)/headers/$(DEVICE_FAMILY)
 
 OBJECT_DIRECTORY := _build
 LISTING_DIRECTORY = $(OBJECT_DIRECTORY)
@@ -143,31 +163,30 @@ else
 endif
 
 # flags common to all targets
-#CFLAGS += -save-temps
+CFLAGS += -mfloat-abi=soft
+CFLAGS += -mcpu=$(CPU)
 CFLAGS += $(DEBUG_FLAGS)
-CFLAGS += -D NRF51
-CFLAGS += -D $(TARGET_BOARD)
-CFLAGS += -D BOOTLOADER
-CFLAGS += -D RBC_MESH_PACKET_POOL_SIZE=32
-CFLAGS += -D uECC_CURVE=uECC_secp256r1
-CFLAGS += -mcpu=cortex-m0
 CFLAGS += -mthumb -mabi=aapcs --std=gnu99
 CFLAGS += -Wall -Werror
 CFLAGS += -Wa,-adhln
-CFLAGS += -mfloat-abi=soft
 CFLAGS += -fomit-frame-pointer
 CFLAGS += -fdata-sections
 CFLAGS += -fno-strict-aliasing
 CFLAGS += -fno-builtin
 CFLAGS += -fno-lto
-CFLAGS += -D NORDIC_SDK_VERSION=11
-CFLAGS += -D S130
-CFLAGS += -DUSE_SOFTDEVICE=s130
+CFLAGS += -DNORDIC_SDK_VERSION=12
+CFLAGS += -D$(SOFTDEVICE)
+CFLAGS += -DUSE_SOFTDEVICE=$(SOFTDEVICE)
+CFLAGS += $(DEVICE_DEFINES)
+CFLAGS += -D$(TARGET_BOARD)
+CFLAGS += -DBOOTLOADER
+CFLAGS += -DRBC_MESH_PACKET_POOL_SIZE=32
+CFLAGS += -DuECC_CURVE=uECC_secp256r1
 
 # Linker flags
 LDFLAGS += -Xlinker -Map=$(LISTING_DIRECTORY)/$(OUTPUT_NAME).map
 LDFLAGS += -mthumb -mabi=aapcs -L $(TEMPLATE_PATH) -T$(LINKER_SCRIPT)
-LDFLAGS += -mcpu=cortex-m0
+LDFLAGS += -mcpu=$(CPU)
 LDFLAGS += $(DEBUG_FLAGS)
 LDFLAGS += -Wl,--gc-sections
 LDFLAGS += --specs=nano.specs -lc -lnosys
@@ -175,7 +194,7 @@ LDFLAGS += --specs=nano.specs -lc -lnosys
 # Assembler flags
 ASMFLAGS += $(DEBUG_FLAGS)
 ASMFLAGS += -x assembler-with-cpp
-ASMFLAGS += -D NRF51
+ASMFLAGS += $(DEVICE_DEFINES)
 ASMFLAGS += -D $(TARGET_BOARD)
 
 C_SOURCE_FILE_NAMES = $(notdir $(C_SOURCE_FILES))
